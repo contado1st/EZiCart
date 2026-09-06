@@ -13,10 +13,41 @@ return new class extends Migration
     {
         Schema::create('users', function (Blueprint $table) {
             $table->id();
-            $table->string('name');
+
+            // Account System Fields
             $table->string('email')->unique();
-            $table->timestamp('email_verified_at')->nullable();
             $table->string('password');
+            $table->enum('role', ['buyer', 'seller', 'courier', 'admin', 'logistics'])->default('buyer');
+            $table->enum('status', ['pending', 'approved', 'rejected'])->default('pending');
+
+            // Personal Details
+            $table->string('first_name', 100);
+            $table->string('last_name', 100);
+            $table->string('middle_initial', 5)->nullable();
+            $table->string('sex', 10);
+            $table->string('contact_no', 20);
+            $table->date('birthday');
+            $table->integer('age');
+
+            // Address Breakdown
+            $table->string('province');
+            $table->string('municipality');
+            $table->string('barangay');
+            $table->string('street_address');
+
+            // Verification & File Upload Paths
+            $table->string('id_upload_path')->nullable();
+
+            // Seller Specific Fields
+            $table->string('business_name', 150)->nullable();
+            $table->string('line_of_business')->nullable();
+            $table->string('business_permit_path')->nullable();
+
+            // Courier Specific Fields
+            $table->string('vehicle_type')->nullable();
+            $table->string('plate_number', 20)->nullable();
+            $table->string('or_cr_upload_path')->nullable();
+
             $table->rememberToken();
             $table->timestamps();
         });

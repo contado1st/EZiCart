@@ -2,7 +2,9 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\User;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Hash;
 
 class AuthController extends Controller
 {
@@ -26,6 +28,7 @@ class AuthController extends Controller
         return view('auth.register');
     }
 
+    // 1. Buyer Registration Handler
     public function register(Request $request)
     {
         $validated = $request->validate([
@@ -45,9 +48,29 @@ class AuthController extends Controller
             'password' => 'required|min:8|confirmed',
         ]);
 
+        $path = null;
         if ($request->hasFile('id_upload')) {
             $path = $request->file('id_upload')->store('buyer_ids', 'public');
         }
+
+        User::create([
+            'first_name' => $validated['first_name'],
+            'last_name' => $validated['last_name'],
+            'middle_initial' => $validated['middle_initial'] ?? null,
+            'sex' => $validated['sex'],
+            'email' => $validated['email'],
+            'contact_no' => $validated['contact_no'],
+            'birthday' => $validated['birthday'],
+            'age' => $validated['age'],
+            'province' => $validated['province'],
+            'municipality' => $validated['municipality'],
+            'barangay' => $validated['barangay'],
+            'street_address' => $validated['street_address'],
+            'id_upload_path' => $path,
+            'password' => Hash::make($validated['password']),
+            'role' => 'buyer',
+            'status' => 'pending',
+        ]);
 
         return redirect()->route('login')->with('success', 'Registration submitted! Please wait for administrator approval sent via email.');
     }
@@ -57,6 +80,7 @@ class AuthController extends Controller
         return view('auth.register-seller');
     }
 
+    // 2. Seller Registration Handler
     public function sellerRegister(Request $request)
     {
         $validated = $request->validate([
@@ -79,13 +103,37 @@ class AuthController extends Controller
             'password' => 'required|min:8|confirmed',
         ]);
 
+        $idPath = null;
         if ($request->hasFile('id_upload')) {
-            $request->file('id_upload')->store('seller_ids', 'public');
+            $idPath = $request->file('id_upload')->store('seller_ids', 'public');
         }
 
+        $permitPath = null;
         if ($request->hasFile('business_permit')) {
-            $request->file('business_permit')->store('seller_permits', 'public');
+            $permitPath = $request->file('business_permit')->store('seller_permits', 'public');
         }
+
+        User::create([
+            'first_name' => $validated['first_name'],
+            'last_name' => $validated['last_name'],
+            'middle_initial' => $validated['middle_initial'] ?? null,
+            'sex' => $validated['sex'],
+            'email' => $validated['email'],
+            'contact_no' => $validated['contact_no'],
+            'birthday' => $validated['birthday'],
+            'age' => $validated['age'],
+            'province' => $validated['province'],
+            'municipality' => $validated['municipality'],
+            'barangay' => $validated['barangay'],
+            'street_address' => $validated['street_address'],
+            'business_name' => $validated['business_name'],
+            'line_of_business' => $validated['line_of_business'],
+            'id_upload_path' => $idPath,
+            'business_permit_path' => $permitPath,
+            'password' => Hash::make($validated['password']),
+            'role' => 'seller',
+            'status' => 'pending',
+        ]);
 
         return redirect()->route('login')->with('success', 'Seller registration submitted! Please wait for administrator approval sent to your email.');
     }
@@ -95,6 +143,7 @@ class AuthController extends Controller
         return view('auth.register-courier');
     }
 
+    // 3. Courier Registration Handler
     public function courierRegister(Request $request)
     {
         $validated = $request->validate([
@@ -117,13 +166,37 @@ class AuthController extends Controller
             'password' => 'required|min:8|confirmed',
         ]);
 
+        $licensePath = null;
         if ($request->hasFile('id_upload')) {
-            $request->file('id_upload')->store('courier_licenses', 'public');
+            $licensePath = $request->file('id_upload')->store('courier_licenses', 'public');
         }
 
+        $orCrPath = null;
         if ($request->hasFile('or_cr_upload')) {
-            $request->file('or_cr_upload')->store('courier_or_cr', 'public');
+            $orCrPath = $request->file('or_cr_upload')->store('courier_or_cr', 'public');
         }
+
+        User::create([
+            'first_name' => $validated['first_name'],
+            'last_name' => $validated['last_name'],
+            'middle_initial' => $validated['middle_initial'] ?? null,
+            'sex' => $validated['sex'],
+            'email' => $validated['email'],
+            'contact_no' => $validated['contact_no'],
+            'birthday' => $validated['birthday'],
+            'age' => $validated['age'],
+            'province' => $validated['province'],
+            'municipality' => $validated['municipality'],
+            'barangay' => $validated['barangay'],
+            'street_address' => $validated['street_address'],
+            'vehicle_type' => $validated['vehicle_type'],
+            'plate_number' => $validated['plate_number'],
+            'id_upload_path' => $licensePath,
+            'or_cr_upload_path' => $orCrPath,
+            'password' => Hash::make($validated['password']),
+            'role' => 'courier',
+            'status' => 'pending',
+        ]);
 
         return redirect()->route('login')->with('success', 'Registration submitted! Please wait for approval from the Logistic/Sorting Center sent to your email.');
     }
