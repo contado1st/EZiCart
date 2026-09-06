@@ -35,8 +35,8 @@
 
             <!-- Auth Buttons -->
             <div class="auth-nav">
-                <a href="#" class="nav-link">Sign in</a>
-                <a href="#" class="btn-primary">
+                <a href="{{ route('login') }}" class="nav-link">Sign in</a>
+                <a href="{{ route('register') }}" class="btn-primary">
                     Create account
                 </a>
             </div>
