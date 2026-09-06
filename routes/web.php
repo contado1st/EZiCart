@@ -29,5 +29,6 @@ Route::post('/register/seller', [AuthController::class, 'sellerRegister'])->name
 
     // Courier Registration Placeholder
 Route::get('/register/courier', [AuthController::class, 'showCourierRegisterForm'])->name('register.courier');
+Route::post('/register/courier', [AuthController::class, 'courierRegister'])->name('register.courier.post');
 
 Route::post('/logout', [AuthController::class, 'logout'])->name('logout');

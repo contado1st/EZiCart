@@ -95,6 +95,39 @@ class AuthController extends Controller
         return view('auth.register-courier');
     }
 
+    public function courierRegister(Request $request)
+    {
+        $validated = $request->validate([
+            'first_name' => 'required|string|max:100',
+            'last_name' => 'required|string|max:100',
+            'middle_initial' => 'nullable|string|max:5',
+            'sex' => 'required|in:Male,Female,Other',
+            'email' => 'required|email|unique:users,email',
+            'contact_no' => 'required|numeric',
+            'birthday' => 'required|date',
+            'age' => 'required|integer|min:18',
+            'province' => 'required|string',
+            'municipality' => 'required|string',
+            'barangay' => 'required|string',
+            'street_address' => 'required|string',
+            'vehicle_type' => 'required|string|in:Motorcycle,Van,Truck,Bicycle,Multicab',
+            'plate_number' => 'required|string|max:20',
+            'id_upload' => 'required|file|mimes:jpg,jpeg,png,pdf|max:2048',
+            'or_cr_upload' => 'required|file|mimes:jpg,jpeg,png,pdf|max:2048',
+            'password' => 'required|min:8|confirmed',
+        ]);
+
+        if ($request->hasFile('id_upload')) {
+            $request->file('id_upload')->store('courier_licenses', 'public');
+        }
+
+        if ($request->hasFile('or_cr_upload')) {
+            $request->file('or_cr_upload')->store('courier_or_cr', 'public');
+        }
+
+        return redirect()->route('login')->with('success', 'Registration submitted! Please wait for approval from the Logistic/Sorting Center sent to your email.');
+    }
+
     public function logout()
     {
         auth()->logout();
