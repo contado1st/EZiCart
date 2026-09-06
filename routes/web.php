@@ -32,3 +32,13 @@ Route::get('/register/courier', [AuthController::class, 'showCourierRegisterForm
 Route::post('/register/courier', [AuthController::class, 'courierRegister'])->name('register.courier.post');
 
 Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
+
+// Admin routes for managing user registrations//
+
+use App\Http\Controllers\AdminController;
+
+Route::prefix('admin')->name('admin.')->group(function () {
+    Route::get('/registrations', [AdminController::class, 'index'])->name('registrations.index');
+    Route::post('/registrations/{user}/approve', [AdminController::class, 'approve'])->name('registrations.approve');
+    Route::post('/registrations/{user}/reject', [AdminController::class, 'reject'])->name('registrations.reject');
+});
