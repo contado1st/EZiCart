@@ -92,4 +92,12 @@ class User extends Authenticatable
     {
         return $this->hasMany(\App\Models\Order::class, 'seller_id');
     }
+
+    /**
+     * Orders dispatched or delivered by this user as a courier.
+     */
+    public function courierDeliveries(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(\App\Models\Order::class, 'courier_id');
+    }
 }

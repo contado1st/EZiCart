@@ -459,3 +459,172 @@
 .status-delivered { background-color: #dcfce7; color: #15803d; }
 .status-completed { background-color: #d1fae5; color: #065f46; }
 .status-failed, .status-returned { background-color: #fee2e2; color: #991b1b; }
+
+/* Order Row Layout & Actions */
+.order-seller-action-row {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+}
+
+.order-recipient-box {
+    background-color: var(--dash-bg);
+    border: 1px solid var(--dash-border);
+    border-radius: 0.5rem;
+    padding: 0.75rem 1rem;
+    margin-bottom: 1rem;
+    font-size: 0.8125rem;
+    color: var(--dash-text-muted);
+}
+
+.order-recipient-name {
+    font-weight: 700;
+    color: var(--dash-text-main);
+}
+
+/* Courier Transit Cards & Layouts */
+.courier-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+.courier-section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+}
+
+.courier-section-title {
+    font-size: 1.125rem;
+    font-weight: 800;
+    color: var(--dash-text-main);
+    margin: 0;
+}
+
+.courier-route-block {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+    background-color: var(--dash-bg);
+    border: 1px solid var(--dash-border);
+    border-radius: 0.5rem;
+    padding: 0.875rem;
+    margin-bottom: 1rem;
+    font-size: 0.8125rem;
+}
+
+.courier-route-col {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+}
+
+.courier-route-label {
+    font-size: 0.6875rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    color: var(--dash-text-muted);
+}
+
+.courier-route-name {
+    font-weight: 700;
+    color: var(--dash-text-main);
+}
+
+.courier-actions-wrap {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+}
+
+/* ========================================================
+   Admin Governance & Approval Queue Styles
+   ======================================================== */
+
+.dash-role-admin {
+    background-color: #fee2e2;
+    color: #991b1b;
+}
+
+.dash-panel-header-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+}
+
+.dash-panel-title-compact {
+    margin-bottom: 0;
+}
+
+.dash-action-link {
+    font-size: 0.8125rem;
+    font-weight: 700;
+    color: var(--dash-primary);
+    text-decoration: none;
+}
+
+.dash-action-link:hover {
+    text-decoration: underline;
+}
+
+.dash-approval-card {
+    background-color: var(--dash-card-bg);
+    border: 1px solid var(--dash-border);
+    border-radius: 0.5rem;
+    padding: 1rem;
+    margin-bottom: 0.75rem;
+}
+
+.dash-approval-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+}
+
+.dash-approval-name {
+    font-weight: 800;
+    font-size: 0.875rem;
+    color: var(--dash-text-main);
+}
+
+.dash-approval-email {
+    font-size: 0.75rem;
+    color: var(--dash-text-muted);
+}
+
+.dash-approval-badge {
+    margin-top: 0.35rem;
+}
+
+.dash-approval-actions {
+    display: flex;
+    gap: 0.35rem;
+}
+
+.dash-btn-success {
+    background-color: var(--dash-success);
+    color: #ffffff;
+    border: none;
+}
+
+.dash-btn-success:hover {
+    background-color: #047857;
+}
+
+.dash-text-bold {
+    font-weight: 700;
+}
+
+.dash-text-success-bold {
+    color: var(--dash-success);
+    font-weight: 700;
+}
+
+.dash-table-empty {
+    text-align: center;
+    padding: 2rem;
+    color: var(--dash-text-muted);
+}

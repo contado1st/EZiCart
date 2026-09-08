@@ -9,6 +9,8 @@ use App\Http\Controllers\ProductController;
 use App\Http\Controllers\CartController;
 use App\Http\Controllers\CheckoutController;
 use App\Http\Controllers\BuyerController;
+use App\Http\Controllers\SellerOrderController;
+use App\Http\Controllers\CourierController;
 
 // 1. Public Marketplace & Browsing Routes
 Route::get('/', [HomeController::class, 'index'])->name('home');
@@ -58,21 +60,24 @@ Route::middleware(['auth'])->group(function () {
     Route::middleware(['role:seller'])->prefix('seller')->name('seller.')->group(function () {
         Route::get('/dashboard', [SellerController::class, 'dashboard'])->name('dashboard');
         Route::resource('products', ProductController::class);
+
+        // Order Fulfillment & Waybill Routes
+        Route::get('/orders', [SellerOrderController::class, 'index'])->name('orders.index');
+        Route::get('/orders/{order}', [SellerOrderController::class, 'show'])->name('orders.show');
+        Route::patch('/orders/{order}/status', [SellerOrderController::class, 'updateStatus'])->name('orders.updateStatus');
+        Route::get('/orders/{order}/waybill', [SellerOrderController::class, 'waybill'])->name('orders.waybill');
     });
 
     // Courier-Only Routes (Fulfillment & Delivery Workspace)
     Route::middleware(['role:courier'])->prefix('courier')->name('courier.')->group(function () {
-        Route::get('/dashboard', function () {
-            return view('courier.dashboard');
-        })->name('dashboard');
+        Route::get('/dashboard', [CourierController::class, 'dashboard'])->name('dashboard');
+        Route::post('/orders/{order}/claim', [CourierController::class, 'claimPickup'])->name('orders.claim');
+        Route::patch('/orders/{order}/status', [CourierController::class, 'updateStatus'])->name('orders.updateStatus');
     });
 
     // Admin-Only Routes (Governance & Platform Control)
     Route::middleware(['role:admin'])->prefix('admin')->name('admin.')->group(function () {
-        Route::get('/dashboard', function () {
-            return view('admin.dashboard');
-        })->name('dashboard');
-
+        Route::get('/dashboard', [AdminController::class, 'dashboard'])->name('dashboard');
         Route::get('/registrations', [AdminController::class, 'index'])->name('registrations.index');
         Route::post('/registrations/{user}/approve', [AdminController::class, 'approve'])->name('registrations.approve');
         Route::post('/registrations/{user}/reject', [AdminController::class, 'reject'])->name('registrations.reject');

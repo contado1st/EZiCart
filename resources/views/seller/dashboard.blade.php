@@ -25,23 +25,14 @@
                 <a href="{{ route('seller.products.index') }}" class="dash-nav-item">
                     📦 Inventory Management
                 </a>
-                <a href="#" class="dash-nav-item">
+                <a href="{{ route('seller.orders.index') }}" class="dash-nav-item">
                     🛍️ Order Management
-                </a>
-                <a href="#" class="dash-nav-item">
-                    📈 Generate Reports
-                </a>
-                <a href="#" class="dash-nav-item">
-                    💬 Chat & Messaging
-                </a>
-                <a href="#" class="dash-nav-item">
-                    ⚙️ Account Settings
                 </a>
             </nav>
         </div>
 
         <!-- Logout Form -->
-        <form action="{{ route('logout') }}" method="POST" style="margin-top: 2rem;">
+        <form action="{{ route('logout') }}" method="POST">
             @csrf
             <button type="submit" class="dash-logout-btn">
                 🚪 Logout
@@ -66,9 +57,9 @@
         <!-- Metric Stat Cards -->
         <div class="dash-stats-grid">
             <div class="dash-stat-card">
-                <div class="dash-stat-label">Total Sales</div>
+                <div class="dash-stat-label">Net Sales</div>
                 <div class="dash-stat-value">₱{{ number_format($stats['total_sales'], 2) }}</div>
-                <div class="dash-stat-subtext success">Updated real-time</div>
+                <div class="dash-stat-subtext success">Real-time fulfilled revenue</div>
             </div>
 
             <div class="dash-stat-card">
@@ -93,10 +84,31 @@
         <!-- Workflow Panels -->
         <div class="dash-workflow-grid">
             <div class="dash-panel">
-                <h3 class="dash-panel-title">Recent Orders & Dispatch</h3>
-                <div class="dash-empty-box">
-                    📦 No active orders yet. Orders from buyers will appear here for packing, waybill generation, and rider pickup scheduling.
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                    <h3 class="dash-panel-title" style="margin-bottom: 0;">Recent Orders & Dispatch</h3>
+                    <a href="{{ route('seller.orders.index') }}" style="font-size: 0.8125rem; font-weight: 700; color: var(--dash-primary); text-decoration: none;">View All →</a>
                 </div>
+
+                @forelse($recentOrders as $order)
+                    <div class="order-card" style="margin-bottom: 0.75rem; padding: 1rem;">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <div>
+                                <span style="font-weight: 800; font-size: 0.875rem;">{{ $order->order_number }}</span>
+                                <div style="font-size: 0.75rem; color: var(--dash-text-muted);">{{ $order->recipient_name }} &bull; {{ $order->items->count() }} item(s)</div>
+                            </div>
+                            <div style="text-align: right;">
+                                <span class="status-pill status-{{ strtolower(str_replace('_', '-', $order->status)) }}">
+                                    {{ str_replace('_', ' ', $order->status) }}
+                                </span>
+                                <div style="font-weight: 800; font-size: 0.875rem; margin-top: 0.25rem;">₱{{ number_format($order->total_amount, 2) }}</div>
+                            </div>
+                        </div>
+                    </div>
+                @empty
+                    <div class="dash-empty-box">
+                        📦 No active orders yet. Orders from buyers will appear here for packing, waybill generation, and rider pickup scheduling.
+                    </div>
+                @endforelse
             </div>
 
             <div class="dash-panel">
@@ -108,12 +120,9 @@
                     <a href="{{ route('seller.products.index') }}" class="dash-action-btn">
                         📋 View All Inventory & Stock
                     </a>
-                    <button type="button" class="dash-action-btn">
-                        🏷️ Generate Vouchers
-                    </button>
-                    <button type="button" class="dash-action-btn">
-                        📅 Financial Report (Date Picker)
-                    </button>
+                    <a href="{{ route('seller.orders.index') }}" class="dash-action-btn">
+                        🛍️ Process Orders & Print Waybills
+                    </a>
                 </div>
             </div>
         </div>
