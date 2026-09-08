@@ -6,6 +6,7 @@ use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\Product;
 use App\Models\ProductVariation;
+use App\Models\Voucher;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -25,11 +26,63 @@ class CheckoutController extends Controller
             $subtotal += $item['price'] * $item['quantity'];
         }
 
+        $discount = 0.00;
+        $appliedVoucher = session()->get('applied_voucher');
+
+        if ($appliedVoucher) {
+            $voucher = Voucher::find($appliedVoucher['id']);
+            if ($voucher && $voucher->isValidForAmount($subtotal)) {
+                $discount = $voucher->calculateDiscount($subtotal);
+            } else {
+                session()->forget('applied_voucher');
+                $appliedVoucher = null;
+            }
+        }
+
         $shippingFee = 50.00;
-        $total = $subtotal + $shippingFee;
+        $total = max(0, $subtotal - $discount) + $shippingFee;
         $user = auth()->user();
 
-        return view('checkout.index', compact('cart', 'subtotal', 'shippingFee', 'total', 'user'));
+        return view('checkout.index', compact('cart', 'subtotal', 'discount', 'appliedVoucher', 'shippingFee', 'total', 'user'));
+    }
+
+    public function applyVoucher(Request $request)
+    {
+        $request->validate([
+            'voucher_code' => 'required|string',
+        ]);
+
+        $code = strtoupper(trim($request->input('voucher_code')));
+        $voucher = Voucher::where('code', $code)->first();
+
+        if (!$voucher) {
+            return back()->with('error', 'Voucher code not found.');
+        }
+
+        $cart = session()->get('cart', []);
+        $subtotal = 0;
+        foreach ($cart as $item) {
+            $subtotal += $item['price'] * $item['quantity'];
+        }
+
+        if (!$voucher->isValidForAmount($subtotal)) {
+            return back()->with('error', "Voucher cannot be applied. Minimum spend requirement: ₱" . number_format($voucher->min_spend, 2));
+        }
+
+        session()->put('applied_voucher', [
+            'id'    => $voucher->id,
+            'code'  => $voucher->code,
+            'type'  => $voucher->type,
+            'value' => $voucher->value,
+        ]);
+
+        return back()->with('success', "Voucher '{$voucher->code}' applied successfully!");
+    }
+
+    public function removeVoucher()
+    {
+        session()->forget('applied_voucher');
+        return back()->with('success', 'Voucher removed.');
     }
 
     public function process(Request $request)
@@ -51,21 +104,27 @@ class CheckoutController extends Controller
             'notes'             => 'nullable|string|max:500',
         ]);
 
+        $appliedVoucherData = session()->get('applied_voucher');
+        $voucher = null;
+        if ($appliedVoucherData) {
+            $voucher = Voucher::find($appliedVoucherData['id']);
+        }
+
         DB::beginTransaction();
 
         try {
-            // Group cart items by seller
             $groupedCart = [];
+            $cartTotalSubtotal = 0;
+
             foreach ($cart as $item) {
                 $productId = $item['product_id'] ?? $item['id'];
                 $product = Product::lockForUpdate()->find($productId);
 
                 if (!$product || $product->stock < $item['quantity']) {
                     DB::rollBack();
-                    return back()->with('error', "Sorry, {$item['name']} is out of stock or does not have enough inventory.");
+                    return back()->with('error', "Sorry, {$item['name']} is out of stock or has insufficient inventory.");
                 }
 
-                // Verify variation inventory if a variation was selected
                 if (!empty($item['variation_id'])) {
                     $variation = ProductVariation::lockForUpdate()->find($item['variation_id']);
                     if (!$variation || $variation->stock < $item['quantity']) {
@@ -73,6 +132,9 @@ class CheckoutController extends Controller
                         return back()->with('error', "Sorry, the selected variation for {$item['name']} does not have enough stock.");
                     }
                 }
+
+                $itemSubtotal = $item['price'] * $item['quantity'];
+                $cartTotalSubtotal += $itemSubtotal;
 
                 $groupedCart[$product->user_id][] = [
                     'product'        => $product,
@@ -83,16 +145,27 @@ class CheckoutController extends Controller
                 ];
             }
 
-            // Create an order for each seller group
+            // Compute overall discount
+            $totalDiscount = 0.00;
+            if ($voucher && $voucher->isValidForAmount($cartTotalSubtotal)) {
+                $totalDiscount = $voucher->calculateDiscount($cartTotalSubtotal);
+                $voucher->increment('used_count');
+            }
+
             foreach ($groupedCart as $sellerId => $items) {
                 $sellerSubtotal = 0;
                 foreach ($items as $itm) {
                     $sellerSubtotal += $itm['price'] * $itm['quantity'];
                 }
 
-                $commissionFee = $sellerSubtotal * 0.10; // 10% Platform Commission
+                // Proportional discount allocation if voucher was applied
+                $sellerDiscount = ($cartTotalSubtotal > 0) 
+                    ? round(($sellerSubtotal / $cartTotalSubtotal) * $totalDiscount, 2) 
+                    : 0.00;
+
+                $commissionFee = max(0, $sellerSubtotal - $sellerDiscount) * 0.10;
                 $shippingFee = 50.00;
-                $orderTotal = $sellerSubtotal + $shippingFee;
+                $orderTotal = max(0, $sellerSubtotal - $sellerDiscount) + $shippingFee;
 
                 $order = Order::create([
                     'order_number'      => 'EZC-' . strtoupper(Str::random(10)),
@@ -105,6 +178,8 @@ class CheckoutController extends Controller
                     'barangay'          => $validated['barangay'],
                     'street_address'    => $validated['street_address'],
                     'subtotal'          => $sellerSubtotal,
+                    'voucher_code'      => $voucher ? $voucher->code : null,
+                    'discount_amount'   => $sellerDiscount,
                     'shipping_fee'      => $shippingFee,
                     'commission_fee'    => $commissionFee,
                     'total_amount'      => $orderTotal,
@@ -120,14 +195,14 @@ class CheckoutController extends Controller
                         'variation_info' => $itm['variation_info'] ?? null,
                         'product_name'   => $itm['product']->name,
                         'unit_price'     => $itm['price'],
+                        'price'          => $itm['price'],
                         'quantity'       => $itm['quantity'],
                         'item_total'     => $itm['price'] * $itm['quantity'],
+                        'subtotal'       => $itm['price'] * $itm['quantity'],
                     ]);
 
-                    // Deduct base product stock
                     $itm['product']->decrement('stock', $itm['quantity']);
 
-                    // Deduct variation stock if applicable
                     if (!empty($itm['variation_id'])) {
                         ProductVariation::where('id', $itm['variation_id'])->decrement('stock', $itm['quantity']);
                     }
@@ -136,7 +211,7 @@ class CheckoutController extends Controller
 
             DB::commit();
 
-            session()->forget('cart');
+            session()->forget(['cart', 'applied_voucher']);
 
             return redirect()->route('buyer.dashboard')->with('success', 'Order placed successfully! Waiting for seller preparation.');
         } catch (\Exception $e) {

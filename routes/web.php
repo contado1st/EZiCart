@@ -12,6 +12,7 @@ use App\Http\Controllers\BuyerController;
 use App\Http\Controllers\SellerOrderController;
 use App\Http\Controllers\CourierController;
 use App\Http\Controllers\LogisticsController;
+use App\Http\Controllers\SellerVoucherController;
 
 // 1. Public Marketplace & Browsing Routes
 Route::get('/', [HomeController::class, 'index'])->name('home');
@@ -48,6 +49,7 @@ Route::middleware(['auth'])->group(function () {
             Route::post('/orders/{order}/confirm', [BuyerController::class, 'confirmReceived'])->name('orders.confirm');
         });
 
+        // Cart Actions
         Route::prefix('cart')->name('cart.')->group(function () {
             Route::get('/', [CartController::class, 'index'])->name('index');
             Route::post('/add/{product}', [CartController::class, 'add'])->name('add');
@@ -55,8 +57,11 @@ Route::middleware(['auth'])->group(function () {
             Route::delete('/remove/{product}', [CartController::class, 'remove'])->name('remove');
         });
 
+        // Checkout Actions & Voucher Application
         Route::get('/checkout', [CheckoutController::class, 'index'])->name('checkout.index');
         Route::post('/checkout', [CheckoutController::class, 'process'])->name('checkout.process');
+        Route::post('/checkout/voucher', [CheckoutController::class, 'applyVoucher'])->name('checkout.voucher.apply');
+        Route::delete('/checkout/voucher', [CheckoutController::class, 'removeVoucher'])->name('checkout.voucher.remove');
     });
 
     // Seller-Only Routes
@@ -64,10 +69,17 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/dashboard', [SellerController::class, 'dashboard'])->name('dashboard');
         Route::resource('products', ProductController::class);
 
+        // Order Fulfillment & Waybill Routes
         Route::get('/orders', [SellerOrderController::class, 'index'])->name('orders.index');
         Route::get('/orders/{order}', [SellerOrderController::class, 'show'])->name('orders.show');
         Route::patch('/orders/{order}/status', [SellerOrderController::class, 'updateStatus'])->name('orders.updateStatus');
         Route::get('/orders/{order}/waybill', [SellerOrderController::class, 'waybill'])->name('orders.waybill');
+
+        // Promotional Vouchers & Discounts
+        Route::get('/vouchers', [SellerVoucherController::class, 'index'])->name('vouchers.index');
+        Route::post('/vouchers', [SellerVoucherController::class, 'store'])->name('vouchers.store');
+        Route::patch('/vouchers/{voucher}/toggle', [SellerVoucherController::class, 'toggle'])->name('vouchers.toggle');
+        Route::delete('/vouchers/{voucher}', [SellerVoucherController::class, 'destroy'])->name('vouchers.destroy');
     });
 
     // Courier-Only Routes (Fulfillment & Delivery Workspace)

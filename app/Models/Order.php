@@ -33,6 +33,8 @@ class Order extends Model
         'payment_method',
         'status',
         'notes',
+        'voucher_code',
+        'discount_amount',
     ];
 
     public function buyer(): BelongsTo
@@ -63,5 +65,10 @@ class Order extends Model
     public function items(): HasMany
     {
         return $this->hasMany(OrderItem::class);
+    }
+
+    public function vouchers(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(Voucher::class, 'seller_id');
     }
 }
