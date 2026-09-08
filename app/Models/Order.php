@@ -76,4 +76,9 @@ class Order extends Model
     {
         return $this->hasMany(Review::class);
     }
+
+    public function dispute(): \Illuminate\Database\Eloquent\Relations\HasOne
+    {
+        return $this->hasOne(Dispute::class);
+    }
 }

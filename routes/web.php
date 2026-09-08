@@ -16,6 +16,8 @@ use App\Http\Controllers\SellerVoucherController;
 use App\Http\Controllers\ReviewController;
 use App\Http\Controllers\SellerReportController;
 use App\Http\Controllers\AdminReportController;
+use App\Http\Controllers\DisputeController;
+use App\Http\Controllers\AdminDisputeController;
 
 // 1. Public Marketplace & Browsing Routes
 Route::get('/', [HomeController::class, 'index'])->name('home');
@@ -51,6 +53,8 @@ Route::middleware(['auth'])->group(function () {
             Route::get('/dashboard', [BuyerController::class, 'dashboard'])->name('dashboard');
             Route::post('/orders/{order}/confirm', [BuyerController::class, 'confirmReceived'])->name('orders.confirm');
             Route::post('/orders/{order}/review', [ReviewController::class, 'store'])->name('orders.review');
+            Route::get('/orders/{order}/dispute', [DisputeController::class, 'create'])->name('orders.dispute.create');
+            Route::post('/orders/{order}/dispute', [DisputeController::class, 'store'])->name('orders.dispute.store');
         });
 
         // Cart Actions
@@ -114,6 +118,9 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/registrations/{user}/approve', [AdminController::class, 'approve'])->name('registrations.approve');
         Route::post('/registrations/{user}/reject', [AdminController::class, 'reject'])->name('registrations.reject');
         Route::get('/reports', [AdminReportController::class, 'index'])->name('reports.index');
+        Route::get('/disputes', [AdminDisputeController::class, 'index'])->name('disputes.index');
+        Route::get('/disputes/{dispute}', [AdminDisputeController::class, 'show'])->name('disputes.show');
+        Route::patch('/disputes/{dispute}/resolve', [AdminDisputeController::class, 'resolve'])->name('disputes.resolve');
     });
 
 });

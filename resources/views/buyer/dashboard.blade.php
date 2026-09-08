@@ -3,6 +3,7 @@
 @push('styles')
     <link rel="stylesheet" href="{{ asset('css/dashboard.css') }}">
     <link rel="stylesheet" href="{{ asset('css/reviews.css') }}">
+    <link rel="stylesheet" href="{{ asset('css/disputes.css') }}">
 @endpush
 
 @section('content')
@@ -112,7 +113,17 @@
                             <span style="font-size: 0.75rem; color: var(--dash-text-muted);">({{ $order->payment_method }})</span>
                         </div>
 
-                        <div>
+                        <div style="display: flex; gap: 0.5rem; align-items: center;">
+                            @if($order->dispute)
+                                <span class="status-pill status-badge-{{ strtolower(str_replace('_', '-', $order->dispute->status)) }}">
+                                    Dispute: {{ str_replace('_', ' ', $order->dispute->status) }}
+                                </span>
+                            @elseif(in_array($order->status, ['DELIVERED', 'COMPLETED']))
+                                <a href="{{ route('buyer.orders.dispute.create', $order->id) }}" class="dash-btn-sm" style="border: 1px solid var(--dash-danger); color: var(--dash-danger); text-decoration: none;">
+                                    ⚠️ File Dispute
+                                </a>
+                            @endif
+
                             @if($order->status === 'DELIVERED')
                                 <form action="{{ route('buyer.orders.confirm', $order->id) }}" method="POST">
                                     @csrf
