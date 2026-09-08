@@ -2,6 +2,7 @@
 
 @push('styles')
     <link rel="stylesheet" href="{{ asset('css/marketplace.css') }}">
+    <link rel="stylesheet" href="{{ asset('css/reviews.css') }}">
 @endpush
 
 @section('content')
@@ -27,6 +28,21 @@
             <div>
                 <span class="product-badge">{{ $product->category }}</span>
                 <h1 class="product-detail-title">{{ $product->name }}</h1>
+
+                <!-- Rating Quick Peek -->
+                <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 1rem;">
+                    <span class="star-rating-stars">
+                        @for($i = 1; $i <= 5; $i++)
+                            {{ $i <= round($product->average_rating) ? '★' : '☆' }}
+                        @endfor
+                    </span>
+                    <span style="font-size: 0.875rem; font-weight: 700; color: var(--slate-700);">
+                        {{ $product->average_rating > 0 ? $product->average_rating : 'New' }}
+                    </span>
+                    <span style="font-size: 0.8125rem; color: var(--slate-400);">
+                        ({{ $product->review_count }} reviews)
+                    </span>
+                </div>
 
                 <!-- Seller Details -->
                 <div class="product-seller-card">
@@ -54,7 +70,6 @@
                     <form action="{{ route('cart.add', $product->id) }}" method="POST" class="product-cart-form">
                         @csrf
 
-                        <!-- Product Variations Selection -->
                         @if($product->variations->count() > 0)
                             <div style="margin-bottom: 1.25rem;">
                                 <label style="display: block; font-size: 0.75rem; font-weight: 800; text-transform: uppercase; margin-bottom: 0.5rem; color: var(--slate-700);">
@@ -114,6 +129,51 @@
                 </div>
             @endauth
         </div>
+    </div>
+
+    <!-- Customer Reviews & Feedback Section -->
+    <div class="reviews-section">
+        <div class="reviews-header">
+            <h2 class="reviews-title">Customer Reviews & Ratings</h2>
+        </div>
+
+        <div class="rating-overview-card">
+            <div>
+                <div class="rating-score-num">{{ $product->average_rating > 0 ? $product->average_rating : '0.0' }}</div>
+                <div class="star-rating-stars">
+                    @for($i = 1; $i <= 5; $i++)
+                        {{ $i <= round($product->average_rating) ? '★' : '☆' }}
+                    @endfor
+                </div>
+            </div>
+            <div>
+                <strong style="font-size: 0.9375rem; color: var(--slate-800);">Based on {{ $product->review_count }} verified reviews</strong>
+                <p style="margin: 0; font-size: 0.8125rem; color: var(--slate-500);">Ratings submitted by verified buyers upon completed delivery.</p>
+            </div>
+        </div>
+
+        @forelse($product->reviews()->with('buyer')->latest()->get() as $review)
+            <div class="review-card-item">
+                <div class="review-card-top">
+                    <div>
+                        <span class="reviewer-name">{{ $review->buyer->first_name }} {{ substr($review->buyer->last_name, 0, 1) }}.</span>
+                        <span class="star-rating-stars" style="margin-left: 0.5rem;">
+                            @for($i = 1; $i <= 5; $i++)
+                                {{ $i <= $review->rating ? '★' : '☆' }}
+                            @endfor
+                        </span>
+                    </div>
+                    <span class="review-date">{{ $review->created_at->format('M d, Y') }}</span>
+                </div>
+                <div class="review-comment-body">
+                    {{ $review->comment ?? 'Customer provided a rating without written commentary.' }}
+                </div>
+            </div>
+        @empty
+            <div style="text-align: center; padding: 2rem; color: var(--slate-400); font-size: 0.875rem;">
+                No reviews yet for this product. Be the first to purchase and review!
+            </div>
+        @endforelse
     </div>
 </div>
 

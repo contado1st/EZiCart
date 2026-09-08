@@ -71,4 +71,9 @@ class Order extends Model
     {
         return $this->hasMany(Voucher::class, 'seller_id');
     }
+
+    public function reviews(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(Review::class);
+    }
 }

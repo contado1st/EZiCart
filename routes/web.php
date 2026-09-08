@@ -13,6 +13,7 @@ use App\Http\Controllers\SellerOrderController;
 use App\Http\Controllers\CourierController;
 use App\Http\Controllers\LogisticsController;
 use App\Http\Controllers\SellerVoucherController;
+use App\Http\Controllers\ReviewController;
 
 // 1. Public Marketplace & Browsing Routes
 Route::get('/', [HomeController::class, 'index'])->name('home');
@@ -47,6 +48,7 @@ Route::middleware(['auth'])->group(function () {
         Route::prefix('buyer')->name('buyer.')->group(function () {
             Route::get('/dashboard', [BuyerController::class, 'dashboard'])->name('dashboard');
             Route::post('/orders/{order}/confirm', [BuyerController::class, 'confirmReceived'])->name('orders.confirm');
+            Route::post('/orders/{order}/review', [ReviewController::class, 'store'])->name('orders.review');
         });
 
         // Cart Actions
