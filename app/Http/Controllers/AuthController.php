@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\User;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
@@ -17,31 +18,31 @@ class AuthController extends Controller
     public function login(Request $request)
     {
         $credentials = $request->validate([
-            'email'    => ['required', 'email'],
-            'password' => ['required'],
+            'email'    => 'required|email',
+            'password' => 'required',
         ]);
 
-        if (Auth::attempt($credentials)) {
-            $request->session()->regenerate();
+        if (Auth::attempt($credentials, $request->boolean('remember'))) {
             $user = Auth::user();
 
-            // Block access if account is still pending admin approval
             if ($user->status === 'pending') {
                 Auth::logout();
-                $request->session()->invalidate();
-                $request->session()->regenerateToken();
-
-                return back()->withErrors([
-                    'email' => 'Your account is pending administrator approval. Please wait for confirmation.',
-                ]);
+                return back()->with('error', 'Your registration is still under review. Please wait for approval.');
             }
 
-            // Redirect user to their respective dashboard
+            if ($user->status === 'rejected') {
+                Auth::logout();
+                return back()->with('error', 'Your account registration was declined by platform administration.');
+            }
+
+            $request->session()->regenerate();
+
             return match ($user->role) {
-                'admin'   => redirect()->route('admin.registrations.index'),
-                'seller'  => redirect()->route('seller.dashboard'),
-                'courier' => redirect()->route('courier.dashboard'),
-                default   => redirect()->route('buyer.dashboard'),
+                'seller'         => redirect()->intended(route('seller.dashboard')),
+                'admin'          => redirect()->intended(route('admin.dashboard')),
+                'courier'        => redirect()->intended(route('courier.dashboard')),
+                'sorting_center' => redirect()->intended(route('logistics.dashboard')),
+                default          => redirect()->intended(route('buyer.dashboard')),
             };
         }
 
@@ -59,8 +60,6 @@ class AuthController extends Controller
         return redirect()->route('home');
     }
 
-    // --- Registration Forms & Handlers ---
-
     public function showRegisterForm()
     {
         return view('auth.register');
@@ -71,24 +70,21 @@ class AuthController extends Controller
         $validated = $request->validate([
             'first_name'     => 'required|string|max:255',
             'last_name'      => 'required|string|max:255',
-            'middle_initial' => 'nullable|string|max:1',
-            'sex'            => 'required|string',
+            'middle_initial' => 'nullable|string|max:2',
+            'sex'            => 'required|in:Male,Female,Other',
             'email'          => 'required|string|email|max:255|unique:users',
             'contact_no'     => 'required|string|max:20',
-            'birthday'       => 'required|date',
-            'age'            => 'required|integer',
+            'birthday'       => 'required|date|before:today',
             'province'       => 'required|string',
             'municipality'   => 'required|string',
             'barangay'       => 'required|string',
             'street_address' => 'required|string',
+            'id_document'    => 'required|file|mimes:jpeg,png,jpg,pdf|max:4096',
             'password'       => 'required|string|min:8|confirmed',
-            'id_upload'      => 'nullable|file|mimes:jpeg,png,jpg,pdf|max:4096',
         ]);
 
-        $idPath = null;
-        if ($request->hasFile('id_upload')) {
-            $idPath = $request->file('id_upload')->store('ids', 'public');
-        }
+        $idPath = $request->file('id_document')->store('documents/ids', 'public');
+        $age = Carbon::parse($validated['birthday'])->age;
 
         User::create([
             'first_name'     => $validated['first_name'],
@@ -98,18 +94,18 @@ class AuthController extends Controller
             'email'          => $validated['email'],
             'contact_no'     => $validated['contact_no'],
             'birthday'       => $validated['birthday'],
-            'age'            => $validated['age'],
+            'age'            => $age,
             'province'       => $validated['province'],
             'municipality'   => $validated['municipality'],
             'barangay'       => $validated['barangay'],
             'street_address' => $validated['street_address'],
-            'password'       => Hash::make($validated['password']),
+            'id_path'        => $idPath,
             'role'           => 'buyer',
-            'status'         => 'pending',
-            'id_upload_path' => $idPath,
+            'status'         => 'approved', // Buyer access active upon registration
+            'password'       => Hash::make($validated['password']),
         ]);
 
-        return redirect()->route('login')->with('success', 'Registration submitted. Please wait for admin approval.');
+        return redirect()->route('login')->with('success', 'Registration submitted successfully! You can now log in.');
     }
 
     public function showSellerRegisterForm()
@@ -122,49 +118,49 @@ class AuthController extends Controller
         $validated = $request->validate([
             'first_name'       => 'required|string|max:255',
             'last_name'        => 'required|string|max:255',
-            'middle_initial'   => 'nullable|string|max:1',
-            'sex'              => 'required|string',
+            'middle_initial'   => 'nullable|string|max:2',
+            'sex'              => 'required|in:Male,Female,Other',
             'email'            => 'required|string|email|max:255|unique:users',
             'contact_no'       => 'required|string|max:20',
-            'birthday'         => 'required|date',
-            'age'              => 'required|integer',
+            'birthday'         => 'required|date|before:today',
             'province'         => 'required|string',
             'municipality'     => 'required|string',
             'barangay'         => 'required|string',
             'street_address'   => 'required|string',
             'business_name'    => 'required|string|max:255',
             'line_of_business' => 'required|string|max:255',
+            'id_document'      => 'required|file|mimes:jpeg,png,jpg,pdf|max:4096',
+            'business_permit'  => 'required|file|mimes:jpeg,png,jpg,pdf|max:4096',
             'password'         => 'required|string|min:8|confirmed',
-            'id_upload'        => 'nullable|file|mimes:jpeg,png,jpg,pdf|max:4096',
-            'business_permit'  => 'nullable|file|mimes:jpeg,png,jpg,pdf|max:4096',
         ]);
 
-        $idPath = $request->hasFile('id_upload') ? $request->file('id_upload')->store('ids', 'public') : null;
-        $permitPath = $request->hasFile('business_permit') ? $request->file('business_permit')->store('permits', 'public') : null;
+        $idPath = $request->file('id_document')->store('documents/ids', 'public');
+        $permitPath = $request->file('business_permit')->store('documents/permits', 'public');
+        $age = Carbon::parse($validated['birthday'])->age;
 
         User::create([
-            'first_name'           => $validated['first_name'],
-            'last_name'            => $validated['last_name'],
-            'middle_initial'       => $validated['middle_initial'] ?? null,
-            'sex'                  => $validated['sex'],
-            'email'                => $validated['email'],
-            'contact_no'           => $validated['contact_no'],
-            'birthday'             => $validated['birthday'],
-            'age'                  => $validated['age'],
-            'province'             => $validated['province'],
-            'municipality'         => $validated['municipality'],
-            'barangay'             => $validated['barangay'],
-            'street_address'       => $validated['street_address'],
-            'business_name'        => $validated['business_name'],
-            'line_of_business'     => $validated['line_of_business'],
-            'password'             => Hash::make($validated['password']),
-            'role'                 => 'seller',
-            'status'               => 'pending',
-            'id_upload_path'       => $idPath,
-            'business_permit_path' => $permitPath,
+            'first_name'       => $validated['first_name'],
+            'last_name'        => $validated['last_name'],
+            'middle_initial'   => $validated['middle_initial'] ?? null,
+            'sex'              => $validated['sex'],
+            'email'            => $validated['email'],
+            'contact_no'       => $validated['contact_no'],
+            'birthday'         => $validated['birthday'],
+            'age'              => $age,
+            'province'         => $validated['province'],
+            'municipality'     => $validated['municipality'],
+            'barangay'         => $validated['barangay'],
+            'street_address'   => $validated['street_address'],
+            'business_name'    => $validated['business_name'],
+            'line_of_business' => $validated['line_of_business'],
+            'id_path'          => $idPath,
+            'permit_path'      => $permitPath,
+            'role'             => 'seller',
+            'status'           => 'pending',
+            'password'         => Hash::make($validated['password']),
         ]);
 
-        return redirect()->route('login')->with('success', 'Seller registration submitted. Please wait for admin approval.');
+        return redirect()->route('login')->with('success', 'Merchant application submitted! Please await Administrator approval via email.');
     }
 
     public function showCourierRegisterForm()
@@ -177,48 +173,101 @@ class AuthController extends Controller
         $validated = $request->validate([
             'first_name'     => 'required|string|max:255',
             'last_name'      => 'required|string|max:255',
-            'middle_initial' => 'nullable|string|max:1',
-            'sex'            => 'required|string',
+            'middle_initial' => 'nullable|string|max:2',
+            'sex'            => 'required|in:Male,Female,Other',
             'email'          => 'required|string|email|max:255|unique:users',
             'contact_no'     => 'required|string|max:20',
-            'birthday'       => 'required|date',
-            'age'            => 'required|integer',
+            'birthday'       => 'required|date|before:today',
             'province'       => 'required|string',
             'municipality'   => 'required|string',
             'barangay'       => 'required|string',
             'street_address' => 'required|string',
-            'vehicle_type'   => 'required|string|max:100',
+            'vehicle_type'   => 'required|string|in:Motorcycle,Van,Truck,Bicycle',
             'plate_number'   => 'required|string|max:50',
+            'id_document'    => 'required|file|mimes:jpeg,png,jpg,pdf|max:4096', // Driver's license / ID
+            'or_cr_document' => 'required|file|mimes:jpeg,png,jpg,pdf|max:4096', // Vehicle OR/CR
             'password'       => 'required|string|min:8|confirmed',
-            'id_upload'      => 'nullable|file|mimes:jpeg,png,jpg,pdf|max:4096',
-            'or_cr_upload'   => 'nullable|file|mimes:jpeg,png,jpg,pdf|max:4096',
         ]);
 
-        $idPath = $request->hasFile('id_upload') ? $request->file('id_upload')->store('ids', 'public') : null;
-        $orCrPath = $request->hasFile('or_cr_upload') ? $request->file('or_cr_upload')->store('or_cr', 'public') : null;
+        $licensePath = $request->file('id_document')->store('documents/licenses', 'public');
+        $orCrPath = $request->file('or_cr_document')->store('documents/or_cr', 'public');
+        $age = Carbon::parse($validated['birthday'])->age;
 
         User::create([
-            'first_name'        => $validated['first_name'],
-            'last_name'         => $validated['last_name'],
-            'middle_initial'    => $validated['middle_initial'] ?? null,
-            'sex'               => $validated['sex'],
-            'email'             => $validated['email'],
-            'contact_no'        => $validated['contact_no'],
-            'birthday'          => $validated['birthday'],
-            'age'               => $validated['age'],
-            'province'          => $validated['province'],
-            'municipality'      => $validated['municipality'],
-            'barangay'          => $validated['barangay'],
-            'street_address'    => $validated['street_address'],
-            'vehicle_type'      => $validated['vehicle_type'],
-            'plate_number'      => $validated['plate_number'],
-            'password'          => Hash::make($validated['password']),
-            'role'              => 'courier',
-            'status'            => 'pending',
-            'id_upload_path'    => $idPath,
-            'or_cr_upload_path' => $orCrPath,
+            'first_name'     => $validated['first_name'],
+            'last_name'      => $validated['last_name'],
+            'middle_initial' => $validated['middle_initial'] ?? null,
+            'sex'            => $validated['sex'],
+            'email'          => $validated['email'],
+            'contact_no'     => $validated['contact_no'],
+            'birthday'       => $validated['birthday'],
+            'age'            => $age,
+            'province'       => $validated['province'],
+            'municipality'   => $validated['municipality'],
+            'barangay'       => $validated['barangay'],
+            'street_address' => $validated['street_address'],
+            'vehicle_type'   => $validated['vehicle_type'],
+            'plate_number'   => $validated['plate_number'],
+            'license_path'   => $licensePath,
+            'or_cr_path'     => $orCrPath,
+            'role'           => 'courier',
+            'status'         => 'pending',
+            'password'       => Hash::make($validated['password']),
         ]);
 
-        return redirect()->route('login')->with('success', 'Courier registration submitted. Please wait for admin approval.');
+        return redirect()->route('login')->with('success', 'Rider application submitted! Please wait for Logistics / Sorting Center approval.');
+    }
+
+    public function showSortingCenterRegisterForm()
+    {
+        return view('auth.register-sorting');
+    }
+
+    public function sortingCenterRegister(Request $request)
+    {
+        $validated = $request->validate([
+            'first_name'      => 'required|string|max:255',
+            'last_name'       => 'required|string|max:255',
+            'middle_initial'  => 'nullable|string|max:2',
+            'sex'             => 'required|in:Male,Female,Other',
+            'email'           => 'required|string|email|max:255|unique:users',
+            'contact_no'      => 'required|string|max:20',
+            'birthday'        => 'required|date|before:today',
+            'province'        => 'required|string',
+            'municipality'    => 'required|string',
+            'barangay'        => 'required|string',
+            'street_address'  => 'required|string',
+            'business_name'   => 'required|string|max:255',
+            'id_document'     => 'required|file|mimes:jpeg,png,jpg,pdf|max:4096',
+            'business_permit' => 'required|file|mimes:jpeg,png,jpg,pdf|max:4096', // DTI / Mayor's Permit
+            'password'        => 'required|string|min:8|confirmed',
+        ]);
+
+        $idPath = $request->file('id_document')->store('documents/ids', 'public');
+        $permitPath = $request->file('business_permit')->store('documents/permits', 'public');
+        $age = Carbon::parse($validated['birthday'])->age;
+
+        User::create([
+            'first_name'     => $validated['first_name'],
+            'last_name'      => $validated['last_name'],
+            'middle_initial' => $validated['middle_initial'] ?? null,
+            'sex'            => $validated['sex'],
+            'email'          => $validated['email'],
+            'contact_no'     => $validated['contact_no'],
+            'birthday'       => $validated['birthday'],
+            'age'            => $age,
+            'province'       => $validated['province'],
+            'municipality'   => $validated['municipality'],
+            'barangay'       => $validated['barangay'],
+            'street_address' => $validated['street_address'],
+            'business_name'  => $validated['business_name'],
+            'id_path'        => $idPath,
+            'permit_path'    => $permitPath,
+            'role'           => 'sorting_center',
+            'status'         => 'pending',
+            'password'       => Hash::make($validated['password']),
+        ]);
+
+        return redirect()->route('login')->with('success', 'Sorting Center registration submitted! Awaiting Administrator review.');
     }
 }

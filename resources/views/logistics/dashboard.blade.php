@@ -38,7 +38,7 @@
         <div class="dash-header">
             <div>
                 <h1 class="dash-title">Logistics & Parcel Sorting Center</h1>
-                <p class="dash-subtitle">Receive inbound pickups, sort by destination area, and dispatch to riders[cite: 2].</p>
+                <p class="dash-subtitle">Receive inbound pickups, sort by destination area, and dispatch to riders.</p>
             </div>
         </div>
 
@@ -57,25 +57,25 @@
             <div class="dash-stat-card">
                 <div class="dash-stat-label">Inbound from Sellers</div>
                 <div class="dash-stat-value primary">{{ $stats['inbound'] }}</div>
-                <div class="dash-stat-subtext">Parcels carried by pickup riders[cite: 2]</div>
+                <div class="dash-stat-subtext">Parcels carried by pickup riders</div>
             </div>
 
             <div class="dash-stat-card">
                 <div class="dash-stat-label">At Sorting Center</div>
                 <div class="dash-stat-value warning">{{ $stats['at_center'] }}</div>
-                <div class="dash-stat-subtext">Awaiting area categorization[cite: 2]</div>
+                <div class="dash-stat-subtext">Awaiting area categorization</div>
             </div>
 
             <div class="dash-stat-card">
                 <div class="dash-stat-label">Sorted Parcels</div>
                 <div class="dash-stat-value">{{ $stats['sorted'] }}</div>
-                <div class="dash-stat-subtext">Ready for rider assignment[cite: 2]</div>
+                <div class="dash-stat-subtext">Ready for rider assignment</div>
             </div>
 
             <div class="dash-stat-card">
                 <div class="dash-stat-label">Out on Delivery</div>
                 <div class="dash-stat-value success">{{ $stats['dispatched'] }}</div>
-                <div class="dash-stat-subtext success">Assigned or traveling to buyer[cite: 2]</div>
+                <div class="dash-stat-subtext success">Assigned or traveling to buyer</div>
             </div>
         </div>
 
@@ -83,7 +83,7 @@
         <div class="dash-panel">
             <h2 class="courier-section-title">1. Inbound Parcels En Route to Hub ({{ $inboundParcels->count() }})</h2>
             <p style="font-size: 0.8125rem; color: var(--dash-text-muted); margin-bottom: 1rem;">
-                Parcels picked up from merchants. Click "Scan & Receive" upon arrival[cite: 2].
+                Parcels picked up from merchants. Click "Scan & Receive" upon arrival.
             </p>
 
             @forelse($inboundParcels as $order)
@@ -112,7 +112,7 @@
         <div class="dash-panel" style="margin-top: 1.5rem;">
             <h2 class="courier-section-title">2. Sort Parcels by Destination ({{ $atCenterParcels->count() }})</h2>
             <p style="font-size: 0.8125rem; color: var(--dash-text-muted); margin-bottom: 1rem;">
-                Read delivery address and assign an Area Zone (e.g., Area A - Santa Cruz)[cite: 2].
+                Read delivery address and assign an Area Zone (e.g., Area A - Santa Cruz).
             </p>
 
             @forelse($atCenterParcels as $order)
@@ -132,9 +132,9 @@
                             <label style="font-size: 0.8125rem; font-weight: 700;">Assign Area:</label>
                             <select name="delivery_area" class="logistics-select" required>
                                 <option value="">-- Choose Area Zone --</option>
-                                <option value="Area A - Santa Cruz">Area A - Santa Cruz[cite: 2]</option>
-                                <option value="Area B - Pagsanjan">Area B - Pagsanjan[cite: 2]</option>
-                                <option value="Area C - Los Baños">Area C - Los Baños[cite: 2]</option>
+                                <option value="Area A - Santa Cruz">Area A - Santa Cruz</option>
+                                <option value="Area B - Pagsanjan">Area B - Pagsanjan</option>
+                                <option value="Area C - Los Baños">Area C - Los Baños</option>
                                 <option value="Area D - Majayjay">Area D - Majayjay</option>
                                 <option value="Area E - Magdalena">Area E - Magdalena</option>
                             </select>
@@ -153,7 +153,7 @@
         <div class="dash-panel" style="margin-top: 1.5rem;">
             <h2 class="courier-section-title">3. Assign Sorted Parcels to Riders ({{ $sortedParcels->count() }})</h2>
             <p style="font-size: 0.8125rem; color: var(--dash-text-muted); margin-bottom: 1rem;">
-                Dispatch sorted parcels to riders servicing that specific area[cite: 2].
+                Dispatch sorted parcels to riders servicing that specific area.
             </p>
 
             @forelse($sortedParcels as $order)

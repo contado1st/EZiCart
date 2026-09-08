@@ -35,7 +35,7 @@
         <div class="dash-header">
             <div>
                 <h1 class="dash-title">Courier Dispatch Board</h1>
-                <p class="dash-subtitle">Handle merchant pickups and doorstep deliveries assigned by the Sorting Center[cite: 2].</p>
+                <p class="dash-subtitle">Handle merchant pickups and doorstep deliveries assigned by the Sorting Center.</p>
             </div>
         </div>
 
@@ -54,25 +54,25 @@
             <div class="dash-stat-card">
                 <div class="dash-stat-label">Available Pickups</div>
                 <div class="dash-stat-value primary">{{ $stats['available_pickups'] }}</div>
-                <div class="dash-stat-subtext">Waiting at seller shops[cite: 2]</div>
+                <div class="dash-stat-subtext">Waiting at seller shops</div>
             </div>
 
             <div class="dash-stat-card">
                 <div class="dash-stat-label">Parcels En Route to Hub</div>
                 <div class="dash-stat-value warning">{{ $stats['in_transit_hub'] }}</div>
-                <div class="dash-stat-subtext">Delivering to Sorting Center[cite: 2]</div>
+                <div class="dash-stat-subtext">Delivering to Sorting Center</div>
             </div>
 
             <div class="dash-stat-card">
                 <div class="dash-stat-label">Doorstep Assignments</div>
                 <div class="dash-stat-value primary">{{ $stats['assigned_delivery'] }}</div>
-                <div class="dash-stat-subtext">Assigned by Sorting Center[cite: 2]</div>
+                <div class="dash-stat-subtext">Assigned by Sorting Center</div>
             </div>
 
             <div class="dash-stat-card">
                 <div class="dash-stat-label">Completed Drops</div>
                 <div class="dash-stat-value success">{{ $stats['completed'] }}</div>
-                <div class="dash-stat-subtext success">Successful deliveries[cite: 2]</div>
+                <div class="dash-stat-subtext success">Successful deliveries</div>
             </div>
         </div>
 
@@ -83,7 +83,7 @@
                     <h2 class="courier-section-title">🛵 Doorstep Delivery Assignments ({{ $myDeliveryAssignments->count() }})</h2>
                 </div>
                 <p style="font-size: 0.8125rem; color: var(--dash-text-muted); margin-bottom: 1rem;">
-                    Parcels sorted and assigned to you by the Logistics Center for customer drop-off[cite: 2].
+                    Parcels sorted and assigned to you by the Logistics Center for customer drop-off.
                 </p>
 
                 @forelse($myDeliveryAssignments as $order)
@@ -121,7 +121,7 @@
                                     <form action="{{ route('courier.orders.startDelivery', $order->id) }}" method="POST">
                                         @csrf
                                         <button type="submit" class="dash-btn-sm dash-btn-primary">
-                                            🛵 Pick Up from Hub & Start Delivery[cite: 2]
+                                            🛵 Pick Up from Hub & Start Delivery
                                         </button>
                                     </form>
                                 @elseif($order->status === 'OUT_FOR_DELIVERY')
@@ -130,7 +130,7 @@
                                         @method('PATCH')
                                         <input type="hidden" name="status" value="DELIVERED">
                                         <button type="submit" class="dash-btn-sm dash-btn-primary">
-                                            ✅ Mark Delivered[cite: 2]
+                                            ✅ Mark Delivered
                                         </button>
                                     </form>
 
@@ -139,7 +139,7 @@
                                         @method('PATCH')
                                         <input type="hidden" name="status" value="DELIVERY_FAILED">
                                         <button type="submit" class="dash-btn-sm dash-btn-danger">
-                                            ❌ Delivery Failed[cite: 2]
+                                            ❌ Delivery Failed
                                         </button>
                                     </form>
                                 @endif
@@ -157,7 +157,7 @@
                     <h2 class="courier-section-title">📦 Seller Pickups in Your Custody ({{ $myActivePickups->count() }})</h2>
                 </div>
                 <p style="font-size: 0.8125rem; color: var(--dash-text-muted); margin-bottom: 1rem;">
-                    Parcels collected from merchants that must be brought to the Sorting Center[cite: 2].
+                    Parcels collected from merchants that must be brought to the Sorting Center.
                 </p>
 
                 @forelse($myActivePickups as $order)
@@ -170,7 +170,7 @@
                             <span class="status-pill status-picked-up">In Transit to Hub</span>
                         </div>
                         <div style="font-size: 0.8125rem; color: var(--dash-text-muted);">
-                            Bring this package to the Logistics / Sorting Center for barcode scanning and destination sorting[cite: 2].
+                            Bring this package to the Logistics / Sorting Center for barcode scanning and destination sorting.
                         </div>
                     </div>
                 @empty
@@ -214,7 +214,7 @@
                             <form action="{{ route('courier.orders.claim', $order->id) }}" method="POST">
                                 @csrf
                                 <button type="submit" class="dash-btn-sm dash-btn-primary">
-                                    Claim & Pick Up from Seller[cite: 2]
+                                    Claim & Pick Up from Seller
                                 </button>
                             </form>
                         </div>

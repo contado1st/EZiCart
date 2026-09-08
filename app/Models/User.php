@@ -41,6 +41,10 @@ class User extends Authenticatable
         'vehicle_type',
         'plate_number',
         'or_cr_upload_path',
+        'id_path',
+        'permit_path',
+        'license_path',
+        'or_cr_path',
     ];
 
     /**

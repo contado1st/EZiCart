@@ -2,6 +2,7 @@
 
 @push('styles')
     <link rel="stylesheet" href="{{ asset('css/dashboard.css') }}">
+    <link rel="stylesheet" href="{{ asset('css/riders.css') }}">
 @endpush
 
 @section('content')
@@ -31,7 +32,7 @@
         <div class="dash-header">
             <div>
                 <h1 class="dash-title">Courier & Rider Verification</h1>
-                <p class="dash-subtitle">Review, approve, or deactivate delivery riders for this logistics hub[cite: 1].</p>
+                <p class="dash-subtitle">Review credentials, inspect vehicle documents, and activate delivery riders.</p>
             </div>
         </div>
 
@@ -39,53 +40,68 @@
             <div class="dash-alert-success">✅ {{ session('success') }}</div>
         @endif
 
-        <div class="dash-panel">
-            <h2 class="courier-section-title">Pending Rider Applications ({{ $pendingRiders->count() }})</h2>
+        <!-- Pending Applications -->
+        <div class="dash-panel riders-panel">
+            <h2 class="riders-count-title">Pending Rider Applications ({{ $pendingRiders->count() }})</h2>
             
             @forelse($pendingRiders as $rider)
-                <div class="dash-approval-card" style="margin-top: 1rem;">
-                    <div class="dash-approval-row">
-                        <div>
-                            <div class="dash-approval-name">{{ $rider->first_name }} {{ $rider->last_name }}</div>
-                            <div class="dash-approval-email">{{ $rider->email }} &bull; Contact: {{ $rider->contact_no }}</div>
-                            <div style="font-size: 0.8125rem; margin-top: 0.25rem;">
-                                Vehicle: <strong>{{ $rider->vehicle_type ?? 'Motorcycle' }}</strong> (Plate: {{ $rider->plate_number ?? 'N/A' }})
-                            </div>
+                <div class="rider-applicant-card">
+                    <div class="rider-applicant-info">
+                        <div class="rider-applicant-name">{{ $rider->first_name }} {{ $rider->last_name }}</div>
+                        <div class="rider-applicant-contact">{{ $rider->email }} &bull; Contact: {{ $rider->contact_no }}</div>
+                        <div class="rider-applicant-vehicle">
+                            Vehicle: <strong>{{ $rider->vehicle_type ?? 'Motorcycle' }}</strong> (Plate: {{ $rider->plate_number ?? 'N/A' }})
                         </div>
-                        <div class="dash-approval-actions">
-                            <form action="{{ route('logistics.riders.approve', $rider->id) }}" method="POST">
-                                @csrf
-                                <button type="submit" class="dash-btn-sm dash-btn-success">Approve Rider[cite: 1]</button>
-                            </form>
-                            <form action="{{ route('logistics.riders.reject', $rider->id) }}" method="POST">
-                                @csrf
-                                <button type="submit" class="dash-btn-sm dash-btn-danger">Reject</button>
-                            </form>
+
+                        <!-- Verification Documents -->
+                        <div class="rider-docs-toolbar">
+                            @if($rider->license_path)
+                                <a href="{{ asset('storage/' . $rider->license_path) }}" target="_blank" class="rider-doc-badge-link">
+                                    🪪 Driver's License
+                                </a>
+                            @endif
+                            @if($rider->or_cr_path)
+                                <a href="{{ asset('storage/' . $rider->or_cr_path) }}" target="_blank" class="rider-doc-badge-link">
+                                    🚗 Vehicle OR/CR
+                                </a>
+                            @endif
                         </div>
+                    </div>
+
+                    <div class="rider-review-actions">
+                        <form action="{{ route('logistics.riders.approve', $rider->id) }}" method="POST">
+                            @csrf
+                            <button type="submit" class="btn-approve-rider">Approve Rider</button>
+                        </form>
+                        <form action="{{ route('logistics.riders.reject', $rider->id) }}" method="POST">
+                            @csrf
+                            <button type="submit" class="btn-reject-rider">Reject</button>
+                        </form>
                     </div>
                 </div>
             @empty
-                <div class="dash-empty-box" style="margin-top: 0.75rem;">No pending rider registrations.</div>
+                <div class="dash-empty-box">No pending rider applications awaiting approval.</div>
             @endforelse
         </div>
 
-        <div class="dash-panel" style="margin-top: 1.5rem;">
-            <h2 class="courier-section-title">Approved Fleet ({{ $approvedRiders->count() }})</h2>
-            <div class="dash-table-wrapper" style="margin-top: 0.75rem;">
+        <!-- Approved Fleet -->
+        <div class="dash-panel">
+            <h2 class="riders-count-title">Active Approved Fleet ({{ $approvedRiders->count() }})</h2>
+            <div class="dash-table-wrapper fleet-table-container">
                 <table class="dash-table">
                     <thead>
                         <tr>
                             <th>Rider Name</th>
                             <th>Contact</th>
                             <th>Vehicle</th>
-                            <th>Plate No</th>
+                            <th>Plate Number</th>
                             <th>Status</th>
                         </tr>
                     </thead>
                     <tbody>
                         @forelse($approvedRiders as $rider)
                             <tr>
-                                <td><strong>{{ $rider->first_name }} {{ $rider->last_name }}</strong></td>
+                                <td class="fleet-rider-name">{{ $rider->first_name }} {{ $rider->last_name }}</td>
                                 <td>{{ $rider->contact_no }}</td>
                                 <td>{{ $rider->vehicle_type ?? 'Motorcycle' }}</td>
                                 <td>{{ $rider->plate_number ?? 'N/A' }}</td>
@@ -93,7 +109,7 @@
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="5" class="dash-table-empty">No active riders approved yet.</td>
+                                <td colspan="5" class="fleet-empty-row">No active riders registered to this facility yet.</td>
                             </tr>
                         @endforelse
                     </tbody>

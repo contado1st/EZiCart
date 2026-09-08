@@ -98,7 +98,29 @@ class DatabaseSeeder extends Seeder
             ]
         );
 
-        // 5. Pending Seller (To test Admin Approval flow)
+        // 5. Logistics / Sorting Center Account (Approved)
+        User::updateOrCreate(
+            ['email' => 'sorting@ezicart.com'],
+            [
+                'first_name'     => 'Laguna Central',
+                'last_name'      => 'Hub',
+                'middle_initial' => 'L',
+                'sex'            => 'Male',
+                'contact_no'     => '09123456785',
+                'birthday'       => '1990-01-01',
+                'age'            => 36,
+                'province'       => 'Laguna',
+                'municipality'   => 'Santa Cruz',
+                'barangay'       => 'Poblacion',
+                'street_address' => 'National Highway Hub Bldg 1',
+                'business_name'  => 'EZiCart Central Sorting Hub',
+                'role'           => 'sorting_center',
+                'status'         => 'approved',
+                'password'       => Hash::make('password123'),
+            ]
+        );
+
+        // 6. Pending Seller (To test Admin Approval flow)
         User::updateOrCreate(
             ['email' => 'pending.seller@ezicart.com'],
             [

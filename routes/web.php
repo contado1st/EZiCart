@@ -30,6 +30,10 @@ Route::middleware('guest')->group(function () {
 
     Route::get('/register/courier', [AuthController::class, 'showCourierRegisterForm'])->name('register.courier');
     Route::post('/register/courier', [AuthController::class, 'courierRegister'])->name('register.courier.post');
+
+    // Sorting Center Public Application
+    Route::get('/register/sorting-center', [AuthController::class, 'showSortingCenterRegisterForm'])->name('register.sorting');
+    Route::post('/register/sorting-center', [AuthController::class, 'sortingCenterRegister'])->name('register.sorting.post');
 });
 
 Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
