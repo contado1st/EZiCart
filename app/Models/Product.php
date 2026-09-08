@@ -18,4 +18,10 @@ class Product extends Model
     {
         return $this->belongsTo(User::class, 'user_id');
     }
+
+    public function variations(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(ProductVariation::class);
+    }
 }
+

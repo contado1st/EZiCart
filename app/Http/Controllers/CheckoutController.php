@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\Product;
+use App\Models\ProductVariation;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -56,17 +57,29 @@ class CheckoutController extends Controller
             // Group cart items by seller
             $groupedCart = [];
             foreach ($cart as $item) {
-                $product = Product::lockForUpdate()->find($item['id']);
+                $productId = $item['product_id'] ?? $item['id'];
+                $product = Product::lockForUpdate()->find($productId);
 
                 if (!$product || $product->stock < $item['quantity']) {
                     DB::rollBack();
                     return back()->with('error', "Sorry, {$item['name']} is out of stock or does not have enough inventory.");
                 }
 
+                // Verify variation inventory if a variation was selected
+                if (!empty($item['variation_id'])) {
+                    $variation = ProductVariation::lockForUpdate()->find($item['variation_id']);
+                    if (!$variation || $variation->stock < $item['quantity']) {
+                        DB::rollBack();
+                        return back()->with('error', "Sorry, the selected variation for {$item['name']} does not have enough stock.");
+                    }
+                }
+
                 $groupedCart[$product->user_id][] = [
-                    'product'  => $product,
-                    'quantity' => $item['quantity'],
-                    'price'    => $item['price'],
+                    'product'        => $product,
+                    'variation_id'   => $item['variation_id'] ?? null,
+                    'variation_info' => $item['variation_info'] ?? null,
+                    'quantity'       => $item['quantity'],
+                    'price'          => $item['price'],
                 ];
             }
 
@@ -102,16 +115,22 @@ class CheckoutController extends Controller
 
                 foreach ($items as $itm) {
                     OrderItem::create([
-                        'order_id'     => $order->id,
-                        'product_id'   => $itm['product']->id,
-                        'product_name' => $itm['product']->name,
-                        'unit_price'   => $itm['price'],
-                        'quantity'     => $itm['quantity'],
-                        'item_total'   => $itm['price'] * $itm['quantity'],
+                        'order_id'       => $order->id,
+                        'product_id'     => $itm['product']->id,
+                        'variation_info' => $itm['variation_info'] ?? null,
+                        'product_name'   => $itm['product']->name,
+                        'unit_price'     => $itm['price'],
+                        'quantity'       => $itm['quantity'],
+                        'item_total'     => $itm['price'] * $itm['quantity'],
                     ]);
 
-                    // Deduct stock
+                    // Deduct base product stock
                     $itm['product']->decrement('stock', $itm['quantity']);
+
+                    // Deduct variation stock if applicable
+                    if (!empty($itm['variation_id'])) {
+                        ProductVariation::where('id', $itm['variation_id'])->decrement('stock', $itm['quantity']);
+                    }
                 }
             }
 
