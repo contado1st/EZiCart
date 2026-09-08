@@ -6,6 +6,8 @@
     <title>EZiCart - A Better Marketplace</title>
     <!-- Base Stylesheet -->
     <link rel="stylesheet" href="{{ asset('css/app.css') }}">
+    <!-- Platform Bulletins & Banners Stylesheet -->
+    <link rel="stylesheet" href="{{ asset('css/platform-controls.css') }}">
     <!-- Dynamic Page Stylesheets -->
     @stack('styles')
 </head>
@@ -74,6 +76,30 @@
             </div>
         </div>
     </header>
+
+    <!-- Global Platform Announcements -->
+    @php
+        $activeAnnouncements = \App\Models\Announcement::activeForUser(auth()->user())->latest()->take(3)->get();
+    @endphp
+
+    @if($activeAnnouncements->isNotEmpty())
+        <div class="container" style="margin-top: 1rem;">
+            @foreach($activeAnnouncements as $announcement)
+                <div class="announcement-banner banner-type-{{ $announcement->type }}">
+                    <span style="font-size: 1.15rem; line-height: 1;">
+                        @if($announcement->type === 'urgent') 🚨
+                        @elseif($announcement->type === 'warning') ⚠️
+                        @elseif($announcement->type === 'maintenance') 🛠️
+                        @else 📢
+                        @endif
+                    </span>
+                    <div>
+                        <strong>{{ $announcement->title }}:</strong> {{ $announcement->content }}
+                    </div>
+                </div>
+            @endforeach
+        </div>
+    @endif
 
     <!-- Main Content Body -->
     <main class="container main-content">

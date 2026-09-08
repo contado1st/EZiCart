@@ -35,6 +35,12 @@ class AuthController extends Controller
                 return back()->with('error', 'Your account registration was declined by platform administration.');
             }
 
+            if ($user->status === 'suspended') {
+                $reason = $user->suspension_reason ? " Reason: {$user->suspension_reason}" : '';
+                Auth::logout();
+                return back()->with('error', "Your account has been suspended by platform administration.{$reason}");
+            }
+
             $request->session()->regenerate();
 
             return match ($user->role) {
@@ -101,7 +107,7 @@ class AuthController extends Controller
             'street_address' => $validated['street_address'],
             'id_path'        => $idPath,
             'role'           => 'buyer',
-            'status'         => 'approved', // Buyer access active upon registration
+            'status'         => 'approved',
             'password'       => Hash::make($validated['password']),
         ]);
 
@@ -184,8 +190,8 @@ class AuthController extends Controller
             'street_address' => 'required|string',
             'vehicle_type'   => 'required|string|in:Motorcycle,Van,Truck,Bicycle',
             'plate_number'   => 'required|string|max:50',
-            'id_document'    => 'required|file|mimes:jpeg,png,jpg,pdf|max:4096', // Driver's license / ID
-            'or_cr_document' => 'required|file|mimes:jpeg,png,jpg,pdf|max:4096', // Vehicle OR/CR
+            'id_document'    => 'required|file|mimes:jpeg,png,jpg,pdf|max:4096',
+            'or_cr_document' => 'required|file|mimes:jpeg,png,jpg,pdf|max:4096',
             'password'       => 'required|string|min:8|confirmed',
         ]);
 
@@ -239,7 +245,7 @@ class AuthController extends Controller
             'street_address'  => 'required|string',
             'business_name'   => 'required|string|max:255',
             'id_document'     => 'required|file|mimes:jpeg,png,jpg,pdf|max:4096',
-            'business_permit' => 'required|file|mimes:jpeg,png,jpg,pdf|max:4096', // DTI / Mayor's Permit
+            'business_permit' => 'required|file|mimes:jpeg,png,jpg,pdf|max:4096',
             'password'        => 'required|string|min:8|confirmed',
         ]);
 

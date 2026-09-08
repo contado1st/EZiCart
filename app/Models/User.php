@@ -45,6 +45,8 @@ class User extends Authenticatable
         'permit_path',
         'license_path',
         'or_cr_path',
+        'suspension_reason',
+        'suspended_at',
     ];
 
     /**
@@ -121,4 +123,17 @@ class User extends Authenticatable
         return $this->hasMany(\App\Models\Order::class, 'delivery_courier_id');
     }
     
+    // announcements relationship and suspension check
+    /**
+     * Announcements created by this user.
+     */
+    public function announcements(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(Announcement::class, 'created_by');
+    }
+
+    public function isSuspended(): bool
+    {
+        return $this->status === 'suspended';
+    }
 }

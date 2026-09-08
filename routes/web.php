@@ -18,6 +18,8 @@ use App\Http\Controllers\SellerReportController;
 use App\Http\Controllers\AdminReportController;
 use App\Http\Controllers\DisputeController;
 use App\Http\Controllers\AdminDisputeController;
+use App\Http\Controllers\AdminAnnouncementController;
+use App\Http\Controllers\AdminModerationController;
 
 // 1. Public Marketplace & Browsing Routes
 Route::get('/', [HomeController::class, 'index'])->name('home');
@@ -121,6 +123,13 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/disputes', [AdminDisputeController::class, 'index'])->name('disputes.index');
         Route::get('/disputes/{dispute}', [AdminDisputeController::class, 'show'])->name('disputes.show');
         Route::patch('/disputes/{dispute}/resolve', [AdminDisputeController::class, 'resolve'])->name('disputes.resolve');
+        Route::get('/announcements', [AdminAnnouncementController::class, 'index'])->name('announcements.index');
+        Route::post('/announcements', [AdminAnnouncementController::class, 'store'])->name('announcements.store');
+        Route::patch('/announcements/{announcement}/toggle', [AdminAnnouncementController::class, 'toggle'])->name('announcements.toggle');
+        Route::delete('/announcements/{announcement}', [AdminAnnouncementController::class, 'destroy'])->name('announcements.destroy');
+        Route::get('/moderation', [AdminModerationController::class, 'index'])->name('moderation.index');
+        Route::post('/moderation/{user}/suspend', [AdminModerationController::class, 'suspend'])->name('moderation.suspend');
+        Route::post('/moderation/{user}/reactivate', [AdminModerationController::class, 'reactivate'])->name('moderation.reactivate');
     });
 
 });
