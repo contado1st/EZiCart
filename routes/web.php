@@ -42,3 +42,15 @@ Route::prefix('admin')->name('admin.')->group(function () {
     Route::post('/registrations/{user}/approve', [AdminController::class, 'approve'])->name('registrations.approve');
     Route::post('/registrations/{user}/reject', [AdminController::class, 'reject'])->name('registrations.reject');
 });
+
+// Seller routes for managing products//
+
+use App\Http\Controllers\ProductController;
+
+    // Seller Routes
+    Route::middleware(['role:seller'])->prefix('seller')->name('seller.')->group(function () {
+        Route::get('/dashboard', [SellerController::class, 'dashboard'])->name('dashboard');
+        
+        // Product Management Routes
+        Route::resource('products', ProductController::class);
+    });
