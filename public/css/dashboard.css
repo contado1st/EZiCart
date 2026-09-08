@@ -350,3 +350,112 @@
     background-color: var(--dash-bg);
     color: var(--dash-text-main);
 }
+
+/* Order Management & Status Tabs */
+.order-tabs-bar {
+    display: flex;
+    gap: 0.5rem;
+    border-bottom: 1px solid var(--dash-border);
+    margin-bottom: 1.5rem;
+    overflow-x: auto;
+}
+
+.order-tab-link {
+    padding: 0.75rem 1.25rem;
+    font-size: 0.875rem;
+    font-weight: 700;
+    color: var(--dash-text-muted);
+    text-decoration: none;
+    border-bottom: 3px solid transparent;
+    transition: all 0.2s ease;
+}
+
+.order-tab-link:hover {
+    color: var(--dash-text-main);
+}
+
+.order-tab-link.active {
+    color: var(--dash-primary);
+    border-bottom-color: var(--dash-primary);
+}
+
+.order-card {
+    background-color: var(--dash-card-bg);
+    border: 1px solid var(--dash-border);
+    border-radius: 0.75rem;
+    padding: 1.5rem;
+    margin-bottom: 1.25rem;
+}
+
+.order-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid var(--dash-border-subtle);
+    padding-bottom: 1rem;
+    margin-bottom: 1rem;
+}
+
+.order-number {
+    font-size: 0.9375rem;
+    font-weight: 800;
+    color: var(--dash-text-main);
+}
+
+.order-date {
+    font-size: 0.75rem;
+    color: var(--dash-text-muted);
+    margin-top: 0.2rem;
+}
+
+.order-item-listing {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    margin-bottom: 1.25rem;
+}
+
+.order-item-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.875rem;
+}
+
+.order-card-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-top: 1px solid var(--dash-border-subtle);
+    padding-top: 1rem;
+}
+
+.order-total-block {
+    font-size: 0.875rem;
+    color: var(--dash-text-muted);
+}
+
+.order-total-price {
+    font-size: 1.125rem;
+    font-weight: 800;
+    color: var(--dash-text-main);
+}
+
+/* Status Badges */
+.status-pill {
+    display: inline-block;
+    padding: 0.25rem 0.625rem;
+    border-radius: 9999px;
+    font-size: 0.75rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.025em;
+}
+
+.status-placed { background-color: #fef3c7; color: #92400e; }
+.status-confirmed, .status-preparing { background-color: #e0f2fe; color: #0369a1; }
+.status-pickup, .status-transit { background-color: #f3e8ff; color: #6b21a8; }
+.status-out-delivery { background-color: #fef9c3; color: #854d0e; }
+.status-delivered { background-color: #dcfce7; color: #15803d; }
+.status-completed { background-color: #d1fae5; color: #065f46; }
+.status-failed, .status-returned { background-color: #fee2e2; color: #991b1b; }

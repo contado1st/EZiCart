@@ -904,3 +904,39 @@ body {
     text-align: center; 
     color: var(--slate-400); 
 }
+
+/* Navbar Cart & Nav Helpers */
+.cart-link {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-weight: 700;
+}
+
+.cart-count-badge {
+    background-color: var(--ezipink-500);
+    color: #ffffff;
+    font-size: 0.6875rem;
+    font-weight: 800;
+    padding: 0.125rem 0.4rem;
+    border-radius: 9999px;
+    line-height: 1;
+}
+
+.nav-btn-compact {
+    padding: 0.5rem 1rem;
+}
+
+.logout-form-inline {
+    display: inline;
+}
+
+.btn-logout {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: inherit;
+    font-weight: 600;
+}

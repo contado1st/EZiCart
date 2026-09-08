@@ -1,0 +1,204 @@
+/* ========================================================
+   EZiCart Checkout Stylesheet
+   ======================================================== */
+
+.checkout-container {
+    padding: 2.5rem 1rem;
+    max-width: 1100px;
+    margin: 0 auto;
+}
+
+.checkout-header {
+    margin-bottom: 2rem;
+}
+
+.checkout-title {
+    font-size: 1.75rem;
+    font-weight: 800;
+    color: var(--slate-900);
+}
+
+.checkout-subtitle {
+    font-size: 0.875rem;
+    color: var(--slate-500);
+    margin-top: 0.25rem;
+}
+
+.checkout-layout {
+    display: grid;
+    grid-template-columns: 1.8fr 1.2fr;
+    gap: 2rem;
+    align-items: start;
+}
+
+@media (max-width: 868px) {
+    .checkout-layout {
+        grid-template-columns: 1fr;
+    }
+}
+
+.checkout-card {
+    background-color: #ffffff;
+    border: 1px solid var(--slate-200);
+    border-radius: 0.75rem;
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+}
+
+.checkout-card-title {
+    font-size: 1.125rem;
+    font-weight: 800;
+    color: var(--slate-900);
+    padding-bottom: 0.75rem;
+    border-bottom: 1px solid var(--slate-200);
+    margin-bottom: 1.25rem;
+}
+
+.checkout-form-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+}
+
+.checkout-form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    margin-bottom: 1rem;
+}
+
+.checkout-form-full {
+    grid-column: span 2;
+}
+
+.checkout-label {
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--slate-600);
+    text-transform: uppercase;
+    letter-spacing: 0.025em;
+}
+
+.checkout-input {
+    width: 100%;
+    background-color: var(--slate-50);
+    border: 1px solid var(--slate-300);
+    border-radius: 0.5rem;
+    padding: 0.625rem 0.875rem;
+    font-size: 0.875rem;
+    color: var(--slate-800);
+    outline: none;
+    transition: all 0.2s ease;
+}
+
+.checkout-input:focus {
+    background-color: #ffffff;
+    border-color: var(--ezipink-500);
+    box-shadow: 0 0 0 3px rgba(244, 63, 94, 0.1);
+}
+
+.payment-method-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.payment-option {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.875rem;
+    border: 1px solid var(--slate-200);
+    border-radius: 0.5rem;
+    background-color: var(--slate-50);
+    cursor: pointer;
+    transition: border-color 0.2s ease;
+}
+
+.payment-option:hover {
+    border-color: var(--ezipink-500);
+}
+
+.payment-title {
+    font-weight: 700;
+    font-size: 0.875rem;
+    color: var(--slate-800);
+}
+
+.payment-desc {
+    font-size: 0.75rem;
+    color: var(--slate-500);
+}
+
+/* Order Summary Items */
+.checkout-item-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-bottom: 0.75rem;
+    border-bottom: 1px solid var(--slate-100);
+    margin-bottom: 0.75rem;
+}
+
+.checkout-item-title {
+    font-weight: 700;
+    font-size: 0.875rem;
+    color: var(--slate-800);
+}
+
+.checkout-item-meta {
+    font-size: 0.75rem;
+    color: var(--slate-500);
+}
+
+.checkout-item-price {
+    font-weight: 700;
+    font-size: 0.875rem;
+    color: var(--slate-900);
+}
+
+.checkout-summary-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.875rem;
+    color: var(--slate-600);
+    margin-bottom: 0.625rem;
+}
+
+.checkout-total-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 1.125rem;
+    font-weight: 800;
+    color: var(--slate-900);
+    padding-top: 1rem;
+    border-top: 1px solid var(--slate-200);
+    margin-top: 1rem;
+    margin-bottom: 1.5rem;
+}
+
+.checkout-total-amount {
+    color: var(--ezipink-500);
+    font-size: 1.375rem;
+}
+
+.checkout-btn-place-order {
+    width: 100%;
+    background-color: var(--ezipink-500);
+    color: #ffffff;
+    font-weight: 800;
+    font-size: 0.875rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    padding: 0.875rem;
+    border: none;
+    border-radius: 0.5rem;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+}
+
+.checkout-btn-place-order:hover {
+    background-color: var(--ezipink-600);
+}

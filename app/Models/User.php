@@ -74,4 +74,22 @@ class User extends Authenticatable
     {
         return $this->hasMany(Product::class);
     }
+
+    // Add inside app/Models/User.php
+
+    /**
+     * Orders placed by this user as a buyer.
+     */
+    public function buyerOrders(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(\App\Models\Order::class, 'buyer_id');
+    }
+
+    /**
+     * Orders received by this user as a seller.
+     */
+    public function sellerOrders(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(\App\Models\Order::class, 'seller_id');
+    }
 }

@@ -2,11 +2,12 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Product;
 use Illuminate\Http\Request;
 
 class HomeController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
         $categories = [
             ['name' => 'Beauty', 'icon' => '💄'],
@@ -16,13 +17,34 @@ class HomeController extends Controller
             ['name' => 'Groceries', 'icon' => '🛒'],
         ];
 
-        $freshPicks = [
-            ['id' => 1, 'name' => 'Reusable Water Bottle', 'category' => 'Home & Living', 'price' => 299.00, 'image' => null],
-            ['id' => 2, 'name' => 'Everyday Canvas Tote', 'category' => 'Fashion', 'price' => 349.00, 'image' => null],
-            ['id' => 3, 'name' => 'Wireless Mini Speaker', 'category' => 'Electronics', 'price' => 899.00, 'image' => null],
-            ['id' => 4, 'name' => 'Organic Face Serum', 'category' => 'Beauty', 'price' => 450.00, 'image' => null],
-        ];
+        $query = Product::where('is_archived', false)
+            ->where('stock', '>', 0)
+            ->with('seller');
 
-        return view('home', compact('categories', 'freshPicks'));
+        // Filter by category
+        if ($request->filled('category')) {
+            $query->where('category', $request->query('category'));
+        }
+
+        // Search by keyword
+        if ($request->filled('search')) {
+            $query->where(function ($q) use ($request) {
+                $q->where('name', 'like', '%' . $request->query('search') . '%')
+                  ->orWhere('description', 'like', '%' . $request->query('search') . '%');
+            });
+        }
+
+        $products = $query->latest()->paginate(12)->withQueryString();
+
+        return view('home', compact('categories', 'products'));
+    }
+
+    public function showProduct(Product $product)
+    {
+        abort_if($product->is_archived || $product->stock <= 0, 404);
+
+        $product->load('seller');
+
+        return view('products.show', compact('product'));
     }
 }
