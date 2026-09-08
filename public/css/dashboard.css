@@ -628,3 +628,64 @@
     padding: 2rem;
     color: var(--dash-text-muted);
 }
+
+/* ========================================================
+   Logistics & Middle-Mile Sorting Center Styles
+   ======================================================== */
+
+.dash-role-logistics {
+    background-color: #ede9fe;
+    color: #6b21a8;
+}
+
+.logistics-card {
+    background-color: var(--dash-card-bg);
+    border: 1px solid var(--dash-border);
+    border-radius: 0.75rem;
+    padding: 1.25rem;
+    margin-bottom: 1rem;
+}
+
+.logistics-meta-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.75rem;
+    background-color: var(--dash-bg);
+    border: 1px solid var(--dash-border);
+    border-radius: 0.5rem;
+    padding: 0.75rem;
+    margin: 0.75rem 0;
+    font-size: 0.8125rem;
+}
+
+.logistics-form-inline {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.logistics-select {
+    padding: 0.45rem 0.75rem;
+    border-radius: 0.375rem;
+    border: 1px solid var(--dash-border);
+    background-color: #ffffff;
+    font-size: 0.8125rem;
+    color: var(--dash-text-main);
+    outline: none;
+}
+
+.logistics-select:focus {
+    border-color: var(--dash-primary);
+}
+
+.area-tag {
+    display: inline-block;
+    padding: 0.2rem 0.5rem;
+    background-color: #f1f5f9;
+    border: 1px solid #cbd5e1;
+    border-radius: 0.25rem;
+    font-size: 0.75rem;
+    font-weight: 800;
+    color: #334155;
+}

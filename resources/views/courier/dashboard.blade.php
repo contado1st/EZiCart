@@ -34,8 +34,8 @@
     <main class="dash-main">
         <div class="dash-header">
             <div>
-                <h1 class="dash-title">Logistics & Delivery Dispatch</h1>
-                <p class="dash-subtitle">Accept packages from sellers and manage doorstep drop-offs.</p>
+                <h1 class="dash-title">Courier Dispatch Board</h1>
+                <p class="dash-subtitle">Handle merchant pickups and doorstep deliveries assigned by the Sorting Center[cite: 2].</p>
             </div>
         </div>
 
@@ -53,42 +53,45 @@
         <div class="dash-stats-grid">
             <div class="dash-stat-card">
                 <div class="dash-stat-label">Available Pickups</div>
-                <div class="dash-stat-value primary">{{ $stats['available'] }}</div>
-                <div class="dash-stat-subtext">Waiting at seller hubs</div>
+                <div class="dash-stat-value primary">{{ $stats['available_pickups'] }}</div>
+                <div class="dash-stat-subtext">Waiting at seller shops[cite: 2]</div>
             </div>
 
             <div class="dash-stat-card">
-                <div class="dash-stat-label">In My Custody</div>
-                <div class="dash-stat-value warning">{{ $stats['active'] }}</div>
-                <div class="dash-stat-subtext">Currently out in transit</div>
+                <div class="dash-stat-label">Parcels En Route to Hub</div>
+                <div class="dash-stat-value warning">{{ $stats['in_transit_hub'] }}</div>
+                <div class="dash-stat-subtext">Delivering to Sorting Center[cite: 2]</div>
             </div>
 
             <div class="dash-stat-card">
-                <div class="dash-stat-label">Successful Deliveries</div>
-                <div class="dash-stat-value success">{{ $stats['delivered'] }}</div>
-                <div class="dash-stat-subtext success">Completed drop-offs</div>
+                <div class="dash-stat-label">Doorstep Assignments</div>
+                <div class="dash-stat-value primary">{{ $stats['assigned_delivery'] }}</div>
+                <div class="dash-stat-subtext">Assigned by Sorting Center[cite: 2]</div>
             </div>
 
             <div class="dash-stat-card">
-                <div class="dash-stat-label">Failed Deliveries</div>
-                <div class="dash-stat-value danger">{{ $stats['failed'] }}</div>
-                <div class="dash-stat-subtext danger">Unsuccessful attempts</div>
+                <div class="dash-stat-label">Completed Drops</div>
+                <div class="dash-stat-value success">{{ $stats['completed'] }}</div>
+                <div class="dash-stat-subtext success">Successful deliveries[cite: 2]</div>
             </div>
         </div>
 
         <div class="courier-grid">
-            <!-- 1. Active Deliveries Assigned to Current Courier -->
+            <!-- SECTION 1: DOORSTEP DELIVERIES ASSIGNED TO THIS RIDER -->
             <div class="dash-panel">
                 <div class="courier-section-header">
-                    <h2 class="courier-section-title">🚚 Active Deliveries in My Custody ({{ $activeDeliveries->count() }})</h2>
+                    <h2 class="courier-section-title">🛵 Doorstep Delivery Assignments ({{ $myDeliveryAssignments->count() }})</h2>
                 </div>
+                <p style="font-size: 0.8125rem; color: var(--dash-text-muted); margin-bottom: 1rem;">
+                    Parcels sorted and assigned to you by the Logistics Center for customer drop-off[cite: 2].
+                </p>
 
-                @forelse($activeDeliveries as $order)
+                @forelse($myDeliveryAssignments as $order)
                     <div class="order-card">
                         <div class="order-card-header">
                             <div>
                                 <span class="order-number">{{ $order->order_number }}</span>
-                                <div class="order-date">Claimed on {{ $order->updated_at->format('M d, Y h:i A') }}</div>
+                                <span class="area-tag" style="margin-left: 0.5rem;">{{ $order->delivery_area }}</span>
                             </div>
                             <span class="status-pill status-{{ strtolower(str_replace('_', '-', $order->status)) }}">
                                 {{ str_replace('_', ' ', $order->status) }}
@@ -97,51 +100,46 @@
 
                         <div class="courier-route-block">
                             <div class="courier-route-col">
-                                <span class="courier-route-label">Pickup Hub (Seller)</span>
-                                <span class="courier-route-name">{{ $order->seller->business_name ?? 'Seller Store' }}</span>
-                                <span>{{ $order->seller->street_address }}, {{ $order->seller->barangay }}, {{ $order->seller->municipality }}</span>
-                                <span>Contact: {{ $order->seller->contact_no }}</span>
-                            </div>
-
-                            <div class="courier-route-col">
-                                <span class="courier-route-label">Delivery Destination (Buyer)</span>
+                                <span class="courier-route-label">Customer Recipient</span>
                                 <span class="courier-route-name">{{ $order->recipient_name }}</span>
                                 <span>{{ $order->street_address }}, {{ $order->barangay }}, {{ $order->municipality }}</span>
                                 <span>Contact: {{ $order->recipient_contact }}</span>
                             </div>
+                            <div class="courier-route-col">
+                                <span class="courier-route-label">Collect Amount</span>
+                                <span class="courier-route-name">₱{{ number_format($order->total_amount, 2) }}</span>
+                                <span>Payment Method: <strong>{{ $order->payment_method }}</strong></span>
+                            </div>
                         </div>
 
                         <div class="order-card-footer">
-                            <div class="order-total-block">
-                                Collect Payment: <strong>₱{{ number_format($order->total_amount, 2) }} ({{ $order->payment_method }})</strong>
+                            <div>
+                                Notes: {{ $order->notes ?? 'Standard delivery.' }}
                             </div>
-
                             <div class="courier-actions-wrap">
-                                @if($order->status === 'PICKED_UP')
-                                    <form action="{{ route('courier.orders.updateStatus', $order->id) }}" method="POST">
+                                @if($order->status === 'ASSIGNED_TO_RIDER')
+                                    <form action="{{ route('courier.orders.startDelivery', $order->id) }}" method="POST">
                                         @csrf
-                                        @method('PATCH')
-                                        <input type="hidden" name="status" value="OUT_FOR_DELIVERY">
                                         <button type="submit" class="dash-btn-sm dash-btn-primary">
-                                            Start Delivery Trip
+                                            🛵 Pick Up from Hub & Start Delivery[cite: 2]
                                         </button>
                                     </form>
                                 @elseif($order->status === 'OUT_FOR_DELIVERY')
-                                    <form action="{{ route('courier.orders.updateStatus', $order->id) }}" method="POST">
+                                    <form action="{{ route('courier.orders.completeDelivery', $order->id) }}" method="POST">
                                         @csrf
                                         @method('PATCH')
                                         <input type="hidden" name="status" value="DELIVERED">
                                         <button type="submit" class="dash-btn-sm dash-btn-primary">
-                                            ✅ Mark as Delivered
+                                            ✅ Mark Delivered[cite: 2]
                                         </button>
                                     </form>
 
-                                    <form action="{{ route('courier.orders.updateStatus', $order->id) }}" method="POST">
+                                    <form action="{{ route('courier.orders.completeDelivery', $order->id) }}" method="POST">
                                         @csrf
                                         @method('PATCH')
                                         <input type="hidden" name="status" value="DELIVERY_FAILED">
                                         <button type="submit" class="dash-btn-sm dash-btn-danger">
-                                            ❌ Failed Attempt
+                                            ❌ Delivery Failed[cite: 2]
                                         </button>
                                     </form>
                                 @endif
@@ -149,61 +147,80 @@
                         </div>
                     </div>
                 @empty
-                    <div class="dash-empty-box">
-                        📦 You currently have no parcels in transit. Claim available pickups below to start delivering.
-                    </div>
+                    <div class="dash-empty-box">No delivery assignments from the Sorting Center right now.</div>
                 @endforelse
             </div>
 
-            <!-- 2. Available Pickups Queue -->
+            <!-- SECTION 2: MY ACTIVE PICKUPS EN ROUTE TO SORTING CENTER -->
             <div class="dash-panel">
                 <div class="courier-section-header">
-                    <h2 class="courier-section-title">📍 Ready for Pickup Queue ({{ $availablePickups->count() }})</h2>
+                    <h2 class="courier-section-title">📦 Seller Pickups in Your Custody ({{ $myActivePickups->count() }})</h2>
                 </div>
+                <p style="font-size: 0.8125rem; color: var(--dash-text-muted); margin-bottom: 1rem;">
+                    Parcels collected from merchants that must be brought to the Sorting Center[cite: 2].
+                </p>
+
+                @forelse($myActivePickups as $order)
+                    <div class="order-card">
+                        <div class="order-card-header">
+                            <div>
+                                <span class="order-number">{{ $order->order_number }}</span>
+                                <div class="order-date">Collected from {{ $order->seller->business_name }}</div>
+                            </div>
+                            <span class="status-pill status-picked-up">In Transit to Hub</span>
+                        </div>
+                        <div style="font-size: 0.8125rem; color: var(--dash-text-muted);">
+                            Bring this package to the Logistics / Sorting Center for barcode scanning and destination sorting[cite: 2].
+                        </div>
+                    </div>
+                @empty
+                    <div class="dash-empty-box">You have no parcels in transit to the hub.</div>
+                @endforelse
+            </div>
+
+            <!-- SECTION 3: AVAILABLE PICKUPS FROM MERCHANTS -->
+            <div class="dash-panel">
+                <div class="courier-section-header">
+                    <h2 class="courier-section-title">📍 Available Seller Pickups ({{ $availablePickups->count() }})</h2>
+                </div>
+                <p style="font-size: 0.8125rem; color: var(--dash-text-muted); margin-bottom: 1rem;">
+                    Merchants who have packed orders and generated waybills awaiting courier collection.
+                </p>
 
                 @forelse($availablePickups as $order)
                     <div class="order-card">
                         <div class="order-card-header">
                             <div>
                                 <span class="order-number">{{ $order->order_number }}</span>
-                                <div class="order-date">Packed & Ready since {{ $order->updated_at->format('M d, Y h:i A') }}</div>
+                                <div class="order-date">Store: <strong>{{ $order->seller->business_name }}</strong></div>
                             </div>
-                            <span class="status-pill status-ready-for-pickup">
-                                Ready for Pickup
-                            </span>
+                            <span class="status-pill status-ready-for-pickup">Ready for Pickup</span>
                         </div>
 
                         <div class="courier-route-block">
                             <div class="courier-route-col">
-                                <span class="courier-route-label">Merchant / Pickup Address</span>
-                                <span class="courier-route-name">{{ $order->seller->business_name ?? 'Seller Store' }}</span>
+                                <span class="courier-route-label">Merchant Address</span>
                                 <span>{{ $order->seller->street_address }}, {{ $order->seller->barangay }}, {{ $order->seller->municipality }}</span>
+                                <span>Contact: {{ $order->seller->contact_no }}</span>
                             </div>
-
                             <div class="courier-route-col">
-                                <span class="courier-route-label">Buyer / Delivery Destination</span>
-                                <span class="courier-route-name">{{ $order->recipient_name }}</span>
+                                <span class="courier-route-label">Destination Municipality</span>
                                 <span>{{ $order->municipality }}, {{ $order->province }}</span>
                             </div>
                         </div>
 
                         <div class="order-card-footer">
-                            <div class="order-total-block">
-                                Package Value: <strong>₱{{ number_format($order->total_amount, 2) }}</strong> &bull; Items: {{ $order->items->count() }}
-                            </div>
-
+                            <div>{{ $order->items->count() }} item(s) in package</div>
                             <form action="{{ route('courier.orders.claim', $order->id) }}" method="POST">
                                 @csrf
                                 <button type="submit" class="dash-btn-sm dash-btn-primary">
-                                    Claim & Pick Up Package
+                                    Claim & Pick Up from Seller[cite: 2]
                                 </button>
                             </form>
                         </div>
                     </div>
                 @empty
-                    <div class="dash-empty-box">
-                        ✅ No packages are awaiting courier pickup right now.
-                    </div>
+                    <div class="dash-empty-box">No seller pickup requests available at the moment.</div>
                 @endforelse
             </div>
         </div>

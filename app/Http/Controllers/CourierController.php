@@ -7,66 +7,88 @@ use Illuminate\Http\Request;
 
 class CourierController extends Controller
 {
-    public function dashboard(Request $request)
+    public function dashboard()
     {
         $courier = auth()->user();
 
-        // Available packages ready for pickup anywhere in the network
+        // 1. Stage 1: Available Seller Pickups across the network
         $availablePickups = Order::where('status', 'READY_FOR_PICKUP')
-            ->whereNull('courier_id')
+            ->whereNull('pickup_courier_id')
             ->with(['seller', 'buyer', 'items'])
             ->latest()
             ->get();
 
-        // Active parcels assigned to this courier
-        $activeDeliveries = $courier->courierDeliveries()
-            ->whereIn('status', ['PICKED_UP', 'AT_SORTING_CENTER', 'SORTED', 'ASSIGNED_TO_RIDER', 'OUT_FOR_DELIVERY'])
-            ->with(['seller', 'buyer', 'items'])
+        // 2. Stage 1: Active Pickups in transit to Sorting Center
+        $myActivePickups = Order::where('pickup_courier_id', $courier->id)
+            ->where('status', 'PICKED_UP')
+            ->with(['seller', 'items'])
             ->latest()
             ->get();
 
-        // Historical completed or failed parcels
-        $completedDeliveries = $courier->courierDeliveries()
-            ->whereIn('status', ['DELIVERED', 'COMPLETED', 'DELIVERY_FAILED', 'RETURNED'])
-            ->with(['seller', 'buyer', 'items'])
+        // 3. Stage 2: Doorstep Delivery Assignments given by Sorting Center
+        $myDeliveryAssignments = Order::where('delivery_courier_id', $courier->id)
+            ->whereIn('status', ['ASSIGNED_TO_RIDER', 'OUT_FOR_DELIVERY'])
+            ->with(['buyer', 'seller', 'items'])
+            ->latest()
+            ->get();
+
+        // 4. Completed / History
+        $completedDeliveries = Order::where('delivery_courier_id', $courier->id)
+            ->whereIn('status', ['DELIVERED', 'COMPLETED', 'DELIVERY_FAILED'])
             ->latest()
             ->take(10)
             ->get();
 
         $stats = [
-            'available' => $availablePickups->count(),
-            'active'    => $activeDeliveries->count(),
-            'delivered' => $courier->courierDeliveries()->whereIn('status', ['DELIVERED', 'COMPLETED'])->count(),
-            'failed'    => $courier->courierDeliveries()->whereIn('status', ['DELIVERY_FAILED', 'RETURNED'])->count(),
+            'available_pickups' => $availablePickups->count(),
+            'in_transit_hub'    => $myActivePickups->count(),
+            'assigned_delivery' => $myDeliveryAssignments->count(),
+            'completed'         => $completedDeliveries->whereIn('status', ['DELIVERED', 'COMPLETED'])->count(),
         ];
 
-        return view('courier.dashboard', compact('stats', 'availablePickups', 'activeDeliveries', 'completedDeliveries'));
+        return view('courier.dashboard', compact(
+            'stats',
+            'availablePickups',
+            'myActivePickups',
+            'myDeliveryAssignments',
+            'completedDeliveries'
+        ));
     }
 
     public function claimPickup(Order $order)
     {
-        if ($order->status !== 'READY_FOR_PICKUP' || $order->courier_id !== null) {
-            return back()->with('error', 'This package has already been claimed or is not ready for pickup.');
+        if ($order->status !== 'READY_FOR_PICKUP' || $order->pickup_courier_id !== null) {
+            return back()->with('error', 'Package is no longer available for pickup.');
         }
 
         $order->update([
-            'courier_id' => auth()->id(),
-            'status'     => 'PICKED_UP',
+            'pickup_courier_id' => auth()->id(),
+            'status'            => 'PICKED_UP',
         ]);
 
-        return back()->with('success', "Order #{$order->order_number} claimed and marked as Picked Up.");
+        return back()->with('success', "Order #{$order->order_number} claimed. Deliver package to Sorting Center.");
     }
 
-    public function updateStatus(Request $request, Order $order)
+    public function startDelivery(Order $order)
     {
-        abort_if($order->courier_id !== auth()->id(), 403);
+        abort_if($order->delivery_courier_id !== auth()->id(), 403);
+        abort_if($order->status !== 'ASSIGNED_TO_RIDER', 400);
+
+        $order->update(['status' => 'OUT_FOR_DELIVERY']);
+
+        return back()->with('success', "Order #{$order->order_number} is now Out for Delivery.");
+    }
+
+    public function completeDelivery(Request $request, Order $order)
+    {
+        abort_if($order->delivery_courier_id !== auth()->id(), 403);
 
         $validated = $request->validate([
-            'status' => 'required|in:OUT_FOR_DELIVERY,DELIVERED,DELIVERY_FAILED',
+            'status' => 'required|in:DELIVERED,DELIVERY_FAILED',
         ]);
 
         $order->update(['status' => $validated['status']]);
 
-        return back()->with('success', "Order #{$order->order_number} status updated to " . str_replace('_', ' ', $validated['status']) . ".");
+        return back()->with('success', "Order #{$order->order_number} marked as " . str_replace('_', ' ', $validated['status']) . ".");
     }
 }

@@ -54,9 +54,11 @@
                     @if(auth()->user()->role === 'seller')
                         <a href="{{ route('seller.dashboard') }}" class="btn-primary nav-btn-compact">Dashboard</a>
                     @elseif(auth()->user()->role === 'admin')
-                        <a href="{{ route('admin.registrations.index') }}" class="btn-primary nav-btn-compact">Admin Panel</a>
+                        <a href="{{ route('admin.dashboard') }}" class="btn-primary nav-btn-compact">Admin Panel</a>
                     @elseif(auth()->user()->role === 'courier')
                         <a href="{{ route('courier.dashboard') }}" class="btn-primary nav-btn-compact">Deliveries</a>
+                    @elseif(auth()->user()->role === 'sorting_center')
+                        <a href="{{ route('logistics.dashboard') }}" class="btn-primary nav-btn-compact">Sorting Hub</a>
                     @else
                         <a href="{{ route('buyer.dashboard') }}" class="btn-primary nav-btn-compact">My Account</a>
                     @endif

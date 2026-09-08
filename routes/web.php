@@ -11,6 +11,7 @@ use App\Http\Controllers\CheckoutController;
 use App\Http\Controllers\BuyerController;
 use App\Http\Controllers\SellerOrderController;
 use App\Http\Controllers\CourierController;
+use App\Http\Controllers\LogisticsController;
 
 // 1. Public Marketplace & Browsing Routes
 Route::get('/', [HomeController::class, 'index'])->name('home');
@@ -36,14 +37,13 @@ Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
 // 3. Protected Routes (Strictly Isolated by Role)
 Route::middleware(['auth'])->group(function () {
 
-    // Buyer-Only Routes (Cart, Checkout & Demand Workspace)
+    // Buyer-Only Routes
     Route::middleware(['role:buyer'])->group(function () {
         Route::prefix('buyer')->name('buyer.')->group(function () {
             Route::get('/dashboard', [BuyerController::class, 'dashboard'])->name('dashboard');
             Route::post('/orders/{order}/confirm', [BuyerController::class, 'confirmReceived'])->name('orders.confirm');
         });
 
-        // Cart Actions
         Route::prefix('cart')->name('cart.')->group(function () {
             Route::get('/', [CartController::class, 'index'])->name('index');
             Route::post('/add/{product}', [CartController::class, 'add'])->name('add');
@@ -51,17 +51,15 @@ Route::middleware(['auth'])->group(function () {
             Route::delete('/remove/{product}', [CartController::class, 'remove'])->name('remove');
         });
 
-        // Checkout Actions
         Route::get('/checkout', [CheckoutController::class, 'index'])->name('checkout.index');
         Route::post('/checkout', [CheckoutController::class, 'process'])->name('checkout.process');
     });
 
-    // Seller-Only Routes (Shop & Inventory Supply Workspace)
+    // Seller-Only Routes
     Route::middleware(['role:seller'])->prefix('seller')->name('seller.')->group(function () {
         Route::get('/dashboard', [SellerController::class, 'dashboard'])->name('dashboard');
         Route::resource('products', ProductController::class);
 
-        // Order Fulfillment & Waybill Routes
         Route::get('/orders', [SellerOrderController::class, 'index'])->name('orders.index');
         Route::get('/orders/{order}', [SellerOrderController::class, 'show'])->name('orders.show');
         Route::patch('/orders/{order}/status', [SellerOrderController::class, 'updateStatus'])->name('orders.updateStatus');
@@ -72,10 +70,23 @@ Route::middleware(['auth'])->group(function () {
     Route::middleware(['role:courier'])->prefix('courier')->name('courier.')->group(function () {
         Route::get('/dashboard', [CourierController::class, 'dashboard'])->name('dashboard');
         Route::post('/orders/{order}/claim', [CourierController::class, 'claimPickup'])->name('orders.claim');
-        Route::patch('/orders/{order}/status', [CourierController::class, 'updateStatus'])->name('orders.updateStatus');
+        Route::post('/orders/{order}/start-delivery', [CourierController::class, 'startDelivery'])->name('orders.startDelivery');
+        Route::patch('/orders/{order}/complete-delivery', [CourierController::class, 'completeDelivery'])->name('orders.completeDelivery');
     });
 
-    // Admin-Only Routes (Governance & Platform Control)
+    // Logistics / Sorting Center Routes
+    Route::middleware(['role:sorting_center'])->prefix('logistics')->name('logistics.')->group(function () {
+        Route::get('/dashboard', [LogisticsController::class, 'dashboard'])->name('dashboard');
+        Route::post('/orders/{order}/receive', [LogisticsController::class, 'receiveParcel'])->name('orders.receive');
+        Route::post('/orders/{order}/sort', [LogisticsController::class, 'sortParcel'])->name('orders.sort');
+        Route::post('/orders/{order}/assign-rider', [LogisticsController::class, 'assignRider'])->name('orders.assignRider');
+
+        Route::get('/riders', [LogisticsController::class, 'riders'])->name('riders');
+        Route::post('/riders/{user}/approve', [LogisticsController::class, 'approveRider'])->name('riders.approve');
+        Route::post('/riders/{user}/reject', [LogisticsController::class, 'rejectRider'])->name('riders.reject');
+    });
+
+    // Admin-Only Routes
     Route::middleware(['role:admin'])->prefix('admin')->name('admin.')->group(function () {
         Route::get('/dashboard', [AdminController::class, 'dashboard'])->name('dashboard');
         Route::get('/registrations', [AdminController::class, 'index'])->name('registrations.index');

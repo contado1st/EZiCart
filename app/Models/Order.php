@@ -15,12 +15,17 @@ class Order extends Model
         'order_number',
         'buyer_id',
         'seller_id',
+        'courier_id',
+        'pickup_courier_id',
+        'delivery_courier_id',
+        'sorting_center_id',
         'recipient_name',
         'recipient_contact',
         'province',
         'municipality',
         'barangay',
         'street_address',
+        'delivery_area',
         'subtotal',
         'shipping_fee',
         'commission_fee',
@@ -40,14 +45,23 @@ class Order extends Model
         return $this->belongsTo(User::class, 'seller_id');
     }
 
+    public function pickupCourier(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'pickup_courier_id');
+    }
+
+    public function deliveryCourier(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'delivery_courier_id');
+    }
+
+    public function sortingCenter(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'sorting_center_id');
+    }
+
     public function items(): HasMany
     {
         return $this->hasMany(OrderItem::class);
     }
-
-    public function courier(): BelongsTo
-    {
-        return $this->belongsTo(User::class, 'courier_id');
-    }
-    
 }

@@ -100,4 +100,21 @@ class User extends Authenticatable
     {
         return $this->hasMany(\App\Models\Order::class, 'courier_id');
     }
+
+    /**
+     * Parcels claimed by this courier for seller pickup.
+     */
+    public function pickupDeliveries(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(\App\Models\Order::class, 'pickup_courier_id');
+    }
+
+    /**
+     * Parcels assigned to this courier for doorstep delivery.
+     */
+    public function finalDeliveries(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(\App\Models\Order::class, 'delivery_courier_id');
+    }
+    
 }
