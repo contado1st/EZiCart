@@ -14,6 +14,8 @@ use App\Http\Controllers\CourierController;
 use App\Http\Controllers\LogisticsController;
 use App\Http\Controllers\SellerVoucherController;
 use App\Http\Controllers\ReviewController;
+use App\Http\Controllers\SellerReportController;
+use App\Http\Controllers\AdminReportController;
 
 // 1. Public Marketplace & Browsing Routes
 Route::get('/', [HomeController::class, 'index'])->name('home');
@@ -70,6 +72,7 @@ Route::middleware(['auth'])->group(function () {
     Route::middleware(['role:seller'])->prefix('seller')->name('seller.')->group(function () {
         Route::get('/dashboard', [SellerController::class, 'dashboard'])->name('dashboard');
         Route::resource('products', ProductController::class);
+        Route::get('/reports', [SellerReportController::class, 'index'])->name('reports.index');
 
         // Order Fulfillment & Waybill Routes
         Route::get('/orders', [SellerOrderController::class, 'index'])->name('orders.index');
@@ -110,6 +113,7 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/registrations', [AdminController::class, 'index'])->name('registrations.index');
         Route::post('/registrations/{user}/approve', [AdminController::class, 'approve'])->name('registrations.approve');
         Route::post('/registrations/{user}/reject', [AdminController::class, 'reject'])->name('registrations.reject');
+        Route::get('/reports', [AdminReportController::class, 'index'])->name('reports.index');
     });
 
 });
