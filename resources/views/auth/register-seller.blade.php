@@ -95,36 +95,37 @@
                         <label class="form-label">Line of Business (Category) *</label>
                         <select name="line_of_business" class="form-control" required>
                             <option value="">Select Category</option>
-                            <option value="Beauty">Beauty</option>
-                            <option value="Home & Living">Home & Living</option>
-                            <option value="Fashion">Fashion</option>
-                            <option value="Electronics">Electronics</option>
-                            <option value="Groceries">Groceries</option>
+                            <option value="Men's Apparel">Men's Apparel</option>
+                            <option value="Women's Apparel">Women's Apparel</option>
+                            <option value="Kids and Baby">Kids and Baby</option>
+                            <option value="Pet Supplies">Pet Supplies</option>
+                            <option value="Electronics and Gadgets">Electronics and Gadgets</option>
+                            <option value="Home and Garden">Home and Garden</option>
+                            <option value="Health and Beauty">Health and Beauty</option>
+                            <option value="Sports and Outdoors">Sports and Outdoors</option>
+
                         </select>
                     </div>
 
                     <!-- Address -->
                     <div class="form-group">
                         <label class="form-label">Province *</label>
-                        <select name="province" class="form-control" required>
-                            <option value="Laguna">Laguna</option>
-                            <option value="Metro Manila">Metro Manila</option>
+                        <select id="province" name="province" class="form-control" required>
+                            <option value="">Select Province</option>
                         </select>
                     </div>
 
                     <div class="form-group">
-                        <label class="form-label">Municipality *</label>
-                        <select name="municipality" class="form-control" required>
-                            <option value="Majayjay">Majayjay</option>
-                            <option value="Santa Cruz">Santa Cruz</option>
+                        <label class="form-label">Municipality / City *</label>
+                        <select id="municipality" name="municipality" class="form-control" required disabled>
+                            <option value="">Select Municipality / City</option>
                         </select>
                     </div>
 
                     <div class="form-group">
                         <label class="form-label">Barangay *</label>
-                        <select name="barangay" class="form-control" required>
-                            <option value="Poblacion">Poblacion</option>
-                            <option value="San Roque">San Roque</option>
+                        <select id="barangay" name="barangay" class="form-control" required disabled>
+                            <option value="">Select Barangay</option>
                         </select>
                     </div>
 
@@ -136,7 +137,7 @@
                     <!-- File Uploads -->
                     <div class="form-group">
                         <label class="form-label">Upload Valid ID *</label>
-                        <input type="file" name="id_upload" class="form-control" accept="image/*,.pdf" required>
+                        <input type="file" name="id_document" class="form-control" accept="image/*,.pdf" required>
                     </div>
 
                     <div class="form-group">
@@ -181,3 +182,5 @@
     }
 </script>
 @endsection
+
+<script src="{{ asset('js/ph-address.js') }}"></script>

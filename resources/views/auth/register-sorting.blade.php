@@ -143,3 +143,5 @@
     });
 </script>
 @endsection
+
+<script src="{{ asset('js/ph-address.js') }}"></script>

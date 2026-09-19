@@ -36,7 +36,17 @@
                 ℹ️ After submitting your registration, please wait for administrator approval sent to your email.
             </div>
 
-            <form action="{{ route('register.post') }}" method="POST" enctype="multipart/form-data">
+            @if ($errors->any())
+                <div class="alert alert-danger" style="background-color: #fee2e2; border: 1px solid #ef4444; color: #991b1b; padding: 0.75rem 1rem; border-radius: 6px; margin-bottom: 1rem;">
+                    <ul style="margin: 0; padding-left: 1.25rem;">
+                        @foreach ($errors->all() as $error)
+                            <li>{{ $error }}</li>
+                        @endforeach
+                    </ul>
+                </div>
+            @endif
+
+            <form action="{{ route('register.post') }}" method="POST" enctype="multipart/form-data" onsubmit="enableAddressFields()">
                 @csrf
                 
                 <div class="form-grid">
@@ -60,8 +70,8 @@
                         <label class="form-label">Sex *</label>
                         <select name="sex" class="form-control" required>
                             <option value="">Select Sex</option>
-                            <option value="Male">Male</option>
-                            <option value="Female">Female</option>
+                            <option value="Male" {{ old('sex') == 'Male' ? 'selected' : '' }}>Male</option>
+                            <option value="Female" {{ old('sex') == 'Female' ? 'selected' : '' }}>Female</option>
                         </select>
                     </div>
 
@@ -77,36 +87,33 @@
 
                     <div class="form-group">
                         <label class="form-label">Birthday *</label>
-                        <input type="date" id="birthday" name="birthday" class="form-control" required onchange="calculateAge(this.value)">
+                        <input type="date" id="birthday" name="birthday" class="form-control" required value="{{ old('birthday') }}" onchange="calculateAge(this.value)">
                     </div>
 
                     <div class="form-group">
                         <label class="form-label">Age (Auto-generated) *</label>
-                        <input type="number" id="age" name="age" class="form-control" readonly required placeholder="Auto-calculated">
+                        <input type="number" id="age" name="age" class="form-control" readonly required placeholder="Auto-calculated" value="{{ old('age') }}">
                     </div>
 
                     <!-- Address Section -->
                     <div class="form-group">
                         <label class="form-label">Province *</label>
-                        <select name="province" class="form-control" required>
-                            <option value="Laguna">Laguna</option>
-                            <option value="Metro Manila">Metro Manila</option>
+                        <select id="province" name="province" class="form-control" required>
+                            <option value="">Select Province</option>
                         </select>
                     </div>
 
                     <div class="form-group">
-                        <label class="form-label">Municipality *</label>
-                        <select name="municipality" class="form-control" required>
-                            <option value="Majayjay">Majayjay</option>
-                            <option value="Santa Cruz">Santa Cruz</option>
+                        <label class="form-label">Municipality / City *</label>
+                        <select id="municipality" name="municipality" class="form-control" required disabled>
+                            <option value="">Select Municipality / City</option>
                         </select>
                     </div>
 
                     <div class="form-group">
                         <label class="form-label">Barangay *</label>
-                        <select name="barangay" class="form-control" required>
-                            <option value="Poblacion">Poblacion</option>
-                            <option value="San Roque">San Roque</option>
+                        <select id="barangay" name="barangay" class="form-control" required disabled>
+                            <option value="">Select Barangay</option>
                         </select>
                     </div>
 
@@ -118,7 +125,7 @@
                     <!-- Uploads & Password -->
                     <div class="form-group full-width">
                         <label class="form-label">Upload Valid ID (Image/PDF) *</label>
-                        <input type="file" name="id_upload" class="form-control" accept="image/*,.pdf" required>
+                        <input type="file" name="id_document" class="form-control" accept="image/*,.pdf" required>
                     </div>
 
                     <div class="form-group">
@@ -155,5 +162,12 @@
         }
         document.getElementById('age').value = age;
     }
+
+    function enableAddressFields() {
+        document.getElementById('municipality').disabled = false;
+        document.getElementById('barangay').disabled = false;
+    }
 </script>
 @endsection
+
+<script src="{{ asset('js/ph-address.js') }}"></script>

@@ -106,25 +106,22 @@
                     <!-- Address -->
                     <div class="form-group">
                         <label class="form-label">Province *</label>
-                        <select name="province" class="form-control" required>
-                            <option value="Laguna">Laguna</option>
-                            <option value="Metro Manila">Metro Manila</option>
+                        <select id="province" name="province" class="form-control" required>
+                            <option value="">Select Province</option>
                         </select>
                     </div>
 
                     <div class="form-group">
-                        <label class="form-label">Municipality *</label>
-                        <select name="municipality" class="form-control" required>
-                            <option value="Majayjay">Majayjay</option>
-                            <option value="Santa Cruz">Santa Cruz</option>
+                        <label class="form-label">Municipality / City *</label>
+                        <select id="municipality" name="municipality" class="form-control" required disabled>
+                            <option value="">Select Municipality / City</option>
                         </select>
                     </div>
 
                     <div class="form-group">
                         <label class="form-label">Barangay *</label>
-                        <select name="barangay" class="form-control" required>
-                            <option value="Poblacion">Poblacion</option>
-                            <option value="San Roque">San Roque</option>
+                        <select id="barangay" name="barangay" class="form-control" required disabled>
+                            <option value="">Select Barangay</option>
                         </select>
                     </div>
 
@@ -136,12 +133,12 @@
                     <!-- Required Uploads -->
                     <div class="form-group">
                         <label class="form-label">Upload Driver's License / ID *</label>
-                        <input type="file" name="id_upload" class="form-control" accept="image/*,.pdf" required>
+                        <input type="file" name="id_document" class="form-control" accept="image/*,.pdf" required>
                     </div>
 
                     <div class="form-group">
                         <label class="form-label">Upload Vehicle OR/CR *</label>
-                        <input type="file" name="or_cr_upload" class="form-control" accept="image/*,.pdf" required>
+                        <input type="file" name="or_cr_document" class="form-control" accept="image/*,.pdf" required>
                     </div>
 
                     <!-- Password -->
@@ -181,3 +178,5 @@
     }
 </script>
 @endsection
+
+<script src="{{ asset('js/ph-address.js') }}"></script>
