@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class Order extends Model
 {
@@ -67,17 +68,17 @@ class Order extends Model
         return $this->hasMany(OrderItem::class);
     }
 
-    public function vouchers(): \Illuminate\Database\Eloquent\Relations\HasMany
+    public function voucher(): BelongsTo
     {
-        return $this->hasMany(Voucher::class, 'seller_id');
+        return $this->belongsTo(Voucher::class, 'voucher_code', 'code');
     }
 
-    public function reviews(): \Illuminate\Database\Eloquent\Relations\HasMany
+    public function reviews(): HasMany
     {
         return $this->hasMany(Review::class);
     }
 
-    public function dispute(): \Illuminate\Database\Eloquent\Relations\HasOne
+    public function dispute(): HasOne
     {
         return $this->hasOne(Dispute::class);
     }

@@ -11,6 +11,14 @@ return Application::configure(basePath: dirname(__DIR__))
         commands: __DIR__.'/../routes/console.php',
         health: '/up',
     )
+
+    ->withMiddleware(function (Middleware $middleware) {
+            // Add this block to register your middleware alias
+            $middleware->alias([
+                'role' => \App\Http\Middleware\CheckRole::class,
+            ]);
+    })
+
     ->withMiddleware(function (Middleware $middleware): void {
         // Trust all proxies for the local tunnel connection
         $middleware->trustProxies(at: '*');

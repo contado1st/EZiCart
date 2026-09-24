@@ -16,10 +16,8 @@ class OrderItem extends Model
         'variation_info',
         'product_name',
         'unit_price',
-        'price',
         'quantity',
         'item_total',
-        'subtotal',
     ];
 
     public function order(): BelongsTo

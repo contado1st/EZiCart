@@ -41,9 +41,9 @@ class LogisticsController extends Controller
             ->get();
 
         $stats = [
-            'inbound'    => $inboundParcels->count(),
-            'at_center'  => $atCenterParcels->count(),
-            'sorted'     => $sortedParcels->count(),
+            'inbound' => $inboundParcels->count(),
+            'at_center' => $atCenterParcels->count(),
+            'sorted' => $sortedParcels->count(),
             'dispatched' => $dispatchedParcels->count(),
         ];
 
@@ -64,8 +64,8 @@ class LogisticsController extends Controller
         }
 
         $order->update([
-            'status'            => 'AT_SORTING_CENTER',
-            'sorting_center_id' => auth()->id(),
+            'status' => 'AT_SORTING_CENTER',
+            'sorting_center_id' => $this->authenticatedUser()->id,
         ]);
 
         return back()->with('success', "Parcel {$order->order_number} scanned and recorded at Sorting Center.");
@@ -79,7 +79,7 @@ class LogisticsController extends Controller
 
         $order->update([
             'delivery_area' => $validated['delivery_area'],
-            'status'        => 'SORTED',
+            'status' => 'SORTED',
         ]);
 
         return back()->with('success', "Parcel {$order->order_number} sorted to {$validated['delivery_area']}.");
@@ -93,10 +93,10 @@ class LogisticsController extends Controller
 
         $order->update([
             'delivery_courier_id' => $validated['delivery_courier_id'],
-            'status'              => 'ASSIGNED_TO_RIDER',
+            'status' => 'ASSIGNED_TO_RIDER',
         ]);
 
-        $rider = User::find($validated['delivery_courier_id']);
+        $rider = User::findOrFail($validated['delivery_courier_id']);
 
         return back()->with('success', "Parcel {$order->order_number} assigned to rider {$rider->first_name} {$rider->last_name}.");
     }
@@ -124,6 +124,6 @@ class LogisticsController extends Controller
 
         $user->update(['status' => 'rejected']);
 
-        return back()->with('success', "Courier application rejected.");
+        return back()->with('success', 'Courier application rejected.');
     }
 }

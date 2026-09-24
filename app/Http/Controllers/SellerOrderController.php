@@ -11,7 +11,7 @@ class SellerOrderController extends Controller
     {
         $status = $request->query('status');
 
-        $query = auth()->user()->sellerOrders()
+        $query = $this->authenticatedUser()->sellerOrders()
             ->with(['buyer', 'items'])
             ->latest();
 
@@ -22,11 +22,11 @@ class SellerOrderController extends Controller
         $orders = $query->paginate(10)->withQueryString();
 
         $counts = [
-            'all'       => auth()->user()->sellerOrders()->count(),
-            'placed'    => auth()->user()->sellerOrders()->where('status', 'PLACED')->count(),
-            'preparing' => auth()->user()->sellerOrders()->whereIn('status', ['CONFIRMED', 'PREPARING'])->count(),
-            'ready'     => auth()->user()->sellerOrders()->where('status', 'READY_FOR_PICKUP')->count(),
-            'completed' => auth()->user()->sellerOrders()->where('status', 'COMPLETED')->count(),
+            'all' => $this->authenticatedUser()->sellerOrders()->count(),
+            'placed' => $this->authenticatedUser()->sellerOrders()->where('status', 'PLACED')->count(),
+            'preparing' => $this->authenticatedUser()->sellerOrders()->whereIn('status', ['CONFIRMED', 'PREPARING'])->count(),
+            'ready' => $this->authenticatedUser()->sellerOrders()->where('status', 'READY_FOR_PICKUP')->count(),
+            'completed' => $this->authenticatedUser()->sellerOrders()->where('status', 'COMPLETED')->count(),
         ];
 
         return view('seller.orders.index', compact('orders', 'counts'));
@@ -34,7 +34,7 @@ class SellerOrderController extends Controller
 
     public function show(Order $order)
     {
-        abort_if($order->seller_id !== auth()->id(), 403);
+        abort_if($order->seller_id !== $this->authenticatedUser()->id, 403);
 
         $order->load(['buyer', 'items.product']);
 
@@ -43,7 +43,7 @@ class SellerOrderController extends Controller
 
     public function updateStatus(Request $request, Order $order)
     {
-        abort_if($order->seller_id !== auth()->id(), 403);
+        abort_if($order->seller_id !== $this->authenticatedUser()->id, 403);
 
         $validated = $request->validate([
             'status' => 'required|in:CONFIRMED,PREPARING,READY_FOR_PICKUP',
@@ -51,12 +51,12 @@ class SellerOrderController extends Controller
 
         $order->update(['status' => $validated['status']]);
 
-        return back()->with('success', 'Order status updated to ' . str_replace('_', ' ', $validated['status']) . '.');
+        return back()->with('success', 'Order status updated to '.str_replace('_', ' ', $validated['status']).'.');
     }
 
     public function waybill(Order $order)
     {
-        abort_if($order->seller_id !== auth()->id(), 403);
+        abort_if($order->seller_id !== $this->authenticatedUser()->id, 403);
 
         $order->load(['seller', 'buyer', 'items']);
 

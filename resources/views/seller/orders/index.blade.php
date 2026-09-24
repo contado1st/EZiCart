@@ -69,7 +69,7 @@
             <div class="order-card">
                 <div class="order-card-header">
                     <div>
-                        <span class="order-number">{{ $order->order_number }}</span>
+                        <a href="{{ route('seller.orders.show', $order->id) }}" class="order-number">{{ $order->order_number }}</a>
                         <div class="order-date">
                             Ordered on {{ $order->created_at->format('M d, Y h:i A') }}
                         </div>

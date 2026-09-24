@@ -81,53 +81,61 @@ class User extends Authenticatable
         return $this->hasMany(Product::class);
     }
 
+    /**
+     * Vouchers created by this seller.
+     */
+    public function vouchers(): HasMany
+    {
+        return $this->hasMany(Voucher::class, 'seller_id');
+    }
+
     // Add inside app/Models/User.php
 
     /**
      * Orders placed by this user as a buyer.
      */
-    public function buyerOrders(): \Illuminate\Database\Eloquent\Relations\HasMany
+    public function buyerOrders(): HasMany
     {
-        return $this->hasMany(\App\Models\Order::class, 'buyer_id');
+        return $this->hasMany(Order::class, 'buyer_id');
     }
 
     /**
      * Orders received by this user as a seller.
      */
-    public function sellerOrders(): \Illuminate\Database\Eloquent\Relations\HasMany
+    public function sellerOrders(): HasMany
     {
-        return $this->hasMany(\App\Models\Order::class, 'seller_id');
+        return $this->hasMany(Order::class, 'seller_id');
     }
 
     /**
      * Orders dispatched or delivered by this user as a courier.
      */
-    public function courierDeliveries(): \Illuminate\Database\Eloquent\Relations\HasMany
+    public function courierDeliveries(): HasMany
     {
-        return $this->hasMany(\App\Models\Order::class, 'courier_id');
+        return $this->hasMany(Order::class, 'courier_id');
     }
 
     /**
      * Parcels claimed by this courier for seller pickup.
      */
-    public function pickupDeliveries(): \Illuminate\Database\Eloquent\Relations\HasMany
+    public function pickupDeliveries(): HasMany
     {
-        return $this->hasMany(\App\Models\Order::class, 'pickup_courier_id');
+        return $this->hasMany(Order::class, 'pickup_courier_id');
     }
 
     /**
      * Parcels assigned to this courier for doorstep delivery.
      */
-    public function finalDeliveries(): \Illuminate\Database\Eloquent\Relations\HasMany
+    public function finalDeliveries(): HasMany
     {
-        return $this->hasMany(\App\Models\Order::class, 'delivery_courier_id');
+        return $this->hasMany(Order::class, 'delivery_courier_id');
     }
-    
+
     // announcements relationship and suspension check
     /**
      * Announcements created by this user.
      */
-    public function announcements(): \Illuminate\Database\Eloquent\Relations\HasMany
+    public function announcements(): HasMany
     {
         return $this->hasMany(Announcement::class, 'created_by');
     }
