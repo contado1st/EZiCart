@@ -10,14 +10,14 @@ class SellerReportController extends Controller
 {
     public function index(Request $request)
     {
-        $sellerId = auth()->id();
+        $sellerId = $this->authenticatedUser()->id;
 
-        $fromDate = $request->input('from_date') 
-            ? Carbon::parse($request->input('from_date'))->startOfDay() 
+        $fromDate = $request->input('from_date')
+            ? Carbon::parse($request->input('from_date'))->startOfDay()
             : Carbon::now()->startOfMonth();
 
-        $toDate = $request->input('to_date') 
-            ? Carbon::parse($request->input('to_date'))->endOfDay() 
+        $toDate = $request->input('to_date')
+            ? Carbon::parse($request->input('to_date'))->endOfDay()
             : Carbon::now()->endOfDay();
 
         // Base query restricted to the authenticated merchant within the date range
@@ -35,12 +35,12 @@ class SellerReportController extends Controller
         $netProfit = max(0, $grossSales - $platformCommissions);
 
         $stats = [
-            'gross_sales'          => $grossSales,
-            'total_discounts'      => $totalDiscounts,
-            'platform_commission'  => $platformCommissions,
-            'net_profit'           => $netProfit,
-            'completed_count'      => $completedOrders->count(),
-            'total_orders_placed'  => $allOrders->count(),
+            'gross_sales' => $grossSales,
+            'total_discounts' => $totalDiscounts,
+            'platform_commission' => $platformCommissions,
+            'net_profit' => $netProfit,
+            'completed_count' => $completedOrders->count(),
+            'total_orders_placed' => $allOrders->count(),
         ];
 
         return view('seller.reports.index', compact(

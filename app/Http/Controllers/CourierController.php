@@ -9,7 +9,7 @@ class CourierController extends Controller
 {
     public function dashboard()
     {
-        $courier = auth()->user();
+        $courier = $this->authenticatedUser();
 
         // 1. Stage 1: Available Seller Pickups across the network
         $availablePickups = Order::where('status', 'READY_FOR_PICKUP')
@@ -41,9 +41,9 @@ class CourierController extends Controller
 
         $stats = [
             'available_pickups' => $availablePickups->count(),
-            'in_transit_hub'    => $myActivePickups->count(),
+            'in_transit_hub' => $myActivePickups->count(),
             'assigned_delivery' => $myDeliveryAssignments->count(),
-            'completed'         => $completedDeliveries->whereIn('status', ['DELIVERED', 'COMPLETED'])->count(),
+            'completed' => $completedDeliveries->whereIn('status', ['DELIVERED', 'COMPLETED'])->count(),
         ];
 
         return view('courier.dashboard', compact(
@@ -62,8 +62,8 @@ class CourierController extends Controller
         }
 
         $order->update([
-            'pickup_courier_id' => auth()->id(),
-            'status'            => 'PICKED_UP',
+            'pickup_courier_id' => $this->authenticatedUser()->id,
+            'status' => 'PICKED_UP',
         ]);
 
         return back()->with('success', "Order #{$order->order_number} claimed. Deliver package to Sorting Center.");
@@ -71,7 +71,7 @@ class CourierController extends Controller
 
     public function startDelivery(Order $order)
     {
-        abort_if($order->delivery_courier_id !== auth()->id(), 403);
+        abort_if($order->delivery_courier_id !== $this->authenticatedUser()->id, 403);
         abort_if($order->status !== 'ASSIGNED_TO_RIDER', 400);
 
         $order->update(['status' => 'OUT_FOR_DELIVERY']);
@@ -81,7 +81,7 @@ class CourierController extends Controller
 
     public function completeDelivery(Request $request, Order $order)
     {
-        abort_if($order->delivery_courier_id !== auth()->id(), 403);
+        abort_if($order->delivery_courier_id !== $this->authenticatedUser()->id, 403);
 
         $validated = $request->validate([
             'status' => 'required|in:DELIVERED,DELIVERY_FAILED',
@@ -89,6 +89,6 @@ class CourierController extends Controller
 
         $order->update(['status' => $validated['status']]);
 
-        return back()->with('success', "Order #{$order->order_number} marked as " . str_replace('_', ' ', $validated['status']) . ".");
+        return back()->with('success', "Order #{$order->order_number} marked as ".str_replace('_', ' ', $validated['status']).'.');
     }
 }

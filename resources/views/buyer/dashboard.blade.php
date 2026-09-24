@@ -51,7 +51,7 @@
                 <div class="order-card" style="margin-top: 1rem;">
                     <div class="order-card-header">
                         <div>
-                            <span class="order-number">{{ $order->order_number }}</span>
+                            <a href="{{ route('buyer.orders.show', $order->id) }}" class="order-number">{{ $order->order_number }}</a>
                             <div class="order-date">Placed on {{ $order->created_at->format('M d, Y h:i A') }} &bull; Store: <strong>{{ $order->seller->business_name ?? 'Merchant' }}</strong></div>
                         </div>
                         <span class="status-pill status-{{ strtolower(str_replace('_', '-', $order->status)) }}">
@@ -69,7 +69,7 @@
                                     @endif
                                     <span style="color: var(--dash-text-muted); font-size: 0.8125rem;">&times; {{ $item->quantity }}</span>
                                 </div>
-                                <div>₱{{ number_format($item->subtotal ?? $item->item_total, 2) }}</div>
+                                <div>₱{{ number_format($item->item_total, 2) }}</div>
                             </div>
 
                             <!-- Review Form for Completed Orders -->

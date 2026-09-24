@@ -10,9 +10,9 @@ class DisputeController extends Controller
 {
     public function create(Order $order)
     {
-        abort_if($order->buyer_id !== auth()->id(), 403);
+        abort_if($order->buyer_id !== $this->authenticatedUser()->id, 403);
 
-        if (!in_array($order->status, ['DELIVERED', 'COMPLETED'])) {
+        if (! in_array($order->status, ['DELIVERED', 'COMPLETED'])) {
             return redirect()->route('buyer.dashboard')->with('error', 'Disputes can only be raised for delivered or completed orders.');
         }
 
@@ -25,15 +25,15 @@ class DisputeController extends Controller
 
     public function store(Request $request, Order $order)
     {
-        abort_if($order->buyer_id !== auth()->id(), 403);
+        abort_if($order->buyer_id !== $this->authenticatedUser()->id, 403);
 
         if ($order->dispute) {
             return redirect()->route('buyer.dashboard')->with('error', 'A dispute case is already open for this order.');
         }
 
         $validated = $request->validate([
-            'reason'        => 'required|string|in:Damaged Item,Wrong Item Delivered,Missing Items,Non-Delivery,Defective Goods,Other',
-            'description'   => 'required|string|min:20|max:2000',
+            'reason' => 'required|string|in:Damaged Item,Wrong Item Delivered,Missing Items,Non-Delivery,Defective Goods,Other',
+            'description' => 'required|string|min:20|max:2000',
             'evidence_file' => 'nullable|file|mimes:jpg,jpeg,png,pdf|max:5120',
         ]);
 
@@ -43,13 +43,13 @@ class DisputeController extends Controller
         }
 
         Dispute::create([
-            'order_id'      => $order->id,
-            'buyer_id'      => auth()->id(),
-            'seller_id'     => $order->seller_id,
-            'reason'        => $validated['reason'],
-            'description'   => $validated['description'],
+            'order_id' => $order->id,
+            'buyer_id' => $this->authenticatedUser()->id,
+            'seller_id' => $order->seller_id,
+            'reason' => $validated['reason'],
+            'description' => $validated['description'],
             'evidence_path' => $evidencePath,
-            'status'        => 'PENDING',
+            'status' => 'PENDING',
         ]);
 
         return redirect()->route('buyer.dashboard')->with('success', 'Dispute ticket submitted. An administrator will review your evidence.');

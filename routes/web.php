@@ -20,7 +20,6 @@ use App\Http\Controllers\DisputeController;
 use App\Http\Controllers\AdminDisputeController;
 use App\Http\Controllers\AdminAnnouncementController;
 use App\Http\Controllers\AdminModerationController;
-
 // 1. Public Marketplace & Browsing Routes
 Route::get('/', [HomeController::class, 'index'])->name('home');
 Route::get('/product/{product}', [HomeController::class, 'showProduct'])->name('product.show');
@@ -53,6 +52,7 @@ Route::middleware(['auth'])->group(function () {
     Route::middleware(['role:buyer'])->group(function () {
         Route::prefix('buyer')->name('buyer.')->group(function () {
             Route::get('/dashboard', [BuyerController::class, 'dashboard'])->name('dashboard');
+            Route::get('/orders/{order}', [BuyerController::class, 'showOrder'])->name('orders.show');
             Route::post('/orders/{order}/confirm', [BuyerController::class, 'confirmReceived'])->name('orders.confirm');
             Route::post('/orders/{order}/review', [ReviewController::class, 'store'])->name('orders.review');
             Route::get('/orders/{order}/dispute', [DisputeController::class, 'create'])->name('orders.dispute.create');
@@ -77,7 +77,7 @@ Route::middleware(['auth'])->group(function () {
     // Seller-Only Routes
     Route::middleware(['role:seller'])->prefix('seller')->name('seller.')->group(function () {
         Route::get('/dashboard', [SellerController::class, 'dashboard'])->name('dashboard');
-        Route::resource('products', ProductController::class);
+        Route::resource('products', ProductController::class)->except(['show']);
         Route::get('/reports', [SellerReportController::class, 'index'])->name('reports.index');
 
         // Order Fulfillment & Waybill Routes
