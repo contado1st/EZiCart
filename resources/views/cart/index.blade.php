@@ -50,7 +50,7 @@
                         </tr>
                     </thead>
                     <tbody>
-                        @foreach($cart as $item)
+                        @foreach($cart as $cartKey => $item)
                             <tr>
                                 <td>
                                     <div class="cart-product-cell">
@@ -60,11 +60,11 @@
                                             <div class="cart-product-placeholder">📦</div>
                                         @endif
                                         <div>
-                                            <a href="{{ route('product.show', $item['id']) }}" class="cart-product-name">
+                                            <a href="{{ route('product.show', $item['product_id']) }}" class="cart-product-name">
                                                 {{ $item['name'] }}
                                             </a>
                                             <div class="cart-product-seller">
-                                                Sold by: <strong>{{ $item['business_name'] }}</strong>
+                                                Sold by: <strong>{{ $item['seller_name'] }}</strong>
                                             </div>
                                         </div>
                                     </div>
@@ -73,10 +73,10 @@
                                     ₱{{ number_format($item['price'], 2) }}
                                 </td>
                                 <td>
-                                    <form action="{{ route('cart.update', $item['id']) }}" method="POST" class="cart-qty-form">
+                                    <form action="{{ route('cart.update', $cartKey) }}" method="POST" class="cart-qty-form">
                                         @csrf
                                         @method('PATCH')
-                                        <input type="number" name="quantity" value="{{ $item['quantity'] }}" min="1" max="{{ $item['stock'] }}" class="cart-qty-input">
+                                        <input type="number" name="quantity" value="{{ $item['quantity'] }}" min="1" class="cart-qty-input">
                                         <button type="submit" class="cart-btn-update">Update</button>
                                     </form>
                                 </td>
@@ -84,7 +84,7 @@
                                     ₱{{ number_format($item['price'] * $item['quantity'], 2) }}
                                 </td>
                                 <td>
-                                    <form action="{{ route('cart.remove', $item['id']) }}" method="POST">
+                                    <form action="{{ route('cart.remove', $cartKey) }}" method="POST">
                                         @csrf
                                         @method('DELETE')
                                         <button type="submit" class="cart-btn-remove">Remove</button>
