@@ -63,8 +63,8 @@ Route::middleware(['auth'])->group(function () {
         Route::prefix('cart')->name('cart.')->group(function () {
             Route::get('/', [CartController::class, 'index'])->name('index');
             Route::post('/add/{product}', [CartController::class, 'add'])->name('add');
-            Route::patch('/update/{product}', [CartController::class, 'update'])->name('update');
-            Route::delete('/remove/{product}', [CartController::class, 'remove'])->name('remove');
+            Route::patch('/update/{cartKey}', [CartController::class, 'update'])->name('update');
+            Route::delete('/remove/{cartKey}', [CartController::class, 'remove'])->name('remove');
         });
 
         // Checkout Actions & Voucher Application
