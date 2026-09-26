@@ -1,0 +1,11 @@
+@import "../shared/operations.css";
+.logistics-accent {
+    color: #854b7f;
+}
+.logistics-area {
+    display: inline-block;
+    color: #75416f;
+    background: #f7edf6;
+    padding: 2px 6px;
+    border-radius: 3px;
+}

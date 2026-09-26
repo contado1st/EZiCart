@@ -1,8 +1,8 @@
 @extends('layouts.app')
 
 @push('styles')
-    <link rel="stylesheet" href="{{ asset('css/dashboard.css') }}">
-    <link rel="stylesheet" href="{{ asset('css/seller-vouchers.css') }}">
+    @vite('resources/css/shared/dashboard.css')
+    @vite('resources/css/seller/seller-vouchers.css')
 @endpush
 
 @section('content')

@@ -1,7 +1,7 @@
 @extends('layouts.app')
 
 @push('styles')
-    <link rel="stylesheet" href="{{ asset('css/register-sorting.css') }}">
+    @vite('resources/css/auth/register-sorting.css')
 @endpush
 
 @section('content')

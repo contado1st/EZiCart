@@ -1,0 +1,308 @@
+/* ========================================================
+   EZiCart Marketplace & Storefront Stylesheet
+   ======================================================== */
+
+/* Marketplace Feed Container */
+.market-container {
+    padding: 2rem 1rem;
+}
+
+.market-category-section {
+    margin-bottom: 2.5rem;
+}
+
+.category-clear-btn {
+    color: var(--ezipink-500);
+    text-decoration: none;
+    font-weight: 600;
+}
+
+.category-clear-btn:hover {
+    color: var(--ezipink-600);
+}
+
+.market-category-active {
+    border-color: var(--ezipink-500);
+    background-color: var(--ezipink-50);
+}
+
+.market-product-meta-header {
+    display: flex;
+    flex-direction: column;
+}
+
+.market-item-count {
+    font-size: 0.8125rem;
+    color: var(--slate-500);
+    margin-top: 0.25rem;
+}
+
+/* Empty State */
+.market-empty-box {
+    text-align: center;
+    padding: 4rem 1rem;
+    background: #ffffff;
+    border: 1px dashed var(--slate-200);
+    border-radius: 0.75rem;
+}
+
+.market-empty-icon {
+    font-size: 3rem;
+    margin-bottom: 0.5rem;
+}
+
+.market-empty-title {
+    font-size: 1.125rem;
+    font-weight: 700;
+    color: var(--slate-800);
+}
+
+.market-empty-text {
+    font-size: 0.875rem;
+    color: var(--slate-500);
+    margin-top: 0.25rem;
+}
+
+.market-empty-action {
+    display: inline-block;
+    margin-top: 1rem;
+    padding: 0.5rem 1.25rem;
+}
+
+/* Product Card Elements */
+.market-img-tag {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.market-card-badge-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.market-stock-count {
+    font-size: 0.75rem;
+    color: var(--slate-400);
+}
+
+.market-title-link {
+    text-decoration: none;
+}
+
+.market-store-tag {
+    font-size: 0.75rem;
+    color: var(--slate-500);
+}
+
+.market-store-name {
+    font-weight: 700;
+    color: var(--slate-700);
+}
+
+.market-card-action-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 0.5rem;
+}
+
+.market-btn-inspect {
+    padding: 0.375rem 0.75rem;
+    font-size: 0.75rem;
+    font-weight: 700;
+    border-radius: 0.375rem;
+    text-decoration: none;
+}
+
+.market-pagination-wrap {
+    margin-top: 2rem;
+}
+
+/* ========================================================
+   Product Details Page Layout
+   ======================================================== */
+.product-show-container {
+    padding: 3rem 1rem;
+    max-width: 1000px;
+}
+
+.product-back-link {
+    color: var(--slate-500);
+    text-decoration: none;
+    font-weight: 600;
+    font-size: 0.875rem;
+    display: inline-block;
+}
+
+.product-back-link:hover {
+    color: var(--ezipink-500);
+}
+
+.product-show-layout {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 2.5rem;
+    margin-top: 1.5rem;
+    background: #ffffff;
+    padding: 2rem;
+    border-radius: 1rem;
+    border: 1px solid var(--slate-200);
+}
+
+.product-gallery-box {
+    background-color: var(--slate-100);
+    border-radius: 0.75rem;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 360px;
+}
+
+.product-gallery-img {
+    width: 100%;
+    height: 100%;
+    max-height: 420px;
+    object-fit: contain;
+}
+
+.product-gallery-placeholder {
+    font-size: 5rem;
+    color: var(--slate-400);
+}
+
+.product-info-column {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+}
+
+.product-detail-title {
+    font-size: 1.75rem;
+    font-weight: 800;
+    color: var(--slate-900);
+    margin: 0.75rem 0 0.5rem 0;
+}
+
+.product-seller-card {
+    background: var(--slate-50);
+    border: 1px solid var(--slate-200);
+    padding: 0.75rem 1rem;
+    border-radius: 0.5rem;
+    margin-bottom: 1.25rem;
+}
+
+.product-seller-label {
+    font-size: 0.75rem;
+    color: var(--slate-500);
+    text-transform: uppercase;
+    font-weight: 700;
+}
+
+.product-seller-name {
+    font-weight: 700;
+    color: var(--slate-800);
+    font-size: 0.9375rem;
+}
+
+.product-seller-location {
+    font-size: 0.75rem;
+    color: var(--slate-500);
+}
+
+.product-detail-price {
+    font-size: 2rem;
+    font-weight: 900;
+    color: var(--ezipink-500);
+    margin-bottom: 1rem;
+}
+
+.product-detail-desc {
+    color: var(--slate-600);
+    font-size: 0.875rem;
+    line-height: 1.6;
+    margin-bottom: 1.5rem;
+}
+
+.product-cart-form {
+    border-top: 1px solid var(--slate-200);
+    padding-top: 1.5rem;
+}
+
+.product-qty-row {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 1.25rem;
+}
+
+.product-qty-label {
+    font-size: 0.875rem;
+    font-weight: 700;
+    color: var(--slate-700);
+}
+
+.product-qty-input {
+    width: 80px;
+    padding: 0.5rem;
+    border: 1px solid var(--slate-300);
+    border-radius: 0.375rem;
+    font-weight: 700;
+    text-align: center;
+    outline: none;
+}
+
+.product-qty-input:focus {
+    border-color: var(--ezipink-500);
+}
+
+.product-stock-available {
+    font-size: 0.8125rem;
+    color: var(--slate-500);
+}
+
+.product-actions-row {
+    display: flex;
+    gap: 1rem;
+}
+
+.product-btn-add-cart {
+    flex: 1;
+    padding: 0.875rem;
+    font-size: 0.875rem;
+    font-weight: 700;
+    border: none;
+    cursor: pointer;
+}
+
+/* Role Restriction Notice for Storefront */
+.role-restriction-box {
+    margin-top: 1.5rem;
+    padding: 1.25rem;
+    background-color: var(--slate-100);
+    border: 1px dashed var(--slate-300);
+    border-radius: 0.5rem;
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+}
+
+.role-restriction-icon {
+    font-size: 1.25rem;
+    line-height: 1;
+}
+
+.role-restriction-title {
+    font-size: 0.875rem;
+    font-weight: 700;
+    color: var(--slate-800);
+}
+
+.role-restriction-text {
+    font-size: 0.75rem;
+    color: var(--slate-600);
+    margin-top: 0.25rem;
+    line-height: 1.4;
+}

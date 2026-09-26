@@ -1,7 +1,7 @@
 @extends('layouts.app')
 
 @push('styles')
-    <link rel="stylesheet" href="{{ asset('css/cart.css') }}">
+    @vite('resources/css/buyer/cart.css')
 @endpush
 
 @section('content')

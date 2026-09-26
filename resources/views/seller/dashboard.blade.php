@@ -1,7 +1,7 @@
 @extends('layouts.app')
 
 @push('styles')
-    <link rel="stylesheet" href="{{ asset('css/dashboard.css') }}">
+    @vite('resources/css/shared/dashboard.css')
 @endpush
 
 @section('content')

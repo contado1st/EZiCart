@@ -1,24 +1,24 @@
 <?php
 
-use App\Http\Controllers\AdminAnnouncementController;
-use App\Http\Controllers\AdminController;
-use App\Http\Controllers\AdminDisputeController;
-use App\Http\Controllers\AdminModerationController;
-use App\Http\Controllers\AdminReportController;
-use App\Http\Controllers\AuthController;
-use App\Http\Controllers\BuyerController;
-use App\Http\Controllers\CartController;
-use App\Http\Controllers\CheckoutController;
-use App\Http\Controllers\CourierController;
-use App\Http\Controllers\DisputeController;
+use App\Http\Controllers\Admin\AdminAnnouncementController;
+use App\Http\Controllers\Admin\AdminController;
+use App\Http\Controllers\Admin\AdminDisputeController;
+use App\Http\Controllers\Admin\AdminModerationController;
+use App\Http\Controllers\Admin\AdminReportController;
+use App\Http\Controllers\Auth\AuthController;
+use App\Http\Controllers\Buyer\BuyerController;
+use App\Http\Controllers\Buyer\CartController;
+use App\Http\Controllers\Buyer\CheckoutController;
+use App\Http\Controllers\Buyer\DisputeController;
+use App\Http\Controllers\Buyer\ReviewController;
+use App\Http\Controllers\Courier\CourierController;
 use App\Http\Controllers\HomeController;
-use App\Http\Controllers\LogisticsController;
-use App\Http\Controllers\ProductController;
-use App\Http\Controllers\ReviewController;
-use App\Http\Controllers\SellerController;
-use App\Http\Controllers\SellerOrderController;
-use App\Http\Controllers\SellerReportController;
-use App\Http\Controllers\SellerVoucherController;
+use App\Http\Controllers\Logistics\LogisticsController;
+use App\Http\Controllers\Seller\ProductController;
+use App\Http\Controllers\Seller\SellerController;
+use App\Http\Controllers\Seller\SellerOrderController;
+use App\Http\Controllers\Seller\SellerReportController;
+use App\Http\Controllers\Seller\SellerVoucherController;
 use Illuminate\Support\Facades\Route;
 
 // 1. Public Marketplace & Browsing Routes

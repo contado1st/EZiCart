@@ -1,6 +1,6 @@
 @extends('layouts.app')
 @push('styles')
-    @vite('resources/css/courier.css')
+    @vite('resources/css/courier/courier.css')
 @endpush
 @section('content')
     <div class="ops-shell">

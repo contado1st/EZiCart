@@ -1,7 +1,7 @@
 @extends('layouts.app')
 
 @push('styles')
-    <link rel="stylesheet" href="{{ asset('css/marketplace.css') }}">
+    @vite('resources/css/storefront/marketplace.css')
 @endpush
 
 @section('content')

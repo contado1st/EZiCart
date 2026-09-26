@@ -1,7 +1,7 @@
 @extends('layouts.app')
 
 @push('styles')
-    @vite('resources/css/logistics.css')
+    @vite('resources/css/logistics/logistics.css')
 @endpush
 
 @section('content')
