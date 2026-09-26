@@ -84,6 +84,57 @@ class LogisticsWorkflowTest extends TestCase
             ->assertOk()->assertSee($ownOrder->order_number)->assertDontSee($otherOrder->order_number);
     }
 
+    public function test_logistics_can_approve_reject_reassign_and_return_failed_parcels(): void
+    {
+        $center = $this->user('sorting_center', 'approved');
+        $pendingRider = $this->user('courier', 'pending');
+        $rejectedRider = $this->user('courier', 'pending');
+        $firstRider = $this->user('courier', 'approved');
+        $nextRider = $this->user('courier', 'approved');
+
+        $this->actingAs($center)->post(route('logistics.riders.approve', $pendingRider))->assertRedirect();
+        $this->actingAs($center)->post(route('logistics.riders.reject', $rejectedRider))->assertRedirect();
+        $this->assertDatabaseHas('users', ['id' => $pendingRider->id, 'status' => 'approved']);
+        $this->assertDatabaseHas('users', ['id' => $rejectedRider->id, 'status' => 'rejected']);
+
+        $order = $this->order(['status' => 'SORTED', 'delivery_area' => 'Majayjay']);
+        $this->actingAs($center)->post(route('logistics.orders.assignRider', $order), ['delivery_courier_id' => $firstRider->id])->assertRedirect();
+        $this->actingAs($center)->post(route('logistics.orders.assignRider', $order), ['delivery_courier_id' => $nextRider->id])->assertRedirect();
+        $this->assertDatabaseHas('orders', ['id' => $order->id, 'delivery_courier_id' => $nextRider->id]);
+
+        $order->update(['status' => 'DELIVERY_FAILED']);
+        $this->actingAs($center)->post(route('logistics.orders.return', $order))->assertRedirect();
+        $this->assertDatabaseHas('orders', ['id' => $order->id, 'status' => 'RETURNED', 'delivery_courier_id' => null]);
+        $this->assertDatabaseHas('parcel_tracking_events', ['order_id' => $order->id, 'event_type' => 'returned']);
+    }
+
+    public function test_logistics_workspace_pages_render_with_live_records(): void
+    {
+        $center = $this->user('sorting_center', 'approved');
+        $this->order(['status' => 'AT_SORTING_CENTER']);
+
+        $this->actingAs($center)->get(route('logistics.dashboard'))->assertOk();
+        $this->get(route('logistics.intake'))->assertOk();
+        $this->get(route('logistics.sorting'))->assertOk();
+        $this->get(route('logistics.dispatch'))->assertOk();
+        $this->get(route('logistics.tracking'))->assertOk();
+        $this->get(route('logistics.riders'))->assertOk();
+        $this->get(route('logistics.reports'))->assertOk();
+    }
+
+    public function test_courier_workspace_pages_render_and_detail_is_owner_scoped(): void
+    {
+        $courier = $this->user('courier', 'approved');
+        $assignedOrder = $this->order(['status' => 'ASSIGNED_TO_RIDER', 'delivery_courier_id' => $courier->id]);
+        $otherOrder = $this->order(['status' => 'ASSIGNED_TO_RIDER', 'delivery_courier_id' => $this->user('courier', 'approved')->id]);
+
+        $this->actingAs($courier)->get(route('courier.dashboard'))->assertOk();
+        $this->get(route('courier.tracking'))->assertOk();
+        $this->get(route('courier.history'))->assertOk();
+        $this->get(route('courier.orders.show', $assignedOrder))->assertOk()->assertSee($assignedOrder->order_number);
+        $this->get(route('courier.orders.show', $otherOrder))->assertForbidden();
+    }
+
     private function user(string $role, string $status, array $extra = []): User
     {
         return User::create(array_merge([

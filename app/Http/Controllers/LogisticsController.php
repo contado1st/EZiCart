@@ -106,8 +106,10 @@ class LogisticsController extends Controller
 
     public function dispatch(): View
     {
-        $parcels = Order::whereIn('status', ['SORTED', 'ASSIGNED_TO_RIDER'])->with(['buyer', 'deliveryCourier'])->latest()->paginate(15);
-        $riders = User::where('role', 'courier')->where('status', 'approved')->orderBy('assigned_area')->orderBy('first_name')->get();
+        $parcels = Order::whereIn('status', ['SORTED', 'ASSIGNED_TO_RIDER', 'DELIVERY_FAILED'])->with(['buyer', 'deliveryCourier'])->latest()->paginate(15);
+        $riders = User::where('role', 'courier')->where('status', 'approved')->withCount([
+            'finalDeliveries as active_deliveries_count' => fn (Builder $query) => $query->whereIn('status', ['ASSIGNED_TO_RIDER', 'OUT_FOR_DELIVERY']),
+        ])->orderBy('assigned_area')->orderBy('first_name')->get();
 
         return view('logistics.dispatch', compact('parcels', 'riders'));
     }
@@ -160,6 +162,20 @@ class LogisticsController extends Controller
         return back()->with('success', 'Courier application rejected.');
     }
 
+    public function returnParcel(Order $order): RedirectResponse
+    {
+        $operator = $this->authenticatedUser();
+
+        return DB::transaction(function () use ($order, $operator): RedirectResponse {
+            $lockedOrder = Order::whereKey($order->id)->lockForUpdate()->firstOrFail();
+            abort_unless($lockedOrder->status === 'DELIVERY_FAILED', 422, 'Only a failed delivery can be returned.');
+            $lockedOrder->update(['status' => 'RETURNED', 'delivery_courier_id' => null]);
+            $this->recordEvent($lockedOrder, 'returned', $operator, $operator->municipality, 'Logistics returned the failed parcel to sender processing.');
+
+            return back()->with('success', "Order {$lockedOrder->order_number} marked for return handling.");
+        });
+    }
+
     public function suspendRider(User $user): RedirectResponse
     {
         abort_unless($user->role === 'courier' && $user->status === 'approved', 404);
@@ -178,13 +194,20 @@ class LogisticsController extends Controller
 
     public function tracking(Request $request): View
     {
+        $validated = $request->validate([
+            'status' => ['nullable', 'in:PICKED_UP,AT_SORTING_CENTER,SORTED,ASSIGNED_TO_RIDER,OUT_FOR_DELIVERY,DELIVERY_FAILED,RETURNED'],
+            'rider' => ['nullable', 'integer', 'exists:users,id'],
+            'area' => ['nullable', 'string', 'max:100'],
+            'date' => ['nullable', 'date'],
+            'search' => ['nullable', 'string', 'max:100'],
+        ]);
         $orders = Order::with(['deliveryCourier', 'pickupCourier', 'trackingEvents.actor'])
             ->whereIn('status', ['PICKED_UP', 'AT_SORTING_CENTER', 'SORTED', 'ASSIGNED_TO_RIDER', 'OUT_FOR_DELIVERY', 'DELIVERY_FAILED', 'RETURNED'])
-            ->when($request->filled('status'), fn (Builder $query) => $query->where('status', $request->string('status')->toString()))
-            ->when($request->filled('rider'), fn (Builder $query) => $query->where('delivery_courier_id', $request->integer('rider')))
-            ->when($request->filled('area'), fn (Builder $query) => $query->where('delivery_area', $request->string('area')->toString()))
-            ->when($request->filled('date'), fn (Builder $query) => $query->whereDate('updated_at', $request->date('date')))
-            ->when($request->filled('search'), fn (Builder $query) => $query->where('order_number', 'like', '%'.$request->string('search').'%'))
+            ->when($validated['status'] ?? null, fn (Builder $query, string $status) => $query->where('status', $status))
+            ->when($validated['rider'] ?? null, fn (Builder $query, int $rider) => $query->where('delivery_courier_id', $rider))
+            ->when($validated['area'] ?? null, fn (Builder $query, string $area) => $query->where('delivery_area', $area))
+            ->when($validated['date'] ?? null, fn (Builder $query, string $date) => $query->whereDate('updated_at', $date))
+            ->when($validated['search'] ?? null, fn (Builder $query, string $search) => $query->where('order_number', 'like', '%'.$search.'%'))
             ->latest()->paginate(20)->withQueryString();
         $riders = User::where('role', 'courier')->orderBy('first_name')->get(['id', 'first_name', 'last_name']);
         $areas = Order::whereNotNull('delivery_area')->distinct()->orderBy('delivery_area')->pluck('delivery_area');

@@ -31,6 +31,15 @@ class CourierController extends Controller
         return view('courier.dashboard', compact('courier', 'availablePickups', 'claimedPickups', 'myActivePickups', 'myDeliveryAssignments', 'stats'));
     }
 
+    public function showOrder(Order $order): View
+    {
+        $courier = $this->authenticatedUser();
+        abort_unless($order->pickup_courier_id === $courier->id || $order->delivery_courier_id === $courier->id, 403);
+        $order->load(['seller', 'buyer', 'items', 'trackingEvents.actor']);
+
+        return view('courier.orders.show', compact('order'));
+    }
+
     public function claimPickup(Order $order): RedirectResponse
     {
         $courier = $this->authenticatedUser();

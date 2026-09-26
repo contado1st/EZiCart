@@ -98,6 +98,7 @@ Route::middleware(['auth'])->group(function () {
     Route::middleware(['role:courier'])->prefix('courier')->name('courier.')->group(function () {
         Route::get('/dashboard', [CourierController::class, 'dashboard'])->name('dashboard');
         Route::post('/orders/{order}/claim', [CourierController::class, 'claimPickup'])->name('orders.claim');
+        Route::get('/orders/{order}', [CourierController::class, 'showOrder'])->name('orders.show');
         Route::post('/orders/{order}/confirm-pickup', [CourierController::class, 'confirmPickup'])->name('orders.confirmPickup');
         Route::post('/orders/{order}/start-delivery', [CourierController::class, 'startDelivery'])->name('orders.startDelivery');
         Route::patch('/orders/{order}/complete-delivery', [CourierController::class, 'completeDelivery'])->name('orders.completeDelivery');
@@ -118,6 +119,7 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/orders/{order}/receive', [LogisticsController::class, 'receiveParcel'])->name('orders.receive');
         Route::post('/orders/{order}/sort', [LogisticsController::class, 'sortParcel'])->name('orders.sort');
         Route::post('/orders/{order}/assign-rider', [LogisticsController::class, 'assignRider'])->name('orders.assignRider');
+        Route::post('/orders/{order}/return', [LogisticsController::class, 'returnParcel'])->name('orders.return');
 
         Route::get('/riders', [LogisticsController::class, 'riders'])->name('riders');
         Route::post('/riders/{user}/approve', [LogisticsController::class, 'approveRider'])->name('riders.approve');
