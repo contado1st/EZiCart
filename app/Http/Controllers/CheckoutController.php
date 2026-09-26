@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Order;
 use App\Models\OrderItem;
+use App\Models\ParcelTrackingEvent;
 use App\Models\Product;
 use App\Models\ProductVariation;
 use App\Models\Voucher;
@@ -190,6 +191,14 @@ class CheckoutController extends Controller
                     'payment_method' => $validated['payment_method'],
                     'status' => 'PLACED',
                     'notes' => $validated['notes'] ?? null,
+                ]);
+                ParcelTrackingEvent::create([
+                    'order_id' => $order->id,
+                    'actor_id' => $this->authenticatedUser()->id,
+                    'event_type' => 'order_placed',
+                    'status' => $order->status,
+                    'location' => $order->municipality,
+                    'notes' => 'Order placed by buyer.',
                 ]);
 
                 foreach ($items as $itm) {

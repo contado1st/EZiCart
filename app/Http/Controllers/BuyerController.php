@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Order;
+use App\Models\ParcelTrackingEvent;
 use Illuminate\Http\Request;
 
 class BuyerController extends Controller
@@ -35,7 +36,7 @@ class BuyerController extends Controller
     {
         abort_if($order->buyer_id !== $this->authenticatedUser()->id, 403);
 
-        $order->load(['seller', 'items.product', 'dispute']);
+        $order->load(['seller', 'items.product', 'dispute', 'trackingEvents.actor']);
 
         return view('buyer.orders.show', compact('order'));
     }
@@ -46,6 +47,14 @@ class BuyerController extends Controller
         abort_if($order->status !== 'DELIVERED', 400);
 
         $order->update(['status' => 'COMPLETED']);
+        ParcelTrackingEvent::create([
+            'order_id' => $order->id,
+            'actor_id' => $this->authenticatedUser()->id,
+            'event_type' => 'order_completed',
+            'status' => 'COMPLETED',
+            'location' => $order->municipality,
+            'notes' => 'Buyer confirmed receipt.',
+        ]);
 
         return back()->with('success', 'Order marked as completed! Thank you for confirming.');
     }

@@ -1,25 +1,26 @@
 <?php
 
-use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\HomeController;
-use App\Http\Controllers\AuthController;
+use App\Http\Controllers\AdminAnnouncementController;
 use App\Http\Controllers\AdminController;
-use App\Http\Controllers\SellerController;
-use App\Http\Controllers\ProductController;
+use App\Http\Controllers\AdminDisputeController;
+use App\Http\Controllers\AdminModerationController;
+use App\Http\Controllers\AdminReportController;
+use App\Http\Controllers\AuthController;
+use App\Http\Controllers\BuyerController;
 use App\Http\Controllers\CartController;
 use App\Http\Controllers\CheckoutController;
-use App\Http\Controllers\BuyerController;
-use App\Http\Controllers\SellerOrderController;
 use App\Http\Controllers\CourierController;
-use App\Http\Controllers\LogisticsController;
-use App\Http\Controllers\SellerVoucherController;
-use App\Http\Controllers\ReviewController;
-use App\Http\Controllers\SellerReportController;
-use App\Http\Controllers\AdminReportController;
 use App\Http\Controllers\DisputeController;
-use App\Http\Controllers\AdminDisputeController;
-use App\Http\Controllers\AdminAnnouncementController;
-use App\Http\Controllers\AdminModerationController;
+use App\Http\Controllers\HomeController;
+use App\Http\Controllers\LogisticsController;
+use App\Http\Controllers\ProductController;
+use App\Http\Controllers\ReviewController;
+use App\Http\Controllers\SellerController;
+use App\Http\Controllers\SellerOrderController;
+use App\Http\Controllers\SellerReportController;
+use App\Http\Controllers\SellerVoucherController;
+use Illuminate\Support\Facades\Route;
+
 // 1. Public Marketplace & Browsing Routes
 Route::get('/', [HomeController::class, 'index'])->name('home');
 Route::get('/product/{product}', [HomeController::class, 'showProduct'])->name('product.show');
@@ -97,13 +98,23 @@ Route::middleware(['auth'])->group(function () {
     Route::middleware(['role:courier'])->prefix('courier')->name('courier.')->group(function () {
         Route::get('/dashboard', [CourierController::class, 'dashboard'])->name('dashboard');
         Route::post('/orders/{order}/claim', [CourierController::class, 'claimPickup'])->name('orders.claim');
+        Route::post('/orders/{order}/confirm-pickup', [CourierController::class, 'confirmPickup'])->name('orders.confirmPickup');
         Route::post('/orders/{order}/start-delivery', [CourierController::class, 'startDelivery'])->name('orders.startDelivery');
         Route::patch('/orders/{order}/complete-delivery', [CourierController::class, 'completeDelivery'])->name('orders.completeDelivery');
+        Route::patch('/orders/{order}/fail-delivery', [CourierController::class, 'failDelivery'])->name('orders.failDelivery');
+        Route::get('/history', [CourierController::class, 'history'])->name('history');
+        Route::get('/tracking', [CourierController::class, 'tracking'])->name('tracking');
     });
 
     // Logistics / Sorting Center Routes
     Route::middleware(['role:sorting_center'])->prefix('logistics')->name('logistics.')->group(function () {
         Route::get('/dashboard', [LogisticsController::class, 'dashboard'])->name('dashboard');
+        Route::get('/intake', [LogisticsController::class, 'intake'])->name('intake');
+        Route::post('/scan', [LogisticsController::class, 'scan'])->name('scan');
+        Route::get('/sorting', [LogisticsController::class, 'sorting'])->name('sorting');
+        Route::get('/dispatch', [LogisticsController::class, 'dispatch'])->name('dispatch');
+        Route::get('/tracking', [LogisticsController::class, 'tracking'])->name('tracking');
+        Route::get('/reports', [LogisticsController::class, 'reports'])->name('reports');
         Route::post('/orders/{order}/receive', [LogisticsController::class, 'receiveParcel'])->name('orders.receive');
         Route::post('/orders/{order}/sort', [LogisticsController::class, 'sortParcel'])->name('orders.sort');
         Route::post('/orders/{order}/assign-rider', [LogisticsController::class, 'assignRider'])->name('orders.assignRider');
@@ -111,6 +122,8 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/riders', [LogisticsController::class, 'riders'])->name('riders');
         Route::post('/riders/{user}/approve', [LogisticsController::class, 'approveRider'])->name('riders.approve');
         Route::post('/riders/{user}/reject', [LogisticsController::class, 'rejectRider'])->name('riders.reject');
+        Route::post('/riders/{user}/suspend', [LogisticsController::class, 'suspendRider'])->name('riders.suspend');
+        Route::post('/riders/{user}/reactivate', [LogisticsController::class, 'reactivateRider'])->name('riders.reactivate');
     });
 
     // Admin-Only Routes

@@ -72,6 +72,13 @@
             <p>Shipping: {{ number_format($order->shipping_fee, 2) }}</p>
             <p><strong>Total: {{ number_format($order->total_amount, 2) }}</strong></p>
 
+            <h2 class="courier-section-title">Tracking history</h2>
+            @forelse($order->trackingEvents as $event)
+                <p><strong>{{ str_replace('_', ' ', $event->event_type) }}</strong> · {{ $event->created_at->format('M d, Y h:i A') }} · {{ $event->location ?? '—' }} @if($event->actor) · {{ $event->actor->first_name }} {{ $event->actor->last_name }} @endif</p>
+            @empty
+                <p>Tracking events will appear as the order moves through fulfillment.</p>
+            @endforelse
+
             <div class="order-card-footer">
                 @if($order->dispute)
                     <span class="status-pill">Dispute: {{ str_replace('_', ' ', $order->dispute->status) }}</span>
