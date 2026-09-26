@@ -1,4 +1,12 @@
-@import './operations.css';
-.courier-pickup { border-left:3px solid #d6b1d2; }
-.courier-delivery { border-left:3px solid #9a7aaf; }
-.courier-actions { display:flex; gap:6px; flex-wrap:wrap; }
+@import "./operations.css";
+.courier-pickup {
+    border-left: 3px solid #d6b1d2;
+}
+.courier-delivery {
+    border-left: 3px solid #9a7aaf;
+}
+.courier-actions {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+}

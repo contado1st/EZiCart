@@ -4,7 +4,6 @@ namespace App\Http\Controllers;
 
 use App\Models\Order;
 use App\Models\User;
-use Illuminate\Http\Request;
 
 class AdminController extends Controller
 {
@@ -21,10 +20,10 @@ class AdminController extends Controller
         // 3. System Metrics
         $stats = [
             'total_commission' => $platformEarnings,
-            'gmv'              => $grossMerchandiseValue,
-            'pending_users'    => User::where('status', 'pending')->count(),
-            'active_parcels'   => Order::whereIn('status', [
-                'READY_FOR_PICKUP', 'PICKED_UP', 'AT_SORTING_CENTER', 'SORTED', 'ASSIGNED_TO_RIDER', 'OUT_FOR_DELIVERY'
+            'gmv' => $grossMerchandiseValue,
+            'pending_users' => User::where('status', 'pending')->count(),
+            'active_parcels' => Order::whereIn('status', [
+                'READY_FOR_PICKUP', 'PICKED_UP', 'AT_SORTING_CENTER', 'SORTED', 'ASSIGNED_TO_RIDER', 'OUT_FOR_DELIVERY',
             ])->count(),
         ];
 
@@ -46,18 +45,21 @@ class AdminController extends Controller
     public function index()
     {
         $pendingUsers = User::where('status', 'pending')->latest()->paginate(15);
+
         return view('admin.registrations', compact('pendingUsers'));
     }
 
     public function approve(User $user)
     {
         $user->update(['status' => 'approved']);
+
         return back()->with('success', "Account for {$user->first_name} {$user->last_name} ({$user->role}) has been approved.");
     }
 
     public function reject(User $user)
     {
         $user->update(['status' => 'rejected']);
+
         return back()->with('success', "Account for {$user->first_name} {$user->last_name} ({$user->role}) has been rejected.");
     }
 }
