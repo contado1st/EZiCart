@@ -71,6 +71,7 @@ class SellerOrderController extends Controller
     {
         abort_if($order->seller_id !== $this->authenticatedUser()->id, 403);
         $actor = $this->authenticatedUser();
+        abort_unless($order->return_handed_to_seller_at !== null, 422, 'The courier must record the return handoff before you confirm receipt.');
         $transitions->transition($order, $actor, OrderStatus::ReturnedToSeller, 'returned_to_seller', $actor->municipality, 'Seller confirmed receipt of the returned parcel.');
 
         return back()->with('success', 'Return receipt confirmed and inventory restored.');
@@ -91,12 +92,12 @@ class SellerOrderController extends Controller
             $lockedOrder = Order::query()->whereKey($order->id)->lockForUpdate()->firstOrFail();
             abort_unless($lockedOrder->status === 'READY_FOR_PICKUP' && $lockedOrder->pickup_requested_at === null && $lockedOrder->pickup_courier_id === null, 422, 'This order is not eligible for pickup scheduling.');
 
-            $lockedOrder->update([
+            $lockedOrder->forceFill([
                 'pickup_requested_at' => now(),
                 'pickup_scheduled_for' => $validated['pickup_scheduled_for'],
                 'pickup_window' => $validated['pickup_window'],
                 'pickup_notes' => $validated['pickup_notes'] ?? null,
-            ]);
+            ])->save();
             ParcelTrackingEvent::create([
                 'order_id' => $lockedOrder->id,
                 'actor_id' => $seller->id,
@@ -121,7 +122,7 @@ class SellerOrderController extends Controller
         return DB::transaction(function () use ($order, $seller) {
             $lockedOrder = Order::query()->whereKey($order->id)->lockForUpdate()->firstOrFail();
             abort_unless($lockedOrder->status === 'READY_FOR_PICKUP' && $lockedOrder->pickup_courier_id !== null && $lockedOrder->pickup_arrived_at !== null && $lockedOrder->seller_handover_at === null, 422, 'Seller handover is not ready to confirm.');
-            $lockedOrder->update(['seller_handover_at' => now()]);
+            $lockedOrder->forceFill(['seller_handover_at' => now()])->save();
             ParcelTrackingEvent::create([
                 'order_id' => $lockedOrder->id,
                 'actor_id' => $seller->id,

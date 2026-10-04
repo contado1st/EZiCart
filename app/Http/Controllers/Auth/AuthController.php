@@ -144,7 +144,7 @@ class AuthController extends Controller
         $idPath = $request->file('id_document')->store('documents/ids', 'private');
         $age = Carbon::parse($validated['birthday'])->age;
 
-        User::create([
+        User::query()->forceCreate([
             'first_name' => $validated['first_name'],
             'last_name' => $validated['last_name'],
             'middle_initial' => $validated['middle_initial'] ?? null,
@@ -196,7 +196,7 @@ class AuthController extends Controller
         $permitPath = $request->file('business_permit')->store('documents/permits', 'private');
         $age = Carbon::parse($validated['birthday'])->age;
 
-        User::create([
+        User::query()->forceCreate([
             'first_name' => $validated['first_name'],
             'last_name' => $validated['last_name'],
             'middle_initial' => $validated['middle_initial'] ?? null,
@@ -251,7 +251,7 @@ class AuthController extends Controller
         $orCrPath = $request->file('or_cr_document')->store('documents/or_cr', 'private');
         $age = Carbon::parse($validated['birthday'])->age;
 
-        User::create([
+        User::query()->forceCreate([
             'first_name' => $validated['first_name'],
             'last_name' => $validated['last_name'],
             'middle_initial' => $validated['middle_initial'] ?? null,
@@ -305,7 +305,7 @@ class AuthController extends Controller
         $permitPath = $request->file('business_permit')->store('documents/permits', 'private');
         $age = Carbon::parse($validated['birthday'])->age;
 
-        User::create([
+        User::query()->forceCreate([
             'first_name' => $validated['first_name'],
             'last_name' => $validated['last_name'],
             'middle_initial' => $validated['middle_initial'] ?? null,

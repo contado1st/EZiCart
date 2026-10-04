@@ -22,8 +22,6 @@ class User extends Authenticatable
     protected $fillable = [
         'email',
         'password',
-        'role',
-        'status',
         'first_name',
         'last_name',
         'middle_initial',
@@ -46,8 +44,6 @@ class User extends Authenticatable
         'permit_path',
         'license_path',
         'or_cr_path',
-        'suspension_reason',
-        'suspended_at',
     ];
 
     /**

@@ -32,7 +32,7 @@
                             </td>
                             <td>
                                 @if ($order->status === 'RETURN_IN_TRANSIT')
-                                    <span class="ops-muted">Awaiting seller receipt confirmation</span>
+                                    <span class="ops-muted">{{ $order->return_handed_to_seller_at ? 'Seller receipt confirmation pending' : 'Awaiting courier to record seller handoff' }}</span>
                                 @else
                                 @php($suggestedRider = $suggestedRiders[$order->id] ?? null)
                                 @if ($order->status === 'DELIVERY_FAILED')

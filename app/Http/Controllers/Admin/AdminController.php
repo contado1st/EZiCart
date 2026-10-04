@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Order;
 use App\Models\Product;
 use App\Models\User;
+use App\Notifications\AccountStatusNotification;
 
 class AdminController extends Controller
 {
@@ -56,7 +57,8 @@ class AdminController extends Controller
     {
         abort_unless($user->status === 'pending', 422, 'Only pending accounts can be approved.');
 
-        $user->update(['status' => 'approved']);
+        $user->forceFill(['status' => 'approved'])->save();
+        $user->notify(new AccountStatusNotification('approved'));
 
         return back()->with('success', "Account for {$user->first_name} {$user->last_name} ({$user->role}) has been approved.");
     }
@@ -65,7 +67,8 @@ class AdminController extends Controller
     {
         abort_unless($user->status === 'pending', 422, 'Only pending accounts can be rejected.');
 
-        $user->update(['status' => 'rejected']);
+        $user->forceFill(['status' => 'rejected'])->save();
+        $user->notify(new AccountStatusNotification('rejected'));
 
         return back()->with('success', "Account for {$user->first_name} {$user->last_name} ({$user->role}) has been rejected.");
     }

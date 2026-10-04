@@ -19,6 +19,7 @@
         <div class="ops-stat"><span>Pickup claims</span><strong>{{ $stats['claimed_pickups'] }}</strong></div>
         <div class="ops-stat"><span>Parcels to hub</span><strong>{{ $stats['in_transit_hub'] }}</strong></div>
         <div class="ops-stat"><span>Delivery workload</span><strong>{{ $stats['assigned_delivery'] }}</strong></div>
+        <div class="ops-stat"><span>Returns to seller</span><strong>{{ $stats['returning_to_seller'] }}</strong></div>
         <div class="ops-stat"><span>Delivered today</span><strong>{{ $stats['completed_today'] }}</strong></div>
         <div class="ops-stat"><span>Failed today</span><strong>{{ $stats['failed_today'] }}</strong></div>
     </section>
@@ -123,6 +124,25 @@
                                 <div class="ops-empty">No parcels in transit to the sorting center.</div>
                             </td>
                         </tr>
+                    @endforelse
+                </tbody>
+            </table>
+        </div>
+    </section>
+    <section class="ops-panel courier-delivery">
+        <h2>Return parcels to sellers</h2>
+        <div class="ops-table-wrap">
+            <table class="ops-table">
+                <thead><tr><th>Order</th><th>Seller return address</th><th>Next step</th></tr></thead>
+                <tbody>
+                    @forelse ($myReturns as $order)
+                        <tr>
+                            <td class="ops-mono">{{ $order->order_number }}</td>
+                            <td>{{ $order->seller?->business_name ?? $order->seller?->first_name }}<div class="ops-muted">{{ $order->seller?->street_address }}, {{ $order->seller?->barangay }}, {{ $order->seller?->municipality }}</div></td>
+                            <td><form method="POST" action="{{ route('courier.orders.confirmReturnDelivery', $order) }}" onsubmit="return confirm('Confirm that you physically handed this return parcel to the seller?')">@csrf<button class="ops-btn ops-btn--primary" @disabled($courier->status !== 'approved')>Record seller handoff</button></form></td>
+                        </tr>
+                    @empty
+                        <tr><td colspan="3"><div class="ops-empty">No return parcels are waiting for seller handoff.</div></td></tr>
                     @endforelse
                 </tbody>
             </table>

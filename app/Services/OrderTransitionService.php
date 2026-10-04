@@ -29,6 +29,17 @@ class OrderTransitionService
         'RETURN_IN_TRANSIT' => ['RETURNED_TO_SELLER'],
     ];
 
+    /** @var array<string, list<string>> */
+    private const TRANSITION_ATTRIBUTES = [
+        'PICKED_UP' => ['picked_up_at'],
+        'AT_SORTING_CENTER' => ['sorting_center_id', 'received_at'],
+        'SORTED' => ['destination_area_id', 'delivery_area', 'sorted_at'],
+        'ASSIGNED_TO_RIDER' => ['delivery_courier_id', 'assigned_at', 'failed_at', 'delivery_failure_reason'],
+        'OUT_FOR_DELIVERY' => ['out_for_delivery_at'],
+        'DELIVERY_FAILED' => ['failed_at', 'delivery_failure_reason', 'delivery_notes'],
+        'DELIVERED' => ['delivered_at', 'delivery_notes', 'cod_collected_amount'],
+    ];
+
     /** @param array<string, mixed> $attributes */
     public function __construct(private InventoryRestorationService $inventoryRestoration) {}
 
@@ -41,6 +52,11 @@ class OrderTransitionService
         ?string $notes = null,
         array $attributes = [],
     ): Order {
+        $unexpectedAttributes = array_diff(array_keys($attributes), self::TRANSITION_ATTRIBUTES[$target->value] ?? []);
+        if ($unexpectedAttributes !== []) {
+            throw new HttpException(422, 'The transition included attributes that are not allowed for this order status.');
+        }
+
         return DB::transaction(function () use ($order, $actor, $target, $eventType, $location, $notes, $attributes): Order {
             $lockedOrder = Order::query()->whereKey($order->id)->lockForUpdate()->firstOrFail();
             $current = $lockedOrder->status;
@@ -50,7 +66,7 @@ class OrderTransitionService
             }
 
             $this->authorizeActor($lockedOrder, $actor, $target);
-            $lockedOrder->update([...$attributes, 'status' => $target->value]);
+            $lockedOrder->forceFill([...$attributes, 'status' => $target->value])->save();
 
             $this->recordAssignmentLifecycle($lockedOrder->refresh(), $actor, $target);
 
@@ -157,12 +173,15 @@ class OrderTransitionService
             return;
         }
 
-        $finalStatus = $target === OrderStatus::Delivered ? 'completed' : 'returned';
+        if ($target === OrderStatus::ReturnInTransit) {
+            return;
+        }
+
         $activeAssignment->update([
-            'status' => $finalStatus,
+            'status' => 'completed',
             'active_order_id' => null,
             'released_at' => now(),
-            'completed_at' => $target === OrderStatus::Delivered ? now() : null,
+            'completed_at' => now(),
         ]);
     }
 

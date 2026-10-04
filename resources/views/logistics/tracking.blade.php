@@ -54,7 +54,7 @@
                             class="ops-btn ops-btn--danger">Return to sender</button></form>
                 @endif
                 @if ($order->status === 'RETURN_IN_TRANSIT')
-                    <span class="ops-muted">Awaiting seller receipt confirmation</span>
+                    <span class="ops-muted">{{ $order->return_handed_to_seller_at ? 'Seller receipt confirmation pending' : 'Awaiting courier to record seller handoff' }}</span>
                 @endif
                 @if ($order->messageParticipants()->contains('id', auth()->id()))
                     <a class="ops-btn" href="{{ route('logistics.orders.messages.show', $order) }}">Order messages</a>

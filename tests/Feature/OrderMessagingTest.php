@@ -62,10 +62,10 @@ class OrderMessagingTest extends TestCase
         $center = $this->user('sorting_center');
         $admin = $this->user('admin');
         $order = $this->order($buyer, $seller);
-        $order->update([
+        $order->forceFill([
             'pickup_courier_id' => $courier->id,
             'sorting_center_id' => $center->id,
-        ]);
+        ])->save();
 
         $this->actingAsUser($courier)->get(route('courier.orders.messages.show', $order))->assertOk();
         $this->post(route('courier.orders.messages.store', $order), ['body' => 'I have arrived for pickup.'])->assertRedirect();
@@ -83,7 +83,7 @@ class OrderMessagingTest extends TestCase
         $this->actingAsUser($center)->get(route('logistics.orders.messages.show', $order))
             ->assertOk()->assertSee('I have arrived for pickup.');
 
-        $order->update(['pickup_courier_id' => null]);
+        $order->forceFill(['pickup_courier_id' => null])->save();
         ParcelTrackingEvent::query()->create([
             'order_id' => $order->id,
             'actor_id' => $courier->id,
@@ -111,7 +111,7 @@ class OrderMessagingTest extends TestCase
 
     private function user(string $role): User
     {
-        return User::query()->create([
+        return User::query()->forceCreate([
             'email' => fake()->unique()->safeEmail(),
             'password' => 'password',
             'role' => $role,
@@ -131,7 +131,7 @@ class OrderMessagingTest extends TestCase
 
     private function order(User $buyer, User $seller): Order
     {
-        return Order::query()->create([
+        return Order::query()->forceCreate([
             'order_number' => 'EZC-'.strtoupper(fake()->unique()->bothify('??????????')),
             'buyer_id' => $buyer->id,
             'seller_id' => $seller->id,

@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Courier;
 
 use App\Enums\OrderStatus;
 use App\Http\Controllers\Controller;
+use App\Models\DeliveryAssignment;
 use App\Models\DeliveryAttempt;
 use App\Models\Order;
 use App\Models\ParcelTrackingEvent;
@@ -27,6 +28,13 @@ class CourierController extends Controller
         $availablePickups = Order::where('status', 'READY_FOR_PICKUP')->where('pickup_courier_id', $courier->id)->whereNull('pickup_claimed_at')->with(['seller', 'items'])->latest()->paginate(8, ['*'], 'pickups');
         $claimedPickups = Order::where('pickup_courier_id', $courier->id)->where('status', 'READY_FOR_PICKUP')->with('seller')->latest()->get();
         $myActivePickups = Order::where('pickup_courier_id', $courier->id)->where('status', 'PICKED_UP')->with('seller')->latest()->get();
+        $myReturns = Order::query()
+            ->where('delivery_courier_id', $courier->id)
+            ->where('status', OrderStatus::ReturnInTransit->value)
+            ->whereNull('return_handed_to_seller_at')
+            ->with('seller')
+            ->latest('failed_at')
+            ->get();
         $myDeliveryAssignments = Order::where('delivery_courier_id', $courier->id)
             ->whereIn('status', ['ASSIGNED_TO_RIDER', 'OUT_FOR_DELIVERY'])
             ->with(['buyer', 'items'])
@@ -38,17 +46,22 @@ class CourierController extends Controller
             'claimed_pickups' => $claimedPickups->count(),
             'in_transit_hub' => $myActivePickups->count(),
             'assigned_delivery' => Order::where('delivery_courier_id', $courier->id)->whereIn('status', ['ASSIGNED_TO_RIDER', 'OUT_FOR_DELIVERY'])->count(),
+            'returning_to_seller' => $myReturns->count(),
             'completed_today' => Order::where('delivery_courier_id', $courier->id)->whereIn('status', ['DELIVERED', 'COMPLETED'])->whereBetween('delivered_at', [$todayStart, $tomorrowStart])->count(),
             'failed_today' => Order::where('delivery_courier_id', $courier->id)->where('status', 'DELIVERY_FAILED')->whereBetween('failed_at', [$todayStart, $tomorrowStart])->count(),
         ];
 
-        return view('courier.dashboard', compact('courier', 'availablePickups', 'claimedPickups', 'myActivePickups', 'myDeliveryAssignments', 'myFailedDeliveries', 'stats'));
+        return view('courier.dashboard', compact('courier', 'availablePickups', 'claimedPickups', 'myActivePickups', 'myReturns', 'myDeliveryAssignments', 'myFailedDeliveries', 'stats'));
     }
 
     public function showOrder(Order $order): View
     {
         $courier = $this->authenticatedUser();
-        abort_unless($order->pickup_courier_id === $courier->id || $order->delivery_courier_id === $courier->id, 403);
+        $hasPickupAccess = $order->pickup_courier_id === $courier->id
+            && in_array($order->status, ['READY_FOR_PICKUP', 'PICKED_UP'], true);
+        $hasDeliveryAccess = $order->delivery_courier_id === $courier->id
+            && in_array($order->status, ['ASSIGNED_TO_RIDER', 'OUT_FOR_DELIVERY', 'DELIVERY_FAILED'], true);
+        abort_unless($hasPickupAccess || $hasDeliveryAccess, 403);
         $order->load(['seller', 'buyer', 'items', 'trackingEvents.actor', 'deliveryAttempts']);
 
         return view('courier.orders.show', compact('order'));
@@ -63,7 +76,7 @@ class CourierController extends Controller
             abort_unless($courier->status === 'approved', 403, 'Your rider account is not approved for pickups.');
             abort_unless($lockedOrder->pickup_courier_id === $courier->id, 403);
             abort_unless($lockedOrder->status === 'READY_FOR_PICKUP' && $lockedOrder->pickup_claimed_at === null, 422, 'This pickup has already been accepted or is no longer available.');
-            $lockedOrder->update(['pickup_claimed_at' => now()]);
+            $lockedOrder->forceFill(['pickup_claimed_at' => now()])->save();
             $this->recordEvent($lockedOrder, 'pickup_accepted', $courier, $lockedOrder->seller?->municipality, 'Rider accepted the Logistics pickup assignment.');
             $lockedOrder->seller?->notify(new OrderWorkflowNotification($lockedOrder, 'pickup_accepted', 'The assigned rider accepted the pickup request.'));
 
@@ -81,7 +94,7 @@ class CourierController extends Controller
             abort_unless($courier->status === 'approved' && $lockedOrder->status === 'READY_FOR_PICKUP', 422, 'This pickup cannot be declined.');
             abort_unless($lockedOrder->pickup_courier_id === $courier->id && $lockedOrder->pickup_claimed_at === null, 403);
 
-            $lockedOrder->update(['pickup_courier_id' => null]);
+            $lockedOrder->forceFill(['pickup_courier_id' => null])->save();
             $this->recordEvent(
                 $lockedOrder,
                 'pickup_declined',
@@ -107,7 +120,7 @@ class CourierController extends Controller
             abort_unless($lockedOrder->pickup_courier_id === $courier->id, 403);
             abort_unless($courier->status === 'approved' && $lockedOrder->status === 'READY_FOR_PICKUP' && $lockedOrder->pickup_claimed_at !== null, 422, 'This pickup cannot be confirmed.');
             if ($lockedOrder->pickup_arrived_at === null) {
-                $lockedOrder->update(['pickup_arrived_at' => now()]);
+                $lockedOrder->forceFill(['pickup_arrived_at' => now()])->save();
                 $this->recordEvent($lockedOrder, 'pickup_arrived', $courier, $lockedOrder->seller?->municipality, 'Rider arrived and requested seller handover confirmation.');
                 $lockedOrder->seller?->notify(new OrderWorkflowNotification($lockedOrder, 'pickup_arrived', 'The rider arrived. Confirm the parcel handover when ready.'));
 
@@ -140,6 +153,45 @@ class CourierController extends Controller
 
             return back()->with('success', "Order {$lockedOrder->order_number} is out for delivery.");
         });
+    }
+
+    public function confirmReturnDelivery(Order $order): RedirectResponse
+    {
+        $courier = $this->authenticatedUser();
+        abort_unless($order->delivery_courier_id === $courier->id, 403);
+
+        DB::transaction(function () use ($order, $courier): void {
+            $lockedOrder = Order::query()->whereKey($order->id)->lockForUpdate()->firstOrFail();
+            abort_unless($lockedOrder->delivery_courier_id === $courier->id, 403);
+            abort_unless($courier->status === 'approved' && $lockedOrder->status === OrderStatus::ReturnInTransit->value, 422, 'This parcel is not on an active return to seller.');
+            abort_unless($lockedOrder->return_handed_to_seller_at === null, 422, 'The seller handoff has already been recorded.');
+
+            $lockedOrder->forceFill(['return_handed_to_seller_at' => now()])->save();
+            $seller = $lockedOrder->seller;
+            ParcelTrackingEvent::query()->create([
+                'order_id' => $lockedOrder->id,
+                'actor_id' => $courier->id,
+                'event_type' => 'return_handed_to_seller',
+                'status' => $lockedOrder->status,
+                'location' => $seller?->municipality,
+                'notes' => 'Courier recorded handing the return parcel to the seller; seller receipt confirmation is pending.',
+            ]);
+            $seller?->notify(new OrderWorkflowNotification($lockedOrder, 'return_handed_to_seller', 'The courier recorded a return handoff. Confirm receipt only after you physically receive the parcel.'));
+
+            $assignment = DeliveryAssignment::query()
+                ->where('order_id', $lockedOrder->id)
+                ->where('rider_id', $courier->id)
+                ->whereIn('status', ['active', 'returned'])
+                ->lockForUpdate()
+                ->first();
+            $assignment?->update([
+                'status' => 'returned',
+                'active_order_id' => null,
+                'released_at' => now(),
+            ]);
+        });
+
+        return back()->with('success', "Return handoff for {$order->order_number} recorded. The seller must confirm receipt.");
     }
 
     public function completeDelivery(Request $request, Order $order, OrderTransitionService $transitions): RedirectResponse
@@ -212,8 +264,17 @@ class CourierController extends Controller
     public function history(Request $request): View
     {
         $courier = $this->authenticatedUser();
-        $orders = Order::where(fn (Builder $query) => $query->where('delivery_courier_id', $courier->id)->orWhere('pickup_courier_id', $courier->id))
-            ->with(['seller', 'buyer'])
+        $orders = Order::query()
+            ->select([
+                'id', 'order_number', 'status', 'delivery_courier_id', 'pickup_courier_id',
+                'delivery_area', 'municipality', 'delivered_at', 'failed_at', 'picked_up_at',
+                'delivery_failure_reason', 'delivery_notes', 'updated_at',
+            ])
+            ->where(function (Builder $query) use ($courier): void {
+                $query->where('delivery_courier_id', $courier->id)
+                    ->orWhere('pickup_courier_id', $courier->id)
+                    ->orWhereHas('deliveryAssignments', fn (Builder $assignments) => $assignments->where('rider_id', $courier->id));
+            })
             ->when($request->filled('search'), fn (Builder $query) => $query->where('order_number', 'like', '%'.$request->string('search').'%'))
             ->when($request->filled('status'), fn (Builder $query) => $query->where('status', $request->string('status')->toString()))
             ->latest('updated_at')->paginate(20)->withQueryString();
@@ -225,7 +286,7 @@ class CourierController extends Controller
     {
         $courier = $this->authenticatedUser();
         $orders = Order::where(fn (Builder $query) => $query->where('pickup_courier_id', $courier->id)->whereIn('status', ['READY_FOR_PICKUP', 'PICKED_UP'])
-            ->orWhere(fn (Builder $query) => $query->where('delivery_courier_id', $courier->id)->whereIn('status', ['ASSIGNED_TO_RIDER', 'OUT_FOR_DELIVERY', 'DELIVERY_FAILED'])))
+            ->orWhere(fn (Builder $query) => $query->where('delivery_courier_id', $courier->id)->whereIn('status', ['ASSIGNED_TO_RIDER', 'OUT_FOR_DELIVERY', 'DELIVERY_FAILED', 'RETURN_IN_TRANSIT'])))
             ->with('trackingEvents.actor')->latest('updated_at')->paginate(20);
 
         return view('courier.tracking', compact('orders'));

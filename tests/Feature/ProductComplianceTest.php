@@ -137,7 +137,7 @@ class ProductComplianceTest extends TestCase
 
     private function user(string $role): User
     {
-        return User::query()->create([
+        return User::query()->forceCreate([
             'email' => fake()->unique()->safeEmail(),
             'password' => 'password',
             'role' => $role,

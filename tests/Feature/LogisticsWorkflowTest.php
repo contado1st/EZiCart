@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Enums\OrderStatus;
 use App\Models\Area;
 use App\Models\AreaMunicipality;
 use App\Models\DeliveryAssignment;
@@ -10,7 +11,9 @@ use App\Models\OrderItem;
 use App\Models\ParcelTrackingEvent;
 use App\Models\Product;
 use App\Models\User;
+use App\Notifications\AccountStatusNotification;
 use App\Notifications\OrderWorkflowNotification;
+use App\Services\OrderTransitionService;
 use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -18,6 +21,7 @@ use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Storage;
+use Symfony\Component\HttpKernel\Exception\HttpException;
 use Tests\TestCase;
 
 class LogisticsWorkflowTest extends TestCase
@@ -81,9 +85,11 @@ class LogisticsWorkflowTest extends TestCase
             'barangay' => 'Poblacion', 'street_address' => 'Test street',
             'id_document' => UploadedFile::fake()->image('buyer-id.png'),
             'password' => 'password123', 'password_confirmation' => 'password123',
+            'role' => 'admin', 'status' => 'approved',
         ])->assertRedirect(route('login'));
         $buyer = User::query()->where('email', 'professor-flow@example.test')->firstOrFail();
         $this->assertSame('pending', $buyer->status);
+        $this->assertSame('buyer', $buyer->role);
 
         $admin = $this->user('admin', 'approved');
         $this->actingAsUser($admin)->post(route('admin.registrations.approve', $buyer))->assertRedirect();
@@ -112,8 +118,18 @@ class LogisticsWorkflowTest extends TestCase
             'barangay' => 'Poblacion',
             'street_address' => '2 Test Street',
             'payment_method' => 'GCash',
+            'buyer_id' => $admin->id,
+            'seller_id' => $admin->id,
+            'delivery_courier_id' => $admin->id,
+            'status' => 'COMPLETED',
+            'total_amount' => 0,
+            'order_number' => 'EZC-SPOOFED',
         ])->assertRedirect(route('buyer.dashboard'));
         $order = Order::query()->where('buyer_id', $buyer->id)->where('seller_id', $seller->id)->firstOrFail();
+        $this->assertSame('PLACED', $order->status);
+        $this->assertSame(150.0, (float) $order->total_amount);
+        $this->assertNull($order->delivery_courier_id);
+        $this->assertNotSame('EZC-SPOOFED', $order->order_number);
         $center = $this->user('sorting_center', 'approved');
         $rider = $this->user('courier', 'approved', ['assigned_area' => 'Majayjay']);
 
@@ -285,10 +301,26 @@ class LogisticsWorkflowTest extends TestCase
         $this->assertDatabaseHas('delivery_assignments', ['order_id' => $order->id, 'rider_id' => $firstRider->id, 'active_order_id' => null]);
         $this->assertDatabaseHas('delivery_assignments', ['order_id' => $order->id, 'rider_id' => $nextRider->id, 'active_order_id' => $order->id]);
 
-        $order->update(['status' => 'DELIVERY_FAILED']);
+        $order->forceFill(['status' => 'DELIVERY_FAILED'])->save();
         $this->actingAsUser($center)->post(route('logistics.orders.return', $order))->assertRedirect();
         $this->assertDatabaseHas('orders', ['id' => $order->id, 'status' => 'RETURN_IN_TRANSIT', 'delivery_courier_id' => $nextRider->id]);
-        $this->assertDatabaseHas('delivery_assignments', ['order_id' => $order->id, 'rider_id' => $nextRider->id, 'status' => 'returned']);
+        $this->assertDatabaseHas('delivery_assignments', ['order_id' => $order->id, 'rider_id' => $nextRider->id, 'status' => 'active', 'active_order_id' => $order->id]);
+        $this->actingAsUser($nextRider)->get(route('courier.dashboard'))
+            ->assertSee($order->order_number)
+            ->assertSee($order->seller->street_address);
+        $this->get(route('courier.tracking'))->assertSee($order->order_number);
+        $this->actingAsUser($order->seller)->get(route('seller.orders.index'))
+            ->assertSee('Awaiting courier handoff')
+            ->assertDontSee('Confirm returned parcel received');
+        $this->actingAsUser($order->seller)->post(route('seller.orders.confirmReturn', $order))->assertUnprocessable();
+        $this->assertDatabaseHas('products', ['id' => $product->id, 'stock' => 2]);
+        $this->actingAsUser($firstRider)->post(route('courier.orders.confirmReturnDelivery', $order))->assertForbidden();
+        $this->actingAsUser($nextRider)->post(route('courier.orders.confirmReturnDelivery', $order))->assertRedirect();
+        $this->assertDatabaseHas('parcel_tracking_events', ['order_id' => $order->id, 'event_type' => 'return_handed_to_seller', 'actor_id' => $nextRider->id]);
+        $this->assertDatabaseHas('delivery_assignments', ['order_id' => $order->id, 'rider_id' => $nextRider->id, 'status' => 'returned', 'active_order_id' => null]);
+        $this->post(route('courier.orders.confirmReturnDelivery', $order))->assertUnprocessable();
+        $this->actingAsUser($order->seller)->get(route('seller.orders.index'))
+            ->assertSee('Confirm returned parcel received');
         $this->actingAsUser($order->seller)->post(route('seller.orders.confirmReturn', $order))->assertRedirect();
         $this->assertDatabaseHas('orders', ['id' => $order->id, 'status' => 'RETURNED_TO_SELLER', 'delivery_courier_id' => $nextRider->id]);
         $this->assertDatabaseHas('parcel_tracking_events', ['order_id' => $order->id, 'event_type' => 'returned_to_seller']);
@@ -334,6 +366,9 @@ class LogisticsWorkflowTest extends TestCase
             'delivery_courier_id' => $secondRider->id,
             'scheduled_at' => $scheduledAt,
         ])->assertRedirect();
+        $this->actingAsUser($firstRider)->get(route('courier.history'))
+            ->assertSee($order->order_number)
+            ->assertDontSee($order->recipient_contact);
         $this->assertDatabaseHas('delivery_attempts', [
             'order_id' => $order->id,
             'rider_id' => $secondRider->id,
@@ -350,9 +385,11 @@ class LogisticsWorkflowTest extends TestCase
         $this->assertDatabaseHas('delivery_attempts', ['order_id' => $order->id, 'rider_id' => $firstRider->id, 'attempt_no' => 1, 'outcome' => 'failed']);
         $this->assertDatabaseHas('delivery_attempts', ['order_id' => $order->id, 'rider_id' => $secondRider->id, 'attempt_no' => 2, 'outcome' => 'failed', 'scheduled_at' => $scheduledAt]);
         $this->assertDatabaseHas('delivery_assignments', ['order_id' => $order->id, 'rider_id' => $firstRider->id, 'status' => 'reassigned']);
-        $this->assertDatabaseHas('delivery_assignments', ['order_id' => $order->id, 'rider_id' => $secondRider->id, 'status' => 'returned']);
+        $this->assertDatabaseHas('delivery_assignments', ['order_id' => $order->id, 'rider_id' => $secondRider->id, 'status' => 'active', 'active_order_id' => $order->id]);
         $this->assertDatabaseHas('products', ['id' => $product->id, 'stock' => 2]);
 
+        $this->actingAsUser($secondRider)->post(route('courier.orders.confirmReturnDelivery', $order))->assertRedirect();
+        $this->assertDatabaseHas('delivery_assignments', ['order_id' => $order->id, 'rider_id' => $secondRider->id, 'status' => 'returned', 'active_order_id' => null]);
         $this->actingAsUser($order->seller)->post(route('seller.orders.confirmReturn', $order))->assertRedirect();
         $this->assertDatabaseHas('orders', ['id' => $order->id, 'status' => 'RETURNED_TO_SELLER']);
         $this->assertDatabaseHas('products', ['id' => $product->id, 'stock' => 5]);
@@ -390,6 +427,7 @@ class LogisticsWorkflowTest extends TestCase
         $courier = $this->user('courier', 'approved');
         $assignedOrder = $this->order(['status' => 'ASSIGNED_TO_RIDER', 'delivery_courier_id' => $courier->id, 'delivery_area' => 'Area Z', 'assigned_at' => now()]);
         $nextAreaOrder = $this->order(['status' => 'OUT_FOR_DELIVERY', 'delivery_courier_id' => $courier->id, 'delivery_area' => 'Area A', 'assigned_at' => now()->addMinute()]);
+        $completedOrder = $this->order(['status' => 'COMPLETED', 'delivery_courier_id' => $courier->id]);
         $otherOrder = $this->order(['status' => 'ASSIGNED_TO_RIDER', 'delivery_courier_id' => $this->user('courier', 'approved')->id]);
 
         $this->actingAsUser($courier)->get(route('courier.dashboard'))
@@ -398,6 +436,7 @@ class LogisticsWorkflowTest extends TestCase
         $this->get(route('courier.tracking'))->assertOk();
         $this->get(route('courier.history'))->assertOk();
         $this->get(route('courier.orders.show', $assignedOrder))->assertOk()->assertSee($assignedOrder->order_number);
+        $this->get(route('courier.orders.show', $completedOrder))->assertForbidden();
         $this->get(route('courier.orders.show', $otherOrder))->assertForbidden();
     }
 
@@ -481,6 +520,48 @@ class LogisticsWorkflowTest extends TestCase
         $this->assertDatabaseHas('users', ['id' => $pendingSeller->id, 'status' => 'pending']);
     }
 
+    public function test_database_seeder_can_create_accounts_with_protected_role_and_status_fields(): void
+    {
+        $this->seed();
+
+        $this->assertDatabaseHas('users', [
+            'email' => 'admin@ezicart.com',
+            'role' => 'admin',
+            'status' => 'approved',
+        ]);
+        $this->assertDatabaseHas('users', [
+            'email' => 'pending.seller@ezicart.com',
+            'role' => 'seller',
+            'status' => 'pending',
+        ]);
+    }
+
+    public function test_order_transition_service_rejects_attributes_outside_the_target_allow_list(): void
+    {
+        $order = $this->order();
+        $otherBuyer = $this->user('buyer', 'approved');
+
+        try {
+            app(OrderTransitionService::class)->transition(
+                $order,
+                $order->seller,
+                OrderStatus::Confirmed,
+                'confirmed',
+                attributes: ['buyer_id' => $otherBuyer->id, 'total_amount' => 1],
+            );
+            $this->fail('The transition should reject protected attributes.');
+        } catch (HttpException $exception) {
+            $this->assertSame(422, $exception->getStatusCode());
+        }
+
+        $this->assertDatabaseHas('orders', [
+            'id' => $order->id,
+            'status' => 'PLACED',
+            'buyer_id' => $order->buyer_id,
+            'total_amount' => 150,
+        ]);
+    }
+
     public function test_role_workspaces_deny_cross_role_access(): void
     {
         $workspaceRoutes = [
@@ -511,6 +592,43 @@ class LogisticsWorkflowTest extends TestCase
 
         $this->post(route('login.post'), ['email' => 'missing@example.test', 'password' => 'bad-password'])
             ->assertTooManyRequests();
+    }
+
+    public function test_admin_account_decisions_send_email_and_in_app_notifications(): void
+    {
+        Notification::fake();
+        $admin = $this->user('admin', 'approved');
+        $approvedUser = $this->user('buyer', 'pending');
+        $rejectedUser = $this->user('seller', 'pending');
+        $center = $this->user('sorting_center', 'approved');
+        $approvedRider = $this->user('courier', 'pending');
+        $rejectedRider = $this->user('courier', 'pending');
+
+        $this->actingAsUser($admin)->post(route('admin.registrations.approve', $approvedUser))->assertRedirect();
+        $this->post(route('admin.registrations.reject', $rejectedUser))->assertRedirect();
+        $this->actingAsUser($center)->post(route('logistics.riders.approve', $approvedRider))->assertRedirect();
+        $this->post(route('logistics.riders.reject', $rejectedRider))->assertRedirect();
+
+        Notification::assertSentTo($approvedUser, AccountStatusNotification::class, function (AccountStatusNotification $notification) use ($approvedUser): bool {
+            return $notification->status === 'approved'
+                && in_array('mail', $notification->via($approvedUser), true)
+                && in_array('database', $notification->via($approvedUser), true)
+                && str_contains($notification->toMail($approvedUser)->subject, 'approved')
+                && $notification->toDatabase($approvedUser)['url'] === route('login');
+        });
+        Notification::assertSentTo($rejectedUser, AccountStatusNotification::class, function (AccountStatusNotification $notification) use ($rejectedUser): bool {
+            return $notification->status === 'rejected'
+                && in_array('mail', $notification->via($rejectedUser), true)
+                && in_array('database', $notification->via($rejectedUser), true)
+                && str_contains($notification->toMail($rejectedUser)->subject, 'not approved')
+                && $notification->toDatabase($rejectedUser)['url'] === '';
+        });
+        Notification::assertSentTo($approvedRider, AccountStatusNotification::class);
+        Notification::assertSentTo($rejectedRider, AccountStatusNotification::class);
+        $this->assertDatabaseHas('users', ['id' => $approvedUser->id, 'status' => 'approved']);
+        $this->assertDatabaseHas('users', ['id' => $rejectedUser->id, 'status' => 'rejected']);
+        $this->assertDatabaseHas('users', ['id' => $approvedRider->id, 'status' => 'approved']);
+        $this->assertDatabaseHas('users', ['id' => $rejectedRider->id, 'status' => 'rejected']);
     }
 
     public function test_password_reset_uses_one_time_expiring_broker_tokens_and_neutral_responses(): void
@@ -716,6 +834,7 @@ class LogisticsWorkflowTest extends TestCase
         $this->actingAsUser($rider)->patch(route('courier.orders.failDelivery', $activeOrder), ['failure_reason' => 'recipient_unavailable'])->assertRedirect();
         $this->assertDatabaseHas('orders', ['id' => $activeOrder->id, 'status' => 'RETURN_IN_TRANSIT']);
         $this->assertDatabaseHas('delivery_attempts', ['order_id' => $activeOrder->id, 'attempt_no' => 1, 'outcome' => 'failed']);
+        $this->actingAsUser($center)->post(route('logistics.orders.assignRider', $dispatchOrder), ['delivery_courier_id' => $rider->id])->assertUnprocessable();
     }
 
     public function test_rider_area_assignments_are_structured_and_area_filtered(): void
@@ -735,7 +854,7 @@ class LogisticsWorkflowTest extends TestCase
 
     private function user(string $role, string $status, array $extra = []): User
     {
-        $user = User::create(array_merge([
+        $user = User::query()->forceCreate(array_merge([
             'email' => fake()->unique()->safeEmail(),
             'password' => 'password',
             'role' => $role,
@@ -766,7 +885,7 @@ class LogisticsWorkflowTest extends TestCase
         $seller = $this->user('seller', 'approved');
         $area = $this->area('Laguna', 'Majayjay');
 
-        return Order::create(array_merge([
+        return Order::query()->forceCreate(array_merge([
             'order_number' => 'EZC-'.strtoupper(fake()->unique()->bothify('??????????')),
             'buyer_id' => $buyer->id,
             'seller_id' => $seller->id,

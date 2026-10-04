@@ -128,6 +128,7 @@ Route::middleware(['auth', 'account.active', 'auth.session'])->group(function ()
         Route::post('/orders/{order}/messages', [OrderMessageController::class, 'store'])->middleware('throttle:30,1')->name('orders.messages.store');
         Route::post('/orders/{order}/confirm-pickup', [CourierController::class, 'confirmPickup'])->middleware('throttle:30,1')->name('orders.confirmPickup');
         Route::post('/orders/{order}/start-delivery', [CourierController::class, 'startDelivery'])->middleware('throttle:30,1')->name('orders.startDelivery');
+        Route::post('/orders/{order}/confirm-return-delivery', [CourierController::class, 'confirmReturnDelivery'])->middleware('throttle:30,1')->name('orders.confirmReturnDelivery');
         Route::patch('/orders/{order}/complete-delivery', [CourierController::class, 'completeDelivery'])->middleware('throttle:30,1')->name('orders.completeDelivery');
         Route::patch('/orders/{order}/fail-delivery', [CourierController::class, 'failDelivery'])->middleware('throttle:30,1')->name('orders.failDelivery');
         Route::get('/history', [CourierController::class, 'history'])->name('history');

@@ -37,11 +37,11 @@ class AdminModerationController extends Controller
             'suspension_reason' => 'required|string|max:500',
         ]);
 
-        $user->update([
+        $user->forceFill([
             'status' => 'suspended',
             'suspension_reason' => $validated['suspension_reason'],
             'suspended_at' => now(),
-        ]);
+        ])->save();
 
         return back()->with('success', "Account {$user->email} has been suspended.");
     }
@@ -50,11 +50,11 @@ class AdminModerationController extends Controller
     {
         abort_unless($user->role !== 'admin' && $user->status === 'suspended', 422, 'Only suspended accounts can be reactivated here.');
 
-        $user->update([
+        $user->forceFill([
             'status' => 'approved',
             'suspension_reason' => null,
             'suspended_at' => null,
-        ]);
+        ])->save();
 
         return back()->with('success', "Account {$user->email} has been restored to active standing.");
     }

@@ -9,6 +9,7 @@ use App\Models\DeliveryAttempt;
 use App\Models\Order;
 use App\Models\ParcelTrackingEvent;
 use App\Models\User;
+use App\Notifications\AccountStatusNotification;
 use App\Notifications\OrderWorkflowNotification;
 use App\Services\OrderAreaService;
 use App\Services\OrderTransitionService;
@@ -36,7 +37,7 @@ class LogisticsController extends Controller
             'failed' => Order::where('status', 'DELIVERY_FAILED')->count(),
             'returned' => Order::whereIn('status', ['RETURN_IN_TRANSIT', 'RETURNED_TO_SELLER'])->count(),
             'active_riders' => User::where('role', 'courier')->where('status', 'approved')->count(),
-            'available_riders' => User::where('role', 'courier')->where('status', 'approved')->whereDoesntHave('finalDeliveries', fn (Builder $query) => $query->whereIn('status', ['ASSIGNED_TO_RIDER', 'OUT_FOR_DELIVERY', 'DELIVERY_FAILED']))->count(),
+            'available_riders' => User::where('role', 'courier')->where('status', 'approved')->whereDoesntHave('finalDeliveries', fn (Builder $query) => $query->whereIn('status', ['ASSIGNED_TO_RIDER', 'OUT_FOR_DELIVERY', 'DELIVERY_FAILED', 'RETURN_IN_TRANSIT']))->count(),
         ];
 
         $queues = [
@@ -82,7 +83,7 @@ class LogisticsController extends Controller
             $rider = User::query()->whereKey($validated['pickup_courier_id'])->lockForUpdate()->firstOrFail();
             abort_unless($rider->role === 'courier' && $rider->status === 'approved', 422, 'Choose an approved rider.');
 
-            $lockedOrder->update(['pickup_courier_id' => $rider->id]);
+            $lockedOrder->forceFill(['pickup_courier_id' => $rider->id])->save();
             ParcelTrackingEvent::create([
                 'order_id' => $lockedOrder->id,
                 'actor_id' => $operator->id,
@@ -153,9 +154,9 @@ class LogisticsController extends Controller
     {
         $parcels = Order::whereIn('status', ['SORTED', 'ASSIGNED_TO_RIDER', 'DELIVERY_FAILED', 'RETURN_IN_TRANSIT'])->with(['buyer', 'deliveryCourier', 'destinationArea', 'deliveryAttempts'])->latest()->paginate(15);
         $riders = User::where('role', 'courier')->where('status', 'approved')->with('serviceAreas')->withCount([
-            'finalDeliveries as active_deliveries_count' => fn (Builder $query) => $query->whereIn('status', ['ASSIGNED_TO_RIDER', 'OUT_FOR_DELIVERY']),
+            'finalDeliveries as active_deliveries_count' => fn (Builder $query) => $query->whereIn('status', ['ASSIGNED_TO_RIDER', 'OUT_FOR_DELIVERY', 'RETURN_IN_TRANSIT']),
             'finalDeliveries as failed_deliveries_count' => fn (Builder $query) => $query->where('status', 'DELIVERY_FAILED'),
-            'finalDeliveries as capacity_load_count' => fn (Builder $query) => $query->whereIn('status', ['ASSIGNED_TO_RIDER', 'OUT_FOR_DELIVERY', 'DELIVERY_FAILED']),
+            'finalDeliveries as capacity_load_count' => fn (Builder $query) => $query->whereIn('status', ['ASSIGNED_TO_RIDER', 'OUT_FOR_DELIVERY', 'DELIVERY_FAILED', 'RETURN_IN_TRANSIT']),
         ])->orderBy('first_name')->get();
         $maxActiveDeliveries = max(1, (int) config('logistics.maximum_active_deliveries_per_rider', 10));
         $suggestedRiders = [];
@@ -198,7 +199,7 @@ class LogisticsController extends Controller
             abort_unless($rider->serviceAreas()->whereKey($lockedOrder->destination_area_id)->exists(), 422, 'The rider is not assigned to this destination area.');
             $activeDeliveries = Order::query()
                 ->where('delivery_courier_id', $rider->id)
-                ->whereIn('status', ['ASSIGNED_TO_RIDER', 'OUT_FOR_DELIVERY', 'DELIVERY_FAILED'])
+                ->whereIn('status', ['ASSIGNED_TO_RIDER', 'OUT_FOR_DELIVERY', 'DELIVERY_FAILED', 'RETURN_IN_TRANSIT'])
                 ->where('id', '!=', $lockedOrder->id)
                 ->count();
             abort_if($activeDeliveries >= max(1, (int) config('logistics.maximum_active_deliveries_per_rider', 10)), 422, 'This rider is at the active delivery capacity limit.');
@@ -238,7 +239,7 @@ class LogisticsController extends Controller
     public function riders(): View
     {
         $riders = User::where('role', 'courier')->with('serviceAreas')->withCount([
-            'finalDeliveries as active_deliveries_count' => fn (Builder $query) => $query->whereIn('status', ['ASSIGNED_TO_RIDER', 'OUT_FOR_DELIVERY']),
+            'finalDeliveries as active_deliveries_count' => fn (Builder $query) => $query->whereIn('status', ['ASSIGNED_TO_RIDER', 'OUT_FOR_DELIVERY', 'RETURN_IN_TRANSIT']),
             'finalDeliveries as completed_deliveries_count' => fn (Builder $query) => $query->whereIn('status', ['DELIVERED', 'COMPLETED']),
             'finalDeliveries as failed_deliveries_count' => fn (Builder $query) => $query->where('status', 'DELIVERY_FAILED'),
         ])->orderByRaw("CASE status WHEN 'pending' THEN 0 WHEN 'approved' THEN 1 WHEN 'suspended' THEN 2 ELSE 3 END")->paginate(20);
@@ -275,7 +276,8 @@ class LogisticsController extends Controller
     public function approveRider(User $user): RedirectResponse
     {
         abort_unless($user->role === 'courier' && $user->status === 'pending', 404);
-        $user->update(['status' => 'approved']);
+        $user->forceFill(['status' => 'approved'])->save();
+        $user->notify(new AccountStatusNotification('approved'));
 
         return back()->with('success', "Courier {$user->first_name} {$user->last_name} approved.");
     }
@@ -283,7 +285,8 @@ class LogisticsController extends Controller
     public function rejectRider(User $user): RedirectResponse
     {
         abort_unless($user->role === 'courier' && $user->status === 'pending', 404);
-        $user->update(['status' => 'rejected']);
+        $user->forceFill(['status' => 'rejected'])->save();
+        $user->notify(new AccountStatusNotification('rejected'));
 
         return back()->with('success', 'Courier application rejected.');
     }
@@ -300,7 +303,7 @@ class LogisticsController extends Controller
     public function suspendRider(User $user): RedirectResponse
     {
         abort_unless($user->role === 'courier' && $user->status === 'approved', 404);
-        $user->update(['status' => 'suspended']);
+        $user->forceFill(['status' => 'suspended'])->save();
 
         return back()->with('success', 'Rider suspended from dispatch.');
     }
@@ -308,7 +311,7 @@ class LogisticsController extends Controller
     public function reactivateRider(User $user): RedirectResponse
     {
         abort_unless($user->role === 'courier' && $user->status === 'suspended', 404);
-        $user->update(['status' => 'approved']);
+        $user->forceFill(['status' => 'approved'])->save();
 
         return back()->with('success', 'Rider reactivated.');
     }

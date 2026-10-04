@@ -156,9 +156,13 @@
                                     @csrf<button type="submit" class="dash-btn-sm dash-btn-primary">Confirm rider handover</button>
                                 </form>
                             @elseif($order->status === 'RETURN_IN_TRANSIT')
-                                <form action="{{ route('seller.orders.confirmReturn', $order) }}" method="POST">
-                                    @csrf<button type="submit" class="dash-btn-sm dash-btn-primary">Confirm returned parcel received</button>
-                                </form>
+                                @if ($order->return_handed_to_seller_at)
+                                    <form action="{{ route('seller.orders.confirmReturn', $order) }}" method="POST">
+                                        @csrf<button type="submit" class="dash-btn-sm dash-btn-primary">Confirm returned parcel received</button>
+                                    </form>
+                                @else
+                                    <span class="text-muted-small">Awaiting courier handoff</span>
+                                @endif
                             @endif
                         </div>
                     </div>

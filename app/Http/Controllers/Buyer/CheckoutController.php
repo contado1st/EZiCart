@@ -173,7 +173,7 @@ class CheckoutController extends Controller
                 $shippingFee = 50.00;
                 $orderTotal = max(0, $sellerSubtotal - $sellerDiscount) + $shippingFee;
 
-                $order = Order::create([
+                $order = Order::query()->forceCreate([
                     'order_number' => 'EZC-'.strtoupper(Str::random(10)),
                     'buyer_id' => $this->authenticatedUser()->id,
                     'seller_id' => $sellerId,
