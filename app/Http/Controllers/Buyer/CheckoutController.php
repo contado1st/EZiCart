@@ -12,6 +12,7 @@ use App\Models\Voucher;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use Throwable;
 
 class CheckoutController extends Controller
 {
@@ -227,10 +228,14 @@ class CheckoutController extends Controller
             session()->forget(['cart', 'applied_voucher']);
 
             return redirect()->route('buyer.dashboard')->with('success', 'Order placed successfully! Waiting for seller preparation.');
-        } catch (\Exception $e) {
-            DB::rollBack();
+        } catch (Throwable $exception) {
+            if (DB::transactionLevel() > 0) {
+                DB::rollBack();
+            }
 
-            return back()->with('error', 'Failed to place order: '.$e->getMessage());
+            report($exception);
+
+            return back()->with('error', "We couldn't place your order right now. Please try again.");
         }
     }
 }

@@ -21,6 +21,7 @@ use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Symfony\Component\HttpKernel\Exception\HttpException;
 use Tests\TestCase;
 
@@ -560,6 +561,51 @@ class LogisticsWorkflowTest extends TestCase
             'buyer_id' => $order->buyer_id,
             'total_amount' => 150,
         ]);
+    }
+
+    public function test_checkout_does_not_expose_database_exception_details(): void
+    {
+        $buyer = $this->user('buyer', 'approved');
+        $seller = $this->user('seller', 'approved');
+        $product = Product::query()->forceCreate([
+            'user_id' => $seller->id,
+            'name' => 'Checkout failure item',
+            'description' => 'Test item',
+            'category' => 'Test',
+            'price' => 20,
+            'stock' => 2,
+            'compliance_status' => 'approved',
+            'is_archived' => false,
+        ]);
+        $this->order(['order_number' => 'EZC-'.str_repeat('A', 10)]);
+        $cart = [
+            (string) $product->id => [
+                'product_id' => $product->id,
+                'name' => $product->name,
+                'price' => 20,
+                'quantity' => 1,
+                'seller_id' => $seller->id,
+            ],
+        ];
+        Str::createRandomStringsUsing(fn (int $length): string => str_repeat('A', $length));
+
+        try {
+            $response = $this->actingAsUser($buyer)->withSession(['cart' => $cart])->post(route('checkout.process'), [
+                'recipient_name' => 'Test Buyer',
+                'recipient_contact' => '09123456789',
+                'province' => 'Laguna',
+                'municipality' => 'Majayjay',
+                'barangay' => 'Poblacion',
+                'street_address' => '1 Test Street',
+                'payment_method' => 'COD',
+            ]);
+        } finally {
+            Str::createRandomStringsNormally();
+        }
+
+        $response->assertSessionHas('error', "We couldn't place your order right now. Please try again.");
+        $this->assertDatabaseCount('orders', 1);
+        $this->assertDatabaseHas('products', ['id' => $product->id, 'stock' => 2]);
     }
 
     public function test_role_workspaces_deny_cross_role_access(): void
