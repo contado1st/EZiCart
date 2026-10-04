@@ -1,0 +1,135 @@
+/* ========================================================
+   Logistics Rider Management Stylesheet
+   ======================================================== */
+
+.riders-panel {
+    margin-bottom: 1.5rem;
+}
+
+.riders-header-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+}
+
+.riders-count-title {
+    font-size: 1.125rem;
+    font-weight: 800;
+    color: var(--dash-text-main, #0f172a);
+    margin: 0;
+}
+
+/* Applicant Cards */
+.rider-applicant-card {
+    background-color: var(--dash-card-bg, #ffffff);
+    border: 1px solid var(--dash-border, #e2e8f0);
+    border-radius: 0.625rem;
+    padding: 1.25rem;
+    margin-top: 0.875rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 1rem;
+}
+
+.rider-applicant-info {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.rider-applicant-name {
+    font-size: 0.9375rem;
+    font-weight: 800;
+    color: var(--dash-text-main, #0f172a);
+}
+
+.rider-applicant-contact {
+    font-size: 0.75rem;
+    color: var(--dash-text-muted, #64748b);
+}
+
+.rider-applicant-vehicle {
+    font-size: 0.8125rem;
+    color: var(--dash-text-main, #0f172a);
+    margin-top: 0.125rem;
+}
+
+.rider-docs-toolbar {
+    display: flex;
+    gap: 0.875rem;
+    margin-top: 0.5rem;
+}
+
+.rider-doc-badge-link {
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--dash-primary, #ec4899);
+    text-decoration: none;
+    background-color: #fdf2f8;
+    padding: 0.25rem 0.625rem;
+    border-radius: 0.25rem;
+    border: 1px solid #fbcfe8;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+}
+
+.rider-doc-badge-link:hover {
+    background-color: #fce7f3;
+}
+
+.rider-review-actions {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+}
+
+.btn-approve-rider {
+    background-color: var(--dash-success, #10b981);
+    color: #ffffff;
+    border: none;
+    padding: 0.45rem 0.875rem;
+    border-radius: 0.375rem;
+    font-size: 0.8125rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+}
+
+.btn-approve-rider:hover {
+    background-color: #059669;
+}
+
+.btn-reject-rider {
+    background-color: var(--dash-danger, #ef4444);
+    color: #ffffff;
+    border: none;
+    padding: 0.45rem 0.875rem;
+    border-radius: 0.375rem;
+    font-size: 0.8125rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+}
+
+.btn-reject-rider:hover {
+    background-color: #dc2626;
+}
+
+/* Fleet Table Additions */
+.fleet-table-container {
+    margin-top: 1rem;
+}
+
+.fleet-rider-name {
+    font-weight: 800;
+    color: var(--dash-text-main, #0f172a);
+}
+
+.fleet-empty-row {
+    text-align: center;
+    padding: 2.5rem;
+    color: var(--dash-text-muted, #64748b);
+}

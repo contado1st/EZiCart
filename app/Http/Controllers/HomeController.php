@@ -29,8 +29,8 @@ class HomeController extends Controller
         // Search by keyword
         if ($request->filled('search')) {
             $query->where(function ($q) use ($request) {
-                $q->where('name', 'like', '%' . $request->query('search') . '%')
-                  ->orWhere('description', 'like', '%' . $request->query('search') . '%');
+                $q->where('name', 'like', '%'.$request->query('search').'%')
+                    ->orWhere('description', 'like', '%'.$request->query('search').'%');
             });
         }
 

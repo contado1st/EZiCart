@@ -36,6 +36,17 @@ class Order extends Model
         'notes',
         'voucher_code',
         'discount_amount',
+        'picked_up_at',
+        'pickup_claimed_at',
+        'received_at',
+        'sorted_at',
+        'assigned_at',
+        'out_for_delivery_at',
+        'delivered_at',
+        'failed_at',
+        'delivery_failure_reason',
+        'delivery_notes',
+        'cod_collected_amount',
     ];
 
     public function buyer(): BelongsTo
@@ -81,5 +92,24 @@ class Order extends Model
     public function dispute(): HasOne
     {
         return $this->hasOne(Dispute::class);
+    }
+
+    public function trackingEvents(): HasMany
+    {
+        return $this->hasMany(ParcelTrackingEvent::class)->latest();
+    }
+
+    protected function casts(): array
+    {
+        return [
+            'picked_up_at' => 'datetime',
+            'pickup_claimed_at' => 'datetime',
+            'received_at' => 'datetime',
+            'sorted_at' => 'datetime',
+            'assigned_at' => 'datetime',
+            'out_for_delivery_at' => 'datetime',
+            'delivered_at' => 'datetime',
+            'failed_at' => 'datetime',
+        ];
     }
 }

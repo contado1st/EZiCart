@@ -1,0 +1,93 @@
+/* ========================================================
+   Seller Vouchers Management Stylesheet
+   ======================================================== */
+
+.vouchers-grid {
+    display: grid;
+    grid-template-columns: 360px 1fr;
+    gap: 1.5rem;
+    align-items: start;
+}
+
+.voucher-form-card {
+    background-color: var(--dash-card-bg, #ffffff);
+    border: 1px solid var(--dash-border, #e2e8f0);
+    border-radius: 0.75rem;
+    padding: 1.5rem;
+}
+
+.voucher-form-title {
+    font-size: 1rem;
+    font-weight: 800;
+    color: var(--dash-text-main, #0f172a);
+    margin: 0 0 1rem 0;
+}
+
+.voucher-form-group {
+    display: flex;
+    flex-direction: column;
+    margin-bottom: 0.875rem;
+}
+
+.voucher-form-label {
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    color: var(--dash-text-muted, #64748b);
+    margin-bottom: 0.35rem;
+}
+
+.voucher-input,
+.voucher-select {
+    width: 100%;
+    padding: 0.55rem 0.75rem;
+    border: 1px solid var(--dash-border, #cbd5e1);
+    border-radius: 0.375rem;
+    font-size: 0.875rem;
+    box-sizing: border-box;
+    background-color: #ffffff;
+    color: var(--dash-text-main, #0f172a);
+}
+
+.voucher-input:focus,
+.voucher-select:focus {
+    outline: none;
+    border-color: var(--dash-primary, #ec4899);
+}
+
+.voucher-code-tag {
+    display: inline-block;
+    font-family: monospace;
+    font-weight: 800;
+    font-size: 0.875rem;
+    background-color: #fdf2f8;
+    color: #ec4899;
+    border: 1px dashed #ec4899;
+    padding: 0.2rem 0.5rem;
+    border-radius: 0.25rem;
+}
+
+.voucher-actions {
+    display: flex;
+    gap: 0.35rem;
+    align-items: center;
+}
+
+.voucher-status-pill {
+    display: inline-block;
+    padding: 0.2rem 0.5rem;
+    border-radius: 9999px;
+    font-size: 0.6875rem;
+    font-weight: 800;
+    text-transform: uppercase;
+}
+
+.voucher-active {
+    background-color: #d1fae5;
+    color: #065f46;
+}
+
+.voucher-inactive {
+    background-color: #fee2e2;
+    color: #991b1b;
+}

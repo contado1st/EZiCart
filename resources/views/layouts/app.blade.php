@@ -1,22 +1,24 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>EZiCart - A Better Marketplace</title>
     <!-- Base Stylesheet -->
-    <link rel="stylesheet" href="{{ asset('css/app.css') }}">
+    @vite('resources/css/shared/app.css')
     <!-- Platform Bulletins & Banners Stylesheet -->
-    <link rel="stylesheet" href="{{ asset('css/platform-controls.css') }}">
+    @vite('resources/css/shared/platform-controls.css')
     <!-- Dynamic Page Stylesheets -->
     @stack('styles')
 </head>
+
 <body>
 
     <!-- Header / Navbar -->
     <header class="navbar">
         <div class="container navbar-container">
-            
+
             <!-- Brand Logo -->
             <a href="{{ route('home') }}" class="brand-logo">
                 <img src="{{ asset('images/ezicart-logo.png') }}" alt="EZiCart Logo" class="brand-logo-img">
@@ -25,13 +27,8 @@
             <!-- Search Bar -->
             <div class="search-wrapper">
                 <form action="{{ route('home') }}" method="GET" class="search-form">
-                    <input 
-                        type="text" 
-                        name="search" 
-                        value="{{ request('search') }}"
-                        placeholder="Search for products, shops and more" 
-                        class="search-input"
-                    >
+                    <input type="text" name="search" value="{{ request('search') }}"
+                        placeholder="Search for products, shops and more" class="search-input">
                     <button type="submit" class="search-button">
                         Search
                     </button>
@@ -41,10 +38,10 @@
             <!-- Cart & Auth Navigation -->
             <div class="auth-nav">
                 <!-- Cart Link Visible Only to Guests and Buyers -->
-                @if(!auth()->check() || auth()->user()->role === 'buyer')
+                @if (!auth()->check() || auth()->user()->role === 'buyer')
                     <a href="{{ route('cart.index') }}" class="nav-link cart-link">
                         <span>🛒 Cart</span>
-                        @if(session('cart') && count(session('cart')) > 0)
+                        @if (session('cart') && count(session('cart')) > 0)
                             <span class="cart-count-badge">
                                 {{ array_sum(array_column(session('cart'), 'quantity')) }}
                             </span>
@@ -53,7 +50,7 @@
                 @endif
 
                 @auth
-                    @if(auth()->user()->role === 'seller')
+                    @if (auth()->user()->role === 'seller')
                         <a href="{{ route('seller.dashboard') }}" class="btn-primary nav-btn-compact">Dashboard</a>
                     @elseif(auth()->user()->role === 'admin')
                         <a href="{{ route('admin.dashboard') }}" class="btn-primary nav-btn-compact">Admin Panel</a>
@@ -79,18 +76,25 @@
 
     <!-- Global Platform Announcements -->
     @php
-        $activeAnnouncements = \App\Models\Announcement::activeForUser(auth()->user())->latest()->take(3)->get();
+        $activeAnnouncements = \App\Models\Announcement::activeForUser(auth()->user())
+            ->latest()
+            ->take(3)
+            ->get();
     @endphp
 
-    @if($activeAnnouncements->isNotEmpty())
+    @if ($activeAnnouncements->isNotEmpty())
         <div class="container" style="margin-top: 1rem;">
-            @foreach($activeAnnouncements as $announcement)
+            @foreach ($activeAnnouncements as $announcement)
                 <div class="announcement-banner banner-type-{{ $announcement->type }}">
                     <span style="font-size: 1.15rem; line-height: 1;">
-                        @if($announcement->type === 'urgent') 🚨
-                        @elseif($announcement->type === 'warning') ⚠️
-                        @elseif($announcement->type === 'maintenance') 🛠️
-                        @else 📢
+                        @if ($announcement->type === 'urgent')
+                            🚨
+                        @elseif($announcement->type === 'warning')
+                            ⚠️
+                        @elseif($announcement->type === 'maintenance')
+                            🛠️
+                        @else
+                            📢
                         @endif
                     </span>
                     <div>
@@ -114,4 +118,5 @@
     </footer>
 
 </body>
+
 </html>

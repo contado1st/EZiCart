@@ -1,0 +1,78 @@
+@extends('layouts.logistics')
+@section('workspace')
+    <header class="ops-heading">
+        <div>
+            <div class="ops-eyebrow">Logistics reports</div>
+            <h1>Parcel throughput</h1>
+            <p>Counts are derived from order and logistics timestamps within the selected order window.</p>
+        </div>
+    </header>
+    <section class="ops-panel">
+        <form class="ops-form" method="GET">
+            <div class="ops-field"><label>From</label><input type="date" name="from" value="{{ $from->toDateString() }}">
+            </div>
+            <div class="ops-field"><label>To</label><input type="date" name="to" value="{{ $to->toDateString() }}">
+            </div><button class="ops-btn ops-btn--primary">Update report</button>
+        </form>
+    </section>
+    <section class="ops-stats">
+        <div class="ops-stat"><span>Received</span><strong>{{ $stats['received'] }}</strong></div>
+        <div class="ops-stat"><span>Sorted</span><strong>{{ $stats['sorted'] }}</strong></div>
+        <div class="ops-stat"><span>Dispatched</span><strong>{{ $stats['dispatched'] }}</strong></div>
+        <div class="ops-stat"><span>Delivered</span><strong>{{ $stats['delivered'] }}</strong></div>
+        <div class="ops-stat"><span>Failed</span><strong>{{ $stats['failed'] }}</strong></div>
+    </section>
+    <section class="ops-grid">
+        <div class="ops-panel">
+            <h2>Orders placed by day</h2>
+            <div class="ops-table-wrap">
+                <table class="ops-table">
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Orders</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @forelse($volume as $day)
+                            <tr>
+                                <td>{{ $day->day }}</td>
+                                <td>{{ $day->total }}</td>
+                        </tr>@empty<tr>
+                                <td colspan="2">No order volume for this period.</td>
+                            </tr>
+                        @endforelse
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <div class="ops-panel">
+            <h2>Parcel count by destination area</h2>
+            <div class="ops-table-wrap">
+                <table class="ops-table">
+                    <thead>
+                        <tr>
+                            <th>Area</th>
+                            <th>Parcels</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @forelse($areaCounts as $area)
+                            <tr>
+                                <td>{{ $area->delivery_area ?? 'Unassigned area' }}</td>
+                                <td>{{ $area->total }}</td>
+                        </tr>@empty<tr>
+                                <td colspan="2">No sorted parcels for this period.</td>
+                            </tr>
+                        @endforelse
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </section>
+    <section class="ops-panel">
+        <h2>Current operational backlog</h2>
+        <p><strong>{{ $stats['backlog'] }}</strong> parcels are in pickup, hub, sorting or delivery queues. Backlog is a
+            current snapshot; date selection does not change it.</p>
+    </section>
+@endsection

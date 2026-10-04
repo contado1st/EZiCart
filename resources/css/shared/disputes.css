@@ -1,0 +1,87 @@
+/* ========================================================
+   Disputes & Claims Management Stylesheet
+   ======================================================== */
+
+.dispute-form-wrapper {
+    max-width: 680px;
+    margin: 2rem auto;
+    background-color: #ffffff;
+    border: 1px solid var(--slate-200, #e2e8f0);
+    border-radius: 0.75rem;
+    padding: 2rem;
+}
+
+.dispute-order-meta {
+    background-color: var(--slate-50, #f8fafc);
+    border: 1px solid var(--slate-200, #e2e8f0);
+    border-radius: 0.5rem;
+    padding: 1rem;
+    margin-bottom: 1.5rem;
+    font-size: 0.875rem;
+}
+
+.dispute-filter-nav {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 1.25rem;
+    flex-wrap: wrap;
+}
+
+.dispute-filter-link {
+    font-size: 0.8125rem;
+    font-weight: 700;
+    padding: 0.35rem 0.75rem;
+    border-radius: 0.375rem;
+    text-decoration: none;
+    background-color: #ffffff;
+    border: 1px solid var(--dash-border, #cbd5e1);
+    color: var(--dash-text-muted, #64748b);
+}
+
+.dispute-filter-link.active {
+    background-color: var(--dash-primary, #ec4899);
+    border-color: var(--dash-primary, #ec4899);
+    color: #ffffff;
+}
+
+.dispute-detail-grid {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    gap: 1.5rem;
+    align-items: start;
+}
+
+.dispute-evidence-box {
+    margin-top: 1rem;
+    padding: 1rem;
+    background-color: var(--slate-50, #f8fafc);
+    border: 1px dashed var(--slate-300, #cbd5e1);
+    border-radius: 0.5rem;
+}
+
+.dispute-evidence-thumb {
+    max-width: 100%;
+    border-radius: 0.375rem;
+    border: 1px solid var(--slate-200, #e2e8f0);
+    margin-top: 0.5rem;
+}
+
+.status-badge-pending {
+    background-color: #fef3c7;
+    color: #92400e;
+}
+
+.status-badge-review {
+    background-color: #e0f2fe;
+    color: #0369a1;
+}
+
+.status-badge-approved {
+    background-color: #d1fae5;
+    color: #065f46;
+}
+
+.status-badge-rejected {
+    background-color: #fee2e2;
+    color: #991b1b;
+}

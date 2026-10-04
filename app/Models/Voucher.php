@@ -5,7 +5,6 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Carbon\Carbon;
 
 class Voucher extends Model
 {
@@ -25,7 +24,7 @@ class Voucher extends Model
 
     protected $casts = [
         'expires_at' => 'datetime',
-        'is_active'  => 'boolean',
+        'is_active' => 'boolean',
     ];
 
     public function seller(): BelongsTo
@@ -35,7 +34,7 @@ class Voucher extends Model
 
     public function isValidForAmount(float $subtotal): bool
     {
-        if (!$this->is_active) {
+        if (! $this->is_active) {
             return false;
         }
 

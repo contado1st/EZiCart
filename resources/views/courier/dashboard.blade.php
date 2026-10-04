@@ -1,229 +1,213 @@
-@extends('layouts.app')
-
-@push('styles')
-    <link rel="stylesheet" href="{{ asset('css/dashboard.css') }}">
-@endpush
-
-@section('content')
-<div class="dash-wrapper">
-    <!-- Sidebar -->
-    <aside class="dash-sidebar">
+@extends('layouts.courier')
+@section('workspace')
+    <header class="ops-heading">
         <div>
-            <div class="dash-profile-badge">
-                <span class="dash-role-tag">Courier Portal</span>
-                <h2 class="dash-profile-title">{{ auth()->user()->first_name }} {{ auth()->user()->last_name }}</h2>
-                <p class="dash-profile-subtitle">Vehicle: {{ auth()->user()->vehicle_type ?? 'Motorcycle' }} ({{ auth()->user()->plate_number ?? 'N/A' }})</p>
-            </div>
-
-            <nav class="dash-nav">
-                <a href="{{ route('courier.dashboard') }}" class="dash-nav-item active">
-                    🚚 Dispatch Board
-                </a>
-            </nav>
+            <div class="ops-eyebrow">Courier · {{ now()->format('D, d M Y') }}</div>
+            <h1>My dispatch board</h1>
+            <p>Pickups, hub handoffs and doorstep deliveries assigned to your account.</p>
         </div>
-
-        <form action="{{ route('logout') }}" method="POST">
-            @csrf
-            <button type="submit" class="dash-logout-btn">
-                🚪 Logout
-            </button>
-        </form>
-    </aside>
-
-    <!-- Main Dispatch Board -->
-    <main class="dash-main">
-        <div class="dash-header">
-            <div>
-                <h1 class="dash-title">Courier Dispatch Board</h1>
-                <p class="dash-subtitle">Handle merchant pickups and doorstep deliveries assigned by the Sorting Center.</p>
-            </div>
+        <div class="courier-actions">
+            @if (count($myDeliveryAssignments) > 0)
+                <a class="ops-btn" href="{{ route('courier.orders.show', $myDeliveryAssignments->first()) }}">Open next
+                    delivery</a>
+            @endif
+            <span class="ops-status {{ $courier->status === 'approved' ? 'ops-status--green' : 'ops-status--amber' }}">
+                {{ ucfirst($courier->status) }}</span>
         </div>
-
-        @if(session('success'))
-            <div class="dash-alert-success">✅ {{ session('success') }}</div>
-        @endif
-
-        @if(session('error'))
-            <div class="dash-alert-success" style="border-left-color: var(--dash-danger); background-color: var(--dash-danger-bg); color: var(--dash-danger);">
-                ⚠️ {{ session('error') }}
-            </div>
-        @endif
-
-        <!-- Courier Metrics Grid -->
-        <div class="dash-stats-grid">
-            <div class="dash-stat-card">
-                <div class="dash-stat-label">Available Pickups</div>
-                <div class="dash-stat-value primary">{{ $stats['available_pickups'] }}</div>
-                <div class="dash-stat-subtext">Waiting at seller shops</div>
-            </div>
-
-            <div class="dash-stat-card">
-                <div class="dash-stat-label">Parcels En Route to Hub</div>
-                <div class="dash-stat-value warning">{{ $stats['in_transit_hub'] }}</div>
-                <div class="dash-stat-subtext">Delivering to Sorting Center</div>
-            </div>
-
-            <div class="dash-stat-card">
-                <div class="dash-stat-label">Doorstep Assignments</div>
-                <div class="dash-stat-value primary">{{ $stats['assigned_delivery'] }}</div>
-                <div class="dash-stat-subtext">Assigned by Sorting Center</div>
-            </div>
-
-            <div class="dash-stat-card">
-                <div class="dash-stat-label">Completed Drops</div>
-                <div class="dash-stat-value success">{{ $stats['completed'] }}</div>
-                <div class="dash-stat-subtext success">Successful deliveries</div>
-            </div>
+    </header>
+    <section class="ops-stats">
+        <div class="ops-stat"><span>Pickup claims</span><strong>{{ $stats['claimed_pickups'] }}</strong></div>
+        <div class="ops-stat"><span>Parcels to hub</span><strong>{{ $stats['in_transit_hub'] }}</strong></div>
+        <div class="ops-stat"><span>Delivery workload</span><strong>{{ $stats['assigned_delivery'] }}</strong></div>
+        <div class="ops-stat"><span>Delivered today</span><strong>{{ $stats['completed_today'] }}</strong></div>
+        <div class="ops-stat"><span>Failed today</span><strong>{{ $stats['failed_today'] }}</strong></div>
+    </section>
+    <section class="ops-panel courier-pickup">
+        <h2>Pickup work · available seller requests</h2>
+        <div class="ops-table-wrap">
+            <table class="ops-table">
+                <thead>
+                    <tr>
+                        <th>Order</th>
+                        <th>Seller pickup point</th>
+                        <th>Destination</th>
+                        <th>Contents</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @forelse($availablePickups as $order)
+                        <tr>
+                            <td class="ops-mono">{{ $order->order_number }}</td>
+                            <td>{{ $order->seller?->business_name ?? $order->seller?->first_name }}<div class="ops-muted">
+                                    {{ $order->seller?->street_address }}, {{ $order->seller?->municipality }}</div>
+                                <div class="ops-muted">{{ $order->seller?->contact_no }}</div>
+                            </td>
+                            <td>{{ $order->municipality }}, {{ $order->province }}</td>
+                            <td>{{ $order->items->count() }} item(s)</td>
+                            <td>
+                                <form method="POST" action="{{ route('courier.orders.claim', $order) }}">@csrf<button
+                                        class="ops-btn ops-btn--primary" type="submit" @disabled($courier->status !== 'approved')>Accept
+                                        pickup</button></form>
+                            </td>
+                    </tr>@empty<tr>
+                            <td colspan="5">
+                                <div class="ops-empty">No unclaimed seller pickups are available.</div>
+                            </td>
+                        </tr>
+                    @endforelse
+                </tbody>
+            </table>
         </div>
-
-        <div class="courier-grid">
-            <!-- SECTION 1: DOORSTEP DELIVERIES ASSIGNED TO THIS RIDER -->
-            <div class="dash-panel">
-                <div class="courier-section-header">
-                    <h2 class="courier-section-title">🛵 Doorstep Delivery Assignments ({{ $myDeliveryAssignments->count() }})</h2>
-                </div>
-                <p style="font-size: 0.8125rem; color: var(--dash-text-muted); margin-bottom: 1rem;">
-                    Parcels sorted and assigned to you by the Logistics Center for customer drop-off.
-                </p>
-
-                @forelse($myDeliveryAssignments as $order)
-                    <div class="order-card">
-                        <div class="order-card-header">
-                            <div>
-                                <span class="order-number">{{ $order->order_number }}</span>
-                                <span class="area-tag" style="margin-left: 0.5rem;">{{ $order->delivery_area }}</span>
-                            </div>
-                            <span class="status-pill status-{{ strtolower(str_replace('_', '-', $order->status)) }}">
-                                {{ str_replace('_', ' ', $order->status) }}
-                            </span>
-                        </div>
-
-                        <div class="courier-route-block">
-                            <div class="courier-route-col">
-                                <span class="courier-route-label">Customer Recipient</span>
-                                <span class="courier-route-name">{{ $order->recipient_name }}</span>
-                                <span>{{ $order->street_address }}, {{ $order->barangay }}, {{ $order->municipality }}</span>
-                                <span>Contact: {{ $order->recipient_contact }}</span>
-                            </div>
-                            <div class="courier-route-col">
-                                <span class="courier-route-label">Collect Amount</span>
-                                <span class="courier-route-name">₱{{ number_format($order->total_amount, 2) }}</span>
-                                <span>Payment Method: <strong>{{ $order->payment_method }}</strong></span>
-                            </div>
-                        </div>
-
-                        <div class="order-card-footer">
-                            <div>
-                                Notes: {{ $order->notes ?? 'Standard delivery.' }}
-                            </div>
-                            <div class="courier-actions-wrap">
-                                @if($order->status === 'ASSIGNED_TO_RIDER')
-                                    <form action="{{ route('courier.orders.startDelivery', $order->id) }}" method="POST">
-                                        @csrf
-                                        <button type="submit" class="dash-btn-sm dash-btn-primary">
-                                            🛵 Pick Up from Hub & Start Delivery
-                                        </button>
-                                    </form>
-                                @elseif($order->status === 'OUT_FOR_DELIVERY')
-                                    <form action="{{ route('courier.orders.completeDelivery', $order->id) }}" method="POST">
-                                        @csrf
-                                        @method('PATCH')
-                                        <input type="hidden" name="status" value="DELIVERED">
-                                        <button type="submit" class="dash-btn-sm dash-btn-primary">
-                                            ✅ Mark Delivered
-                                        </button>
-                                    </form>
-
-                                    <form action="{{ route('courier.orders.completeDelivery', $order->id) }}" method="POST">
-                                        @csrf
-                                        @method('PATCH')
-                                        <input type="hidden" name="status" value="DELIVERY_FAILED">
-                                        <button type="submit" class="dash-btn-sm dash-btn-danger">
-                                            ❌ Delivery Failed
-                                        </button>
-                                    </form>
+        <div class="ops-pagination">{{ $availablePickups->links() }}</div>
+    </section>
+    <section class="ops-panel courier-pickup">
+        <h2>Pickup work · accepted requests</h2>
+        <div class="ops-table-wrap">
+            <table class="ops-table">
+                <thead>
+                    <tr>
+                        <th>Order</th>
+                        <th>Seller</th>
+                        <th>Claimed</th>
+                        <th>Next step</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @forelse($claimedPickups as $order)
+                        <tr>
+                            <td class="ops-mono">{{ $order->order_number }}</td>
+                            <td>{{ $order->seller?->business_name ?? $order->seller?->first_name }}<div class="ops-muted">
+                                    {{ $order->seller?->municipality }}</div>
+                            </td>
+                            <td>{{ $order->pickup_claimed_at?->format('d M H:i') }}</td>
+                            <td>
+                                <form method="POST" action="{{ route('courier.orders.confirmPickup', $order) }}">
+                                    @csrf<button class="ops-btn ops-btn--primary" @disabled($courier->status !== 'approved')>Confirm
+                                        parcel collected</button></form>
+                            </td>
+                    </tr>@empty<tr>
+                            <td colspan="4">
+                                <div class="ops-empty">No accepted pickups waiting for collection confirmation.</div>
+                            </td>
+                        </tr>
+                    @endforelse
+                </tbody>
+            </table>
+        </div>
+    </section>
+    <section class="ops-panel courier-pickup">
+        <h2>Pickup work · in your custody, heading to the hub</h2>
+        <div class="ops-table-wrap">
+            <table class="ops-table">
+                <thead>
+                    <tr>
+                        <th>Order</th>
+                        <th>Seller</th>
+                        <th>Collected</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @forelse($myActivePickups as $order)
+                        <tr>
+                            <td class="ops-mono">{{ $order->order_number }}</td>
+                            <td>{{ $order->seller?->business_name ?? $order->seller?->first_name }}</td>
+                            <td>{{ $order->picked_up_at?->format('d M H:i') }}</td>
+                            <td><span class="ops-status ops-status--amber">Awaiting hub receipt</span></td>
+                    </tr>@empty<tr>
+                            <td colspan="4">
+                                <div class="ops-empty">No parcels in transit to the sorting center.</div>
+                            </td>
+                        </tr>
+                    @endforelse
+                </tbody>
+            </table>
+        </div>
+    </section>
+    <section class="ops-panel courier-delivery">
+        <h2>Doorstep delivery work</h2>
+        <div class="ops-table-wrap">
+            <table class="ops-table">
+                <thead>
+                    <tr>
+                        <th>Order / stage</th>
+                        <th>Recipient & destination</th>
+                        <th>Payment</th>
+                        <th>Delivery action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @forelse($myDeliveryAssignments as $order)
+                        <tr>
+                            <td class="ops-mono">{{ $order->order_number }}<div><span
+                                        class="ops-status">{{ str_replace('_', ' ', $order->status) }}</span></div>
+                                <div class="ops-muted">Assigned {{ $order->assigned_at?->diffForHumans() }}</div>
+                            </td>
+                            <td>{{ $order->recipient_name }}<div class="ops-muted">{{ $order->street_address }},
+                                    {{ $order->barangay }}, {{ $order->municipality }}</div>
+                                <div class="ops-muted">{{ $order->recipient_contact }} · {{ $order->delivery_area }}</div>
+                            </td>
+                            <td>{{ $order->payment_method }}<div class="ops-muted">
+                                    ₱{{ number_format($order->total_amount, 2) }}</div>
+                            </td>
+                            <td>
+                                @if ($order->status === 'ASSIGNED_TO_RIDER')
+                                    <form method="POST" action="{{ route('courier.orders.startDelivery', $order) }}">
+                                        @csrf<button class="ops-btn ops-btn--primary" @disabled($courier->status !== 'approved')>Collect
+                                            from hub & start</button></form>
+                                @else
+                                    <details>
+                                        <summary class="ops-btn ops-btn--primary">Complete delivery</summary>
+                                        <form class="ops-form" method="POST"
+                                            action="{{ route('courier.orders.completeDelivery', $order) }}"
+                                            onsubmit="return confirm('Confirm this parcel was delivered to the named recipient?')">
+                                            @csrf @method('PATCH')<div class="ops-field"><label>Recipient
+                                                    confirmation</label><input name="recipient_confirmation" maxlength="120"
+                                                    required></div>
+                                            @if ($order->payment_method === 'COD')
+                                                <div class="ops-field"><label>Cash collected
+                                                        (₱{{ number_format($order->total_amount, 2) }})
+                                                    </label><input type="number" step="0.01" min="0"
+                                                        name="cod_collected_amount" required></div>
+                                            @endif
+                                            <div class="ops-field">
+                                                <label>Delivery notes</label><input name="delivery_notes" maxlength="1000">
+                                            </div><button class="ops-btn ops-btn--primary">Confirm delivered</button>
+                                        </form>
+                                    </details>
+                                    <details>
+                                        <summary class="ops-btn ops-btn--danger">Record failed attempt</summary>
+                                        <form class="ops-form" method="POST"
+                                            action="{{ route('courier.orders.failDelivery', $order) }}"
+                                            onsubmit="return confirm('Record this delivery attempt as failed?')">@csrf
+                                            @method('PATCH')<div class="ops-field"><label>Reason</label><select
+                                                    name="failure_reason" required>
+                                                    <option value="">Select reason</option>
+                                                    <option value="recipient_unavailable">Recipient unavailable</option>
+                                                    <option value="incorrect_address">Incorrect address</option>
+                                                    <option value="recipient_refused">Recipient refused</option>
+                                                    <option value="unreachable_contact">Unreachable contact</option>
+                                                    <option value="access_issue">Access issue</option>
+                                                    <option value="damaged_parcel">Damaged parcel</option>
+                                                    <option value="other">Other</option>
+                                                </select></div>
+                                            <div class="ops-field"><label>Notes</label><input name="delivery_notes"
+                                                    maxlength="1000"></div><button class="ops-btn ops-btn--danger">Record
+                                                failure</button>
+                                        </form>
+                                    </details>
                                 @endif
-                            </div>
-                        </div>
-                    </div>
-                @empty
-                    <div class="dash-empty-box">No delivery assignments from the Sorting Center right now.</div>
-                @endforelse
-            </div>
-
-            <!-- SECTION 2: MY ACTIVE PICKUPS EN ROUTE TO SORTING CENTER -->
-            <div class="dash-panel">
-                <div class="courier-section-header">
-                    <h2 class="courier-section-title">📦 Seller Pickups in Your Custody ({{ $myActivePickups->count() }})</h2>
-                </div>
-                <p style="font-size: 0.8125rem; color: var(--dash-text-muted); margin-bottom: 1rem;">
-                    Parcels collected from merchants that must be brought to the Sorting Center.
-                </p>
-
-                @forelse($myActivePickups as $order)
-                    <div class="order-card">
-                        <div class="order-card-header">
-                            <div>
-                                <span class="order-number">{{ $order->order_number }}</span>
-                                <div class="order-date">Collected from {{ $order->seller->business_name }}</div>
-                            </div>
-                            <span class="status-pill status-picked-up">In Transit to Hub</span>
-                        </div>
-                        <div style="font-size: 0.8125rem; color: var(--dash-text-muted);">
-                            Bring this package to the Logistics / Sorting Center for barcode scanning and destination sorting.
-                        </div>
-                    </div>
-                @empty
-                    <div class="dash-empty-box">You have no parcels in transit to the hub.</div>
-                @endforelse
-            </div>
-
-            <!-- SECTION 3: AVAILABLE PICKUPS FROM MERCHANTS -->
-            <div class="dash-panel">
-                <div class="courier-section-header">
-                    <h2 class="courier-section-title">📍 Available Seller Pickups ({{ $availablePickups->count() }})</h2>
-                </div>
-                <p style="font-size: 0.8125rem; color: var(--dash-text-muted); margin-bottom: 1rem;">
-                    Merchants who have packed orders and generated waybills awaiting courier collection.
-                </p>
-
-                @forelse($availablePickups as $order)
-                    <div class="order-card">
-                        <div class="order-card-header">
-                            <div>
-                                <span class="order-number">{{ $order->order_number }}</span>
-                                <div class="order-date">Store: <strong>{{ $order->seller->business_name }}</strong></div>
-                            </div>
-                            <span class="status-pill status-ready-for-pickup">Ready for Pickup</span>
-                        </div>
-
-                        <div class="courier-route-block">
-                            <div class="courier-route-col">
-                                <span class="courier-route-label">Merchant Address</span>
-                                <span>{{ $order->seller->street_address }}, {{ $order->seller->barangay }}, {{ $order->seller->municipality }}</span>
-                                <span>Contact: {{ $order->seller->contact_no }}</span>
-                            </div>
-                            <div class="courier-route-col">
-                                <span class="courier-route-label">Destination Municipality</span>
-                                <span>{{ $order->municipality }}, {{ $order->province }}</span>
-                            </div>
-                        </div>
-
-                        <div class="order-card-footer">
-                            <div>{{ $order->items->count() }} item(s) in package</div>
-                            <form action="{{ route('courier.orders.claim', $order->id) }}" method="POST">
-                                @csrf
-                                <button type="submit" class="dash-btn-sm dash-btn-primary">
-                                    Claim & Pick Up from Seller
-                                </button>
-                            </form>
-                        </div>
-                    </div>
-                @empty
-                    <div class="dash-empty-box">No seller pickup requests available at the moment.</div>
-                @endforelse
-            </div>
+                            </td>
+                    </tr>@empty<tr>
+                            <td colspan="4">
+                                <div class="ops-empty">No delivery parcels are assigned to you.</div>
+                            </td>
+                        </tr>
+                    @endforelse
+                </tbody>
+            </table>
         </div>
-    </main>
-</div>
+        <div class="ops-pagination">{{ $myDeliveryAssignments->links() }}</div>
+    </section>
 @endsection
