@@ -48,7 +48,7 @@
                             <td>
                                 <form method="POST" action="{{ route('courier.orders.claim', $order) }}">@csrf<button
                                         class="ops-btn ops-btn--primary" type="submit" @disabled($courier->status !== 'approved')>Accept
-                                        pickup</button></form>
+                                        assigned pickup</button></form>
                             </td>
                     </tr>@empty<tr>
                             <td colspan="5">
@@ -83,8 +83,7 @@
                             <td>{{ $order->pickup_claimed_at?->format('d M H:i') }}</td>
                             <td>
                                 <form method="POST" action="{{ route('courier.orders.confirmPickup', $order) }}">
-                                    @csrf<button class="ops-btn ops-btn--primary" @disabled($courier->status !== 'approved')>Confirm
-                                        parcel collected</button></form>
+                                    @csrf<button class="ops-btn ops-btn--primary" @disabled($courier->status !== 'approved')>{{ $order->pickup_arrived_at && $order->seller_handover_at ? 'Confirm parcel possession' : ($order->pickup_arrived_at ? 'Waiting for seller handover' : 'Record arrival at seller') }}</button></form>
                             </td>
                     </tr>@empty<tr>
                             <td colspan="4">
@@ -126,6 +125,26 @@
         </div>
     </section>
     <section class="ops-panel courier-delivery">
+        <h2>Failed deliveries requiring logistics follow-up</h2>
+        <div class="ops-table-wrap">
+            <table class="ops-table">
+                <thead><tr><th>Order</th><th>Latest attempt</th><th>Recorded</th><th>Next step</th></tr></thead>
+                <tbody>
+                    @forelse ($myFailedDeliveries as $order)
+                        <tr>
+                            <td class="ops-mono">{{ $order->order_number }}</td>
+                            <td>{{ str_replace('_', ' ', $order->delivery_failure_reason) }}</td>
+                            <td>{{ $order->failed_at?->format('d M H:i') }}</td>
+                            <td>Logistics will reassign the delivery or initiate a return.</td>
+                        </tr>
+                    @empty
+                        <tr><td colspan="4"><div class="ops-empty">No failed deliveries need follow-up.</div></td></tr>
+                    @endforelse
+                </tbody>
+            </table>
+        </div>
+    </section>
+    <section class="ops-panel courier-delivery">
         <h2>Doorstep delivery work</h2>
         <div class="ops-table-wrap">
             <table class="ops-table">
@@ -161,6 +180,7 @@
                                         <summary class="ops-btn ops-btn--primary">Complete delivery</summary>
                                         <form class="ops-form" method="POST"
                                             action="{{ route('courier.orders.completeDelivery', $order) }}"
+                                            enctype="multipart/form-data"
                                             onsubmit="return confirm('Confirm this parcel was delivered to the named recipient?')">
                                             @csrf @method('PATCH')<div class="ops-field"><label>Recipient
                                                     confirmation</label><input name="recipient_confirmation" maxlength="120"
@@ -173,7 +193,9 @@
                                             @endif
                                             <div class="ops-field">
                                                 <label>Delivery notes</label><input name="delivery_notes" maxlength="1000">
-                                            </div><button class="ops-btn ops-btn--primary">Confirm delivered</button>
+                                            </div>
+                                            <div class="ops-field"><label>Proof of delivery (optional)</label><input type="file" name="proof_file" accept=".jpg,.jpeg,.png,.pdf"></div>
+                                            <button class="ops-btn ops-btn--primary">Confirm delivered</button>
                                         </form>
                                     </details>
                                     <details>

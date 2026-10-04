@@ -82,15 +82,48 @@
                         <form action="{{ route('seller.orders.updateStatus', $order->id) }}" method="POST">
                             @csrf
                             @method('PATCH')
-                            <input type="hidden" name="status" value="PREPARING">
-                            <button type="submit" class="dash-btn-sm dash-btn-primary">Confirm and pack</button>
+                            <input type="hidden" name="status" value="CONFIRMED">
+                            <button type="submit" class="dash-btn-sm dash-btn-primary">Accept order</button>
                         </form>
-                    @elseif(in_array($order->status, ['PREPARING', 'CONFIRMED']))
+                    @elseif($order->status === 'CONFIRMED')
+                        <form action="{{ route('seller.orders.updateStatus', $order->id) }}" method="POST">
+                            @csrf
+                            @method('PATCH')
+                            <input type="hidden" name="status" value="PREPARING">
+                            <button type="submit" class="dash-btn-sm dash-btn-primary">Start preparing</button>
+                        </form>
+                    @elseif($order->status === 'PREPARING')
                         <form action="{{ route('seller.orders.updateStatus', $order->id) }}" method="POST">
                             @csrf
                             @method('PATCH')
                             <input type="hidden" name="status" value="READY_FOR_PICKUP">
                             <button type="submit" class="dash-btn-sm dash-btn-primary">Mark ready for pickup</button>
+                        </form>
+                    @elseif($order->status === 'READY_FOR_PICKUP' && ! $order->pickup_requested_at)
+                        <form action="{{ route('seller.orders.schedulePickup', $order) }}" method="POST" class="order-schedule-form">
+                            @csrf
+                            <label for="pickup-scheduled-for">Pickup date and time</label>
+                            <input id="pickup-scheduled-for" type="datetime-local" name="pickup_scheduled_for" min="{{ now()->addMinutes(15)->format('Y-m-d\\TH:i') }}" required>
+                            <label for="pickup-window">Pickup window</label>
+                            <select id="pickup-window" name="pickup_window" required>
+                                <option value="">Choose a window</option>
+                                <option value="Morning (8 AM–12 PM)">Morning (8 AM–12 PM)</option>
+                                <option value="Afternoon (12 PM–5 PM)">Afternoon (12 PM–5 PM)</option>
+                                <option value="Evening (5 PM–8 PM)">Evening (5 PM–8 PM)</option>
+                            </select>
+                            <label for="pickup-notes">Pickup instructions (optional)</label>
+                            <textarea id="pickup-notes" name="pickup_notes" maxlength="1000"></textarea>
+                            <button type="submit" class="dash-btn-sm dash-btn-primary">Request pickup</button>
+                        </form>
+                    @elseif($order->status === 'READY_FOR_PICKUP' && $order->pickup_requested_at && ! $order->pickup_arrived_at)
+                        <p>Pickup requested for {{ $order->pickup_scheduled_for?->format('M d, Y h:i A') }} · {{ $order->pickup_window }}. Waiting for Logistics to assign a rider.</p>
+                    @elseif($order->status === 'READY_FOR_PICKUP' && $order->pickup_arrived_at && ! $order->seller_handover_at)
+                        <form action="{{ route('seller.orders.confirmHandover', $order) }}" method="POST">
+                            @csrf<button type="submit" class="dash-btn-sm dash-btn-primary">Confirm rider handover</button>
+                        </form>
+                    @elseif($order->status === 'RETURN_IN_TRANSIT')
+                        <form action="{{ route('seller.orders.confirmReturn', $order) }}" method="POST">
+                            @csrf<button type="submit" class="dash-btn-sm dash-btn-primary">Confirm returned parcel received</button>
                         </form>
                     @endif
                 </div>

@@ -48,7 +48,7 @@ class AdminModerationController extends Controller
 
     public function reactivate(User $user)
     {
-        abort_if($user->role === 'admin', 403);
+        abort_unless($user->role !== 'admin' && $user->status === 'suspended', 422, 'Only suspended accounts can be reactivated here.');
 
         $user->update([
             'status' => 'approved',

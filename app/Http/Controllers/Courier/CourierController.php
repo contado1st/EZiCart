@@ -2,14 +2,18 @@
 
 namespace App\Http\Controllers\Courier;
 
+use App\Enums\OrderStatus;
 use App\Http\Controllers\Controller;
+use App\Models\DeliveryAttempt;
 use App\Models\Order;
 use App\Models\ParcelTrackingEvent;
 use App\Models\User;
+use App\Services\OrderTransitionService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
 class CourierController extends Controller
@@ -17,10 +21,11 @@ class CourierController extends Controller
     public function dashboard(): View
     {
         $courier = $this->authenticatedUser();
-        $availablePickups = Order::where('status', 'READY_FOR_PICKUP')->whereNull('pickup_courier_id')->with(['seller', 'items'])->latest()->paginate(8, ['*'], 'pickups');
+        $availablePickups = Order::where('status', 'READY_FOR_PICKUP')->where('pickup_courier_id', $courier->id)->whereNull('pickup_claimed_at')->with(['seller', 'items'])->latest()->paginate(8, ['*'], 'pickups');
         $claimedPickups = Order::where('pickup_courier_id', $courier->id)->where('status', 'READY_FOR_PICKUP')->with('seller')->latest()->get();
         $myActivePickups = Order::where('pickup_courier_id', $courier->id)->where('status', 'PICKED_UP')->with('seller')->latest()->get();
         $myDeliveryAssignments = Order::where('delivery_courier_id', $courier->id)->whereIn('status', ['ASSIGNED_TO_RIDER', 'OUT_FOR_DELIVERY'])->with(['buyer', 'items'])->latest()->paginate(10, ['*'], 'deliveries');
+        $myFailedDeliveries = Order::where('delivery_courier_id', $courier->id)->where('status', 'DELIVERY_FAILED')->with('deliveryAttempts')->latest('failed_at')->get();
         $stats = [
             'claimed_pickups' => $claimedPickups->count(),
             'in_transit_hub' => $myActivePickups->count(),
@@ -29,14 +34,14 @@ class CourierController extends Controller
             'failed_today' => Order::where('delivery_courier_id', $courier->id)->where('status', 'DELIVERY_FAILED')->whereDate('failed_at', today())->count(),
         ];
 
-        return view('courier.dashboard', compact('courier', 'availablePickups', 'claimedPickups', 'myActivePickups', 'myDeliveryAssignments', 'stats'));
+        return view('courier.dashboard', compact('courier', 'availablePickups', 'claimedPickups', 'myActivePickups', 'myDeliveryAssignments', 'myFailedDeliveries', 'stats'));
     }
 
     public function showOrder(Order $order): View
     {
         $courier = $this->authenticatedUser();
         abort_unless($order->pickup_courier_id === $courier->id || $order->delivery_courier_id === $courier->id, 403);
-        $order->load(['seller', 'buyer', 'items', 'trackingEvents.actor']);
+        $order->load(['seller', 'buyer', 'items', 'trackingEvents.actor', 'deliveryAttempts']);
 
         return view('courier.orders.show', compact('order'));
     }
@@ -48,73 +53,92 @@ class CourierController extends Controller
         return DB::transaction(function () use ($order, $courier): RedirectResponse {
             $lockedOrder = Order::whereKey($order->id)->lockForUpdate()->firstOrFail();
             abort_unless($courier->status === 'approved', 403, 'Your rider account is not approved for pickups.');
-            abort_unless($lockedOrder->status === 'READY_FOR_PICKUP' && $lockedOrder->pickup_courier_id === null, 422, 'This pickup has already been claimed or is no longer available.');
-            $lockedOrder->update(['pickup_courier_id' => $courier->id, 'pickup_claimed_at' => now()]);
-            $this->recordEvent($lockedOrder, 'pickup_claimed', $courier, $lockedOrder->seller?->municipality, 'Rider accepted the pickup request.');
+            abort_unless($lockedOrder->pickup_courier_id === $courier->id, 403);
+            abort_unless($lockedOrder->status === 'READY_FOR_PICKUP' && $lockedOrder->pickup_claimed_at === null, 422, 'This pickup has already been accepted or is no longer available.');
+            $lockedOrder->update(['pickup_claimed_at' => now()]);
+            $this->recordEvent($lockedOrder, 'pickup_accepted', $courier, $lockedOrder->seller?->municipality, 'Rider accepted the Logistics pickup assignment.');
 
             return back()->with('success', "Pickup {$lockedOrder->order_number} added to your route.");
         });
     }
 
-    public function confirmPickup(Order $order): RedirectResponse
+    public function confirmPickup(Order $order, OrderTransitionService $transitions): RedirectResponse
     {
         $courier = $this->authenticatedUser();
 
-        return DB::transaction(function () use ($order, $courier): RedirectResponse {
+        return DB::transaction(function () use ($order, $courier, $transitions): RedirectResponse {
             $lockedOrder = Order::whereKey($order->id)->lockForUpdate()->firstOrFail();
             abort_unless($lockedOrder->pickup_courier_id === $courier->id, 403);
             abort_unless($courier->status === 'approved' && $lockedOrder->status === 'READY_FOR_PICKUP' && $lockedOrder->pickup_claimed_at !== null, 422, 'This pickup cannot be confirmed.');
-            $lockedOrder->update(['status' => 'PICKED_UP', 'picked_up_at' => now()]);
-            $this->recordEvent($lockedOrder, 'picked_up', $courier, $lockedOrder->seller?->municipality, 'Parcel collected from seller; traveling to sorting center.');
+            if ($lockedOrder->pickup_arrived_at === null) {
+                $lockedOrder->update(['pickup_arrived_at' => now()]);
+                $this->recordEvent($lockedOrder, 'pickup_arrived', $courier, $lockedOrder->seller?->municipality, 'Rider arrived and requested seller handover confirmation.');
+
+                return back()->with('success', 'Arrival recorded. Wait for the seller to confirm parcel handover, then confirm possession.');
+            }
+
+            abort_unless($lockedOrder->seller_handover_at !== null, 422, 'The seller must confirm parcel handover before pickup can be completed.');
+            $transitions->transition($lockedOrder, $courier, OrderStatus::PickedUp, 'picked_up', $lockedOrder->seller?->municipality, 'Parcel collected from seller; traveling to sorting center.', ['picked_up_at' => now()]);
 
             return back()->with('success', "Parcel {$lockedOrder->order_number} collected. Bring it to the sorting center for handoff.");
         });
     }
 
-    public function startDelivery(Order $order): RedirectResponse
+    public function startDelivery(Order $order, OrderTransitionService $transitions): RedirectResponse
     {
         $courier = $this->authenticatedUser();
 
-        return DB::transaction(function () use ($order, $courier): RedirectResponse {
+        return DB::transaction(function () use ($order, $courier, $transitions): RedirectResponse {
             $lockedOrder = Order::whereKey($order->id)->lockForUpdate()->firstOrFail();
             abort_unless($lockedOrder->delivery_courier_id === $courier->id, 403);
             abort_unless($courier->status === 'approved' && $lockedOrder->status === 'ASSIGNED_TO_RIDER', 422, 'This parcel cannot be started for delivery.');
-            $lockedOrder->update(['status' => 'OUT_FOR_DELIVERY', 'out_for_delivery_at' => now()]);
-            $this->recordEvent($lockedOrder, 'out_for_delivery', $courier, $lockedOrder->delivery_area, 'Rider collected parcel from the hub.');
+            $transitions->transition($lockedOrder, $courier, OrderStatus::OutForDelivery, 'out_for_delivery', $lockedOrder->delivery_area, 'Rider collected parcel from the hub.', ['out_for_delivery_at' => now()]);
 
             return back()->with('success', "Order {$lockedOrder->order_number} is out for delivery.");
         });
     }
 
-    public function completeDelivery(Request $request, Order $order): RedirectResponse
+    public function completeDelivery(Request $request, Order $order, OrderTransitionService $transitions): RedirectResponse
     {
         $validated = $request->validate([
             'recipient_confirmation' => ['required', 'string', 'max:120'],
             'delivery_notes' => ['nullable', 'string', 'max:1000'],
-            'cod_collected_amount' => ['required_if:payment_method,COD', 'nullable', 'numeric', 'min:0'],
+            'cod_collected_amount' => ['nullable', 'numeric', 'min:0', 'decimal:0,2'],
+            'proof_file' => ['nullable', 'file', 'mimes:jpg,jpeg,png,pdf', 'max:4096'],
         ]);
         $courier = $this->authenticatedUser();
 
-        return DB::transaction(function () use ($order, $courier, $validated): RedirectResponse {
+        return DB::transaction(function () use ($request, $order, $courier, $validated, $transitions): RedirectResponse {
             $lockedOrder = Order::whereKey($order->id)->lockForUpdate()->firstOrFail();
             abort_unless($lockedOrder->delivery_courier_id === $courier->id, 403);
             abort_unless($courier->status === 'approved' && $lockedOrder->status === 'OUT_FOR_DELIVERY', 422, 'This parcel is not out for delivery.');
             if ($lockedOrder->payment_method === 'COD') {
-                abort_unless((float) $validated['cod_collected_amount'] === (float) $lockedOrder->total_amount, 422, 'Confirm the full order amount collected for cash on delivery.');
+                if (! isset($validated['cod_collected_amount']) || $this->amountInCentavos($validated['cod_collected_amount']) !== $this->amountInCentavos((string) $lockedOrder->total_amount)) {
+                    throw ValidationException::withMessages(['cod_collected_amount' => 'Enter the exact full order amount collected for cash on delivery.']);
+                }
             }
-            $lockedOrder->update([
-                'status' => 'DELIVERED',
+            $notes = trim('Recipient: '.$validated['recipient_confirmation'].'. '.($validated['delivery_notes'] ?? ''));
+            $attemptNo = ((int) DeliveryAttempt::where('order_id', $lockedOrder->id)->max('attempt_no')) + 1;
+            DeliveryAttempt::create([
+                'order_id' => $lockedOrder->id,
+                'rider_id' => $courier->id,
+                'attempt_no' => $attemptNo,
+                'outcome' => 'delivered',
+                'notes' => $notes,
+                'proof_path' => $request->file('proof_file')?->store('delivery-proofs', 'private'),
+                'attempted_at' => now(),
+            ]);
+            $transitions->transition($lockedOrder, $courier, OrderStatus::Delivered, 'delivered', $lockedOrder->delivery_area, $notes, [
                 'delivered_at' => now(),
-                'delivery_notes' => trim('Recipient: '.$validated['recipient_confirmation'].'. '.($validated['delivery_notes'] ?? '')),
+                'delivery_notes' => $notes,
                 'cod_collected_amount' => $validated['cod_collected_amount'] ?? null,
             ]);
-            $this->recordEvent($lockedOrder, 'delivered', $courier, $lockedOrder->delivery_area, 'Delivered to '.$validated['recipient_confirmation'].'.');
 
             return back()->with('success', "Order {$lockedOrder->order_number} marked delivered.");
         });
     }
 
-    public function failDelivery(Request $request, Order $order): RedirectResponse
+    public function failDelivery(Request $request, Order $order, OrderTransitionService $transitions): RedirectResponse
     {
         $validated = $request->validate([
             'failure_reason' => ['required', 'in:recipient_unavailable,incorrect_address,recipient_refused,unreachable_contact,access_issue,damaged_parcel,other'],
@@ -122,17 +146,30 @@ class CourierController extends Controller
         ]);
         $courier = $this->authenticatedUser();
 
-        return DB::transaction(function () use ($order, $courier, $validated): RedirectResponse {
+        return DB::transaction(function () use ($order, $courier, $validated, $transitions): RedirectResponse {
             $lockedOrder = Order::whereKey($order->id)->lockForUpdate()->firstOrFail();
             abort_unless($lockedOrder->delivery_courier_id === $courier->id, 403);
             abort_unless($courier->status === 'approved' && $lockedOrder->status === 'OUT_FOR_DELIVERY', 422, 'Only a delivery in progress can be marked failed.');
-            $lockedOrder->update([
-                'status' => 'DELIVERY_FAILED',
+            $notes = $validated['failure_reason'].(filled($validated['delivery_notes'] ?? null) ? ': '.$validated['delivery_notes'] : '');
+            $attemptNo = ((int) DeliveryAttempt::where('order_id', $lockedOrder->id)->max('attempt_no')) + 1;
+            DeliveryAttempt::create([
+                'order_id' => $lockedOrder->id,
+                'rider_id' => $courier->id,
+                'attempt_no' => $attemptNo,
+                'outcome' => 'failed',
+                'reason' => $validated['failure_reason'],
+                'notes' => $validated['delivery_notes'] ?? null,
+                'attempted_at' => now(),
+            ]);
+            $transitions->transition($lockedOrder, $courier, OrderStatus::DeliveryFailed, 'delivery_failed', $lockedOrder->delivery_area, $notes, [
                 'failed_at' => now(),
                 'delivery_failure_reason' => $validated['failure_reason'],
                 'delivery_notes' => $validated['delivery_notes'] ?? null,
             ]);
-            $this->recordEvent($lockedOrder, 'delivery_failed', $courier, $lockedOrder->delivery_area, $validated['failure_reason'].(filled($validated['delivery_notes'] ?? null) ? ': '.$validated['delivery_notes'] : ''));
+
+            if ($attemptNo >= max(1, (int) config('logistics.maximum_delivery_attempts', 3))) {
+                $transitions->transition($lockedOrder->refresh(), $courier, OrderStatus::ReturnInTransit, 'return_in_transit', $lockedOrder->delivery_area, 'Maximum delivery attempts reached; parcel is returning to sender.');
+            }
 
             return back()->with('success', "Failure recorded for {$lockedOrder->order_number}. Logistics can review the next step.");
         });
@@ -170,5 +207,12 @@ class CourierController extends Controller
             'location' => $location,
             'notes' => $notes,
         ]);
+    }
+
+    private function amountInCentavos(string $amount): int
+    {
+        [$pesos, $centavos] = array_pad(explode('.', $amount, 2), 2, '');
+
+        return ((int) $pesos * 100) + (int) str_pad(substr($centavos, 0, 2), 2, '0');
     }
 }

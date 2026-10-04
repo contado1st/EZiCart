@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Middleware\CheckRole;
+use App\Http\Middleware\EnsureAccountActive;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -13,14 +14,12 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
 
-    ->withMiddleware(function (Middleware $middleware) {
-        // Add this block to register your middleware alias
+    ->withMiddleware(function (Middleware $middleware): void {
         $middleware->alias([
             'role' => CheckRole::class,
+            'account.active' => EnsureAccountActive::class,
         ]);
-    })
 
-    ->withMiddleware(function (Middleware $middleware): void {
         // Trust all proxies for the local tunnel connection
         $middleware->trustProxies(at: '*');
 

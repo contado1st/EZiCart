@@ -2,10 +2,14 @@
 
 namespace App\Http\Controllers\Logistics;
 
+use App\Enums\OrderStatus;
 use App\Http\Controllers\Controller;
+use App\Models\Area;
 use App\Models\Order;
 use App\Models\ParcelTrackingEvent;
 use App\Models\User;
+use App\Services\OrderAreaService;
+use App\Services\OrderTransitionService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -25,9 +29,9 @@ class LogisticsController extends Controller
             'out' => Order::where('status', 'OUT_FOR_DELIVERY')->count(),
             'delivered_today' => Order::whereIn('status', ['DELIVERED', 'COMPLETED'])->whereDate('delivered_at', today())->count(),
             'failed' => Order::where('status', 'DELIVERY_FAILED')->count(),
-            'returned' => Order::where('status', 'RETURNED')->count(),
+            'returned' => Order::whereIn('status', ['RETURN_IN_TRANSIT', 'RETURNED_TO_SELLER'])->count(),
             'active_riders' => User::where('role', 'courier')->where('status', 'approved')->count(),
-            'available_riders' => User::where('role', 'courier')->where('status', 'approved')->whereDoesntHave('finalDeliveries', fn (Builder $query) => $query->whereIn('status', ['ASSIGNED_TO_RIDER', 'OUT_FOR_DELIVERY']))->count(),
+            'available_riders' => User::where('role', 'courier')->where('status', 'approved')->whereDoesntHave('finalDeliveries', fn (Builder $query) => $query->whereIn('status', ['ASSIGNED_TO_RIDER', 'OUT_FOR_DELIVERY', 'DELIVERY_FAILED']))->count(),
         ];
 
         $queues = [
@@ -50,87 +54,144 @@ class LogisticsController extends Controller
         return view('logistics.intake', compact('parcels'));
     }
 
-    public function scan(Request $request): RedirectResponse
+    public function pickupRequests(): View
+    {
+        $orders = Order::query()->with(['seller', 'items'])
+            ->where('status', 'READY_FOR_PICKUP')
+            ->whereNotNull('pickup_requested_at')
+            ->whereNull('pickup_courier_id')
+            ->latest()->paginate(20);
+        $riders = User::query()->where('role', 'courier')->where('status', 'approved')->orderBy('first_name')->get();
+
+        return view('logistics.pickup-requests', compact('orders', 'riders'));
+    }
+
+    public function assignPickup(Request $request, Order $order): RedirectResponse
+    {
+        $validated = $request->validate(['pickup_courier_id' => ['required', 'integer', 'exists:users,id']]);
+        $operator = $this->authenticatedUser();
+
+        return DB::transaction(function () use ($order, $validated, $operator): RedirectResponse {
+            $lockedOrder = Order::query()->whereKey($order->id)->lockForUpdate()->firstOrFail();
+            abort_unless($lockedOrder->status === 'READY_FOR_PICKUP' && $lockedOrder->pickup_requested_at !== null && $lockedOrder->pickup_courier_id === null, 422, 'This pickup request is no longer available.');
+            $rider = User::query()->whereKey($validated['pickup_courier_id'])->lockForUpdate()->firstOrFail();
+            abort_unless($rider->role === 'courier' && $rider->status === 'approved', 422, 'Choose an approved rider.');
+
+            $lockedOrder->update(['pickup_courier_id' => $rider->id]);
+            ParcelTrackingEvent::create([
+                'order_id' => $lockedOrder->id,
+                'actor_id' => $operator->id,
+                'event_type' => 'pickup_assigned',
+                'status' => $lockedOrder->status,
+                'location' => $lockedOrder->seller?->municipality,
+                'notes' => "Pickup assigned to {$rider->first_name} {$rider->last_name}.",
+            ]);
+
+            return back()->with('success', "Pickup for {$lockedOrder->order_number} assigned to {$rider->first_name} {$rider->last_name}.");
+        });
+    }
+
+    public function scan(Request $request, OrderTransitionService $transitions): RedirectResponse
     {
         $validated = $request->validate(['reference' => ['required', 'string', 'max:100']]);
         $order = Order::where('order_number', $validated['reference'])->first();
 
         if (! $order) {
-            return back()->withErrors(['reference' => 'No order matches that order or waybill reference.']);
+            return back()->withErrors(['reference' => 'The parcel reference could not be processed.']);
         }
 
-        return $this->receiveParcel($order);
+        return $this->receiveParcel($order, $transitions);
     }
 
-    public function receiveParcel(Order $order): RedirectResponse
+    public function receiveParcel(Order $order, OrderTransitionService $transitions): RedirectResponse
     {
         $center = $this->authenticatedUser();
 
-        return DB::transaction(function () use ($order, $center): RedirectResponse {
-            $lockedOrder = Order::whereKey($order->id)->lockForUpdate()->firstOrFail();
-            abort_if($lockedOrder->status !== 'PICKED_UP', 422, 'This parcel is not eligible for hub intake.');
-
-            $lockedOrder->update([
-                'status' => 'AT_SORTING_CENTER',
+        $transitions->transition(
+            $order,
+            $center,
+            OrderStatus::AtSortingCenter,
+            'hub_received',
+            $center->municipality,
+            'Parcel received at sorting center.',
+            [
                 'sorting_center_id' => $center->id,
                 'received_at' => now(),
-            ]);
-            $this->recordEvent($lockedOrder, 'hub_received', $center, $center->municipality, 'Parcel received at sorting center.');
+            ],
+        );
 
-            return back()->with('success', "Parcel {$lockedOrder->order_number} received at the hub.");
-        });
+        return back()->with('success', "Parcel {$order->order_number} received at the hub.");
     }
 
     public function sorting(): View
     {
         $parcels = Order::where('status', 'AT_SORTING_CENTER')->with(['buyer', 'trackingEvents'])->latest()->paginate(15);
-        $areas = Order::query()->select('province', 'municipality')->whereNotNull('municipality')->distinct()->orderBy('province')->orderBy('municipality')->get();
 
-        return view('logistics.sorting', compact('parcels', 'areas'));
+        return view('logistics.sorting', compact('parcels'));
     }
 
-    public function sortParcel(Request $request, Order $order): RedirectResponse
+    public function sortParcel(Order $order, OrderTransitionService $transitions, OrderAreaService $areas): RedirectResponse
     {
-        $validated = $request->validate(['delivery_area' => ['required', 'string', 'max:100']]);
+        $area = $areas->resolve($order);
+        $transitions->transition($order, $this->authenticatedUser(), OrderStatus::Sorted, 'sorted', $area->name, "Sorted to destination area {$area->code}.", [
+            'destination_area_id' => $area->id,
+            'delivery_area' => $area->name,
+            'sorted_at' => now(),
+        ]);
 
-        return DB::transaction(function () use ($order, $validated): RedirectResponse {
-            $lockedOrder = Order::whereKey($order->id)->lockForUpdate()->firstOrFail();
-            abort_if($lockedOrder->status !== 'AT_SORTING_CENTER', 422, 'Only parcels received at the hub can be sorted.');
-            abort_unless($lockedOrder->municipality === $validated['delivery_area'], 422, 'Select the parcel destination municipality as its delivery area.');
-
-            $lockedOrder->update(['delivery_area' => $validated['delivery_area'], 'status' => 'SORTED', 'sorted_at' => now()]);
-            $this->recordEvent($lockedOrder, 'sorted', $this->authenticatedUser(), $validated['delivery_area'], 'Sorted to destination municipality.');
-
-            return back()->with('success', "Parcel {$lockedOrder->order_number} sorted to {$validated['delivery_area']}.");
-        });
+        return back()->with('success', "Parcel {$order->order_number} sorted to {$area->name}.");
     }
 
     public function dispatch(): View
     {
-        $parcels = Order::whereIn('status', ['SORTED', 'ASSIGNED_TO_RIDER', 'DELIVERY_FAILED'])->with(['buyer', 'deliveryCourier'])->latest()->paginate(15);
-        $riders = User::where('role', 'courier')->where('status', 'approved')->withCount([
+        $parcels = Order::whereIn('status', ['SORTED', 'ASSIGNED_TO_RIDER', 'DELIVERY_FAILED', 'RETURN_IN_TRANSIT'])->with(['buyer', 'deliveryCourier', 'destinationArea'])->latest()->paginate(15);
+        $riders = User::where('role', 'courier')->where('status', 'approved')->with('serviceAreas')->withCount([
             'finalDeliveries as active_deliveries_count' => fn (Builder $query) => $query->whereIn('status', ['ASSIGNED_TO_RIDER', 'OUT_FOR_DELIVERY']),
-        ])->orderBy('assigned_area')->orderBy('first_name')->get();
+            'finalDeliveries as failed_deliveries_count' => fn (Builder $query) => $query->where('status', 'DELIVERY_FAILED'),
+            'finalDeliveries as capacity_load_count' => fn (Builder $query) => $query->whereIn('status', ['ASSIGNED_TO_RIDER', 'OUT_FOR_DELIVERY', 'DELIVERY_FAILED']),
+        ])->orderBy('first_name')->get();
+        $maxActiveDeliveries = max(1, (int) config('logistics.maximum_active_deliveries_per_rider', 10));
+        $suggestedRiders = [];
+        foreach ($parcels as $parcel) {
+            $suggestedRiders[$parcel->id] = $riders
+                ->filter(fn (User $rider): bool => $parcel->destination_area_id !== null
+                    && $rider->capacity_load_count < $maxActiveDeliveries
+                    && $rider->serviceAreas->contains('id', $parcel->destination_area_id))
+                ->sortBy('failed_deliveries_count')
+                ->sortBy('active_deliveries_count')
+                ->first();
+        }
 
-        return view('logistics.dispatch', compact('parcels', 'riders'));
+        return view('logistics.dispatch', compact('parcels', 'riders', 'suggestedRiders', 'maxActiveDeliveries'));
     }
 
-    public function assignRider(Request $request, Order $order): RedirectResponse
+    public function assignRider(Request $request, Order $order, OrderTransitionService $transitions): RedirectResponse
     {
         $validated = $request->validate(['delivery_courier_id' => ['required', 'integer', 'exists:users,id']]);
         $operator = $this->authenticatedUser();
 
-        return DB::transaction(function () use ($order, $validated, $operator): RedirectResponse {
+        return DB::transaction(function () use ($order, $validated, $operator, $transitions): RedirectResponse {
             $lockedOrder = Order::whereKey($order->id)->lockForUpdate()->firstOrFail();
             abort_unless(in_array($lockedOrder->status, ['SORTED', 'ASSIGNED_TO_RIDER', 'DELIVERY_FAILED'], true), 422, 'This parcel cannot be assigned at its current stage.');
 
             $rider = User::whereKey($validated['delivery_courier_id'])->lockForUpdate()->firstOrFail();
             abort_unless($rider->role === 'courier' && $rider->status === 'approved', 422, 'Choose an approved rider.');
             abort_if($rider->status === 'suspended', 422, 'Suspended riders cannot receive parcels.');
-            abort_unless(blank($rider->assigned_area) || $rider->assigned_area === $lockedOrder->delivery_area, 422, 'The rider is assigned to a different delivery area.');
+            abort_unless($lockedOrder->destination_area_id !== null, 422, 'Sort this parcel into a destination area before dispatch.');
+            abort_unless($rider->serviceAreas()->whereKey($lockedOrder->destination_area_id)->exists(), 422, 'The rider is not assigned to this destination area.');
+            $activeDeliveries = Order::query()
+                ->where('delivery_courier_id', $rider->id)
+                ->whereIn('status', ['ASSIGNED_TO_RIDER', 'OUT_FOR_DELIVERY', 'DELIVERY_FAILED'])
+                ->where('id', '!=', $lockedOrder->id)
+                ->count();
+            abort_if($activeDeliveries >= max(1, (int) config('logistics.maximum_active_deliveries_per_rider', 10)), 422, 'This rider is at the active delivery capacity limit.');
 
-            $lockedOrder->update(['delivery_courier_id' => $rider->id, 'status' => 'ASSIGNED_TO_RIDER', 'assigned_at' => now()]);
-            $this->recordEvent($lockedOrder, 'rider_assigned', $operator, $lockedOrder->delivery_area, "Assigned to {$rider->first_name} {$rider->last_name}.");
+            $transitions->transition($lockedOrder, $operator, OrderStatus::AssignedToRider, 'rider_assigned', $lockedOrder->delivery_area, "Assigned to {$rider->first_name} {$rider->last_name}.", [
+                'delivery_courier_id' => $rider->id,
+                'assigned_at' => now(),
+                'failed_at' => null,
+                'delivery_failure_reason' => null,
+            ]);
 
             return back()->with('success', "Parcel {$lockedOrder->order_number} assigned to {$rider->first_name} {$rider->last_name}.");
         });
@@ -138,13 +199,39 @@ class LogisticsController extends Controller
 
     public function riders(): View
     {
-        $riders = User::where('role', 'courier')->withCount([
+        $riders = User::where('role', 'courier')->with('serviceAreas')->withCount([
             'finalDeliveries as active_deliveries_count' => fn (Builder $query) => $query->whereIn('status', ['ASSIGNED_TO_RIDER', 'OUT_FOR_DELIVERY']),
             'finalDeliveries as completed_deliveries_count' => fn (Builder $query) => $query->whereIn('status', ['DELIVERED', 'COMPLETED']),
             'finalDeliveries as failed_deliveries_count' => fn (Builder $query) => $query->where('status', 'DELIVERY_FAILED'),
         ])->orderByRaw("CASE status WHEN 'pending' THEN 0 WHEN 'approved' THEN 1 WHEN 'suspended' THEN 2 ELSE 3 END")->paginate(20);
 
-        return view('logistics.riders', compact('riders'));
+        $areas = Area::query()->where('is_active', true)->orderBy('name')->get();
+
+        return view('logistics.riders', compact('riders', 'areas'));
+    }
+
+    public function updateRiderAreas(Request $request, User $user): RedirectResponse
+    {
+        abort_unless($user->role === 'courier', 404);
+        $validated = $request->validate([
+            'area_ids' => ['nullable', 'array'],
+            'area_ids.*' => ['integer', 'distinct', 'exists:areas,id'],
+        ]);
+        $areaIds = array_values(array_unique($validated['area_ids'] ?? []));
+        $activeIds = Area::query()->where('is_active', true)->whereKey($areaIds)->pluck('id')->all();
+        abort_unless(count($activeIds) === count($areaIds), 422, 'Select active service areas only.');
+
+        DB::transaction(function () use ($user, $activeIds): void {
+            DB::table('area_user')->where('user_id', $user->id)->update(['is_active' => false, 'is_primary' => false, 'updated_at' => now()]);
+            foreach ($activeIds as $index => $areaId) {
+                DB::table('area_user')->updateOrInsert(
+                    ['user_id' => $user->id, 'area_id' => $areaId],
+                    ['is_active' => true, 'is_primary' => $index === 0, 'updated_at' => now(), 'created_at' => now()],
+                );
+            }
+        });
+
+        return back()->with('success', 'Rider service areas updated. The first selected area is primary.');
     }
 
     public function approveRider(User $user): RedirectResponse
@@ -163,18 +250,13 @@ class LogisticsController extends Controller
         return back()->with('success', 'Courier application rejected.');
     }
 
-    public function returnParcel(Order $order): RedirectResponse
+    public function returnParcel(Order $order, OrderTransitionService $transitions): RedirectResponse
     {
         $operator = $this->authenticatedUser();
 
-        return DB::transaction(function () use ($order, $operator): RedirectResponse {
-            $lockedOrder = Order::whereKey($order->id)->lockForUpdate()->firstOrFail();
-            abort_unless($lockedOrder->status === 'DELIVERY_FAILED', 422, 'Only a failed delivery can be returned.');
-            $lockedOrder->update(['status' => 'RETURNED', 'delivery_courier_id' => null]);
-            $this->recordEvent($lockedOrder, 'returned', $operator, $operator->municipality, 'Logistics returned the failed parcel to sender processing.');
+        $transitions->transition($order, $operator, OrderStatus::ReturnInTransit, 'return_in_transit', $operator->municipality, 'Logistics initiated return to seller.');
 
-            return back()->with('success', "Order {$lockedOrder->order_number} marked for return handling.");
-        });
+        return back()->with('success', "Order {$order->order_number} marked for return handling.");
     }
 
     public function suspendRider(User $user): RedirectResponse
@@ -196,22 +278,22 @@ class LogisticsController extends Controller
     public function tracking(Request $request): View
     {
         $validated = $request->validate([
-            'status' => ['nullable', 'in:PICKED_UP,AT_SORTING_CENTER,SORTED,ASSIGNED_TO_RIDER,OUT_FOR_DELIVERY,DELIVERY_FAILED,RETURNED'],
+            'status' => ['nullable', 'in:PICKED_UP,AT_SORTING_CENTER,SORTED,ASSIGNED_TO_RIDER,OUT_FOR_DELIVERY,DELIVERY_FAILED,RETURN_IN_TRANSIT,RETURNED_TO_SELLER'],
             'rider' => ['nullable', 'integer', 'exists:users,id'],
-            'area' => ['nullable', 'string', 'max:100'],
+            'area' => ['nullable', 'integer', 'exists:areas,id'],
             'date' => ['nullable', 'date'],
             'search' => ['nullable', 'string', 'max:100'],
         ]);
         $orders = Order::with(['deliveryCourier', 'pickupCourier', 'trackingEvents.actor'])
-            ->whereIn('status', ['PICKED_UP', 'AT_SORTING_CENTER', 'SORTED', 'ASSIGNED_TO_RIDER', 'OUT_FOR_DELIVERY', 'DELIVERY_FAILED', 'RETURNED'])
+            ->whereIn('status', ['PICKED_UP', 'AT_SORTING_CENTER', 'SORTED', 'ASSIGNED_TO_RIDER', 'OUT_FOR_DELIVERY', 'DELIVERY_FAILED', 'RETURN_IN_TRANSIT', 'RETURNED_TO_SELLER'])
             ->when($validated['status'] ?? null, fn (Builder $query, string $status) => $query->where('status', $status))
             ->when($validated['rider'] ?? null, fn (Builder $query, int $rider) => $query->where('delivery_courier_id', $rider))
-            ->when($validated['area'] ?? null, fn (Builder $query, string $area) => $query->where('delivery_area', $area))
+            ->when($validated['area'] ?? null, fn (Builder $query, int $area) => $query->where('destination_area_id', $area))
             ->when($validated['date'] ?? null, fn (Builder $query, string $date) => $query->whereDate('updated_at', $date))
             ->when($validated['search'] ?? null, fn (Builder $query, string $search) => $query->where('order_number', 'like', '%'.$search.'%'))
             ->latest()->paginate(20)->withQueryString();
         $riders = User::where('role', 'courier')->orderBy('first_name')->get(['id', 'first_name', 'last_name']);
-        $areas = Order::whereNotNull('delivery_area')->distinct()->orderBy('delivery_area')->pluck('delivery_area');
+        $areas = Area::query()->orderBy('name')->get(['id', 'name']);
 
         return view('logistics.tracking', compact('orders', 'riders', 'areas'));
     }
@@ -226,8 +308,16 @@ class LogisticsController extends Controller
         $to = Carbon::parse($validated['to'] ?? today())->endOfDay();
         $base = Order::query()->whereBetween('created_at', [$from, $to]);
         $volume = (clone $base)->selectRaw('DATE(created_at) as day, COUNT(*) as total')->groupBy('day')->orderBy('day')->get();
-        $areaCounts = Order::whereIn('status', ['SORTED', 'ASSIGNED_TO_RIDER', 'OUT_FOR_DELIVERY', 'DELIVERED', 'COMPLETED'])
-            ->whereBetween('created_at', [$from, $to])->selectRaw('delivery_area, COUNT(*) as total')->groupBy('delivery_area')->orderByDesc('total')->get();
+        $areaCounts = Order::query()
+            ->select('destination_area_id')
+            ->selectRaw('COUNT(*) as total')
+            ->with('destinationArea')
+            ->whereNotNull('destination_area_id')
+            ->whereIn('status', ['SORTED', 'ASSIGNED_TO_RIDER', 'OUT_FOR_DELIVERY', 'DELIVERED', 'COMPLETED'])
+            ->whereBetween('created_at', [$from, $to])
+            ->groupBy('destination_area_id')
+            ->orderByDesc('total')
+            ->get();
         $stats = [
             'received' => (clone $base)->whereNotNull('received_at')->count(),
             'sorted' => (clone $base)->whereNotNull('sorted_at')->count(),
@@ -238,17 +328,5 @@ class LogisticsController extends Controller
         ];
 
         return view('logistics.reports', compact('stats', 'volume', 'areaCounts', 'from', 'to'));
-    }
-
-    private function recordEvent(Order $order, string $eventType, User $actor, ?string $location = null, ?string $notes = null): void
-    {
-        ParcelTrackingEvent::create([
-            'order_id' => $order->id,
-            'actor_id' => $actor->id,
-            'event_type' => $eventType,
-            'status' => $order->status,
-            'location' => $location,
-            'notes' => $notes,
-        ]);
     }
 }

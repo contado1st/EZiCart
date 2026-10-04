@@ -40,7 +40,7 @@ class DisputeController extends Controller
 
         $evidencePath = null;
         if ($request->hasFile('evidence_file')) {
-            $evidencePath = $request->file('evidence_file')->store('disputes/evidence', 'public');
+            $evidencePath = $request->file('evidence_file')->store('disputes/evidence', 'private');
         }
 
         Dispute::create([

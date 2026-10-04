@@ -15,6 +15,8 @@
                         href="{{ route('logistics.dashboard') }}">Overview</a>
                     <a class="{{ request()->routeIs('logistics.intake') ? 'active' : '' }}"
                         href="{{ route('logistics.intake') }}">Parcel intake</a>
+                    <a class="{{ request()->routeIs('logistics.pickupRequests') ? 'active' : '' }}"
+                        href="{{ route('logistics.pickupRequests') }}">Pickup requests</a>
                     <a class="{{ request()->routeIs('logistics.sorting') ? 'active' : '' }}"
                         href="{{ route('logistics.sorting') }}">Sorting queue</a>
                     <a class="{{ request()->routeIs('logistics.dispatch') ? 'active' : '' }}"

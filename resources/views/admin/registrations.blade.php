@@ -80,18 +80,18 @@
 
                             <!-- Uploaded Document Links -->
                             <td>
-                                @if ($user->id_upload_path)
-                                    <a href="{{ asset('storage/' . $user->id_upload_path) }}" target="_blank"
+                                @if ($user->id_path || $user->license_path)
+                                    <a href="{{ route('admin.users.documents.show', [$user, $user->license_path ? 'license' : 'identity']) }}"
                                         class="doc-link">📄 View Valid ID / License</a>
                                 @endif
 
-                                @if ($user->business_permit_path)
-                                    <a href="{{ asset('storage/' . $user->business_permit_path) }}" target="_blank"
+                                @if ($user->permit_path)
+                                    <a href="{{ route('admin.users.documents.show', [$user, 'permit']) }}"
                                         class="doc-link">📋 View Business Permit</a>
                                 @endif
 
-                                @if ($user->or_cr_upload_path)
-                                    <a href="{{ asset('storage/' . $user->or_cr_upload_path) }}" target="_blank"
+                                @if ($user->or_cr_path)
+                                    <a href="{{ route('admin.users.documents.show', [$user, 'vehicle']) }}"
                                         class="doc-link">🛵 View Vehicle OR/CR</a>
                                 @endif
                             </td>

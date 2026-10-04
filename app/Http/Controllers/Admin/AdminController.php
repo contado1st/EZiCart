@@ -15,7 +15,7 @@ class AdminController extends Controller
             ->sum('commission_fee');
 
         // 2. Gross Merchandise Value (GMV - All non-cancelled orders)
-        $grossMerchandiseValue = Order::whereNotIn('status', ['DELIVERY_FAILED', 'RETURNED'])
+        $grossMerchandiseValue = Order::whereNotIn('status', ['DELIVERY_FAILED', 'RETURN_IN_TRANSIT', 'RETURNED_TO_SELLER', 'CANCELLED'])
             ->sum('total_amount');
 
         // 3. System Metrics
@@ -52,6 +52,8 @@ class AdminController extends Controller
 
     public function approve(User $user)
     {
+        abort_unless($user->status === 'pending', 422, 'Only pending accounts can be approved.');
+
         $user->update(['status' => 'approved']);
 
         return back()->with('success', "Account for {$user->first_name} {$user->last_name} ({$user->role}) has been approved.");
@@ -59,6 +61,8 @@ class AdminController extends Controller
 
     public function reject(User $user)
     {
+        abort_unless($user->status === 'pending', 422, 'Only pending accounts can be rejected.');
+
         $user->update(['status' => 'rejected']);
 
         return back()->with('success', "Account for {$user->first_name} {$user->last_name} ({$user->role}) has been rejected.");

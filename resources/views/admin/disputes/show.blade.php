@@ -61,10 +61,7 @@
                         <div class="dispute-evidence-box">
                             <strong style="font-size: 0.8125rem;">Attached Evidence:</strong>
                             <div style="margin-top: 0.5rem;">
-                                <a href="{{ asset('storage/' . $dispute->evidence_path) }}" target="_blank">
-                                    <img src="{{ asset('storage/' . $dispute->evidence_path) }}" alt="Evidence"
-                                        class="dispute-evidence-thumb">
-                                </a>
+                                <a href="{{ route('admin.disputes.evidence', $dispute) }}">Download private evidence</a>
                             </div>
                         </div>
                     @endif

@@ -93,7 +93,7 @@ class AuthController extends Controller
             'password' => 'required|string|min:8|confirmed',
         ]);
 
-        $idPath = $request->file('id_document')->store('documents/ids', 'public');
+        $idPath = $request->file('id_document')->store('documents/ids', 'private');
         $age = Carbon::parse($validated['birthday'])->age;
 
         User::create([
@@ -111,11 +111,11 @@ class AuthController extends Controller
             'street_address' => $validated['street_address'],
             'id_path' => $idPath,
             'role' => 'buyer',
-            'status' => 'approved',
+            'status' => 'pending',
             'password' => Hash::make($validated['password']),
         ]);
 
-        return redirect()->route('login')->with('success', 'Registration submitted successfully! You can now log in.');
+        return redirect()->route('login')->with('success', 'Registration submitted successfully! Please wait for administrator approval before logging in.');
     }
 
     public function showSellerRegisterForm()
@@ -144,8 +144,8 @@ class AuthController extends Controller
             'password' => 'required|string|min:8|confirmed',
         ]);
 
-        $idPath = $request->file('id_document')->store('documents/ids', 'public');
-        $permitPath = $request->file('business_permit')->store('documents/permits', 'public');
+        $idPath = $request->file('id_document')->store('documents/ids', 'private');
+        $permitPath = $request->file('business_permit')->store('documents/permits', 'private');
         $age = Carbon::parse($validated['birthday'])->age;
 
         User::create([
@@ -199,8 +199,8 @@ class AuthController extends Controller
             'password' => 'required|string|min:8|confirmed',
         ]);
 
-        $licensePath = $request->file('id_document')->store('documents/licenses', 'public');
-        $orCrPath = $request->file('or_cr_document')->store('documents/or_cr', 'public');
+        $licensePath = $request->file('id_document')->store('documents/licenses', 'private');
+        $orCrPath = $request->file('or_cr_document')->store('documents/or_cr', 'private');
         $age = Carbon::parse($validated['birthday'])->age;
 
         User::create([
@@ -253,8 +253,8 @@ class AuthController extends Controller
             'password' => 'required|string|min:8|confirmed',
         ]);
 
-        $idPath = $request->file('id_document')->store('documents/ids', 'public');
-        $permitPath = $request->file('business_permit')->store('documents/permits', 'public');
+        $idPath = $request->file('id_document')->store('documents/ids', 'private');
+        $permitPath = $request->file('business_permit')->store('documents/permits', 'private');
         $age = Carbon::parse($validated['birthday'])->age;
 
         User::create([

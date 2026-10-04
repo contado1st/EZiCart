@@ -27,6 +27,7 @@ class Order extends Model
         'barangay',
         'street_address',
         'delivery_area',
+        'destination_area_id',
         'subtotal',
         'shipping_fee',
         'commission_fee',
@@ -38,6 +39,12 @@ class Order extends Model
         'discount_amount',
         'picked_up_at',
         'pickup_claimed_at',
+        'pickup_requested_at',
+        'pickup_scheduled_for',
+        'pickup_window',
+        'pickup_notes',
+        'pickup_arrived_at',
+        'seller_handover_at',
         'received_at',
         'sorted_at',
         'assigned_at',
@@ -74,6 +81,11 @@ class Order extends Model
         return $this->belongsTo(User::class, 'sorting_center_id');
     }
 
+    public function destinationArea(): BelongsTo
+    {
+        return $this->belongsTo(Area::class, 'destination_area_id');
+    }
+
     public function items(): HasMany
     {
         return $this->hasMany(OrderItem::class);
@@ -94,9 +106,14 @@ class Order extends Model
         return $this->hasOne(Dispute::class);
     }
 
+    public function deliveryAttempts(): HasMany
+    {
+        return $this->hasMany(DeliveryAttempt::class)->orderBy('attempt_no');
+    }
+
     public function trackingEvents(): HasMany
     {
-        return $this->hasMany(ParcelTrackingEvent::class)->latest();
+        return $this->hasMany(ParcelTrackingEvent::class)->orderByDesc('created_at')->orderByDesc('id');
     }
 
     protected function casts(): array
@@ -104,12 +121,17 @@ class Order extends Model
         return [
             'picked_up_at' => 'datetime',
             'pickup_claimed_at' => 'datetime',
+            'pickup_requested_at' => 'datetime',
+            'pickup_scheduled_for' => 'datetime',
+            'pickup_arrived_at' => 'datetime',
+            'seller_handover_at' => 'datetime',
             'received_at' => 'datetime',
             'sorted_at' => 'datetime',
             'assigned_at' => 'datetime',
             'out_for_delivery_at' => 'datetime',
             'delivered_at' => 'datetime',
             'failed_at' => 'datetime',
+            'inventory_restored_at' => 'datetime',
         ];
     }
 }

@@ -59,7 +59,7 @@
                     <tbody>
                         @forelse($areaCounts as $area)
                             <tr>
-                                <td>{{ $area->delivery_area ?? 'Unassigned area' }}</td>
+                                <td>{{ $area->destinationArea?->name ?? 'Unassigned area' }}</td>
                                 <td>{{ $area->total }}</td>
                         </tr>@empty<tr>
                                 <td colspan="2">No sorted parcels for this period.</td>

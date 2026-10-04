@@ -4,7 +4,7 @@
         <div>
             <div class="ops-eyebrow">Parcel intake · area routing</div>
             <h1>Sorting queue</h1>
-            <p>Route each received parcel to its destination municipality.</p>
+            <p>The parcel area is resolved from its normalized province and municipality.</p>
         </div>
     </header>
     <section class="ops-panel">
@@ -17,7 +17,7 @@
                         <th>Recipient</th>
                         <th>Destination</th>
                         <th>Received</th>
-                        <th>Sort area</th>
+                        <th>Resolved area</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -30,13 +30,10 @@
                             <td>{{ $order->received_at?->format('d M H:i') ?? '—' }}</td>
                             <td>
                                 <form class="ops-form" method="POST" action="{{ route('logistics.orders.sort', $order) }}">
-                                    @csrf<div class="ops-field"><label for="area-{{ $order->id }}">Destination
-                                            area</label><select id="area-{{ $order->id }}" name="delivery_area"
-                                            required>
-                                            <option value="{{ $order->municipality }}">{{ $order->municipality }},
-                                                {{ $order->province }}</option>
-                                        </select></div><button class="ops-btn ops-btn--primary" type="submit">Confirm
-                                        sort</button></form>
+                                    @csrf
+                                    <div class="ops-muted">{{ $order->municipality }}, {{ $order->province }}</div>
+                                    <button class="ops-btn ops-btn--primary" type="submit">Resolve area and sort</button>
+                                </form>
                             </td>
                         </tr>
                     @empty<tr>

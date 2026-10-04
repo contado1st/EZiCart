@@ -79,11 +79,24 @@
                 @forelse($order->trackingEvents as $event)
                     <p><strong>{{ str_replace('_', ' ', $event->event_type) }}</strong> ·
                         {{ $event->created_at->format('M d, Y h:i A') }} · {{ $event->location ?? '—' }} @if ($event->actor)
-                            · {{ $event->actor->first_name }} {{ $event->actor->last_name }}
+                            · {{ match ($event->actor->role) { 'admin' => 'Platform support', 'sorting_center' => 'Logistics', 'courier' => 'Courier', 'seller' => 'Seller', default => 'EZiCart' } }}
                         @endif
                     </p>
                 @empty
                     <p>Tracking events will appear as the order moves through fulfillment.</p>
+                @endforelse
+
+                <h2 class="courier-section-title">Delivery attempts and proof</h2>
+                @forelse ($order->deliveryAttempts as $attempt)
+                    <p>Attempt {{ $attempt->attempt_no }} · {{ ucfirst($attempt->outcome) }}
+                        @if ($attempt->reason) · {{ str_replace('_', ' ', $attempt->reason) }} @endif
+                        · {{ $attempt->attempted_at?->format('M d, Y h:i A') ?? 'Time unavailable' }}
+                        @if ($attempt->proof_path)
+                            · <a href="{{ route('delivery-attempts.proof', $attempt) }}">Download proof</a>
+                        @endif
+                    </p>
+                @empty
+                    <p>No delivery attempts are recorded yet.</p>
                 @endforelse
 
                 <div class="order-card-footer">

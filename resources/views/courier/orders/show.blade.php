@@ -37,7 +37,7 @@
         <section class="ops-panel">
             <h2>Delivery result</h2>
             <div class="ops-grid">
-                <form class="ops-form" method="POST" action="{{ route('courier.orders.completeDelivery', $order) }}"
+                <form class="ops-form" method="POST" action="{{ route('courier.orders.completeDelivery', $order) }}" enctype="multipart/form-data"
                     onsubmit="return confirm('Confirm this parcel was delivered?')">@csrf @method('PATCH')<div
                         class="ops-field"><label>Recipient confirmation</label><input name="recipient_confirmation"
                             maxlength="120" required></div>
@@ -48,7 +48,9 @@
                     @endif
                     <div class="ops-field">
                         <label>Notes</label><input name="delivery_notes" maxlength="1000">
-                    </div><button class="ops-btn ops-btn--primary">Confirm delivered</button>
+                    </div>
+                    <div class="ops-field"><label>Proof of delivery (optional)</label><input type="file" name="proof_file" accept=".jpg,.jpeg,.png,.pdf"></div>
+                    <button class="ops-btn ops-btn--primary">Confirm delivered</button>
                 </form>
                 <form class="ops-form" method="POST" action="{{ route('courier.orders.failDelivery', $order) }}"
                     onsubmit="return confirm('Record a failed delivery attempt?')">@csrf @method('PATCH')<div
@@ -68,6 +70,22 @@
             </div>
         </section>
     @endif
+    <section class="ops-panel">
+        <h2>Delivery attempts</h2>
+        <ul>
+            @forelse ($order->deliveryAttempts as $attempt)
+                <li>Attempt {{ $attempt->attempt_no }}: {{ ucfirst($attempt->outcome) }}
+                    @if ($attempt->reason) · {{ str_replace('_', ' ', $attempt->reason) }} @endif
+                    · {{ $attempt->attempted_at?->format('d M Y H:i') ?? 'Not recorded' }}
+                    @if ($attempt->proof_path)
+                        · <a href="{{ route('delivery-attempts.proof', $attempt) }}">Download proof</a>
+                    @endif
+                </li>
+            @empty
+                <li class="ops-muted">No delivery attempts recorded.</li>
+            @endforelse
+        </ul>
+    </section>
     <section class="ops-panel">
         <h2>Parcel tracking timeline</h2>
         <div class="ops-table-wrap">

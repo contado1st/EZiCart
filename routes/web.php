@@ -14,6 +14,7 @@ use App\Http\Controllers\Buyer\ReviewController;
 use App\Http\Controllers\Courier\CourierController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\Logistics\LogisticsController;
+use App\Http\Controllers\SecureDocumentController;
 use App\Http\Controllers\Seller\ProductController;
 use App\Http\Controllers\Seller\SellerController;
 use App\Http\Controllers\Seller\SellerOrderController;
@@ -28,26 +29,27 @@ Route::get('/product/{product}', [HomeController::class, 'showProduct'])->name('
 // 2. Guest Authentication & Registration Routes
 Route::middleware('guest')->group(function () {
     Route::get('/login', [AuthController::class, 'showLoginForm'])->name('login');
-    Route::post('/login', [AuthController::class, 'login'])->name('login.post');
+    Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:5,1')->name('login.post');
 
     Route::get('/register', [AuthController::class, 'showRegisterForm'])->name('register');
-    Route::post('/register', [AuthController::class, 'register'])->name('register.post');
+    Route::post('/register', [AuthController::class, 'register'])->middleware('throttle:5,1')->name('register.post');
 
     Route::get('/register/seller', [AuthController::class, 'showSellerRegisterForm'])->name('register.seller');
-    Route::post('/register/seller', [AuthController::class, 'sellerRegister'])->name('register.seller.post');
+    Route::post('/register/seller', [AuthController::class, 'sellerRegister'])->middleware('throttle:5,1')->name('register.seller.post');
 
     Route::get('/register/courier', [AuthController::class, 'showCourierRegisterForm'])->name('register.courier');
-    Route::post('/register/courier', [AuthController::class, 'courierRegister'])->name('register.courier.post');
+    Route::post('/register/courier', [AuthController::class, 'courierRegister'])->middleware('throttle:5,1')->name('register.courier.post');
 
     // Sorting Center Public Application
     Route::get('/register/sorting-center', [AuthController::class, 'showSortingCenterRegisterForm'])->name('register.sorting');
-    Route::post('/register/sorting-center', [AuthController::class, 'sortingCenterRegister'])->name('register.sorting.post');
+    Route::post('/register/sorting-center', [AuthController::class, 'sortingCenterRegister'])->middleware('throttle:5,1')->name('register.sorting.post');
 });
 
 Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
 
 // 3. Protected Routes (Strictly Isolated by Role)
-Route::middleware(['auth'])->group(function () {
+Route::middleware(['auth', 'account.active'])->group(function () {
+    Route::get('/delivery-attempts/{attempt}/proof', [SecureDocumentController::class, 'deliveryProof'])->name('delivery-attempts.proof');
 
     // Buyer-Only Routes
     Route::middleware(['role:buyer'])->group(function () {
@@ -55,6 +57,7 @@ Route::middleware(['auth'])->group(function () {
             Route::get('/dashboard', [BuyerController::class, 'dashboard'])->name('dashboard');
             Route::get('/orders/{order}', [BuyerController::class, 'showOrder'])->name('orders.show');
             Route::post('/orders/{order}/confirm', [BuyerController::class, 'confirmReceived'])->name('orders.confirm');
+            Route::post('/orders/{order}/cancel', [BuyerController::class, 'cancel'])->name('orders.cancel');
             Route::post('/orders/{order}/review', [ReviewController::class, 'store'])->name('orders.review');
             Route::get('/orders/{order}/dispute', [DisputeController::class, 'create'])->name('orders.dispute.create');
             Route::post('/orders/{order}/dispute', [DisputeController::class, 'store'])->name('orders.dispute.store');
@@ -84,7 +87,10 @@ Route::middleware(['auth'])->group(function () {
         // Order Fulfillment & Waybill Routes
         Route::get('/orders', [SellerOrderController::class, 'index'])->name('orders.index');
         Route::get('/orders/{order}', [SellerOrderController::class, 'show'])->name('orders.show');
-        Route::patch('/orders/{order}/status', [SellerOrderController::class, 'updateStatus'])->name('orders.updateStatus');
+        Route::patch('/orders/{order}/status', [SellerOrderController::class, 'updateStatus'])->middleware('throttle:30,1')->name('orders.updateStatus');
+        Route::post('/orders/{order}/schedule-pickup', [SellerOrderController::class, 'schedulePickup'])->middleware('throttle:20,1')->name('orders.schedulePickup');
+        Route::post('/orders/{order}/confirm-handover', [SellerOrderController::class, 'confirmHandover'])->middleware('throttle:30,1')->name('orders.confirmHandover');
+        Route::post('/orders/{order}/confirm-return', [SellerOrderController::class, 'confirmReturn'])->name('orders.confirmReturn');
         Route::get('/orders/{order}/waybill', [SellerOrderController::class, 'waybill'])->name('orders.waybill');
 
         // Promotional Vouchers & Discounts
@@ -97,12 +103,12 @@ Route::middleware(['auth'])->group(function () {
     // Courier-Only Routes (Fulfillment & Delivery Workspace)
     Route::middleware(['role:courier'])->prefix('courier')->name('courier.')->group(function () {
         Route::get('/dashboard', [CourierController::class, 'dashboard'])->name('dashboard');
-        Route::post('/orders/{order}/claim', [CourierController::class, 'claimPickup'])->name('orders.claim');
+        Route::post('/orders/{order}/claim', [CourierController::class, 'claimPickup'])->middleware('throttle:30,1')->name('orders.claim');
         Route::get('/orders/{order}', [CourierController::class, 'showOrder'])->name('orders.show');
-        Route::post('/orders/{order}/confirm-pickup', [CourierController::class, 'confirmPickup'])->name('orders.confirmPickup');
-        Route::post('/orders/{order}/start-delivery', [CourierController::class, 'startDelivery'])->name('orders.startDelivery');
-        Route::patch('/orders/{order}/complete-delivery', [CourierController::class, 'completeDelivery'])->name('orders.completeDelivery');
-        Route::patch('/orders/{order}/fail-delivery', [CourierController::class, 'failDelivery'])->name('orders.failDelivery');
+        Route::post('/orders/{order}/confirm-pickup', [CourierController::class, 'confirmPickup'])->middleware('throttle:30,1')->name('orders.confirmPickup');
+        Route::post('/orders/{order}/start-delivery', [CourierController::class, 'startDelivery'])->middleware('throttle:30,1')->name('orders.startDelivery');
+        Route::patch('/orders/{order}/complete-delivery', [CourierController::class, 'completeDelivery'])->middleware('throttle:30,1')->name('orders.completeDelivery');
+        Route::patch('/orders/{order}/fail-delivery', [CourierController::class, 'failDelivery'])->middleware('throttle:30,1')->name('orders.failDelivery');
         Route::get('/history', [CourierController::class, 'history'])->name('history');
         Route::get('/tracking', [CourierController::class, 'tracking'])->name('tracking');
     });
@@ -111,21 +117,25 @@ Route::middleware(['auth'])->group(function () {
     Route::middleware(['role:sorting_center'])->prefix('logistics')->name('logistics.')->group(function () {
         Route::get('/dashboard', [LogisticsController::class, 'dashboard'])->name('dashboard');
         Route::get('/intake', [LogisticsController::class, 'intake'])->name('intake');
-        Route::post('/scan', [LogisticsController::class, 'scan'])->name('scan');
+        Route::get('/pickup-requests', [LogisticsController::class, 'pickupRequests'])->name('pickupRequests');
+        Route::post('/orders/{order}/assign-pickup', [LogisticsController::class, 'assignPickup'])->middleware('throttle:30,1')->name('orders.assignPickup');
+        Route::post('/scan', [LogisticsController::class, 'scan'])->middleware('throttle:30,1')->name('scan');
         Route::get('/sorting', [LogisticsController::class, 'sorting'])->name('sorting');
         Route::get('/dispatch', [LogisticsController::class, 'dispatch'])->name('dispatch');
         Route::get('/tracking', [LogisticsController::class, 'tracking'])->name('tracking');
         Route::get('/reports', [LogisticsController::class, 'reports'])->name('reports');
-        Route::post('/orders/{order}/receive', [LogisticsController::class, 'receiveParcel'])->name('orders.receive');
-        Route::post('/orders/{order}/sort', [LogisticsController::class, 'sortParcel'])->name('orders.sort');
-        Route::post('/orders/{order}/assign-rider', [LogisticsController::class, 'assignRider'])->name('orders.assignRider');
-        Route::post('/orders/{order}/return', [LogisticsController::class, 'returnParcel'])->name('orders.return');
+        Route::post('/orders/{order}/receive', [LogisticsController::class, 'receiveParcel'])->middleware('throttle:30,1')->name('orders.receive');
+        Route::post('/orders/{order}/sort', [LogisticsController::class, 'sortParcel'])->middleware('throttle:30,1')->name('orders.sort');
+        Route::post('/orders/{order}/assign-rider', [LogisticsController::class, 'assignRider'])->middleware('throttle:30,1')->name('orders.assignRider');
+        Route::post('/orders/{order}/return', [LogisticsController::class, 'returnParcel'])->middleware('throttle:30,1')->name('orders.return');
 
         Route::get('/riders', [LogisticsController::class, 'riders'])->name('riders');
         Route::post('/riders/{user}/approve', [LogisticsController::class, 'approveRider'])->name('riders.approve');
         Route::post('/riders/{user}/reject', [LogisticsController::class, 'rejectRider'])->name('riders.reject');
         Route::post('/riders/{user}/suspend', [LogisticsController::class, 'suspendRider'])->name('riders.suspend');
         Route::post('/riders/{user}/reactivate', [LogisticsController::class, 'reactivateRider'])->name('riders.reactivate');
+        Route::patch('/riders/{user}/areas', [LogisticsController::class, 'updateRiderAreas'])->middleware('throttle:30,1')->name('riders.areas.update');
+        Route::get('/riders/{user}/documents/{type}', [SecureDocumentController::class, 'userDocument'])->name('riders.documents.show');
     });
 
     // Admin-Only Routes
@@ -137,6 +147,8 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/reports', [AdminReportController::class, 'index'])->name('reports.index');
         Route::get('/disputes', [AdminDisputeController::class, 'index'])->name('disputes.index');
         Route::get('/disputes/{dispute}', [AdminDisputeController::class, 'show'])->name('disputes.show');
+        Route::get('/disputes/{dispute}/evidence', [SecureDocumentController::class, 'disputeEvidence'])->name('disputes.evidence');
+        Route::get('/users/{user}/documents/{type}', [SecureDocumentController::class, 'userDocument'])->name('users.documents.show');
         Route::patch('/disputes/{dispute}/resolve', [AdminDisputeController::class, 'resolve'])->name('disputes.resolve');
         Route::get('/announcements', [AdminAnnouncementController::class, 'index'])->name('announcements.index');
         Route::post('/announcements', [AdminAnnouncementController::class, 'store'])->name('announcements.store');

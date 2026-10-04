@@ -2,10 +2,13 @@
 
 namespace App\Http\Controllers\Seller;
 
+use App\Enums\OrderStatus;
 use App\Http\Controllers\Controller;
 use App\Models\Order;
 use App\Models\ParcelTrackingEvent;
+use App\Services\OrderTransitionService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class SellerOrderController extends Controller
 {
@@ -43,32 +46,88 @@ class SellerOrderController extends Controller
         return view('seller.orders.show', compact('order'));
     }
 
-    public function updateStatus(Request $request, Order $order)
+    public function updateStatus(Request $request, Order $order, OrderTransitionService $transitions)
     {
         abort_if($order->seller_id !== $this->authenticatedUser()->id, 403);
 
-        $validated = $request->validate([
-            'status' => 'required|in:CONFIRMED,PREPARING,READY_FOR_PICKUP',
-        ]);
+        $validated = $request->validate(['status' => 'required|in:CONFIRMED,PREPARING,READY_FOR_PICKUP']);
+        $actor = $this->authenticatedUser();
 
-        $allowedTransitions = [
-            'PLACED' => ['PREPARING'],
-            'CONFIRMED' => ['READY_FOR_PICKUP'],
-            'PREPARING' => ['READY_FOR_PICKUP'],
-        ];
-        abort_unless(in_array($validated['status'], $allowedTransitions[$order->status] ?? [], true), 422, 'This order cannot move to that status.');
-
-        $order->update(['status' => $validated['status']]);
-        ParcelTrackingEvent::create([
-            'order_id' => $order->id,
-            'actor_id' => $this->authenticatedUser()->id,
-            'event_type' => strtolower($validated['status']),
-            'status' => $order->status,
-            'location' => $this->authenticatedUser()->municipality,
-            'notes' => 'Seller updated order fulfillment status.',
-        ]);
+        $transitions->transition(
+            $order,
+            $actor,
+            OrderStatus::from($validated['status']),
+            strtolower($validated['status']),
+            $actor->municipality,
+            'Seller updated order fulfillment status.',
+        );
 
         return back()->with('success', 'Order status updated to '.str_replace('_', ' ', $validated['status']).'.');
+    }
+
+    public function confirmReturn(Order $order, OrderTransitionService $transitions)
+    {
+        abort_if($order->seller_id !== $this->authenticatedUser()->id, 403);
+        $actor = $this->authenticatedUser();
+        $transitions->transition($order, $actor, OrderStatus::ReturnedToSeller, 'returned_to_seller', $actor->municipality, 'Seller confirmed receipt of the returned parcel.');
+
+        return back()->with('success', 'Return receipt confirmed and inventory restored.');
+    }
+
+    public function schedulePickup(Request $request, Order $order)
+    {
+        $seller = $this->authenticatedUser();
+        abort_if($order->seller_id !== $seller->id, 403);
+
+        $validated = $request->validate([
+            'pickup_scheduled_for' => ['required', 'date', 'after:now'],
+            'pickup_window' => ['required', 'string', 'max:80'],
+            'pickup_notes' => ['nullable', 'string', 'max:1000'],
+        ]);
+
+        return DB::transaction(function () use ($order, $seller, $validated) {
+            $lockedOrder = Order::query()->whereKey($order->id)->lockForUpdate()->firstOrFail();
+            abort_unless($lockedOrder->status === 'READY_FOR_PICKUP' && $lockedOrder->pickup_requested_at === null && $lockedOrder->pickup_courier_id === null, 422, 'This order is not eligible for pickup scheduling.');
+
+            $lockedOrder->update([
+                'pickup_requested_at' => now(),
+                'pickup_scheduled_for' => $validated['pickup_scheduled_for'],
+                'pickup_window' => $validated['pickup_window'],
+                'pickup_notes' => $validated['pickup_notes'] ?? null,
+            ]);
+            ParcelTrackingEvent::create([
+                'order_id' => $lockedOrder->id,
+                'actor_id' => $seller->id,
+                'event_type' => 'pickup_requested',
+                'status' => $lockedOrder->status,
+                'location' => implode(', ', array_filter([$seller->street_address, $seller->municipality, $seller->province])),
+                'notes' => 'Seller requested pickup for '.$lockedOrder->pickup_scheduled_for->format('M j, Y g:i A').' ('.$lockedOrder->pickup_window.').',
+            ]);
+
+            return back()->with('success', 'Pickup request sent to Logistics.');
+        });
+    }
+
+    public function confirmHandover(Order $order)
+    {
+        $seller = $this->authenticatedUser();
+        abort_if($order->seller_id !== $seller->id, 403);
+
+        return DB::transaction(function () use ($order, $seller) {
+            $lockedOrder = Order::query()->whereKey($order->id)->lockForUpdate()->firstOrFail();
+            abort_unless($lockedOrder->status === 'READY_FOR_PICKUP' && $lockedOrder->pickup_courier_id !== null && $lockedOrder->pickup_arrived_at !== null && $lockedOrder->seller_handover_at === null, 422, 'Seller handover is not ready to confirm.');
+            $lockedOrder->update(['seller_handover_at' => now()]);
+            ParcelTrackingEvent::create([
+                'order_id' => $lockedOrder->id,
+                'actor_id' => $seller->id,
+                'event_type' => 'seller_handover_confirmed',
+                'status' => $lockedOrder->status,
+                'location' => $seller->municipality,
+                'notes' => 'Seller confirmed releasing the parcel to the assigned rider.',
+            ]);
+
+            return back()->with('success', 'Handover recorded. The rider must confirm possession to complete pickup.');
+        });
     }
 
     public function waybill(Order $order)

@@ -149,6 +149,14 @@
                                         </button>
                                     </form>
                                 @endif
+
+                                @if (in_array($order->status, ['PLACED', 'CONFIRMED', 'PREPARING'], true))
+                                    <form action="{{ route('buyer.orders.cancel', $order) }}" method="POST">
+                                        @csrf
+                                        <button type="submit" class="dash-btn-sm"
+                                            onclick="return confirm('Cancel this order and restore its reserved stock?')">Cancel order</button>
+                                    </form>
+                                @endif
                             </div>
                         </div>
                     </div>

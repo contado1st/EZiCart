@@ -130,12 +130,19 @@
                                 <form action="{{ route('seller.orders.updateStatus', $order->id) }}" method="POST">
                                     @csrf
                                     @method('PATCH')
-                                    <input type="hidden" name="status" value="PREPARING">
+                                    <input type="hidden" name="status" value="CONFIRMED">
                                     <button type="submit" class="dash-btn-sm dash-btn-primary">
-                                        Confirm & Pack Order
+                                        Accept Order
                                     </button>
                                 </form>
-                            @elseif($order->status === 'PREPARING' || $order->status === 'CONFIRMED')
+                            @elseif($order->status === 'CONFIRMED')
+                                <form action="{{ route('seller.orders.updateStatus', $order->id) }}" method="POST">
+                                    @csrf
+                                    @method('PATCH')
+                                    <input type="hidden" name="status" value="PREPARING">
+                                    <button type="submit" class="dash-btn-sm dash-btn-primary">Start Preparing</button>
+                                </form>
+                            @elseif($order->status === 'PREPARING')
                                 <form action="{{ route('seller.orders.updateStatus', $order->id) }}" method="POST">
                                     @csrf
                                     @method('PATCH')
@@ -143,6 +150,14 @@
                                     <button type="submit" class="dash-btn-sm dash-btn-primary">
                                         Mark Ready for Pickup
                                     </button>
+                                </form>
+                            @elseif($order->status === 'READY_FOR_PICKUP' && $order->pickup_arrived_at && ! $order->seller_handover_at)
+                                <form action="{{ route('seller.orders.confirmHandover', $order) }}" method="POST">
+                                    @csrf<button type="submit" class="dash-btn-sm dash-btn-primary">Confirm rider handover</button>
+                                </form>
+                            @elseif($order->status === 'RETURN_IN_TRANSIT')
+                                <form action="{{ route('seller.orders.confirmReturn', $order) }}" method="POST">
+                                    @csrf<button type="submit" class="dash-btn-sm dash-btn-primary">Confirm returned parcel received</button>
                                 </form>
                             @endif
                         </div>
