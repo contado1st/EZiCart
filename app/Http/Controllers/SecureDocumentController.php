@@ -22,13 +22,13 @@ class SecureDocumentController extends Controller
     {
         $actor = $this->authenticatedUser();
         abort_unless($actor->role === 'admin' || ($actor->role === 'sorting_center' && $user->role === 'courier'), 403);
-        abort_unless(isset(self::USER_DOCUMENTS[$type]), 404);
 
-        $fields = (array) self::USER_DOCUMENTS[$type];
-        $path = collect($fields)->map(fn (string $field): ?string => $user->{$field})->first(fn (?string $candidate): bool => filled($candidate));
-        abort_unless(is_string($path) && Storage::disk('private')->exists($path), 404);
+        return $this->downloadUserDocument($user, $type);
+    }
 
-        return Storage::disk('private')->download($path, basename($path));
+    public function ownDocument(string $type): StreamedResponse
+    {
+        return $this->downloadUserDocument($this->authenticatedUser(), $type);
     }
 
     public function disputeEvidence(Dispute $dispute): StreamedResponse
@@ -45,10 +45,22 @@ class SecureDocumentController extends Controller
         $attempt->loadMissing('order');
         $authorized = $actor->role === 'admin'
             || ($actor->role === 'buyer' && $attempt->order->buyer_id === $actor->id)
-            || ($actor->role === 'courier' && $attempt->rider_id === $actor->id);
+            || ($actor->role === 'courier' && $attempt->rider_id === $actor->id)
+            || $actor->role === 'sorting_center';
         abort_unless($authorized, 403);
         abort_unless(is_string($attempt->proof_path) && Storage::disk('private')->exists($attempt->proof_path), 404);
 
         return Storage::disk('private')->download($attempt->proof_path, basename($attempt->proof_path));
+    }
+
+    private function downloadUserDocument(User $user, string $type): StreamedResponse
+    {
+        abort_unless(isset(self::USER_DOCUMENTS[$type]), 404);
+
+        $fields = (array) self::USER_DOCUMENTS[$type];
+        $path = collect($fields)->map(fn (string $field): ?string => $user->{$field})->first(fn (?string $candidate): bool => filled($candidate));
+        abort_unless(is_string($path) && Storage::disk('private')->exists($path), 404);
+
+        return Storage::disk('private')->download($path, basename($path));
     }
 }

@@ -21,6 +21,8 @@ class CourierController extends Controller
     public function dashboard(): View
     {
         $courier = $this->authenticatedUser();
+        $todayStart = today()->startOfDay();
+        $tomorrowStart = today()->addDay()->startOfDay();
         $availablePickups = Order::where('status', 'READY_FOR_PICKUP')->where('pickup_courier_id', $courier->id)->whereNull('pickup_claimed_at')->with(['seller', 'items'])->latest()->paginate(8, ['*'], 'pickups');
         $claimedPickups = Order::where('pickup_courier_id', $courier->id)->where('status', 'READY_FOR_PICKUP')->with('seller')->latest()->get();
         $myActivePickups = Order::where('pickup_courier_id', $courier->id)->where('status', 'PICKED_UP')->with('seller')->latest()->get();
@@ -30,8 +32,8 @@ class CourierController extends Controller
             'claimed_pickups' => $claimedPickups->count(),
             'in_transit_hub' => $myActivePickups->count(),
             'assigned_delivery' => Order::where('delivery_courier_id', $courier->id)->whereIn('status', ['ASSIGNED_TO_RIDER', 'OUT_FOR_DELIVERY'])->count(),
-            'completed_today' => Order::where('delivery_courier_id', $courier->id)->whereIn('status', ['DELIVERED', 'COMPLETED'])->whereDate('delivered_at', today())->count(),
-            'failed_today' => Order::where('delivery_courier_id', $courier->id)->where('status', 'DELIVERY_FAILED')->whereDate('failed_at', today())->count(),
+            'completed_today' => Order::where('delivery_courier_id', $courier->id)->whereIn('status', ['DELIVERED', 'COMPLETED'])->whereBetween('delivered_at', [$todayStart, $tomorrowStart])->count(),
+            'failed_today' => Order::where('delivery_courier_id', $courier->id)->where('status', 'DELIVERY_FAILED')->whereBetween('failed_at', [$todayStart, $tomorrowStart])->count(),
         ];
 
         return view('courier.dashboard', compact('courier', 'availablePickups', 'claimedPickups', 'myActivePickups', 'myDeliveryAssignments', 'myFailedDeliveries', 'stats'));
@@ -59,6 +61,29 @@ class CourierController extends Controller
             $this->recordEvent($lockedOrder, 'pickup_accepted', $courier, $lockedOrder->seller?->municipality, 'Rider accepted the Logistics pickup assignment.');
 
             return back()->with('success', "Pickup {$lockedOrder->order_number} added to your route.");
+        });
+    }
+
+    public function declinePickup(Request $request, Order $order): RedirectResponse
+    {
+        $validated = $request->validate(['reason' => ['nullable', 'string', 'max:500']]);
+        $courier = $this->authenticatedUser();
+
+        return DB::transaction(function () use ($order, $courier, $validated): RedirectResponse {
+            $lockedOrder = Order::query()->whereKey($order->id)->lockForUpdate()->firstOrFail();
+            abort_unless($courier->status === 'approved' && $lockedOrder->status === 'READY_FOR_PICKUP', 422, 'This pickup cannot be declined.');
+            abort_unless($lockedOrder->pickup_courier_id === $courier->id && $lockedOrder->pickup_claimed_at === null, 403);
+
+            $lockedOrder->update(['pickup_courier_id' => null]);
+            $this->recordEvent(
+                $lockedOrder,
+                'pickup_declined',
+                $courier,
+                $lockedOrder->seller?->municipality,
+                filled($validated['reason'] ?? null) ? $validated['reason'] : 'Rider declined the pickup assignment.',
+            );
+
+            return back()->with('success', "Pickup {$lockedOrder->order_number} returned to the Logistics queue.");
         });
     }
 

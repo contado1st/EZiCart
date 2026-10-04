@@ -111,6 +111,11 @@ class Order extends Model
         return $this->hasMany(DeliveryAttempt::class)->orderBy('attempt_no');
     }
 
+    public function deliveryAssignments(): HasMany
+    {
+        return $this->hasMany(DeliveryAssignment::class)->orderBy('assigned_at')->orderBy('id');
+    }
+
     public function trackingEvents(): HasMany
     {
         return $this->hasMany(ParcelTrackingEvent::class)->orderByDesc('created_at')->orderByDesc('id');

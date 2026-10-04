@@ -49,6 +49,10 @@
                                 <form method="POST" action="{{ route('courier.orders.claim', $order) }}">@csrf<button
                                         class="ops-btn ops-btn--primary" type="submit" @disabled($courier->status !== 'approved')>Accept
                                         assigned pickup</button></form>
+                                <form method="POST" action="{{ route('courier.orders.declinePickup', $order) }}" style="margin-top:.5rem">@csrf
+                                    <input type="text" name="reason" maxlength="500" placeholder="Reason (optional)" aria-label="Reason for declining pickup">
+                                    <button class="ops-btn" type="submit" @disabled($courier->status !== 'approved')>Decline assignment</button>
+                                </form>
                             </td>
                     </tr>@empty<tr>
                             <td colspan="5">

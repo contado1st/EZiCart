@@ -18,6 +18,10 @@ return new class extends Migration
             $table->index(['status', 'delivered_at']);
             $table->index(['delivery_courier_id', 'status']);
             $table->index(['status', 'updated_at']);
+            $table->index('received_at');
+            $table->index('sorted_at');
+            $table->index('assigned_at');
+            $table->index('failed_at');
         });
 
         Schema::table('order_items', function (Blueprint $table) {
@@ -36,6 +40,10 @@ return new class extends Migration
             $table->dropIndex(['status', 'delivered_at']);
             $table->dropIndex(['delivery_courier_id', 'status']);
             $table->dropIndex(['status', 'updated_at']);
+            $table->dropIndex(['received_at']);
+            $table->dropIndex(['sorted_at']);
+            $table->dropIndex(['assigned_at']);
+            $table->dropIndex(['failed_at']);
             $table->dropColumn('inventory_restored_at');
         });
 

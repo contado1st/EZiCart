@@ -21,13 +21,15 @@ class LogisticsController extends Controller
 {
     public function dashboard(): View
     {
+        $todayStart = today()->startOfDay();
+        $tomorrowStart = today()->addDay()->startOfDay();
         $stats = [
             'inbound' => Order::where('status', 'PICKED_UP')->count(),
             'at_center' => Order::where('status', 'AT_SORTING_CENTER')->count(),
             'sorted' => Order::where('status', 'SORTED')->count(),
             'assigned' => Order::where('status', 'ASSIGNED_TO_RIDER')->count(),
             'out' => Order::where('status', 'OUT_FOR_DELIVERY')->count(),
-            'delivered_today' => Order::whereIn('status', ['DELIVERED', 'COMPLETED'])->whereDate('delivered_at', today())->count(),
+            'delivered_today' => Order::whereIn('status', ['DELIVERED', 'COMPLETED'])->whereBetween('delivered_at', [$todayStart, $tomorrowStart])->count(),
             'failed' => Order::where('status', 'DELIVERY_FAILED')->count(),
             'returned' => Order::whereIn('status', ['RETURN_IN_TRANSIT', 'RETURNED_TO_SELLER'])->count(),
             'active_riders' => User::where('role', 'courier')->where('status', 'approved')->count(),
@@ -289,7 +291,10 @@ class LogisticsController extends Controller
             ->when($validated['status'] ?? null, fn (Builder $query, string $status) => $query->where('status', $status))
             ->when($validated['rider'] ?? null, fn (Builder $query, int $rider) => $query->where('delivery_courier_id', $rider))
             ->when($validated['area'] ?? null, fn (Builder $query, int $area) => $query->where('destination_area_id', $area))
-            ->when($validated['date'] ?? null, fn (Builder $query, string $date) => $query->whereDate('updated_at', $date))
+            ->when($validated['date'] ?? null, function (Builder $query, string $date): void {
+                $day = Carbon::parse($date);
+                $query->whereBetween('updated_at', [$day->copy()->startOfDay(), $day->copy()->endOfDay()]);
+            })
             ->when($validated['search'] ?? null, fn (Builder $query, string $search) => $query->where('order_number', 'like', '%'.$search.'%'))
             ->latest()->paginate(20)->withQueryString();
         $riders = User::where('role', 'courier')->orderBy('first_name')->get(['id', 'first_name', 'last_name']);
@@ -314,16 +319,16 @@ class LogisticsController extends Controller
             ->with('destinationArea')
             ->whereNotNull('destination_area_id')
             ->whereIn('status', ['SORTED', 'ASSIGNED_TO_RIDER', 'OUT_FOR_DELIVERY', 'DELIVERED', 'COMPLETED'])
-            ->whereBetween('created_at', [$from, $to])
+            ->whereBetween('sorted_at', [$from, $to])
             ->groupBy('destination_area_id')
             ->orderByDesc('total')
             ->get();
         $stats = [
-            'received' => (clone $base)->whereNotNull('received_at')->count(),
-            'sorted' => (clone $base)->whereNotNull('sorted_at')->count(),
-            'dispatched' => (clone $base)->whereNotNull('assigned_at')->count(),
-            'delivered' => (clone $base)->whereNotNull('delivered_at')->count(),
-            'failed' => (clone $base)->whereNotNull('failed_at')->count(),
+            'received' => Order::whereBetween('received_at', [$from, $to])->count(),
+            'sorted' => Order::whereBetween('sorted_at', [$from, $to])->count(),
+            'dispatched' => Order::whereBetween('assigned_at', [$from, $to])->count(),
+            'delivered' => Order::whereBetween('delivered_at', [$from, $to])->count(),
+            'failed' => Order::whereBetween('failed_at', [$from, $to])->count(),
             'backlog' => Order::whereIn('status', ['PICKED_UP', 'AT_SORTING_CENTER', 'SORTED', 'ASSIGNED_TO_RIDER', 'OUT_FOR_DELIVERY'])->count(),
         ];
 

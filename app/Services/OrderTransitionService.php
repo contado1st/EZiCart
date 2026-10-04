@@ -3,9 +3,11 @@
 namespace App\Services;
 
 use App\Enums\OrderStatus;
+use App\Models\DeliveryAssignment;
 use App\Models\Order;
 use App\Models\ParcelTrackingEvent;
 use App\Models\User;
+use App\Notifications\OrderStatusNotification;
 use Illuminate\Support\Facades\DB;
 use Symfony\Component\HttpKernel\Exception\HttpException;
 
@@ -50,6 +52,8 @@ class OrderTransitionService
             $this->authorizeActor($lockedOrder, $actor, $target);
             $lockedOrder->update([...$attributes, 'status' => $target->value]);
 
+            $this->recordAssignmentLifecycle($lockedOrder->refresh(), $actor, $target);
+
             if (in_array($target, [OrderStatus::Cancelled, OrderStatus::ReturnedToSeller], true)) {
                 $this->inventoryRestoration->restore($lockedOrder);
             }
@@ -62,6 +66,15 @@ class OrderTransitionService
                 'location' => $location,
                 'notes' => $notes,
             ]);
+
+            foreach ($this->notificationRecipients($lockedOrder, $target) as $recipient) {
+                $recipient->notify(new OrderStatusNotification(
+                    $lockedOrder,
+                    $target->value,
+                    $eventType,
+                    $notes ?? 'Order status changed to '.str_replace('_', ' ', strtolower($target->value)).'.',
+                ));
+            }
 
             return $lockedOrder->refresh();
         });
@@ -83,5 +96,90 @@ class OrderTransitionService
         if (! $authorized || $actor->status !== 'approved') {
             abort(403, 'You are not authorized to make this order transition.');
         }
+    }
+
+    private function recordAssignmentLifecycle(Order $order, User $actor, OrderStatus $target): void
+    {
+        $riderId = $order->delivery_courier_id === null ? null : (int) $order->delivery_courier_id;
+
+        if ($target === OrderStatus::AssignedToRider && $riderId !== null) {
+            $activeAssignment = DeliveryAssignment::query()
+                ->where('order_id', $order->id)
+                ->where('status', 'active')
+                ->lockForUpdate()
+                ->first();
+
+            if ($activeAssignment?->rider_id === $riderId) {
+                return;
+            }
+
+            if ($activeAssignment !== null) {
+                $activeAssignment->update(['status' => 'reassigned', 'released_at' => now()]);
+            }
+
+            DeliveryAssignment::query()->create([
+                'order_id' => $order->id,
+                'rider_id' => $riderId,
+                'assigned_by' => $actor->id,
+                'status' => 'active',
+                'assigned_at' => $order->assigned_at ?? now(),
+            ]);
+
+            return;
+        }
+
+        if (! in_array($target, [OrderStatus::OutForDelivery, OrderStatus::Delivered, OrderStatus::ReturnInTransit], true) || $riderId === null) {
+            return;
+        }
+
+        $activeAssignment = DeliveryAssignment::query()
+            ->where('order_id', $order->id)
+            ->where('rider_id', $riderId)
+            ->where('status', 'active')
+            ->lockForUpdate()
+            ->first();
+
+        if ($activeAssignment === null) {
+            $activeAssignment = DeliveryAssignment::query()->create([
+                'order_id' => $order->id,
+                'rider_id' => $riderId,
+                'assigned_by' => null,
+                'status' => 'active',
+                'assigned_at' => $order->assigned_at ?? now(),
+            ]);
+        }
+
+        if ($target === OrderStatus::OutForDelivery) {
+            $activeAssignment->update(['accepted_at' => $activeAssignment->accepted_at ?? now()]);
+
+            return;
+        }
+
+        $finalStatus = $target === OrderStatus::Delivered ? 'completed' : 'returned';
+        $activeAssignment->update([
+            'status' => $finalStatus,
+            'released_at' => now(),
+            'completed_at' => $target === OrderStatus::Delivered ? now() : null,
+        ]);
+    }
+
+    /** @return list<User> */
+    private function notificationRecipients(Order $order, OrderStatus $target): array
+    {
+        $recipients = [$order->buyer, $order->seller];
+
+        if ($target === OrderStatus::AssignedToRider || $target === OrderStatus::OutForDelivery || $target === OrderStatus::DeliveryFailed || $target === OrderStatus::ReturnInTransit) {
+            $recipients[] = $order->deliveryCourier;
+        }
+
+        if ($target === OrderStatus::PickedUp) {
+            $recipients[] = $order->pickupCourier;
+        }
+
+        if (in_array($target, [OrderStatus::AtSortingCenter, OrderStatus::DeliveryFailed, OrderStatus::ReturnInTransit], true)) {
+            array_push($recipients, ...User::query()->where('role', 'sorting_center')->where('status', 'approved')->get()->all());
+        }
+
+        return collect($recipients)->filter(fn (?User $user): bool => $user !== null)->unique('id')->values()->all();
     }
 }

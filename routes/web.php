@@ -14,6 +14,7 @@ use App\Http\Controllers\Buyer\ReviewController;
 use App\Http\Controllers\Courier\CourierController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\Logistics\LogisticsController;
+use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\SecureDocumentController;
 use App\Http\Controllers\Seller\ProductController;
 use App\Http\Controllers\Seller\SellerController;
@@ -49,6 +50,9 @@ Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
 
 // 3. Protected Routes (Strictly Isolated by Role)
 Route::middleware(['auth', 'account.active'])->group(function () {
+    Route::get('/notifications', [NotificationController::class, 'index'])->name('notifications.index');
+    Route::post('/notifications/{notification}/read', [NotificationController::class, 'markRead'])->name('notifications.read');
+    Route::get('/account/documents/{type}', [SecureDocumentController::class, 'ownDocument'])->name('account.documents.show');
     Route::get('/delivery-attempts/{attempt}/proof', [SecureDocumentController::class, 'deliveryProof'])->name('delivery-attempts.proof');
 
     // Buyer-Only Routes
@@ -104,6 +108,7 @@ Route::middleware(['auth', 'account.active'])->group(function () {
     Route::middleware(['role:courier'])->prefix('courier')->name('courier.')->group(function () {
         Route::get('/dashboard', [CourierController::class, 'dashboard'])->name('dashboard');
         Route::post('/orders/{order}/claim', [CourierController::class, 'claimPickup'])->middleware('throttle:30,1')->name('orders.claim');
+        Route::post('/orders/{order}/decline-pickup', [CourierController::class, 'declinePickup'])->middleware('throttle:30,1')->name('orders.declinePickup');
         Route::get('/orders/{order}', [CourierController::class, 'showOrder'])->name('orders.show');
         Route::post('/orders/{order}/confirm-pickup', [CourierController::class, 'confirmPickup'])->middleware('throttle:30,1')->name('orders.confirmPickup');
         Route::post('/orders/{order}/start-delivery', [CourierController::class, 'startDelivery'])->middleware('throttle:30,1')->name('orders.startDelivery');

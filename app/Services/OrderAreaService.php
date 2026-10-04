@@ -34,7 +34,7 @@ class OrderAreaService
                     return $existing;
                 }
 
-                $baseCode = Str::slug(($province !== '' ? $province.'-' : '').$municipality);
+                $baseCode = Str::slug(($province !== '' ? $province.'-' : '').$municipality) ?: 'area';
                 $code = $baseCode;
                 if (Area::query()->where('code', $code)->exists()) {
                     $code .= '-'.substr(sha1($provinceNormalized.'|'.$municipalityNormalized), 0, 8);
