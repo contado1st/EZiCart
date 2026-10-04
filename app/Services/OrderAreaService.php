@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\Area;
 use App\Models\AreaMunicipality;
 use App\Models\Order;
+use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
@@ -24,36 +25,44 @@ class OrderAreaService
             ->first();
 
         if ($mapping === null) {
-            $mapping = DB::transaction(function () use ($province, $municipality, $provinceNormalized, $municipalityNormalized): AreaMunicipality {
-                $existing = AreaMunicipality::query()
+            try {
+                $mapping = DB::transaction(function () use ($province, $municipality, $provinceNormalized, $municipalityNormalized): AreaMunicipality {
+                    $existing = AreaMunicipality::query()
+                        ->where('province_normalized', $provinceNormalized)
+                        ->where('municipality_normalized', $municipalityNormalized)
+                        ->first();
+
+                    if ($existing !== null) {
+                        return $existing;
+                    }
+
+                    $baseCode = Str::slug(($province !== '' ? $province.'-' : '').$municipality) ?: 'area';
+                    $code = substr($baseCode, 0, 180).'-'.substr(sha1($provinceNormalized.'|'.$municipalityNormalized), 0, 12);
+
+                    $area = Area::query()->create([
+                        'name' => $municipality,
+                        'code' => $code,
+                        'is_active' => true,
+                    ]);
+
+                    return AreaMunicipality::query()->create([
+                        'area_id' => $area->id,
+                        'province' => $province,
+                        'municipality' => $municipality,
+                        'province_normalized' => $provinceNormalized,
+                        'municipality_normalized' => $municipalityNormalized,
+                    ]);
+                }, 3);
+            } catch (QueryException $exception) {
+                $mapping = AreaMunicipality::query()
                     ->where('province_normalized', $provinceNormalized)
                     ->where('municipality_normalized', $municipalityNormalized)
                     ->first();
 
-                if ($existing !== null) {
-                    return $existing;
+                if ($mapping === null) {
+                    throw $exception;
                 }
-
-                $baseCode = Str::slug(($province !== '' ? $province.'-' : '').$municipality) ?: 'area';
-                $code = $baseCode;
-                if (Area::query()->where('code', $code)->exists()) {
-                    $code .= '-'.substr(sha1($provinceNormalized.'|'.$municipalityNormalized), 0, 8);
-                }
-
-                $area = Area::query()->create([
-                    'name' => $municipality,
-                    'code' => $code,
-                    'is_active' => true,
-                ]);
-
-                return AreaMunicipality::query()->create([
-                    'area_id' => $area->id,
-                    'province' => $province,
-                    'municipality' => $municipality,
-                    'province_normalized' => $provinceNormalized,
-                    'municipality_normalized' => $municipalityNormalized,
-                ]);
-            });
+            }
         }
 
         $area = $mapping->area;

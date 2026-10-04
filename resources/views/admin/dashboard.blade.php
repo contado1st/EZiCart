@@ -22,6 +22,7 @@
                     <a href="{{ route('admin.registrations.index') }}" class="dash-nav-item">
                         🛡️ User Approvals
                     </a>
+                    <a href="{{ route('admin.compliance.products.index') }}" class="dash-nav-item">Product Compliance</a>
                 </nav>
             </div>
 
@@ -44,6 +45,9 @@
                 <div>
                     <a href="{{ route('admin.registrations.index') }}" class="dash-btn-primary">
                         Verify Users ({{ $stats['pending_users'] }})
+                    </a>
+                    <a href="{{ route('admin.compliance.products.index') }}" class="dash-btn-primary" style="margin-left:.5rem;">
+                        Review Products ({{ $stats['pending_product_reviews'] }})
                     </a>
                 </div>
             </div>
@@ -71,6 +75,12 @@
                     <div class="dash-stat-value warning">{{ $stats['pending_users'] }}</div>
                     <div class="dash-stat-subtext">Sellers and couriers awaiting review</div>
                 </div>
+
+                <a href="{{ route('admin.compliance.products.index') }}" class="dash-stat-card">
+                    <div class="dash-stat-label">Product Reviews</div>
+                    <div class="dash-stat-value warning">{{ $stats['pending_product_reviews'] }}</div>
+                    <div class="dash-stat-subtext">New listings awaiting category and compliance review</div>
+                </a>
 
                 <div class="dash-stat-card">
                     <div class="dash-stat-label">Parcels in Transit</div>

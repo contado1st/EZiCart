@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Support\Collection;
 
 class Order extends Model
 {
@@ -114,6 +115,25 @@ class Order extends Model
     public function deliveryAssignments(): HasMany
     {
         return $this->hasMany(DeliveryAssignment::class)->orderBy('assigned_at')->orderBy('id');
+    }
+
+    public function conversation(): HasOne
+    {
+        return $this->hasOne(OrderConversation::class);
+    }
+
+    /** @return Collection<int, User> */
+    public function messageParticipants(): Collection
+    {
+        $participantIds = collect([$this->buyer_id, $this->seller_id, $this->pickup_courier_id, $this->delivery_courier_id, $this->sorting_center_id])
+            ->merge($this->deliveryAssignments()->pluck('rider_id'))
+            ->merge($this->trackingEvents()->whereHas('actor', fn ($query) => $query->whereIn('role', ['sorting_center', 'courier']))->pluck('actor_id'))
+            ->merge($this->deliveryAssignments()->whereNotNull('assigned_by')->pluck('assigned_by'))
+            ->filter()
+            ->unique()
+            ->values();
+
+        return User::query()->whereIn('id', $participantIds)->get();
     }
 
     public function trackingEvents(): HasMany

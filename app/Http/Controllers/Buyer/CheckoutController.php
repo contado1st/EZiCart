@@ -124,7 +124,7 @@ class CheckoutController extends Controller
                 $productId = $item['product_id'] ?? $item['id'];
                 $product = Product::lockForUpdate()->find($productId);
 
-                if (! $product || $product->stock < $item['quantity']) {
+                if (! $product || $product->compliance_status !== 'approved' || $product->is_archived || $product->stock < $item['quantity']) {
                     DB::rollBack();
 
                     return back()->with('error', "Sorry, {$item['name']} is out of stock or has insufficient inventory.");

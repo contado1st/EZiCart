@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Order;
+use App\Models\Product;
 use App\Models\User;
 
 class AdminController extends Controller
@@ -23,6 +24,7 @@ class AdminController extends Controller
             'total_commission' => $platformEarnings,
             'gmv' => $grossMerchandiseValue,
             'pending_users' => User::where('status', 'pending')->count(),
+            'pending_product_reviews' => Product::where('compliance_status', 'pending_review')->count(),
             'active_parcels' => Order::whereIn('status', [
                 'READY_FOR_PICKUP', 'PICKED_UP', 'AT_SORTING_CENTER', 'SORTED', 'ASSIGNED_TO_RIDER', 'OUT_FOR_DELIVERY',
             ])->count(),

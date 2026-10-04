@@ -1,6 +1,8 @@
 <?php
 
+use App\Http\Controllers\AccountController;
 use App\Http\Controllers\Admin\AdminAnnouncementController;
+use App\Http\Controllers\Admin\AdminComplianceController;
 use App\Http\Controllers\Admin\AdminController;
 use App\Http\Controllers\Admin\AdminDisputeController;
 use App\Http\Controllers\Admin\AdminModerationController;
@@ -15,6 +17,7 @@ use App\Http\Controllers\Courier\CourierController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\Logistics\LogisticsController;
 use App\Http\Controllers\NotificationController;
+use App\Http\Controllers\OrderMessageController;
 use App\Http\Controllers\SecureDocumentController;
 use App\Http\Controllers\Seller\ProductController;
 use App\Http\Controllers\Seller\SellerController;
@@ -31,6 +34,10 @@ Route::get('/product/{product}', [HomeController::class, 'showProduct'])->name('
 Route::middleware('guest')->group(function () {
     Route::get('/login', [AuthController::class, 'showLoginForm'])->name('login');
     Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:5,1')->name('login.post');
+    Route::get('/forgot-password', [AuthController::class, 'showForgotPasswordForm'])->name('password.request');
+    Route::post('/forgot-password', [AuthController::class, 'sendPasswordResetLink'])->middleware('throttle:5,1')->name('password.email');
+    Route::get('/reset-password/{token}', [AuthController::class, 'showResetPasswordForm'])->name('password.reset');
+    Route::post('/reset-password', [AuthController::class, 'resetPassword'])->middleware('throttle:5,1')->name('password.update');
 
     Route::get('/register', [AuthController::class, 'showRegisterForm'])->name('register');
     Route::post('/register', [AuthController::class, 'register'])->middleware('throttle:5,1')->name('register.post');
@@ -49,10 +56,13 @@ Route::middleware('guest')->group(function () {
 Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
 
 // 3. Protected Routes (Strictly Isolated by Role)
-Route::middleware(['auth', 'account.active'])->group(function () {
+Route::middleware(['auth', 'account.active', 'auth.session'])->group(function () {
     Route::get('/notifications', [NotificationController::class, 'index'])->name('notifications.index');
     Route::post('/notifications/{notification}/read', [NotificationController::class, 'markRead'])->name('notifications.read');
     Route::get('/account/documents/{type}', [SecureDocumentController::class, 'ownDocument'])->name('account.documents.show');
+    Route::get('/account', [AccountController::class, 'edit'])->name('account.profile.edit');
+    Route::patch('/account', [AccountController::class, 'update'])->middleware('throttle:30,1')->name('account.profile.update');
+    Route::patch('/account/password', [AccountController::class, 'updatePassword'])->middleware('throttle:10,1')->name('account.password.update');
     Route::get('/delivery-attempts/{attempt}/proof', [SecureDocumentController::class, 'deliveryProof'])->name('delivery-attempts.proof');
 
     // Buyer-Only Routes
@@ -60,6 +70,8 @@ Route::middleware(['auth', 'account.active'])->group(function () {
         Route::prefix('buyer')->name('buyer.')->group(function () {
             Route::get('/dashboard', [BuyerController::class, 'dashboard'])->name('dashboard');
             Route::get('/orders/{order}', [BuyerController::class, 'showOrder'])->name('orders.show');
+            Route::get('/orders/{order}/messages', [OrderMessageController::class, 'show'])->name('orders.messages.show');
+            Route::post('/orders/{order}/messages', [OrderMessageController::class, 'store'])->middleware('throttle:30,1')->name('orders.messages.store');
             Route::post('/orders/{order}/confirm', [BuyerController::class, 'confirmReceived'])->name('orders.confirm');
             Route::post('/orders/{order}/cancel', [BuyerController::class, 'cancel'])->name('orders.cancel');
             Route::post('/orders/{order}/review', [ReviewController::class, 'store'])->name('orders.review');
@@ -91,6 +103,8 @@ Route::middleware(['auth', 'account.active'])->group(function () {
         // Order Fulfillment & Waybill Routes
         Route::get('/orders', [SellerOrderController::class, 'index'])->name('orders.index');
         Route::get('/orders/{order}', [SellerOrderController::class, 'show'])->name('orders.show');
+        Route::get('/orders/{order}/messages', [OrderMessageController::class, 'show'])->name('orders.messages.show');
+        Route::post('/orders/{order}/messages', [OrderMessageController::class, 'store'])->middleware('throttle:30,1')->name('orders.messages.store');
         Route::patch('/orders/{order}/status', [SellerOrderController::class, 'updateStatus'])->middleware('throttle:30,1')->name('orders.updateStatus');
         Route::post('/orders/{order}/schedule-pickup', [SellerOrderController::class, 'schedulePickup'])->middleware('throttle:20,1')->name('orders.schedulePickup');
         Route::post('/orders/{order}/confirm-handover', [SellerOrderController::class, 'confirmHandover'])->middleware('throttle:30,1')->name('orders.confirmHandover');
@@ -110,6 +124,8 @@ Route::middleware(['auth', 'account.active'])->group(function () {
         Route::post('/orders/{order}/claim', [CourierController::class, 'claimPickup'])->middleware('throttle:30,1')->name('orders.claim');
         Route::post('/orders/{order}/decline-pickup', [CourierController::class, 'declinePickup'])->middleware('throttle:30,1')->name('orders.declinePickup');
         Route::get('/orders/{order}', [CourierController::class, 'showOrder'])->name('orders.show');
+        Route::get('/orders/{order}/messages', [OrderMessageController::class, 'show'])->name('orders.messages.show');
+        Route::post('/orders/{order}/messages', [OrderMessageController::class, 'store'])->middleware('throttle:30,1')->name('orders.messages.store');
         Route::post('/orders/{order}/confirm-pickup', [CourierController::class, 'confirmPickup'])->middleware('throttle:30,1')->name('orders.confirmPickup');
         Route::post('/orders/{order}/start-delivery', [CourierController::class, 'startDelivery'])->middleware('throttle:30,1')->name('orders.startDelivery');
         Route::patch('/orders/{order}/complete-delivery', [CourierController::class, 'completeDelivery'])->middleware('throttle:30,1')->name('orders.completeDelivery');
@@ -128,6 +144,8 @@ Route::middleware(['auth', 'account.active'])->group(function () {
         Route::get('/sorting', [LogisticsController::class, 'sorting'])->name('sorting');
         Route::get('/dispatch', [LogisticsController::class, 'dispatch'])->name('dispatch');
         Route::get('/tracking', [LogisticsController::class, 'tracking'])->name('tracking');
+        Route::get('/orders/{order}/messages', [OrderMessageController::class, 'show'])->name('orders.messages.show');
+        Route::post('/orders/{order}/messages', [OrderMessageController::class, 'store'])->middleware('throttle:30,1')->name('orders.messages.store');
         Route::get('/reports', [LogisticsController::class, 'reports'])->name('reports');
         Route::post('/orders/{order}/receive', [LogisticsController::class, 'receiveParcel'])->middleware('throttle:30,1')->name('orders.receive');
         Route::post('/orders/{order}/sort', [LogisticsController::class, 'sortParcel'])->middleware('throttle:30,1')->name('orders.sort');
@@ -146,6 +164,8 @@ Route::middleware(['auth', 'account.active'])->group(function () {
     // Admin-Only Routes
     Route::middleware(['role:admin'])->prefix('admin')->name('admin.')->group(function () {
         Route::get('/dashboard', [AdminController::class, 'dashboard'])->name('dashboard');
+        Route::get('/compliance/products', [AdminComplianceController::class, 'index'])->name('compliance.products.index');
+        Route::patch('/compliance/products/{product}', [AdminComplianceController::class, 'review'])->middleware('throttle:30,1')->name('compliance.products.review');
         Route::get('/registrations', [AdminController::class, 'index'])->name('registrations.index');
         Route::post('/registrations/{user}/approve', [AdminController::class, 'approve'])->name('registrations.approve');
         Route::post('/registrations/{user}/reject', [AdminController::class, 'reject'])->name('registrations.reject');

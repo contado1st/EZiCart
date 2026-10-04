@@ -31,6 +31,16 @@ class Product extends Model
         return $this->hasMany(Review::class);
     }
 
+    public function complianceEvents(): HasMany
+    {
+        return $this->hasMany(ProductComplianceEvent::class)->orderByDesc('created_at')->orderByDesc('id');
+    }
+
+    protected function casts(): array
+    {
+        return ['compliance_reviewed_at' => 'datetime'];
+    }
+
     public function getAverageRatingAttribute(): float
     {
         return round((float) $this->reviews()->avg('rating'), 1);

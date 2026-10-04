@@ -100,6 +100,7 @@
                 @endforelse
 
                 <div class="order-card-footer">
+                    <a href="{{ route('buyer.orders.messages.show', $order) }}" class="dash-btn-sm dash-btn-outline">Message seller</a>
                     @if ($order->dispute)
                         <span class="status-pill">Dispute: {{ str_replace('_', ' ', $order->dispute->status) }}</span>
                     @elseif(in_array($order->status, ['DELIVERED', 'COMPLETED']))

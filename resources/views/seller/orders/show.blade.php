@@ -78,6 +78,7 @@
                 <div class="order-card-footer">
                     <a href="{{ route('seller.orders.waybill', $order->id) }}" class="dash-btn-sm dash-btn-outline">View
                         waybill</a>
+                    <a href="{{ route('seller.orders.messages.show', $order) }}" class="dash-btn-sm dash-btn-outline">Message buyer</a>
                     @if ($order->status === 'PLACED')
                         <form action="{{ route('seller.orders.updateStatus', $order->id) }}" method="POST">
                             @csrf

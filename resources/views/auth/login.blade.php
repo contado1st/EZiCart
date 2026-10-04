@@ -33,6 +33,9 @@
                         {{ session('success') }}
                     </div>
                 @endif
+                @if (session('status'))
+                    <div class="form-notice">{{ session('status') }}</div>
+                @endif
 
                 <form action="{{ route('login.post') }}" method="POST">
                     @csrf
@@ -41,6 +44,8 @@
                         <input type="email" name="email" class="form-control" placeholder="name@example.com"
                             value="{{ old('email') }}" required>
                     </div>
+
+                    <p class="auth-footer-text"><a href="{{ route('password.request') }}">Forgot your password?</a></p>
 
                     <div class="form-group">
                         <label class="form-label">Password</label>

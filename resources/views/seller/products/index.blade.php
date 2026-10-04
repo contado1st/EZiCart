@@ -88,6 +88,9 @@
                                 <td>
                                     @if ($product->is_archived)
                                         <span class="dash-badge dash-badge-archived">Archived</span>
+                                    @elseif($product->compliance_status !== 'approved')
+                                        <span class="dash-badge dash-badge-archived">{{ str_replace('_', ' ', ucfirst($product->compliance_status)) }}</span>
+                                        @if ($product->compliance_note)<div class="text-muted-small">{{ $product->compliance_note }}</div>@endif
                                     @else
                                         <span class="dash-badge dash-badge-active">Active</span>
                                     @endif
@@ -97,10 +100,10 @@
                                         <a href="{{ route('seller.products.edit', $product->id) }}"
                                             class="dash-btn-sm dash-btn-outline">Edit</a>
                                         <form action="{{ route('seller.products.destroy', $product->id) }}" method="POST"
-                                            onsubmit="return confirm('Delete this product permanently?');">
+                                            onsubmit="return confirm('Remove this product from your inventory?');">
                                             @csrf
                                             @method('DELETE')
-                                            <button type="submit" class="dash-btn-sm dash-btn-danger">Delete</button>
+                                            <button type="submit" class="dash-btn-sm dash-btn-danger">Remove</button>
                                         </form>
                                     </div>
                                 </td>

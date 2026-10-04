@@ -9,7 +9,7 @@
             <article class="dash-panel" style="margin-block: 1rem;">
                 <div style="display:flex; justify-content:space-between; gap:1rem; align-items:flex-start;">
                     <div>
-                        <strong>{{ $notification->data['order_number'] ?? 'EZiCart update' }}</strong>
+                        <strong>{{ $notification->data['order_number'] ?? $notification->data['product_name'] ?? 'EZiCart update' }}</strong>
                         <p>{{ $notification->data['message'] ?? 'You have a new update.' }}</p>
                         <small>{{ $notification->created_at->format('M d, Y h:i A') }}</small>
                     </div>

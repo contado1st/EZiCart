@@ -70,10 +70,7 @@ return new class extends Migration
             }
 
             $baseCode = Str::slug(($province !== '' ? $province.'-' : '').$municipality) ?: 'area';
-            $code = $baseCode;
-            if (DB::table('areas')->where('code', $code)->exists()) {
-                $code .= '-'.substr(sha1($provinceNormalized.'|'.$municipalityNormalized), 0, 8);
-            }
+            $code = substr($baseCode, 0, 180).'-'.substr(sha1($provinceNormalized.'|'.$municipalityNormalized), 0, 12);
             $areaId = DB::table('areas')->insertGetId([
                 'name' => $municipality,
                 'code' => $code,

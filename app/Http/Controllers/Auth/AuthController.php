@@ -5,15 +5,63 @@ namespace App\Http\Controllers\Auth;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use Carbon\Carbon;
+use Illuminate\Auth\Events\PasswordReset;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Password;
+use Illuminate\Support\Str;
 
 class AuthController extends Controller
 {
     public function showLoginForm()
     {
         return view('auth.login');
+    }
+
+    public function showForgotPasswordForm()
+    {
+        return view('auth.forgot-password');
+    }
+
+    public function sendPasswordResetLink(Request $request)
+    {
+        $validated = $request->validate(['email' => ['required', 'email', 'max:255']]);
+        Password::sendResetLink(['email' => $validated['email']]);
+
+        return back()->with('status', 'If an account matches that email address, a password reset link has been sent.');
+    }
+
+    public function showResetPasswordForm(string $token)
+    {
+        return view('auth.reset-password', ['token' => $token, 'email' => request()->query('email')]);
+    }
+
+    public function resetPassword(Request $request)
+    {
+        $validated = $request->validate([
+            'token' => ['required', 'string'],
+            'email' => ['required', 'email', 'max:255'],
+            'password' => ['required', 'string', 'min:8', 'confirmed'],
+        ]);
+
+        $status = Password::reset(
+            $validated,
+            function (User $user, string $password): void {
+                $user->forceFill([
+                    'password' => Hash::make($password),
+                    'remember_token' => Str::random(60),
+                ])->save();
+
+                event(new PasswordReset($user));
+            },
+        );
+
+        if ($status === Password::PasswordReset) {
+            return redirect()->route('login')->with('success', 'Password reset successfully. You can now sign in.');
+        }
+
+        return back()->withInput($request->only('email'))->withErrors(['email' => __($status)]);
     }
 
     public function login(Request $request)
