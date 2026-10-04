@@ -21,6 +21,7 @@ class ProductComplianceTest extends TestCase
     public function test_new_products_need_admin_review_and_flagged_products_cannot_be_bought(): void
     {
         $seller = $this->user('seller');
+        $seller->forceFill(['line_of_business' => 'Local tea and groceries'])->save();
         $product = $this->actingAsUser($seller)->post(route('seller.products.store'), [
             'name' => 'Unreviewed tea',
             'category' => 'Groceries',
@@ -48,7 +49,8 @@ class ProductComplianceTest extends TestCase
         $this->actingAsUser($buyer)->post(route('cart.add', $product), ['quantity' => 1])->assertNotFound();
 
         $admin = $this->user('admin');
-        $this->actingAsUser($admin)->get(route('admin.compliance.products.index'))->assertOk()->assertSee('Unreviewed tea');
+        $this->actingAsUser($admin)->get(route('admin.compliance.products.index'))
+            ->assertOk()->assertSee('Unreviewed tea')->assertSee('Local tea and groceries');
         $this->patch(route('admin.compliance.products.review', $product), [
             'compliance_status' => 'flagged',
             'compliance_note' => 'The packaging claim needs documentation.',

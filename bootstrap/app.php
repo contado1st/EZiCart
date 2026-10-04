@@ -20,15 +20,13 @@ return Application::configure(basePath: dirname(__DIR__))
             'account.active' => EnsureAccountActive::class,
         ]);
 
-        // Trust all proxies for the local tunnel connection
-        $middleware->trustProxies(at: '*');
-
-        // Optional: specify headers Cloudflare uses
-        $middleware->trustProxies(headers: Request::HEADER_X_FORWARDED_FOR |
+        $middleware->trustProxies(
+            at: env('TRUSTED_PROXIES', env('APP_ENV') === 'local' ? '*' : null),
+            headers: Request::HEADER_X_FORWARDED_FOR |
             Request::HEADER_X_FORWARDED_HOST |
             Request::HEADER_X_FORWARDED_PORT |
             Request::HEADER_X_FORWARDED_PROTO |
-            Request::HEADER_X_FORWARDED_PREFIX
+            Request::HEADER_X_FORWARDED_PREFIX,
         );
     })
     ->withExceptions(function (Exceptions $exceptions): void {
