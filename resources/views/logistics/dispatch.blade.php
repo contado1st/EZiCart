@@ -35,6 +35,9 @@
                                     <span class="ops-muted">Awaiting seller receipt confirmation</span>
                                 @else
                                 @php($suggestedRider = $suggestedRiders[$order->id] ?? null)
+                                @if ($order->status === 'DELIVERY_FAILED')
+                                    <div class="ops-muted">{{ $order->deliveryAttempts->count() }} attempts recorded. Schedule the next attempt or return the parcel.</div>
+                                @endif
                                 @if ($suggestedRider)
                                     <div class="ops-muted">Suggested: {{ $suggestedRider->first_name }} {{ $suggestedRider->last_name }} ({{ $suggestedRider->capacity_load_count }}/{{ $maxActiveDeliveries }} parcels in progress)</div>
                                 @else
@@ -54,7 +57,13 @@
                                                         {{ $rider->serviceAreas->pluck('name')->join(', ') }} area(s)</option>
                                                 @endif
                                             @endforeach
-                                        </select></div><button class="ops-btn ops-btn--primary"
+                                        </select></div>
+                                    @if ($order->status === 'DELIVERY_FAILED')
+                                        <div class="ops-field"><label for="retry-schedule-{{ $order->id }}">Retry date and time</label>
+                                            <input id="retry-schedule-{{ $order->id }}" type="datetime-local" name="scheduled_at" min="{{ now()->addMinutes(15)->format('Y-m-d\\TH:i') }}" required>
+                                        </div>
+                                    @endif
+                                    <button class="ops-btn ops-btn--primary"
                                         type="submit">{{ $order->delivery_courier_id ? 'Reassign' : 'Assign' }}</button>
                                 </form>
                                 @endif

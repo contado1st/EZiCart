@@ -4,7 +4,9 @@ namespace Tests\Feature;
 
 use App\Models\Order;
 use App\Models\OrderConversation;
+use App\Models\ParcelTrackingEvent;
 use App\Models\User;
+use App\Notifications\OrderMessageNotification;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -19,7 +21,7 @@ class OrderMessagingTest extends TestCase
         $this->withoutVite();
     }
 
-    public function test_only_order_buyer_and_seller_can_exchange_private_messages(): void
+    public function test_only_participants_on_an_order_can_exchange_private_messages(): void
     {
         $buyer = $this->user('buyer');
         $seller = $this->user('seller');
@@ -49,7 +51,55 @@ class OrderMessagingTest extends TestCase
 
         $this->actingAsUser($otherBuyer)->get(route('buyer.orders.messages.show', $order))->assertForbidden();
         $this->post(route('buyer.orders.messages.store', $order), ['body' => 'Unauthorized'])->assertForbidden();
-        $this->actingAsUser($rider)->post(route('buyer.orders.messages.store', $order), ['body' => 'Courier cannot use buyer/seller messaging'])->assertForbidden();
+        $this->actingAsUser($rider)->post(route('buyer.orders.messages.store', $order), ['body' => 'Unassigned couriers cannot read this thread.'])->assertForbidden();
+    }
+
+    public function test_assigned_courier_and_involved_logistics_user_can_coordinate_in_the_order_thread(): void
+    {
+        $buyer = $this->user('buyer');
+        $seller = $this->user('seller');
+        $courier = $this->user('courier');
+        $center = $this->user('sorting_center');
+        $admin = $this->user('admin');
+        $order = $this->order($buyer, $seller);
+        $order->update([
+            'pickup_courier_id' => $courier->id,
+            'sorting_center_id' => $center->id,
+        ]);
+
+        $this->actingAsUser($courier)->get(route('courier.orders.messages.show', $order))->assertOk();
+        $this->post(route('courier.orders.messages.store', $order), ['body' => 'I have arrived for pickup.'])->assertRedirect();
+        $this->assertDatabaseHas('notifications', [
+            'notifiable_id' => $buyer->id,
+            'type' => OrderMessageNotification::class,
+        ]);
+        $this->assertDatabaseHas('notifications', [
+            'notifiable_id' => $seller->id,
+            'type' => OrderMessageNotification::class,
+        ]);
+        $centerNotification = $center->notifications()->firstOrFail();
+        $this->assertSame(route('logistics.orders.messages.show', $order), $centerNotification->data['url']);
+
+        $this->actingAsUser($center)->get(route('logistics.orders.messages.show', $order))
+            ->assertOk()->assertSee('I have arrived for pickup.');
+
+        $order->update(['pickup_courier_id' => null]);
+        ParcelTrackingEvent::query()->create([
+            'order_id' => $order->id,
+            'actor_id' => $courier->id,
+            'event_type' => 'pickup_declined',
+            'status' => $order->status,
+            'notes' => 'Rider declined the pickup.',
+        ]);
+        $this->actingAsUser($courier)->get(route('courier.orders.messages.show', $order))->assertForbidden();
+
+        $unrelatedCenter = $this->user('sorting_center');
+        $this->actingAsUser($unrelatedCenter)->get(route('logistics.orders.messages.show', $order))->assertForbidden();
+
+        $this->actingAsUser($admin)->get(route('admin.orders.messages.show', $order))->assertOk();
+        $this->post(route('admin.orders.messages.store', $order), ['body' => 'Support is reviewing the delivery update.'])->assertRedirect();
+        $this->actingAsUser($seller)->get(route('seller.orders.messages.show', $order))
+            ->assertOk()->assertSee('Support is reviewing the delivery update.');
     }
 
     private function actingAsUser(User $user): static

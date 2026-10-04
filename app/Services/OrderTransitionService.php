@@ -114,11 +114,12 @@ class OrderTransitionService
             }
 
             if ($activeAssignment !== null) {
-                $activeAssignment->update(['status' => 'reassigned', 'released_at' => now()]);
+                $activeAssignment->update(['status' => 'reassigned', 'active_order_id' => null, 'released_at' => now()]);
             }
 
             DeliveryAssignment::query()->create([
                 'order_id' => $order->id,
+                'active_order_id' => $order->id,
                 'rider_id' => $riderId,
                 'assigned_by' => $actor->id,
                 'status' => 'active',
@@ -142,6 +143,7 @@ class OrderTransitionService
         if ($activeAssignment === null) {
             $activeAssignment = DeliveryAssignment::query()->create([
                 'order_id' => $order->id,
+                'active_order_id' => $order->id,
                 'rider_id' => $riderId,
                 'assigned_by' => null,
                 'status' => 'active',
@@ -158,6 +160,7 @@ class OrderTransitionService
         $finalStatus = $target === OrderStatus::Delivered ? 'completed' : 'returned';
         $activeAssignment->update([
             'status' => $finalStatus,
+            'active_order_id' => null,
             'released_at' => now(),
             'completed_at' => $target === OrderStatus::Delivered ? now() : null,
         ]);

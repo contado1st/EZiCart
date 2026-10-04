@@ -126,9 +126,7 @@ class Order extends Model
     public function messageParticipants(): Collection
     {
         $participantIds = collect([$this->buyer_id, $this->seller_id, $this->pickup_courier_id, $this->delivery_courier_id, $this->sorting_center_id])
-            ->merge($this->deliveryAssignments()->pluck('rider_id'))
-            ->merge($this->trackingEvents()->whereHas('actor', fn ($query) => $query->whereIn('role', ['sorting_center', 'courier']))->pluck('actor_id'))
-            ->merge($this->deliveryAssignments()->whereNotNull('assigned_by')->pluck('assigned_by'))
+            ->merge($this->trackingEvents()->whereHas('actor', fn ($query) => $query->where('role', 'sorting_center'))->pluck('actor_id'))
             ->filter()
             ->unique()
             ->values();

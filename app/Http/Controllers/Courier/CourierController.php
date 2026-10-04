@@ -8,6 +8,7 @@ use App\Models\DeliveryAttempt;
 use App\Models\Order;
 use App\Models\ParcelTrackingEvent;
 use App\Models\User;
+use App\Notifications\OrderWorkflowNotification;
 use App\Services\OrderTransitionService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
@@ -26,7 +27,12 @@ class CourierController extends Controller
         $availablePickups = Order::where('status', 'READY_FOR_PICKUP')->where('pickup_courier_id', $courier->id)->whereNull('pickup_claimed_at')->with(['seller', 'items'])->latest()->paginate(8, ['*'], 'pickups');
         $claimedPickups = Order::where('pickup_courier_id', $courier->id)->where('status', 'READY_FOR_PICKUP')->with('seller')->latest()->get();
         $myActivePickups = Order::where('pickup_courier_id', $courier->id)->where('status', 'PICKED_UP')->with('seller')->latest()->get();
-        $myDeliveryAssignments = Order::where('delivery_courier_id', $courier->id)->whereIn('status', ['ASSIGNED_TO_RIDER', 'OUT_FOR_DELIVERY'])->with(['buyer', 'items'])->latest()->paginate(10, ['*'], 'deliveries');
+        $myDeliveryAssignments = Order::where('delivery_courier_id', $courier->id)
+            ->whereIn('status', ['ASSIGNED_TO_RIDER', 'OUT_FOR_DELIVERY'])
+            ->with(['buyer', 'items'])
+            ->orderBy('delivery_area')
+            ->orderBy('assigned_at')
+            ->paginate(10, ['*'], 'deliveries');
         $myFailedDeliveries = Order::where('delivery_courier_id', $courier->id)->where('status', 'DELIVERY_FAILED')->with('deliveryAttempts')->latest('failed_at')->get();
         $stats = [
             'claimed_pickups' => $claimedPickups->count(),
@@ -59,6 +65,7 @@ class CourierController extends Controller
             abort_unless($lockedOrder->status === 'READY_FOR_PICKUP' && $lockedOrder->pickup_claimed_at === null, 422, 'This pickup has already been accepted or is no longer available.');
             $lockedOrder->update(['pickup_claimed_at' => now()]);
             $this->recordEvent($lockedOrder, 'pickup_accepted', $courier, $lockedOrder->seller?->municipality, 'Rider accepted the Logistics pickup assignment.');
+            $lockedOrder->seller?->notify(new OrderWorkflowNotification($lockedOrder, 'pickup_accepted', 'The assigned rider accepted the pickup request.'));
 
             return back()->with('success', "Pickup {$lockedOrder->order_number} added to your route.");
         });
@@ -82,6 +89,10 @@ class CourierController extends Controller
                 $lockedOrder->seller?->municipality,
                 filled($validated['reason'] ?? null) ? $validated['reason'] : 'Rider declined the pickup assignment.',
             );
+            $lockedOrder->seller?->notify(new OrderWorkflowNotification($lockedOrder, 'pickup_declined', 'The assigned rider declined the pickup. Logistics will reassign it.'));
+            User::query()->where('role', 'sorting_center')->where('status', 'approved')->each(
+                fn (User $operator) => $operator->notify(new OrderWorkflowNotification($lockedOrder, 'pickup_declined', 'A rider declined a pickup and it is back in the Logistics queue.')),
+            );
 
             return back()->with('success', "Pickup {$lockedOrder->order_number} returned to the Logistics queue.");
         });
@@ -98,6 +109,7 @@ class CourierController extends Controller
             if ($lockedOrder->pickup_arrived_at === null) {
                 $lockedOrder->update(['pickup_arrived_at' => now()]);
                 $this->recordEvent($lockedOrder, 'pickup_arrived', $courier, $lockedOrder->seller?->municipality, 'Rider arrived and requested seller handover confirmation.');
+                $lockedOrder->seller?->notify(new OrderWorkflowNotification($lockedOrder, 'pickup_arrived', 'The rider arrived. Confirm the parcel handover when ready.'));
 
                 return back()->with('success', 'Arrival recorded. Wait for the seller to confirm parcel handover, then confirm possession.');
             }
@@ -117,6 +129,13 @@ class CourierController extends Controller
             $lockedOrder = Order::whereKey($order->id)->lockForUpdate()->firstOrFail();
             abort_unless($lockedOrder->delivery_courier_id === $courier->id, 403);
             abort_unless($courier->status === 'approved' && $lockedOrder->status === 'ASSIGNED_TO_RIDER', 422, 'This parcel cannot be started for delivery.');
+            $scheduledAttempt = DeliveryAttempt::query()
+                ->where('order_id', $lockedOrder->id)
+                ->where('rider_id', $courier->id)
+                ->where('outcome', 'scheduled')
+                ->lockForUpdate()
+                ->first();
+            abort_unless($scheduledAttempt?->scheduled_at === null || $scheduledAttempt->scheduled_at->lte(now()), 422, 'Wait until the scheduled retry time before starting delivery.');
             $transitions->transition($lockedOrder, $courier, OrderStatus::OutForDelivery, 'out_for_delivery', $lockedOrder->delivery_area, 'Rider collected parcel from the hub.', ['out_for_delivery_at' => now()]);
 
             return back()->with('success', "Order {$lockedOrder->order_number} is out for delivery.");
@@ -125,13 +144,15 @@ class CourierController extends Controller
 
     public function completeDelivery(Request $request, Order $order, OrderTransitionService $transitions): RedirectResponse
     {
+        $courier = $this->authenticatedUser();
+        abort_unless($order->delivery_courier_id === $courier->id, 403);
+
         $validated = $request->validate([
             'recipient_confirmation' => ['required', 'string', 'max:120'],
             'delivery_notes' => ['nullable', 'string', 'max:1000'],
             'cod_collected_amount' => ['nullable', 'numeric', 'min:0', 'decimal:0,2'],
-            'proof_file' => ['nullable', 'file', 'mimes:jpg,jpeg,png,pdf', 'max:4096'],
+            'proof_file' => ['required', 'file', 'mimes:jpg,jpeg,png,pdf', 'max:4096'],
         ]);
-        $courier = $this->authenticatedUser();
 
         return DB::transaction(function () use ($request, $order, $courier, $validated, $transitions): RedirectResponse {
             $lockedOrder = Order::whereKey($order->id)->lockForUpdate()->firstOrFail();
@@ -143,15 +164,9 @@ class CourierController extends Controller
                 }
             }
             $notes = trim('Recipient: '.$validated['recipient_confirmation'].'. '.($validated['delivery_notes'] ?? ''));
-            $attemptNo = ((int) DeliveryAttempt::where('order_id', $lockedOrder->id)->max('attempt_no')) + 1;
-            DeliveryAttempt::create([
-                'order_id' => $lockedOrder->id,
-                'rider_id' => $courier->id,
-                'attempt_no' => $attemptNo,
-                'outcome' => 'delivered',
+            $attempt = $this->recordDeliveryAttempt($lockedOrder, $courier, 'delivered', [
                 'notes' => $notes,
                 'proof_path' => $request->file('proof_file')?->store('delivery-proofs', 'private'),
-                'attempted_at' => now(),
             ]);
             $transitions->transition($lockedOrder, $courier, OrderStatus::Delivered, 'delivered', $lockedOrder->delivery_area, $notes, [
                 'delivered_at' => now(),
@@ -176,15 +191,9 @@ class CourierController extends Controller
             abort_unless($lockedOrder->delivery_courier_id === $courier->id, 403);
             abort_unless($courier->status === 'approved' && $lockedOrder->status === 'OUT_FOR_DELIVERY', 422, 'Only a delivery in progress can be marked failed.');
             $notes = $validated['failure_reason'].(filled($validated['delivery_notes'] ?? null) ? ': '.$validated['delivery_notes'] : '');
-            $attemptNo = ((int) DeliveryAttempt::where('order_id', $lockedOrder->id)->max('attempt_no')) + 1;
-            DeliveryAttempt::create([
-                'order_id' => $lockedOrder->id,
-                'rider_id' => $courier->id,
-                'attempt_no' => $attemptNo,
-                'outcome' => 'failed',
+            $attempt = $this->recordDeliveryAttempt($lockedOrder, $courier, 'failed', [
                 'reason' => $validated['failure_reason'],
                 'notes' => $validated['delivery_notes'] ?? null,
-                'attempted_at' => now(),
             ]);
             $transitions->transition($lockedOrder, $courier, OrderStatus::DeliveryFailed, 'delivery_failed', $lockedOrder->delivery_area, $notes, [
                 'failed_at' => now(),
@@ -192,7 +201,7 @@ class CourierController extends Controller
                 'delivery_notes' => $validated['delivery_notes'] ?? null,
             ]);
 
-            if ($attemptNo >= max(1, (int) config('logistics.maximum_delivery_attempts', 3))) {
+            if ($attempt->attempt_no >= max(1, (int) config('logistics.maximum_delivery_attempts', 3))) {
                 $transitions->transition($lockedOrder->refresh(), $courier, OrderStatus::ReturnInTransit, 'return_in_transit', $lockedOrder->delivery_area, 'Maximum delivery attempts reached; parcel is returning to sender.');
             }
 
@@ -239,5 +248,31 @@ class CourierController extends Controller
         [$pesos, $centavos] = array_pad(explode('.', $amount, 2), 2, '');
 
         return ((int) $pesos * 100) + (int) str_pad(substr($centavos, 0, 2), 2, '0');
+    }
+
+    /** @param array<string, mixed> $attributes */
+    private function recordDeliveryAttempt(Order $order, User $courier, string $outcome, array $attributes): DeliveryAttempt
+    {
+        $attempt = DeliveryAttempt::query()
+            ->where('order_id', $order->id)
+            ->where('rider_id', $courier->id)
+            ->where('outcome', 'scheduled')
+            ->lockForUpdate()
+            ->first();
+
+        if ($attempt !== null) {
+            $attempt->update([...$attributes, 'outcome' => $outcome, 'attempted_at' => now()]);
+
+            return $attempt->refresh();
+        }
+
+        return DeliveryAttempt::query()->create([
+            ...$attributes,
+            'order_id' => $order->id,
+            'rider_id' => $courier->id,
+            'attempt_no' => ((int) DeliveryAttempt::query()->where('order_id', $order->id)->max('attempt_no')) + 1,
+            'outcome' => $outcome,
+            'attempted_at' => now(),
+        ]);
     }
 }

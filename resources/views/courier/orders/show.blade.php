@@ -7,6 +7,7 @@
             <p>{{ $order->recipient_name }} · {{ $order->recipient_contact }} ·
                 {{ $order->delivery_area ?? $order->municipality }}</p>
         </div><span class="ops-status">{{ str_replace('_', ' ', $order->status) }}</span>
+        <a class="ops-btn" href="{{ route('courier.orders.messages.show', $order) }}">Order messages</a>
     </header>
     <section class="ops-grid">
         <div class="ops-panel">
@@ -49,7 +50,7 @@
                     <div class="ops-field">
                         <label>Notes</label><input name="delivery_notes" maxlength="1000">
                     </div>
-                    <div class="ops-field"><label>Proof of delivery (optional)</label><input type="file" name="proof_file" accept=".jpg,.jpeg,.png,.pdf"></div>
+                    <div class="ops-field"><label>Proof of delivery (photo or PDF)</label><input type="file" name="proof_file" accept=".jpg,.jpeg,.png,.pdf" required></div>
                     <button class="ops-btn ops-btn--primary">Confirm delivered</button>
                 </form>
                 <form class="ops-form" method="POST" action="{{ route('courier.orders.failDelivery', $order) }}"
@@ -77,6 +78,9 @@
                 <li>Attempt {{ $attempt->attempt_no }}: {{ ucfirst($attempt->outcome) }}
                     @if ($attempt->reason) · {{ str_replace('_', ' ', $attempt->reason) }} @endif
                     · {{ $attempt->attempted_at?->format('d M Y H:i') ?? 'Not recorded' }}
+                    @if ($attempt->scheduled_at)
+                        <span>Scheduled for {{ $attempt->scheduled_at->format('d M Y H:i') }}</span>
+                    @endif
                     @if ($attempt->proof_path)
                         · <a href="{{ route('delivery-attempts.proof', $attempt) }}">Download proof</a>
                     @endif

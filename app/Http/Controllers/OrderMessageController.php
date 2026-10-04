@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Order;
 use App\Models\OrderConversation;
 use App\Models\OrderMessage;
+use App\Models\User;
 use App\Notifications\OrderMessageNotification;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
@@ -55,6 +56,6 @@ class OrderMessageController extends Controller
 
     private function authorizeParticipant(Order $order, User $actor): void
     {
-        abort_unless($order->messageParticipants()->contains('id', $actor->id), 403);
+        abort_unless($actor->role === 'admin' || $order->messageParticipants()->contains('id', $actor->id), 403);
     }
 }

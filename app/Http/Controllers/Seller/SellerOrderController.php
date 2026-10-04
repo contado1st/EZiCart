@@ -6,6 +6,8 @@ use App\Enums\OrderStatus;
 use App\Http\Controllers\Controller;
 use App\Models\Order;
 use App\Models\ParcelTrackingEvent;
+use App\Models\User;
+use App\Notifications\OrderWorkflowNotification;
 use App\Services\OrderTransitionService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -103,6 +105,9 @@ class SellerOrderController extends Controller
                 'location' => implode(', ', array_filter([$seller->street_address, $seller->municipality, $seller->province])),
                 'notes' => 'Seller requested pickup for '.$lockedOrder->pickup_scheduled_for->format('M j, Y g:i A').' ('.$lockedOrder->pickup_window.').',
             ]);
+            User::query()->where('role', 'sorting_center')->where('status', 'approved')->each(
+                fn (User $operator) => $operator->notify(new OrderWorkflowNotification($lockedOrder, 'pickup_requested', 'A seller requested pickup for an order.')),
+            );
 
             return back()->with('success', 'Pickup request sent to Logistics.');
         });
@@ -125,6 +130,7 @@ class SellerOrderController extends Controller
                 'location' => $seller->municipality,
                 'notes' => 'Seller confirmed releasing the parcel to the assigned rider.',
             ]);
+            $lockedOrder->pickupCourier?->notify(new OrderWorkflowNotification($lockedOrder, 'seller_handover_confirmed', 'The seller confirmed parcel handover. Confirm possession to complete pickup.'));
 
             return back()->with('success', 'Handover recorded. The rider must confirm possession to complete pickup.');
         });

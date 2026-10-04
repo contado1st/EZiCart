@@ -4,11 +4,15 @@ namespace Tests\Feature;
 
 use App\Models\Area;
 use App\Models\AreaMunicipality;
+use App\Models\DeliveryAssignment;
 use App\Models\Order;
 use App\Models\OrderItem;
+use App\Models\ParcelTrackingEvent;
 use App\Models\Product;
 use App\Models\User;
+use App\Notifications\OrderWorkflowNotification;
 use Illuminate\Auth\Notifications\ResetPassword;
+use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Hash;
@@ -47,13 +51,18 @@ class LogisticsWorkflowTest extends TestCase
 
         $this->actingAsUser($center)->post(route('logistics.orders.assignPickup', $order), ['pickup_courier_id' => $courier->id])->assertRedirect();
         $this->assertDatabaseHas('parcel_tracking_events', ['order_id' => $order->id, 'event_type' => 'pickup_assigned']);
+        $this->assertContains('pickup_assigned', $courier->notifications()->where('type', OrderWorkflowNotification::class)->get()->pluck('data.event_type')->all());
+        $this->assertContains('pickup_assigned', $order->seller->notifications()->where('type', OrderWorkflowNotification::class)->get()->pluck('data.event_type')->all());
         $this->actingAsUser($courier)->post(route('courier.orders.claim', $order))->assertRedirect();
         $this->assertDatabaseHas('orders', ['id' => $order->id, 'pickup_courier_id' => $courier->id, 'status' => 'READY_FOR_PICKUP']);
         $this->assertDatabaseHas('parcel_tracking_events', ['order_id' => $order->id, 'event_type' => 'pickup_accepted']);
+        $this->assertContains('pickup_accepted', $order->seller->notifications()->where('type', OrderWorkflowNotification::class)->get()->pluck('data.event_type')->all());
 
         $this->actingAsUser($otherCourier)->post(route('courier.orders.claim', $order))->assertForbidden();
         $this->actingAsUser($courier)->post(route('courier.orders.confirmPickup', $order))->assertRedirect();
+        $this->assertContains('pickup_arrived', $order->seller->notifications()->where('type', OrderWorkflowNotification::class)->get()->pluck('data.event_type')->all());
         $this->actingAsUser($order->seller)->post(route('seller.orders.confirmHandover', $order))->assertRedirect();
+        $this->assertContains('seller_handover_confirmed', $courier->notifications()->where('type', OrderWorkflowNotification::class)->get()->pluck('data.event_type')->all());
         $this->actingAsUser($courier)->post(route('courier.orders.confirmPickup', $order))->assertRedirect();
         $this->assertDatabaseHas('orders', ['id' => $order->id, 'status' => 'PICKED_UP']);
 
@@ -64,9 +73,47 @@ class LogisticsWorkflowTest extends TestCase
 
     public function test_professor_order_flow_completes_from_seller_acceptance_through_buyer_confirmation(): void
     {
-        $order = $this->order();
-        $seller = $order->seller;
-        $buyer = $order->buyer;
+        Storage::fake('private');
+        $this->post(route('register.post'), [
+            'first_name' => 'Professor', 'last_name' => 'Flow', 'sex' => 'Other',
+            'email' => 'professor-flow@example.test', 'contact_no' => '09123456789',
+            'birthday' => '1990-01-01', 'province' => 'Laguna', 'municipality' => 'Majayjay',
+            'barangay' => 'Poblacion', 'street_address' => 'Test street',
+            'id_document' => UploadedFile::fake()->image('buyer-id.png'),
+            'password' => 'password123', 'password_confirmation' => 'password123',
+        ])->assertRedirect(route('login'));
+        $buyer = User::query()->where('email', 'professor-flow@example.test')->firstOrFail();
+        $this->assertSame('pending', $buyer->status);
+
+        $admin = $this->user('admin', 'approved');
+        $this->actingAsUser($admin)->post(route('admin.registrations.approve', $buyer))->assertRedirect();
+        $buyer->refresh();
+        $this->post(route('logout'))->assertRedirect();
+        $this->post(route('login.post'), ['email' => $buyer->email, 'password' => 'password123'])
+            ->assertRedirect(route('buyer.dashboard'));
+
+        $seller = $this->user('seller', 'approved');
+        $product = Product::query()->create([
+            'user_id' => $seller->id,
+            'name' => 'Professor Flow Product',
+            'description' => 'Approved test listing',
+            'category' => 'Test',
+            'price' => 100,
+            'stock' => 3,
+            'is_archived' => false,
+        ]);
+        $product->forceFill(['compliance_status' => 'approved'])->save();
+        $this->post(route('cart.add', $product), ['quantity' => 1])->assertRedirect(route('cart.index'));
+        $this->post(route('checkout.process'), [
+            'recipient_name' => 'Professor Flow',
+            'recipient_contact' => '09123456789',
+            'province' => 'Laguna',
+            'municipality' => 'Majayjay',
+            'barangay' => 'Poblacion',
+            'street_address' => '2 Test Street',
+            'payment_method' => 'GCash',
+        ])->assertRedirect(route('buyer.dashboard'));
+        $order = Order::query()->where('buyer_id', $buyer->id)->where('seller_id', $seller->id)->firstOrFail();
         $center = $this->user('sorting_center', 'approved');
         $rider = $this->user('courier', 'approved', ['assigned_area' => 'Majayjay']);
 
@@ -77,6 +124,7 @@ class LogisticsWorkflowTest extends TestCase
             'pickup_scheduled_for' => now()->addDay()->format('Y-m-d\\TH:i'),
             'pickup_window' => 'Morning (8 AM–12 PM)',
         ])->assertRedirect();
+        $this->assertContains('pickup_requested', $center->notifications()->where('type', OrderWorkflowNotification::class)->get()->pluck('data.event_type')->all());
 
         $this->actingAsUser($center)->post(route('logistics.orders.assignPickup', $order), ['pickup_courier_id' => $rider->id])->assertRedirect();
         $this->actingAsUser($rider)->post(route('courier.orders.claim', $order))->assertRedirect();
@@ -87,7 +135,10 @@ class LogisticsWorkflowTest extends TestCase
         $this->post(route('logistics.orders.sort', $order), [])->assertRedirect();
         $this->post(route('logistics.orders.assignRider', $order), ['delivery_courier_id' => $rider->id])->assertRedirect();
         $this->actingAsUser($rider)->post(route('courier.orders.startDelivery', $order))->assertRedirect();
-        $this->patch(route('courier.orders.completeDelivery', $order), ['recipient_confirmation' => 'Test Buyer'])->assertRedirect();
+        $this->patch(route('courier.orders.completeDelivery', $order), [
+            'recipient_confirmation' => 'Test Buyer',
+            'proof_file' => UploadedFile::fake()->image('delivery-proof.jpg'),
+        ])->assertRedirect();
         $this->actingAsUser($buyer)->post(route('buyer.orders.confirm', $order))->assertRedirect();
 
         $this->assertDatabaseHas('orders', ['id' => $order->id, 'status' => 'COMPLETED']);
@@ -118,8 +169,56 @@ class LogisticsWorkflowTest extends TestCase
         $this->assertDatabaseHas('parcel_tracking_events', ['order_id' => $order->id, 'event_type' => 'rider_assigned']);
     }
 
+    public function test_database_prevents_multiple_active_delivery_assignments_for_one_order(): void
+    {
+        $order = $this->order(['status' => 'ASSIGNED_TO_RIDER']);
+        $firstRider = $this->user('courier', 'approved');
+        $secondRider = $this->user('courier', 'approved');
+
+        DeliveryAssignment::query()->create([
+            'order_id' => $order->id,
+            'active_order_id' => $order->id,
+            'rider_id' => $firstRider->id,
+            'status' => 'active',
+            'assigned_at' => now(),
+        ]);
+
+        $this->expectException(QueryException::class);
+        DeliveryAssignment::query()->create([
+            'order_id' => $order->id,
+            'active_order_id' => $order->id,
+            'rider_id' => $secondRider->id,
+            'status' => 'active',
+            'assigned_at' => now(),
+        ]);
+    }
+
+    public function test_order_records_cannot_be_deleted_while_tracking_history_exists(): void
+    {
+        $order = $this->order();
+        $actor = $this->user('sorting_center', 'approved');
+        ParcelTrackingEvent::query()->create([
+            'order_id' => $order->id,
+            'actor_id' => $actor->id,
+            'event_type' => 'hub_received',
+            'status' => 'AT_SORTING_CENTER',
+        ]);
+
+        $this->expectException(QueryException::class);
+        $order->delete();
+    }
+
+    public function test_buyer_accounts_cannot_be_deleted_while_order_history_exists(): void
+    {
+        $order = $this->order();
+
+        $this->expectException(QueryException::class);
+        $order->buyer->delete();
+    }
+
     public function test_rider_can_complete_only_owned_delivery_and_failure_requires_reason(): void
     {
+        Storage::fake('private');
         $rider = $this->user('courier', 'approved');
         $otherRider = $this->user('courier', 'approved');
         $order = $this->order(['status' => 'OUT_FOR_DELIVERY', 'delivery_courier_id' => $rider->id]);
@@ -130,7 +229,15 @@ class LogisticsWorkflowTest extends TestCase
         $this->assertDatabaseHas('orders', ['id' => $order->id, 'status' => 'DELIVERY_FAILED', 'delivery_failure_reason' => 'recipient_unavailable']);
 
         $deliveryOrder = $this->order(['status' => 'OUT_FOR_DELIVERY', 'delivery_courier_id' => $rider->id]);
-        $this->actingAsUser($rider)->patch(route('courier.orders.completeDelivery', $deliveryOrder), ['recipient_confirmation' => 'A. Buyer', 'delivery_notes' => 'Left at door'])->assertRedirect();
+        $this->actingAsUser($rider)->patch(route('courier.orders.completeDelivery', $deliveryOrder), [
+            'recipient_confirmation' => 'A. Buyer',
+            'delivery_notes' => 'Left at door',
+        ])->assertSessionHasErrors('proof_file');
+        $this->patch(route('courier.orders.completeDelivery', $deliveryOrder), [
+            'recipient_confirmation' => 'A. Buyer',
+            'delivery_notes' => 'Left at door',
+            'proof_file' => UploadedFile::fake()->image('delivery-proof.jpg'),
+        ])->assertRedirect();
         $this->assertDatabaseHas('orders', ['id' => $deliveryOrder->id, 'status' => 'DELIVERED']);
         $this->assertDatabaseHas('parcel_tracking_events', ['order_id' => $deliveryOrder->id, 'event_type' => 'delivered']);
         $this->assertDatabaseHas('delivery_attempts', ['order_id' => $deliveryOrder->id, 'outcome' => 'delivered', 'attempt_no' => 1]);
@@ -175,6 +282,8 @@ class LogisticsWorkflowTest extends TestCase
         $this->assertDatabaseHas('orders', ['id' => $order->id, 'delivery_courier_id' => $nextRider->id]);
         $this->assertDatabaseHas('delivery_assignments', ['order_id' => $order->id, 'rider_id' => $firstRider->id, 'status' => 'reassigned']);
         $this->assertDatabaseHas('delivery_assignments', ['order_id' => $order->id, 'rider_id' => $nextRider->id, 'status' => 'active', 'assigned_by' => $center->id]);
+        $this->assertDatabaseHas('delivery_assignments', ['order_id' => $order->id, 'rider_id' => $firstRider->id, 'active_order_id' => null]);
+        $this->assertDatabaseHas('delivery_assignments', ['order_id' => $order->id, 'rider_id' => $nextRider->id, 'active_order_id' => $order->id]);
 
         $order->update(['status' => 'DELIVERY_FAILED']);
         $this->actingAsUser($center)->post(route('logistics.orders.return', $order))->assertRedirect();
@@ -195,21 +304,58 @@ class LogisticsWorkflowTest extends TestCase
         $firstRider = $this->user('courier', 'approved', ['assigned_area' => 'Majayjay']);
         $secondRider = $this->user('courier', 'approved', ['assigned_area' => 'Majayjay']);
         $order = $this->order(['status' => 'SORTED']);
+        $product = Product::query()->create([
+            'user_id' => $order->seller_id,
+            'name' => 'Failed delivery return stock',
+            'description' => 'Inventory restored on seller receipt',
+            'category' => 'Test',
+            'price' => 10,
+            'stock' => 2,
+            'is_archived' => false,
+        ]);
+        OrderItem::query()->create([
+            'order_id' => $order->id,
+            'product_id' => $product->id,
+            'product_name' => $product->name,
+            'unit_price' => 10,
+            'quantity' => 3,
+            'item_total' => 30,
+        ]);
 
         $this->actingAsUser($center)->post(route('logistics.orders.assignRider', $order), ['delivery_courier_id' => $firstRider->id])->assertRedirect();
         $this->actingAsUser($firstRider)->post(route('courier.orders.startDelivery', $order))->assertRedirect();
         $this->patch(route('courier.orders.failDelivery', $order), ['failure_reason' => 'recipient_unavailable'])->assertRedirect();
         $this->assertDatabaseHas('orders', ['id' => $order->id, 'status' => 'DELIVERY_FAILED']);
 
-        $this->actingAsUser($center)->post(route('logistics.orders.assignRider', $order), ['delivery_courier_id' => $secondRider->id])->assertRedirect();
-        $this->actingAsUser($secondRider)->post(route('courier.orders.startDelivery', $order))->assertRedirect();
+        $this->actingAsUser($center)->post(route('logistics.orders.assignRider', $order), ['delivery_courier_id' => $secondRider->id])
+            ->assertSessionHasErrors('scheduled_at');
+        $scheduledAt = now()->addDay()->format('Y-m-d H:i:s');
+        $this->post(route('logistics.orders.assignRider', $order), [
+            'delivery_courier_id' => $secondRider->id,
+            'scheduled_at' => $scheduledAt,
+        ])->assertRedirect();
+        $this->assertDatabaseHas('delivery_attempts', [
+            'order_id' => $order->id,
+            'rider_id' => $secondRider->id,
+            'attempt_no' => 2,
+            'outcome' => 'scheduled',
+            'scheduled_at' => $scheduledAt,
+        ]);
+        $this->actingAsUser($secondRider)->post(route('courier.orders.startDelivery', $order))->assertUnprocessable();
+        $this->travelTo(now()->addDays(2));
+        $this->post(route('courier.orders.startDelivery', $order))->assertRedirect();
         $this->patch(route('courier.orders.failDelivery', $order), ['failure_reason' => 'incorrect_address'])->assertRedirect();
 
         $this->assertDatabaseHas('orders', ['id' => $order->id, 'status' => 'RETURN_IN_TRANSIT', 'delivery_courier_id' => $secondRider->id]);
         $this->assertDatabaseHas('delivery_attempts', ['order_id' => $order->id, 'rider_id' => $firstRider->id, 'attempt_no' => 1, 'outcome' => 'failed']);
-        $this->assertDatabaseHas('delivery_attempts', ['order_id' => $order->id, 'rider_id' => $secondRider->id, 'attempt_no' => 2, 'outcome' => 'failed']);
+        $this->assertDatabaseHas('delivery_attempts', ['order_id' => $order->id, 'rider_id' => $secondRider->id, 'attempt_no' => 2, 'outcome' => 'failed', 'scheduled_at' => $scheduledAt]);
         $this->assertDatabaseHas('delivery_assignments', ['order_id' => $order->id, 'rider_id' => $firstRider->id, 'status' => 'reassigned']);
         $this->assertDatabaseHas('delivery_assignments', ['order_id' => $order->id, 'rider_id' => $secondRider->id, 'status' => 'returned']);
+        $this->assertDatabaseHas('products', ['id' => $product->id, 'stock' => 2]);
+
+        $this->actingAsUser($order->seller)->post(route('seller.orders.confirmReturn', $order))->assertRedirect();
+        $this->assertDatabaseHas('orders', ['id' => $order->id, 'status' => 'RETURNED_TO_SELLER']);
+        $this->assertDatabaseHas('products', ['id' => $product->id, 'stock' => 5]);
     }
 
     public function test_logistics_workspace_pages_render_with_live_records(): void
@@ -242,10 +388,13 @@ class LogisticsWorkflowTest extends TestCase
     public function test_courier_workspace_pages_render_and_detail_is_owner_scoped(): void
     {
         $courier = $this->user('courier', 'approved');
-        $assignedOrder = $this->order(['status' => 'ASSIGNED_TO_RIDER', 'delivery_courier_id' => $courier->id]);
+        $assignedOrder = $this->order(['status' => 'ASSIGNED_TO_RIDER', 'delivery_courier_id' => $courier->id, 'delivery_area' => 'Area Z', 'assigned_at' => now()]);
+        $nextAreaOrder = $this->order(['status' => 'OUT_FOR_DELIVERY', 'delivery_courier_id' => $courier->id, 'delivery_area' => 'Area A', 'assigned_at' => now()->addMinute()]);
         $otherOrder = $this->order(['status' => 'ASSIGNED_TO_RIDER', 'delivery_courier_id' => $this->user('courier', 'approved')->id]);
 
-        $this->actingAsUser($courier)->get(route('courier.dashboard'))->assertOk();
+        $this->actingAsUser($courier)->get(route('courier.dashboard'))
+            ->assertOk()
+            ->assertViewHas('myDeliveryAssignments', fn ($assignments): bool => collect($assignments->items())->pluck('id')->all() === [$nextAreaOrder->id, $assignedOrder->id]);
         $this->get(route('courier.tracking'))->assertOk();
         $this->get(route('courier.history'))->assertOk();
         $this->get(route('courier.orders.show', $assignedOrder))->assertOk()->assertSee($assignedOrder->order_number);
@@ -258,11 +407,14 @@ class LogisticsWorkflowTest extends TestCase
         $rider = $this->user('courier', 'approved', ['assigned_area' => 'Majayjay']);
         $order = $this->order(['status' => 'OUT_FOR_DELIVERY', 'payment_method' => 'COD', 'delivery_courier_id' => $rider->id]);
 
-        $this->actingAsUser($rider)->patch(route('courier.orders.completeDelivery', $order), ['recipient_confirmation' => 'Buyer'])
-            ->assertSessionHasErrors('cod_collected_amount');
+        $this->actingAsUser($rider)->patch(route('courier.orders.completeDelivery', $order), [
+            'recipient_confirmation' => 'Buyer',
+            'proof_file' => UploadedFile::fake()->image('delivery-proof.jpg'),
+        ])->assertSessionHasErrors('cod_collected_amount');
         $this->patch(route('courier.orders.completeDelivery', $order), [
             'recipient_confirmation' => 'Buyer',
             'cod_collected_amount' => '150.01',
+            'proof_file' => UploadedFile::fake()->image('delivery-proof.jpg'),
         ])->assertSessionHasErrors('cod_collected_amount');
         $this->patch(route('courier.orders.completeDelivery', $order), [
             'recipient_confirmation' => 'Buyer',

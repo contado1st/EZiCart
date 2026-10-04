@@ -164,6 +164,8 @@ Route::middleware(['auth', 'account.active', 'auth.session'])->group(function ()
     // Admin-Only Routes
     Route::middleware(['role:admin'])->prefix('admin')->name('admin.')->group(function () {
         Route::get('/dashboard', [AdminController::class, 'dashboard'])->name('dashboard');
+        Route::get('/orders/{order}/messages', [OrderMessageController::class, 'show'])->name('orders.messages.show');
+        Route::post('/orders/{order}/messages', [OrderMessageController::class, 'store'])->middleware('throttle:30,1')->name('orders.messages.store');
         Route::get('/compliance/products', [AdminComplianceController::class, 'index'])->name('compliance.products.index');
         Route::patch('/compliance/products/{product}', [AdminComplianceController::class, 'review'])->middleware('throttle:30,1')->name('compliance.products.review');
         Route::get('/registrations', [AdminController::class, 'index'])->name('registrations.index');

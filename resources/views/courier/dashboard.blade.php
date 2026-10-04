@@ -198,7 +198,7 @@
                                             <div class="ops-field">
                                                 <label>Delivery notes</label><input name="delivery_notes" maxlength="1000">
                                             </div>
-                                            <div class="ops-field"><label>Proof of delivery (optional)</label><input type="file" name="proof_file" accept=".jpg,.jpeg,.png,.pdf"></div>
+                                            <div class="ops-field"><label>Proof of delivery (photo or PDF)</label><input type="file" name="proof_file" accept=".jpg,.jpeg,.png,.pdf" required></div>
                                             <button class="ops-btn ops-btn--primary">Confirm delivered</button>
                                         </form>
                                     </details>

@@ -17,13 +17,16 @@
                     'seller' => ['seller.orders.show', 'seller.orders.messages.store'],
                     'courier' => ['courier.orders.show', 'courier.orders.messages.store'],
                     'sorting_center' => ['logistics.tracking', 'logistics.orders.messages.store'],
+                    'admin' => ['admin.dashboard', 'admin.orders.messages.store'],
                     default => ['notifications.index', 'notifications.index'],
                 };
             @endphp
             @php
-                $backUrl = $backRoute === 'logistics.tracking'
-                    ? route($backRoute, ['search' => $order->order_number])
-                    : route($backRoute, $order);
+                $backUrl = match (auth()->user()->role) {
+                    'sorting_center' => route($backRoute, ['search' => $order->order_number]),
+                    'admin' => route($backRoute),
+                    default => route($backRoute, $order),
+                };
             @endphp
             <a class="dash-btn-sm dash-btn-outline" href="{{ $backUrl }}">Back to order</a>
         </div>

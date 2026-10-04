@@ -110,7 +110,7 @@
                             <tbody>
                                 @forelse($recentOrders as $order)
                                     <tr>
-                                        <td class="dash-text-bold">{{ $order->order_number }}</td>
+                                        <td class="dash-text-bold">{{ $order->order_number }}<div><a href="{{ route('admin.orders.messages.show', $order) }}">Open order conversation</a></div></td>
                                         <td>{{ $order->seller->business_name ?? 'Store' }}</td>
                                         <td>{{ $order->recipient_name }}</td>
                                         <td class="dash-text-bold">₱{{ number_format($order->total_amount, 2) }}</td>

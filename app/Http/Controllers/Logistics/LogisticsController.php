@@ -5,9 +5,11 @@ namespace App\Http\Controllers\Logistics;
 use App\Enums\OrderStatus;
 use App\Http\Controllers\Controller;
 use App\Models\Area;
+use App\Models\DeliveryAttempt;
 use App\Models\Order;
 use App\Models\ParcelTrackingEvent;
 use App\Models\User;
+use App\Notifications\OrderWorkflowNotification;
 use App\Services\OrderAreaService;
 use App\Services\OrderTransitionService;
 use Illuminate\Database\Eloquent\Builder;
@@ -15,6 +17,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
 class LogisticsController extends Controller
@@ -88,6 +91,8 @@ class LogisticsController extends Controller
                 'location' => $lockedOrder->seller?->municipality,
                 'notes' => "Pickup assigned to {$rider->first_name} {$rider->last_name}.",
             ]);
+            $rider->notify(new OrderWorkflowNotification($lockedOrder, 'pickup_assigned', 'Logistics assigned you a seller pickup.'));
+            $lockedOrder->seller?->notify(new OrderWorkflowNotification($lockedOrder, 'pickup_assigned', 'Logistics assigned a rider to your pickup request.'));
 
             return back()->with('success', "Pickup for {$lockedOrder->order_number} assigned to {$rider->first_name} {$rider->last_name}.");
         });
@@ -146,7 +151,7 @@ class LogisticsController extends Controller
 
     public function dispatch(): View
     {
-        $parcels = Order::whereIn('status', ['SORTED', 'ASSIGNED_TO_RIDER', 'DELIVERY_FAILED', 'RETURN_IN_TRANSIT'])->with(['buyer', 'deliveryCourier', 'destinationArea'])->latest()->paginate(15);
+        $parcels = Order::whereIn('status', ['SORTED', 'ASSIGNED_TO_RIDER', 'DELIVERY_FAILED', 'RETURN_IN_TRANSIT'])->with(['buyer', 'deliveryCourier', 'destinationArea', 'deliveryAttempts'])->latest()->paginate(15);
         $riders = User::where('role', 'courier')->where('status', 'approved')->with('serviceAreas')->withCount([
             'finalDeliveries as active_deliveries_count' => fn (Builder $query) => $query->whereIn('status', ['ASSIGNED_TO_RIDER', 'OUT_FOR_DELIVERY']),
             'finalDeliveries as failed_deliveries_count' => fn (Builder $query) => $query->where('status', 'DELIVERY_FAILED'),
@@ -169,12 +174,22 @@ class LogisticsController extends Controller
 
     public function assignRider(Request $request, Order $order, OrderTransitionService $transitions): RedirectResponse
     {
-        $validated = $request->validate(['delivery_courier_id' => ['required', 'integer', 'exists:users,id']]);
+        $rules = [
+            'delivery_courier_id' => ['required', 'integer', 'exists:users,id'],
+            'scheduled_at' => ['nullable', 'date', 'after:now'],
+        ];
+        if ($order->status === OrderStatus::DeliveryFailed->value) {
+            $rules['scheduled_at'] = ['required', 'date', 'after:now'];
+        }
+        $validated = $request->validate($rules);
         $operator = $this->authenticatedUser();
 
         return DB::transaction(function () use ($order, $validated, $operator, $transitions): RedirectResponse {
             $lockedOrder = Order::whereKey($order->id)->lockForUpdate()->firstOrFail();
             abort_unless(in_array($lockedOrder->status, ['SORTED', 'ASSIGNED_TO_RIDER', 'DELIVERY_FAILED'], true), 422, 'This parcel cannot be assigned at its current stage.');
+            if ($lockedOrder->status === OrderStatus::DeliveryFailed->value && empty($validated['scheduled_at'])) {
+                throw ValidationException::withMessages(['scheduled_at' => 'Choose a date and time for the retry delivery.']);
+            }
 
             $rider = User::whereKey($validated['delivery_courier_id'])->lockForUpdate()->firstOrFail();
             abort_unless($rider->role === 'courier' && $rider->status === 'approved', 422, 'Choose an approved rider.');
@@ -188,12 +203,33 @@ class LogisticsController extends Controller
                 ->count();
             abort_if($activeDeliveries >= max(1, (int) config('logistics.maximum_active_deliveries_per_rider', 10)), 422, 'This rider is at the active delivery capacity limit.');
 
-            $transitions->transition($lockedOrder, $operator, OrderStatus::AssignedToRider, 'rider_assigned', $lockedOrder->delivery_area, "Assigned to {$rider->first_name} {$rider->last_name}.", [
+            $scheduleNote = isset($validated['scheduled_at']) ? ' Next attempt scheduled for '.Carbon::parse($validated['scheduled_at'])->format('M j, Y g:i A').'.' : '';
+            $transitions->transition($lockedOrder, $operator, OrderStatus::AssignedToRider, 'rider_assigned', $lockedOrder->delivery_area, "Assigned to {$rider->first_name} {$rider->last_name}.{$scheduleNote}", [
                 'delivery_courier_id' => $rider->id,
                 'assigned_at' => now(),
                 'failed_at' => null,
                 'delivery_failure_reason' => null,
             ]);
+
+            if (isset($validated['scheduled_at'])) {
+                $scheduledAttempt = DeliveryAttempt::query()
+                    ->where('order_id', $lockedOrder->id)
+                    ->where('outcome', 'scheduled')
+                    ->lockForUpdate()
+                    ->first();
+
+                if ($scheduledAttempt !== null) {
+                    $scheduledAttempt->update(['rider_id' => $rider->id, 'scheduled_at' => $validated['scheduled_at']]);
+                } else {
+                    DeliveryAttempt::query()->create([
+                        'order_id' => $lockedOrder->id,
+                        'rider_id' => $rider->id,
+                        'attempt_no' => ((int) DeliveryAttempt::query()->where('order_id', $lockedOrder->id)->max('attempt_no')) + 1,
+                        'outcome' => 'scheduled',
+                        'scheduled_at' => $validated['scheduled_at'],
+                    ]);
+                }
+            }
 
             return back()->with('success', "Parcel {$lockedOrder->order_number} assigned to {$rider->first_name} {$rider->last_name}.");
         });
