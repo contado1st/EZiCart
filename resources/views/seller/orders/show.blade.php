@@ -125,16 +125,36 @@
                         <p>Pickup requested for {{ $order->pickup_scheduled_for?->format('M d, Y h:i A') }} · {{ $order->pickup_window }}. Waiting for Logistics to assign a rider.</p>
                     @elseif($order->status === 'READY_FOR_PICKUP' && $order->pickup_arrived_at && ! $order->seller_handover_at)
                         <form action="{{ route('seller.orders.confirmHandover', $order) }}" method="POST">
-                            @csrf<button type="submit" class="dash-btn-sm dash-btn-primary">Confirm rider handover</button>
+                            @csrf
+                            <label for="handover-rider-badge">Scan assigned rider badge QR/code</label>
+                            <input id="handover-rider-badge" name="rider_badge" data-qr-input required maxlength="100" placeholder="EZR:…" autocomplete="off">
+                            <input type="hidden" name="method" value="manual">
+                            <button type="button" data-qr-start>Use camera</button><button type="button" data-qr-stop hidden>Stop camera</button>
+                            <video data-qr-video playsinline hidden></video><p data-qr-status role="status">Camera, handheld scanner, or manual code entry is supported.</p>
+                            <button type="submit" class="dash-btn-sm dash-btn-primary">Confirm rider handover</button>
                         </form>
                     @elseif($order->status === 'RETURN_IN_TRANSIT')
                         @if ($order->return_handed_to_seller_at)
                             <form action="{{ route('seller.orders.confirmReturn', $order) }}" method="POST">
-                                @csrf<button type="submit" class="dash-btn-sm dash-btn-primary">Confirm returned parcel received</button>
+                                @csrf
+                                <label for="return-rider-badge">Scan return rider badge QR/code</label>
+                                <input id="return-rider-badge" name="rider_badge" data-qr-input required maxlength="100" placeholder="EZR:…" autocomplete="off">
+                                <input type="hidden" name="method" value="manual">
+                                <button type="button" data-qr-start>Use camera</button><button type="button" data-qr-stop hidden>Stop camera</button>
+                                <video data-qr-video playsinline hidden></video><p data-qr-status role="status">Camera, handheld scanner, or manual entry.</p>
+                                <button type="submit" class="dash-btn-sm dash-btn-primary">Confirm scanned return received</button>
                             </form>
                         @else
                             <span class="text-muted-small">Awaiting courier handoff</span>
                         @endif
+                    @endif
+                    @if (in_array($order->status, ['PLACED', 'CONFIRMED', 'PREPARING', 'READY_FOR_PICKUP'], true) && $order->picked_up_at === null && $order->seller_handover_at === null)
+                        <form action="{{ route('seller.orders.cancel', $order) }}" method="POST" class="order-schedule-form">
+                            @csrf
+                            <label for="seller-cancel-reason">Reason for cancelling</label>
+                            <textarea id="seller-cancel-reason" name="reason" maxlength="500" required></textarea>
+                            <button type="submit" class="dash-btn-sm dash-btn-outline">Cancel order</button>
+                        </form>
                     @endif
                 </div>
             </section>

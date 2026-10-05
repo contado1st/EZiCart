@@ -80,7 +80,7 @@ class ProductComplianceTest extends TestCase
             'barangay' => 'Poblacion',
             'street_address' => '1 Buyer Street',
             'payment_method' => 'GCash',
-        ])->assertSessionHas('error');
+        ])->assertSessionHasErrors('payment_method');
         $this->assertDatabaseCount('orders', 0);
 
         $this->actingAsUser($admin)->patch(route('admin.compliance.products.review', $product), [

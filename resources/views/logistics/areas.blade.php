@@ -58,7 +58,7 @@
             <table class="ops-table">
                 <thead>
                     <tr>
-                        <th>Area</th>
+                        <th>Area / Hub</th>
                         <th>Mapped municipalities</th>
                         <th>Approved riders</th>
                         <th>Parcels</th>
@@ -67,7 +67,17 @@
                 <tbody>
                     @forelse ($areas as $area)
                         <tr>
-                            <td><strong>{{ $area->name }}</strong><br><span>{{ $area->code }}</span></td>
+                            <td><strong>{{ $area->name }}</strong><br><span>{{ $area->code }}</span>
+                                @if ($area->sorting_center_id === null)
+                                    <form method="POST" action="{{ route('logistics.areas.claim', $area) }}">
+                                        @csrf
+                                        <button class="ops-btn" type="submit">Assign to this hub</button>
+                                    </form>
+                                    <span class="ops-muted">Unassigned legacy area</span>
+                                @else
+                                    <span class="ops-muted">Assigned to this hub</span>
+                                @endif
+                            </td>
                             <td>
                                 @forelse ($area->municipalities as $mapping)
                                     <div class="ops-area-mapping">

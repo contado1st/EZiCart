@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\DeliveryAttempt;
 use App\Models\Dispute;
 use App\Models\User;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
@@ -21,7 +22,24 @@ class SecureDocumentController extends Controller
     public function userDocument(User $user, string $type): StreamedResponse
     {
         $actor = $this->authenticatedUser();
-        abort_unless($actor->role === 'admin' || ($actor->role === 'sorting_center' && $user->role === 'courier'), 403);
+        $authorized = $actor->role === 'admin';
+        if ($actor->role === 'sorting_center' && $user->role === 'courier') {
+            $hasMultipleHubs = User::query()->where('role', 'sorting_center')->where('status', 'approved')->limit(2)->count() > 1;
+            $assignedToHub = DB::table('area_user')
+                ->join('areas', 'areas.id', '=', 'area_user.area_id')
+                ->where('area_user.user_id', $user->id)
+                ->where('area_user.is_active', true)
+                ->where('areas.is_active', true)
+                ->where(function ($query) use ($actor, $hasMultipleHubs): void {
+                    $query->where('areas.sorting_center_id', $actor->id);
+                    if (! $hasMultipleHubs) {
+                        $query->orWhereNull('areas.sorting_center_id');
+                    }
+                })
+                ->exists();
+            $authorized = $assignedToHub || ! $hasMultipleHubs;
+        }
+        abort_unless($authorized, 403);
 
         return $this->downloadUserDocument($user, $type);
     }
@@ -46,7 +64,7 @@ class SecureDocumentController extends Controller
         $authorized = $actor->role === 'admin'
             || ($actor->role === 'buyer' && $attempt->order->buyer_id === $actor->id)
             || ($actor->role === 'courier' && $attempt->rider_id === $actor->id)
-            || $actor->role === 'sorting_center';
+            || ($actor->role === 'sorting_center' && (int) $attempt->order->sorting_center_id === $actor->id);
         abort_unless($authorized, 403);
         abort_unless(is_string($attempt->proof_path) && Storage::disk('private')->exists($attempt->proof_path), 404);
 

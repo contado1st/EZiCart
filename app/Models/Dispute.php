@@ -20,6 +20,7 @@ class Dispute extends Model
         'status',
         'admin_notes',
         'resolved_at',
+        'resolved_by',
     ];
 
     protected $casts = [
@@ -39,5 +40,10 @@ class Dispute extends Model
     public function seller(): BelongsTo
     {
         return $this->belongsTo(User::class, 'seller_id');
+    }
+
+    public function resolver(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'resolved_by');
     }
 }

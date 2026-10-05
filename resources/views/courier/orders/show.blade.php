@@ -38,8 +38,12 @@
                 <p class="ops-muted">Delivery is on hold until payment verification for this method is configured.</p>
             @elseif ($order->hub_released_at)
                 <p class="ops-muted">Logistics confirmed the hub release at {{ $order->hub_released_at->format('d M Y H:i') }}.</p>
-                <form method="POST" action="{{ route('courier.orders.startDelivery', $order) }}">@csrf<button
-                        class="ops-btn ops-btn--primary">Start delivery</button></form>
+                <form class="ops-form" method="POST" action="{{ route('courier.orders.startDelivery', $order) }}">
+                    @csrf
+                    <div class="ops-field"><label for="start-parcel-reference">Parcel QR/code (optional manual handoff fallback)</label><input id="start-parcel-reference" name="parcel_reference" maxlength="100" placeholder="EZP:…" autocomplete="off"></div>
+                    <input type="hidden" name="method" value="manual">
+                    <button class="ops-btn ops-btn--primary">Start delivery</button>
+                </form>
             @else
                 <p class="ops-muted">Waiting for Logistics to verify and release this parcel from the hub.</p>
                 <form class="ops-form" method="POST" action="{{ route('courier.orders.declineDeliveryAssignment', $order) }}"
@@ -60,6 +64,7 @@
                         class="ops-field"><label>Recipient confirmation</label><input name="recipient_confirmation"
                             maxlength="120" required></div>
                     @if ($order->payment_method === 'COD')
+                        <div class="ops-field"><label>Buyer delivery code</label><input name="delivery_code" inputmode="numeric" autocomplete="off" maxlength="32" required></div>
                         <div class="ops-field"><label>Cash collected
                                 (₱{{ number_format($order->total_amount, 2) }})</label><input name="cod_collected_amount"
                                 type="number" min="0" step="0.01" required></div>

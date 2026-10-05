@@ -88,6 +88,10 @@
                                             {{ $user->contact_no }}</div>
                                     </td>
                                     <td>
+                                        @if ($user->role === 'courier' && ($user->active_pickups_count + $user->active_parcels_count) > 0)
+                                            @php($activeParcelCount = $user->active_pickups_count + $user->active_parcels_count)
+                                            <p class="text-muted-small">Suspending this rider will open {{ $activeParcelCount }} logistics recovery {{ $activeParcelCount === 1 ? 'case' : 'cases' }}.</p>
+                                        @endif
                                         @if ($user->status === 'suspended')
                                             <span class="status-pill status-badge-suspended">SUSPENDED</span>
                                             <div

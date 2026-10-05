@@ -11,6 +11,7 @@
     @vite('resources/css/shared/platform-controls.css')
     <!-- Dynamic Page Stylesheets -->
     @stack('styles')
+    @vite('resources/js/app.js')
 </head>
 
 <body>

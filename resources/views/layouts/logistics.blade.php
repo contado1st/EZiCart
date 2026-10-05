@@ -19,6 +19,10 @@
                         href="{{ route('logistics.pickupRequests') }}">Pickup requests</a>
                     <a class="{{ request()->routeIs('logistics.sorting') ? 'active' : '' }}"
                         href="{{ route('logistics.sorting') }}">Sorting queue</a>
+                    <a class="{{ request()->routeIs('logistics.storage') ? 'active' : '' }}"
+                        href="{{ route('logistics.storage') }}">Storage locations</a>
+                    <a class="{{ request()->routeIs('logistics.scan-history') ? 'active' : '' }}"
+                        href="{{ route('logistics.scan-history') }}">Scan history</a>
                     <a class="{{ request()->routeIs('logistics.dispatch') ? 'active' : '' }}"
                         href="{{ route('logistics.dispatch') }}">Rider dispatch</a>
                     <a class="{{ request()->routeIs('logistics.tracking') ? 'active' : '' }}"

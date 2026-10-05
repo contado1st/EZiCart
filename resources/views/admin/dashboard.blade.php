@@ -105,6 +105,7 @@
                                     <th>Total</th>
                                     <th>Commission</th>
                                     <th>Status</th>
+                                    <th>Order action</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -122,10 +123,22 @@
                                                 {{ str_replace('_', ' ', $order->status) }}
                                             </span>
                                         </td>
+                                        <td>
+                                            @if (in_array($order->status, ['PLACED', 'CONFIRMED', 'PREPARING', 'READY_FOR_PICKUP'], true) && $order->picked_up_at === null && $order->seller_handover_at === null)
+                                                <form action="{{ route('admin.orders.cancel', $order) }}" method="POST">
+                                                    @csrf
+                                                    <label class="sr-only" for="admin-cancel-reason-{{ $order->id }}">Cancellation reason for {{ $order->order_number }}</label>
+                                                    <input id="admin-cancel-reason-{{ $order->id }}" name="reason" maxlength="500" required placeholder="Reason for cancellation">
+                                                    <button type="submit" class="dash-btn-sm dash-btn-outline">Cancel</button>
+                                                </form>
+                                            @else
+                                                <span>—</span>
+                                            @endif
+                                        </td>
                                     </tr>
                                 @empty
                                     <tr>
-                                        <td colspan="6" class="dash-table-empty">
+                                        <td colspan="7" class="dash-table-empty">
                                             No transactions recorded yet.
                                         </td>
                                     </tr>

@@ -21,6 +21,22 @@
             </button>
         </div>
 
+        @if (in_array($order->status, ['PLACED', 'CONFIRMED', 'PREPARING', 'READY_FOR_PICKUP'], true) && $order->pickup_claimed_at === null && $order->seller_handover_at === null)
+            <section class="waybill-actions-bar" aria-label="Replace parcel label">
+                <p>Current parcel label version: {{ $order->parcel_code_version }}. Replacing the code invalidates any previously printed label.</p>
+                <form method="POST" action="{{ route('seller.orders.waybill.reprint', $order) }}">
+                    @csrf
+                    <label for="reprint-reason">Reason for replacement</label>
+                    <input id="reprint-reason" name="reason" maxlength="500" required>
+                    <button type="submit" class="waybill-print-btn">Issue replacement label</button>
+                </form>
+            </section>
+        @endif
+
+        @if (session('success'))
+            <p role="status">{{ session('success') }}</p>
+        @endif
+
         <!-- Official Printable Waybill -->
         <div class="waybill-sheet">
             <div class="waybill-brand-row">
@@ -31,7 +47,8 @@
                 </div>
                 <div class="waybill-tracking-block">
                     <div class="waybill-tracking-number">{{ $order->order_number }}</div>
-                    <div class="waybill-barcode-mock">|||||||||||||||||||||||</div>
+                    <div class="waybill-parcel-code">Parcel: {{ $order->parcel_code }}</div>
+                    <div class="waybill-qr">{!! $parcelQr !!}</div>
                 </div>
             </div>
 

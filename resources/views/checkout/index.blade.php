@@ -83,21 +83,7 @@
                             </div>
                         </label>
 
-                        <label class="payment-option">
-                            <input type="radio" name="payment_method" value="GCash">
-                            <div>
-                                <div class="payment-title">GCash / E-Wallet</div>
-                                <div class="payment-desc">Order fulfillment will remain on hold until payment verification is configured.</div>
-                            </div>
-                        </label>
-
-                        <label class="payment-option">
-                            <input type="radio" name="payment_method" value="Bank Transfer">
-                            <div>
-                                <div class="payment-title">Bank Transfer</div>
-                                <div class="payment-desc">Order fulfillment will remain on hold until payment verification is configured.</div>
-                            </div>
-                        </label>
+                        <p class="payment-desc" role="status">Cash on delivery is the available payment method while payment verification for other methods is being configured.</p>
                     </div>
                 </div>
             </div>

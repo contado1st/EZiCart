@@ -155,12 +155,24 @@
                                 </form>
                             @elseif($order->status === 'READY_FOR_PICKUP' && $order->pickup_arrived_at && ! $order->seller_handover_at)
                                 <form action="{{ route('seller.orders.confirmHandover', $order) }}" method="POST">
-                                    @csrf<button type="submit" class="dash-btn-sm dash-btn-primary">Confirm rider handover</button>
+                                    @csrf
+                                    <label for="handover-rider-badge-{{ $order->id }}">Scan assigned rider badge QR/code</label>
+                                    <input id="handover-rider-badge-{{ $order->id }}" name="rider_badge" data-qr-input required maxlength="100" placeholder="EZR:…" autocomplete="off">
+                                    <input type="hidden" name="method" value="manual">
+                                    <button type="button" data-qr-start>Use camera</button><button type="button" data-qr-stop hidden>Stop camera</button>
+                                    <video data-qr-video playsinline hidden></video><p data-qr-status role="status">Camera, handheld scanner, or manual code entry is supported.</p>
+                                    <button type="submit" class="dash-btn-sm dash-btn-primary">Confirm rider handover</button>
                                 </form>
                             @elseif($order->status === 'RETURN_IN_TRANSIT')
                                 @if ($order->return_handed_to_seller_at)
                                     <form action="{{ route('seller.orders.confirmReturn', $order) }}" method="POST">
-                                        @csrf<button type="submit" class="dash-btn-sm dash-btn-primary">Confirm returned parcel received</button>
+                                        @csrf
+                                        <label for="return-rider-badge-{{ $order->id }}">Scan return rider badge QR/code</label>
+                                        <input id="return-rider-badge-{{ $order->id }}" name="rider_badge" data-qr-input required maxlength="100" placeholder="EZR:…" autocomplete="off">
+                                        <input type="hidden" name="method" value="manual">
+                                        <button type="button" data-qr-start>Use camera</button><button type="button" data-qr-stop hidden>Stop camera</button>
+                                        <video data-qr-video playsinline hidden></video><p data-qr-status role="status">Camera, handheld scanner, or manual entry.</p>
+                                        <button type="submit" class="dash-btn-sm dash-btn-primary">Confirm scanned return received</button>
                                     </form>
                                 @else
                                     <span class="text-muted-small">Awaiting courier handoff</span>

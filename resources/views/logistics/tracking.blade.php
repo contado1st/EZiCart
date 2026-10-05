@@ -26,10 +26,11 @@
                     @endforeach
                 </select>
             </div>
+            <div class="ops-field"><label for="tracking-rider-search">Search rider list</label><input id="tracking-rider-search" name="rider_search" value="{{ request('rider_search') }}" maxlength="100" placeholder="First or last name"><span class="ops-muted">Up to 50 hub riders. Search to find others.</span></div>
             <div class="ops-field"><label>Area</label><select name="area">
                     <option value="">All areas</option>
                     @foreach ($areas as $area)
-                        <option @selected(request('area') === $area)>{{ $area }}</option>
+                        <option value="{{ $area->id }}" @selected((string) request('area') === (string) $area->id)>{{ $area->name }}</option>
                     @endforeach
                 </select>
             </div>

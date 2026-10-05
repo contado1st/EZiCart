@@ -10,20 +10,30 @@ use App\Models\Order;
 use App\Models\ParcelTrackingEvent;
 use App\Models\User;
 use App\Notifications\OrderWorkflowNotification;
+use App\Services\DeliveryCodeService;
+use App\Services\LogisticsHubNotificationService;
 use App\Services\OrderTransitionService;
+use App\Services\QrCodeService;
+use App\Services\RiderBadgeService;
 use App\Services\TransactionAwareNotificationSender;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
+use RuntimeException;
+use Throwable;
 
 class CourierController extends Controller
 {
-    public function dashboard(): View
+    public function dashboard(RiderBadgeService $badges, QrCodeService $qrCodes): View
     {
         $courier = $this->authenticatedUser();
+        $badgeCode = $badges->ensure($courier);
+        $badgeQr = $qrCodes->svg('EZR:'.$badgeCode, 180);
         $todayStart = today()->startOfDay();
         $tomorrowStart = today()->addDay()->startOfDay();
         $availablePickups = Order::where('status', 'READY_FOR_PICKUP')->where('pickup_courier_id', $courier->id)->whereNull('pickup_claimed_at')->with(['seller', 'items'])->latest()->paginate(8, ['*'], 'pickups');
@@ -56,7 +66,14 @@ class CourierController extends Controller
                 ->count(),
         ];
 
-        return view('courier.dashboard', compact('courier', 'availablePickups', 'claimedPickups', 'myActivePickups', 'myReturns', 'myDeliveryAssignments', 'myFailedDeliveries', 'stats'));
+        return view('courier.dashboard', compact('courier', 'badgeCode', 'badgeQr', 'availablePickups', 'claimedPickups', 'myActivePickups', 'myReturns', 'myDeliveryAssignments', 'myFailedDeliveries', 'stats'));
+    }
+
+    public function rotateBadge(RiderBadgeService $badges): RedirectResponse
+    {
+        $badges->rotate($this->authenticatedUser());
+
+        return back()->with('success', 'Your rider badge was rotated. Previous printed codes are no longer valid.');
     }
 
     public function showOrder(Order $order): View
@@ -95,12 +112,12 @@ class CourierController extends Controller
         });
     }
 
-    public function declinePickup(Request $request, Order $order, TransactionAwareNotificationSender $notifications): RedirectResponse
+    public function declinePickup(Request $request, Order $order, TransactionAwareNotificationSender $notifications, LogisticsHubNotificationService $hubNotifications): RedirectResponse
     {
         $validated = $request->validate(['reason' => ['nullable', 'string', 'max:500']]);
         $courier = $this->authenticatedUser();
 
-        return DB::transaction(function () use ($order, $courier, $validated, $notifications): RedirectResponse {
+        return DB::transaction(function () use ($order, $courier, $validated, $notifications, $hubNotifications): RedirectResponse {
             $lockedOrder = Order::query()->whereKey($order->id)->lockForUpdate()->firstOrFail();
             abort_unless($courier->status === 'approved' && $lockedOrder->status === 'READY_FOR_PICKUP', 422, 'This pickup cannot be declined.');
             abort_unless($lockedOrder->pickup_courier_id === $courier->id && $lockedOrder->pickup_claimed_at === null, 403);
@@ -114,65 +131,181 @@ class CourierController extends Controller
                 filled($validated['reason'] ?? null) ? $validated['reason'] : 'Rider declined the pickup assignment.',
             );
             $notifications->send($lockedOrder->seller, new OrderWorkflowNotification($lockedOrder, 'pickup_declined', 'The assigned rider declined the pickup. Logistics will reassign it.'));
-            User::query()->where('role', 'sorting_center')->where('status', 'approved')->each(
-                fn (User $operator) => $notifications->send($operator, new OrderWorkflowNotification($lockedOrder, 'pickup_declined', 'A rider declined a pickup and it is back in the Logistics queue.')),
-            );
+            $hubNotifications->sendForOrder($lockedOrder, $notifications, new OrderWorkflowNotification($lockedOrder, 'pickup_declined', 'A rider declined a pickup and it is back in the Logistics queue.'));
 
             return back()->with('success', "Pickup {$lockedOrder->order_number} returned to the Logistics queue.");
         });
     }
 
-    public function confirmPickup(Order $order, OrderTransitionService $transitions, TransactionAwareNotificationSender $notifications): RedirectResponse
+    public function confirmPickup(Request $request, Order $order, OrderTransitionService $transitions, TransactionAwareNotificationSender $notifications): RedirectResponse
     {
         $courier = $this->authenticatedUser();
+        $validated = $request->validate([
+            'parcel_reference' => ['nullable', 'string', 'max:100'],
+            'method' => ['nullable', 'in:camera,handheld,manual'],
+        ]);
+        $scannedReference = $validated['parcel_reference'] ?? null;
 
-        return DB::transaction(function () use ($order, $courier, $transitions, $notifications): RedirectResponse {
-            $lockedOrder = Order::whereKey($order->id)->lockForUpdate()->firstOrFail();
-            abort_unless($lockedOrder->pickup_courier_id === $courier->id, 403);
-            abort_unless(
-                $courier->status === 'approved'
-                    && $lockedOrder->payment_method === 'COD'
-                    && $lockedOrder->status === 'READY_FOR_PICKUP'
-                    && $lockedOrder->pickup_claimed_at !== null,
-                422,
-                'This pickup cannot be confirmed.',
-            );
-            if ($lockedOrder->pickup_arrived_at === null) {
-                $lockedOrder->forceFill(['pickup_arrived_at' => now()])->save();
-                $this->recordEvent($lockedOrder, 'pickup_arrived', $courier, $lockedOrder->seller?->municipality, 'Rider arrived and requested seller handover confirmation.');
-                $notifications->send($lockedOrder->seller, new OrderWorkflowNotification($lockedOrder, 'pickup_arrived', 'The rider arrived. Confirm the parcel handover when ready.'));
+        if (filled($scannedReference)) {
+            $scannedCode = str_starts_with($scannedReference, 'EZP:')
+                ? substr($scannedReference, 4)
+                : $scannedReference;
 
-                return back()->with('success', 'Arrival recorded. Wait for the seller to confirm parcel handover, then confirm possession.');
+            if (! hash_equals((string) $order->parcel_code, $scannedCode)) {
+                DB::table('scan_events')->insert([
+                    'order_id' => $order->id,
+                    'actor_id' => $courier->id,
+                    'station' => 'seller_pickup',
+                    'result' => 'rejected',
+                    'failure_reason' => 'Scanned parcel code did not match the assigned pickup parcel.',
+                    'method' => $validated['method'] ?? 'manual',
+                    'ip' => $request->ip(),
+                    'created_at' => now(),
+                ]);
+
+                throw ValidationException::withMessages(['parcel_reference' => 'The scanned parcel does not match this pickup assignment.']);
+            }
+        }
+
+        try {
+            return DB::transaction(function () use ($request, $order, $courier, $transitions, $notifications, $validated, $scannedReference): RedirectResponse {
+                $lockedOrder = Order::whereKey($order->id)->lockForUpdate()->firstOrFail();
+                abort_unless($lockedOrder->pickup_courier_id === $courier->id, 403);
+                abort_unless(
+                    $courier->status === 'approved'
+                        && $lockedOrder->payment_method === 'COD'
+                        && $lockedOrder->status === 'READY_FOR_PICKUP'
+                        && $lockedOrder->pickup_claimed_at !== null,
+                    422,
+                    'This pickup cannot be confirmed.',
+                );
+                if ($lockedOrder->pickup_arrived_at === null) {
+                    $lockedOrder->forceFill(['pickup_arrived_at' => now()])->save();
+                    $this->recordEvent($lockedOrder, 'pickup_arrived', $courier, $lockedOrder->seller?->municipality, 'Rider arrived and requested seller handover confirmation.');
+                    $notifications->send($lockedOrder->seller, new OrderWorkflowNotification($lockedOrder, 'pickup_arrived', 'The rider arrived. Confirm the parcel handover when ready.'));
+
+                    return back()->with('success', 'Arrival recorded. Wait for the seller to confirm parcel handover, then confirm possession.');
+                }
+
+                abort_unless($lockedOrder->seller_handover_at !== null, 422, 'The seller must confirm parcel handover before pickup can be completed.');
+                abort_unless(filled($scannedReference), 422, 'Scan the parcel label before confirming possession.');
+                abort_unless(hash_equals((string) $lockedOrder->parcel_code, str_starts_with($scannedReference, 'EZP:') ? substr($scannedReference, 4) : $scannedReference), 422, 'The assigned parcel changed. Scan the parcel label again.');
+                $transitions->transition($lockedOrder, $courier, OrderStatus::PickedUp, 'picked_up', $lockedOrder->seller?->municipality, 'Parcel collected from seller; traveling to sorting center.', ['picked_up_at' => now()]);
+                DB::table('scan_events')->insert([
+                    'order_id' => $lockedOrder->id,
+                    'actor_id' => $courier->id,
+                    'station' => 'seller_pickup',
+                    'result' => 'accepted',
+                    'method' => $validated['method'] ?? 'manual',
+                    'ip' => $request->ip(),
+                    'created_at' => now(),
+                ]);
+
+                return back()->with('success', "Parcel {$lockedOrder->order_number} collected. Bring it to the sorting center for handoff.");
+            });
+        } catch (Throwable $exception) {
+            if (filled($scannedReference)) {
+                DB::table('scan_events')->insert([
+                    'order_id' => $order->id,
+                    'actor_id' => $courier->id,
+                    'station' => 'seller_pickup',
+                    'result' => 'rejected',
+                    'failure_reason' => 'Parcel scan was valid but pickup could not be completed.',
+                    'method' => $validated['method'] ?? 'manual',
+                    'ip' => $request->ip(),
+                    'created_at' => now(),
+                ]);
             }
 
-            abort_unless($lockedOrder->seller_handover_at !== null, 422, 'The seller must confirm parcel handover before pickup can be completed.');
-            $transitions->transition($lockedOrder, $courier, OrderStatus::PickedUp, 'picked_up', $lockedOrder->seller?->municipality, 'Parcel collected from seller; traveling to sorting center.', ['picked_up_at' => now()]);
-
-            return back()->with('success', "Parcel {$lockedOrder->order_number} collected. Bring it to the sorting center for handoff.");
-        });
+            throw $exception;
+        }
     }
 
-    public function startDelivery(Order $order, OrderTransitionService $transitions): RedirectResponse
+    public function startDelivery(Request $request, Order $order, OrderTransitionService $transitions, DeliveryCodeService $deliveryCodes): RedirectResponse
     {
         $courier = $this->authenticatedUser();
+        $validated = $request->validate([
+            'parcel_reference' => ['nullable', 'string', 'max:100'],
+            'method' => ['nullable', 'in:camera,handheld,manual'],
+        ]);
+        $scannedReference = $validated['parcel_reference'] ?? null;
+        if (filled($scannedReference)) {
+            $scannedCode = str_starts_with($scannedReference, 'EZP:')
+                ? substr($scannedReference, 4)
+                : $scannedReference;
 
-        return DB::transaction(function () use ($order, $courier, $transitions): RedirectResponse {
-            $lockedOrder = Order::whereKey($order->id)->lockForUpdate()->firstOrFail();
-            abort_unless($lockedOrder->delivery_courier_id === $courier->id, 403);
-            abort_unless($courier->status === 'approved' && $lockedOrder->status === 'ASSIGNED_TO_RIDER', 422, 'This parcel cannot be started for delivery.');
-            abort_unless($lockedOrder->payment_method === 'COD', 422, 'Delivery is on hold until payment verification for this method is configured.');
-            abort_unless($lockedOrder->hub_released_at !== null, 422, 'Logistics must confirm the hub handoff before delivery can start.');
-            $scheduledAttempt = DeliveryAttempt::query()
-                ->where('order_id', $lockedOrder->id)
-                ->where('rider_id', $courier->id)
-                ->where('outcome', 'scheduled')
-                ->lockForUpdate()
-                ->first();
-            abort_unless($scheduledAttempt?->scheduled_at === null || $scheduledAttempt->scheduled_at->lte(now()), 422, 'Wait until the scheduled retry time before starting delivery.');
-            $transitions->transition($lockedOrder, $courier, OrderStatus::OutForDelivery, 'out_for_delivery', $lockedOrder->delivery_area, 'Rider collected parcel from the hub.', ['out_for_delivery_at' => now()]);
+            if (! hash_equals((string) $order->parcel_code, $scannedCode) && ! hash_equals($order->order_number, $scannedCode)) {
+                DB::table('scan_events')->insert([
+                    'order_id' => $order->id,
+                    'actor_id' => $courier->id,
+                    'station' => 'delivery_start',
+                    'result' => 'rejected',
+                    'failure_reason' => 'Scanned parcel code did not match the assigned parcel.',
+                    'method' => $validated['method'] ?? 'manual',
+                    'ip' => $request->ip(),
+                    'created_at' => now(),
+                ]);
 
-            return back()->with('success', "Order {$lockedOrder->order_number} is out for delivery.");
-        });
+                throw ValidationException::withMessages(['parcel_reference' => 'The scanned parcel does not match this delivery assignment.']);
+            }
+        }
+
+        try {
+            return DB::transaction(function () use ($request, $order, $courier, $transitions, $deliveryCodes, $validated, $scannedReference): RedirectResponse {
+                $lockedOrder = Order::whereKey($order->id)->lockForUpdate()->firstOrFail();
+                abort_unless($lockedOrder->delivery_courier_id === $courier->id, 403);
+                abort_unless($courier->status === 'approved' && $lockedOrder->status === 'ASSIGNED_TO_RIDER', 422, 'This parcel cannot be started for delivery.');
+                abort_unless($lockedOrder->payment_method === 'COD', 422, 'Delivery is on hold until payment verification for this method is configured.');
+                abort_unless($lockedOrder->hub_released_at !== null, 422, 'Logistics must confirm the hub handoff before delivery can start.');
+                abort_unless(
+                    DeliveryAttempt::query()->where('order_id', $lockedOrder->id)->where('outcome', 'failed')->count()
+                        < max(1, (int) config('logistics.maximum_delivery_attempts', 3)),
+                    422,
+                    'The maximum delivery attempts have been reached. Logistics must return the parcel to the seller.',
+                );
+                $scheduledAttempt = DeliveryAttempt::query()
+                    ->where('order_id', $lockedOrder->id)
+                    ->where('rider_id', $courier->id)
+                    ->where('outcome', 'scheduled')
+                    ->lockForUpdate()
+                    ->first();
+                abort_unless($scheduledAttempt?->scheduled_at === null || $scheduledAttempt->scheduled_at->lte(now()), 422, 'Wait until the scheduled retry time before starting delivery.');
+                $deliveryCode = $deliveryCodes->issue();
+                unset($deliveryCode['code']);
+                $transitions->transition($lockedOrder, $courier, OrderStatus::OutForDelivery, 'out_for_delivery', $lockedOrder->delivery_area, 'Rider collected parcel from the hub.', [
+                    'out_for_delivery_at' => now(),
+                    ...$deliveryCode,
+                ]);
+                if (filled($scannedReference)) {
+                    DB::table('scan_events')->insert([
+                        'order_id' => $lockedOrder->id,
+                        'actor_id' => $courier->id,
+                        'station' => 'delivery_start',
+                        'result' => 'accepted',
+                        'method' => $validated['method'] ?? 'manual',
+                        'ip' => $request->ip(),
+                        'created_at' => now(),
+                    ]);
+                }
+
+                return back()->with('success', "Order {$lockedOrder->order_number} is out for delivery.");
+            });
+        } catch (Throwable $exception) {
+            if (filled($scannedReference)) {
+                DB::table('scan_events')->insert([
+                    'order_id' => $order->id,
+                    'actor_id' => $courier->id,
+                    'station' => 'delivery_start',
+                    'result' => 'rejected',
+                    'failure_reason' => 'Parcel scan was valid but the delivery could not be started.',
+                    'method' => $validated['method'] ?? 'manual',
+                    'ip' => $request->ip(),
+                    'created_at' => now(),
+                ]);
+            }
+
+            throw $exception;
+        }
     }
 
     public function declineDeliveryAssignment(Request $request, Order $order, OrderTransitionService $transitions): RedirectResponse
@@ -183,78 +316,148 @@ class CourierController extends Controller
         return back()->with('success', "Delivery assignment for {$order->order_number} declined. Logistics can dispatch it to another rider.");
     }
 
-    public function confirmReturnDelivery(Order $order, TransactionAwareNotificationSender $notifications): RedirectResponse
+    public function confirmReturnDelivery(Request $request, Order $order, TransactionAwareNotificationSender $notifications): RedirectResponse
     {
         $courier = $this->authenticatedUser();
         abort_unless($order->delivery_courier_id === $courier->id, 403);
+        $validated = $request->validate([
+            'parcel_reference' => ['nullable', 'string', 'max:100'],
+            'method' => ['nullable', 'in:camera,handheld,manual'],
+        ]);
+        $scannedReference = $validated['parcel_reference'] ?? null;
 
-        DB::transaction(function () use ($order, $courier, $notifications): void {
-            $lockedOrder = Order::query()->whereKey($order->id)->lockForUpdate()->firstOrFail();
-            abort_unless($lockedOrder->delivery_courier_id === $courier->id, 403);
-            abort_unless($courier->status === 'approved' && $lockedOrder->status === OrderStatus::ReturnInTransit->value, 422, 'This parcel is not on an active return to seller.');
-            abort_unless($lockedOrder->return_handed_to_seller_at === null, 422, 'The seller handoff has already been recorded.');
+        if (filled($scannedReference) && ! $this->parcelReferenceMatches($order, $scannedReference)) {
+            $this->recordParcelScan($request, $order, $courier, 'return_to_seller', 'rejected', $validated['method'] ?? 'manual', 'Scanned parcel code did not match the assigned return.');
 
-            $lockedOrder->forceFill(['return_handed_to_seller_at' => now()])->save();
-            $seller = $lockedOrder->seller;
-            ParcelTrackingEvent::query()->create([
-                'order_id' => $lockedOrder->id,
-                'actor_id' => $courier->id,
-                'event_type' => 'return_handed_to_seller',
-                'status' => $lockedOrder->status,
-                'location' => $seller?->municipality,
-                'notes' => 'Courier recorded handing the return parcel to the seller; seller receipt confirmation is pending.',
-            ]);
-            $notifications->send($seller, new OrderWorkflowNotification($lockedOrder, 'return_handed_to_seller', 'The courier recorded a return handoff. Confirm receipt only after you physically receive the parcel.'));
+            throw ValidationException::withMessages(['parcel_reference' => 'The scanned parcel does not match this return assignment.']);
+        }
 
-            $assignment = DeliveryAssignment::query()
-                ->where('order_id', $lockedOrder->id)
-                ->where('rider_id', $courier->id)
-                ->whereIn('status', ['active', 'returned'])
-                ->lockForUpdate()
-                ->first();
-            $assignment?->update([
-                'status' => 'returned',
-                'active_order_id' => null,
-                'released_at' => now(),
-            ]);
-        });
+        try {
+            DB::transaction(function () use ($request, $order, $courier, $notifications, $validated, $scannedReference): void {
+                $lockedOrder = Order::query()->whereKey($order->id)->lockForUpdate()->firstOrFail();
+                abort_unless($lockedOrder->delivery_courier_id === $courier->id, 403);
+                abort_unless($courier->status === 'approved' && $lockedOrder->status === OrderStatus::ReturnInTransit->value, 422, 'This parcel is not on an active return to seller.');
+                abort_unless($lockedOrder->return_handed_to_seller_at === null, 422, 'The seller handoff has already been recorded.');
+                abort_unless(filled($scannedReference), 422, 'Scan the parcel label before confirming return handoff.');
+                abort_unless($this->parcelReferenceMatches($lockedOrder, $scannedReference), 422, 'The assigned parcel changed. Scan its label again.');
+
+                $lockedOrder->forceFill(['return_handed_to_seller_at' => now()])->save();
+                $this->recordParcelScan($request, $lockedOrder, $courier, 'return_to_seller', 'accepted', $validated['method'] ?? 'manual');
+                $seller = $lockedOrder->seller;
+                ParcelTrackingEvent::query()->create([
+                    'order_id' => $lockedOrder->id,
+                    'actor_id' => $courier->id,
+                    'event_type' => 'return_handed_to_seller',
+                    'status' => $lockedOrder->status,
+                    'location' => $seller?->municipality,
+                    'notes' => 'Courier recorded handing the return parcel to the seller; seller receipt confirmation is pending.',
+                ]);
+                $notifications->send($seller, new OrderWorkflowNotification($lockedOrder, 'return_handed_to_seller', 'The courier recorded a return handoff. Confirm receipt only after you physically receive the parcel.'));
+
+                $assignment = DeliveryAssignment::query()
+                    ->where('order_id', $lockedOrder->id)
+                    ->where('rider_id', $courier->id)
+                    ->whereIn('status', ['active', 'returned'])
+                    ->lockForUpdate()
+                    ->first();
+                $assignment?->update([
+                    'status' => 'returned',
+                    'active_order_id' => null,
+                    'released_at' => now(),
+                ]);
+            });
+        } catch (Throwable $exception) {
+            if (filled($scannedReference)) {
+                $this->recordParcelScan($request, $order, $courier, 'return_to_seller', 'rejected', $validated['method'] ?? 'manual', 'Parcel scan was valid but the return handoff could not be completed.');
+            }
+
+            throw $exception;
+        }
 
         return back()->with('success', "Return handoff for {$order->order_number} recorded. The seller must confirm receipt.");
     }
 
-    public function completeDelivery(Request $request, Order $order, OrderTransitionService $transitions): RedirectResponse
+    public function completeDelivery(Request $request, Order $order, OrderTransitionService $transitions, DeliveryCodeService $deliveryCodes): RedirectResponse
     {
         $courier = $this->authenticatedUser();
         abort_unless($order->delivery_courier_id === $courier->id, 403);
 
         $validated = $request->validate([
             'recipient_confirmation' => ['required', 'string', 'max:120'],
+            'delivery_code' => ['required', 'string', 'max:32'],
             'delivery_notes' => ['nullable', 'string', 'max:1000'],
             'cod_collected_amount' => ['nullable', 'numeric', 'min:0', 'decimal:0,2'],
             'proof_file' => ['required', 'file', 'mimes:jpg,jpeg,png,pdf', 'max:4096'],
         ]);
 
-        return DB::transaction(function () use ($request, $order, $courier, $validated, $transitions): RedirectResponse {
-            $lockedOrder = Order::whereKey($order->id)->lockForUpdate()->firstOrFail();
+        $proofPath = null;
+        $deliveryCode = str_starts_with($validated['delivery_code'], 'EZD:')
+            ? substr($validated['delivery_code'], 4)
+            : $validated['delivery_code'];
+
+        $codeResult = DB::transaction(function () use ($order, $courier, $deliveryCode, $deliveryCodes): array {
+            $lockedOrder = Order::query()->whereKey($order->id)->lockForUpdate()->firstOrFail();
             abort_unless($lockedOrder->delivery_courier_id === $courier->id, 403);
             abort_unless($courier->status === 'approved' && $lockedOrder->status === 'OUT_FOR_DELIVERY', 422, 'This parcel is not out for delivery.');
             abort_unless($lockedOrder->payment_method === 'COD', 422, 'Delivery is on hold until payment verification for this method is configured.');
-            if (! isset($validated['cod_collected_amount']) || $this->amountInCentavos($validated['cod_collected_amount']) !== $this->amountInCentavos((string) $lockedOrder->total_amount)) {
-                throw ValidationException::withMessages(['cod_collected_amount' => 'Enter the exact full order amount collected for cash on delivery.']);
-            }
-            $notes = trim('Recipient: '.$validated['recipient_confirmation'].'. '.($validated['delivery_notes'] ?? ''));
-            $attempt = $this->recordDeliveryAttempt($lockedOrder, $courier, 'delivered', [
-                'notes' => $notes,
-                'proof_path' => $request->file('proof_file')?->store('delivery-proofs', 'private'),
-            ]);
-            $transitions->transition($lockedOrder, $courier, OrderStatus::Delivered, 'delivered', $lockedOrder->delivery_area, $notes, [
-                'delivered_at' => now(),
-                'delivery_notes' => $notes,
-                'cod_collected_amount' => $validated['cod_collected_amount'] ?? null,
-            ]);
 
-            return back()->with('success', "Order {$lockedOrder->order_number} marked delivered.");
+            if ($deliveryCodes->matches($lockedOrder, $deliveryCode)) {
+                return ['valid' => true, 'message' => null];
+            }
+
+            $attemptLimit = max(1, (int) config('logistics.delivery_code_max_attempts', 5));
+            if (filled($lockedOrder->delivery_code_hash)
+                && $lockedOrder->delivery_code_used_at === null
+                && $lockedOrder->delivery_code_expires_at?->isFuture() === true
+                && $lockedOrder->delivery_code_attempts < $attemptLimit
+                && ! Hash::check($deliveryCode, $lockedOrder->delivery_code_hash)) {
+                $lockedOrder->increment('delivery_code_attempts');
+
+                return ['valid' => false, 'message' => 'The delivery code is incorrect.'];
+            }
+
+            return ['valid' => false, 'message' => 'The delivery code is expired, already used, or locked. Ask the buyer to refresh it.'];
         });
+
+        if (! $codeResult['valid']) {
+            throw ValidationException::withMessages(['delivery_code' => $codeResult['message']]);
+        }
+
+        try {
+            return DB::transaction(function () use ($request, $order, $courier, $validated, $transitions, $deliveryCodes, $deliveryCode, &$proofPath): RedirectResponse {
+                $lockedOrder = Order::whereKey($order->id)->lockForUpdate()->firstOrFail();
+                abort_unless($lockedOrder->delivery_courier_id === $courier->id, 403);
+                abort_unless($courier->status === 'approved' && $lockedOrder->status === 'OUT_FOR_DELIVERY', 422, 'This parcel is not out for delivery.');
+                abort_unless($lockedOrder->payment_method === 'COD', 422, 'Delivery is on hold until payment verification for this method is configured.');
+                abort_unless($deliveryCodes->matches($lockedOrder, $deliveryCode), 422, 'The delivery code has expired or was already used.');
+                if (! isset($validated['cod_collected_amount']) || $this->amountInCentavos($validated['cod_collected_amount']) !== $this->amountInCentavos((string) $lockedOrder->total_amount)) {
+                    throw ValidationException::withMessages(['cod_collected_amount' => 'Enter the exact full order amount collected for cash on delivery.']);
+                }
+                $notes = trim('Recipient: '.$validated['recipient_confirmation'].'. '.($validated['delivery_notes'] ?? ''));
+                $proofPath = $request->file('proof_file')?->store('delivery-proofs', 'private');
+                if (! is_string($proofPath)) {
+                    throw new RuntimeException('Delivery proof could not be stored.');
+                }
+                $this->recordDeliveryAttempt($lockedOrder, $courier, 'delivered', [
+                    'notes' => $notes,
+                    'proof_path' => $proofPath,
+                ]);
+                $transitions->transition($lockedOrder, $courier, OrderStatus::Delivered, 'delivered', $lockedOrder->delivery_area, $notes, [
+                    'delivered_at' => now(),
+                    'delivery_notes' => $notes,
+                    'cod_collected_amount' => $validated['cod_collected_amount'],
+                    'delivery_code_used_at' => now(),
+                ]);
+
+                return back()->with('success', "Order {$lockedOrder->order_number} marked delivered.");
+            });
+        } catch (Throwable $exception) {
+            if (is_string($proofPath)) {
+                Storage::disk('private')->delete($proofPath);
+            }
+
+            throw $exception;
+        }
     }
 
     public function failDelivery(Request $request, Order $order, OrderTransitionService $transitions): RedirectResponse
@@ -280,11 +483,11 @@ class CourierController extends Controller
                 'delivery_notes' => $validated['delivery_notes'] ?? null,
             ]);
 
-            if ($attempt->attempt_no >= max(1, (int) config('logistics.maximum_delivery_attempts', 3))) {
-                $transitions->transition($lockedOrder->refresh(), $courier, OrderStatus::ReturnInTransit, 'return_in_transit', $lockedOrder->delivery_area, 'Maximum delivery attempts reached; parcel is returning to sender.');
-            }
+            $message = $attempt->attempt_no >= max(1, (int) config('logistics.maximum_delivery_attempts', 3))
+                ? "Failure recorded for {$lockedOrder->order_number}. The parcel must be physically scanned back into the hub before Logistics can return it to the seller."
+                : "Failure recorded for {$lockedOrder->order_number}. Logistics can review the next step.";
 
-            return back()->with('success', "Failure recorded for {$lockedOrder->order_number}. Logistics can review the next step.");
+            return back()->with('success', $message);
         });
     }
 
@@ -340,6 +543,27 @@ class CourierController extends Controller
             'status' => $order->status,
             'location' => $location,
             'notes' => $notes,
+        ]);
+    }
+
+    private function parcelReferenceMatches(Order $order, string $reference): bool
+    {
+        $code = str_starts_with($reference, 'EZP:') ? substr($reference, 4) : $reference;
+
+        return hash_equals((string) $order->parcel_code, $code);
+    }
+
+    private function recordParcelScan(Request $request, Order $order, User $actor, string $station, string $result, string $method, ?string $failureReason = null): void
+    {
+        DB::table('scan_events')->insert([
+            'order_id' => $order->id,
+            'actor_id' => $actor->id,
+            'station' => $station,
+            'result' => $result,
+            'failure_reason' => $failureReason,
+            'method' => $method,
+            'ip' => $request->ip(),
+            'created_at' => now(),
         ]);
     }
 
