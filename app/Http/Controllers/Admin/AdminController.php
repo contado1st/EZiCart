@@ -7,6 +7,9 @@ use App\Models\Order;
 use App\Models\Product;
 use App\Models\User;
 use App\Notifications\AccountStatusNotification;
+use App\Services\TransactionAwareNotificationSender;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Support\Facades\DB;
 
 class AdminController extends Controller
 {
@@ -53,22 +56,28 @@ class AdminController extends Controller
         return view('admin.registrations', compact('pendingUsers'));
     }
 
-    public function approve(User $user)
+    public function approve(User $user, TransactionAwareNotificationSender $notifications): RedirectResponse
     {
-        abort_unless($user->status === 'pending', 422, 'Only pending accounts can be approved.');
+        DB::transaction(function () use ($user, $notifications): void {
+            $lockedUser = User::query()->whereKey($user->id)->lockForUpdate()->firstOrFail();
+            abort_unless($lockedUser->role !== 'admin' && $lockedUser->status === 'pending', 422, 'Only pending accounts can be approved.');
 
-        $user->forceFill(['status' => 'approved'])->save();
-        $user->notify(new AccountStatusNotification('approved'));
+            $lockedUser->forceFill(['status' => 'approved'])->save();
+            $notifications->send($lockedUser, new AccountStatusNotification('approved'));
+        });
 
         return back()->with('success', "Account for {$user->first_name} {$user->last_name} ({$user->role}) has been approved.");
     }
 
-    public function reject(User $user)
+    public function reject(User $user, TransactionAwareNotificationSender $notifications): RedirectResponse
     {
-        abort_unless($user->status === 'pending', 422, 'Only pending accounts can be rejected.');
+        DB::transaction(function () use ($user, $notifications): void {
+            $lockedUser = User::query()->whereKey($user->id)->lockForUpdate()->firstOrFail();
+            abort_unless($lockedUser->role !== 'admin' && $lockedUser->status === 'pending', 422, 'Only pending accounts can be rejected.');
 
-        $user->forceFill(['status' => 'rejected'])->save();
-        $user->notify(new AccountStatusNotification('rejected'));
+            $lockedUser->forceFill(['status' => 'rejected'])->save();
+            $notifications->send($lockedUser, new AccountStatusNotification('rejected'));
+        });
 
         return back()->with('success', "Account for {$user->first_name} {$user->last_name} ({$user->role}) has been rejected.");
     }

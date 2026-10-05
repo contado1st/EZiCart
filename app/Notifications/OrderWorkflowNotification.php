@@ -51,7 +51,9 @@ class OrderWorkflowNotification extends Notification
         [$routeName, $parameters] = match ($notifiable->role) {
             'buyer' => ['buyer.orders.show', [$this->order->id]],
             'seller' => ['seller.orders.show', [$this->order->id]],
-            'courier' => ['courier.orders.show', [$this->order->id]],
+            'courier' => $this->eventType === 'delivery_assignment_replaced'
+                ? ['courier.history', ['search' => $this->order->order_number]]
+                : ['courier.orders.show', [$this->order->id]],
             'sorting_center' => ['logistics.tracking', ['search' => $this->order->order_number]],
             default => ['notifications.index', []],
         };

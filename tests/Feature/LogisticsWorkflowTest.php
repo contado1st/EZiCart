@@ -18,15 +18,19 @@ use App\Notifications\OrderMessageNotification;
 use App\Notifications\OrderStatusNotification;
 use App\Notifications\OrderWorkflowNotification;
 use App\Notifications\ProductComplianceNotification;
+use App\Services\InventoryRestorationService;
 use App\Services\OrderTransitionService;
+use App\Services\TransactionAwareNotificationSender;
 use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Database\QueryException;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
@@ -139,17 +143,21 @@ class LogisticsWorkflowTest extends TestCase
         $applicant = User::query()->where('email', 'courier-review@example.test')->firstOrFail();
         $this->assertSame('courier', $applicant->role);
         $this->assertSame('pending', $applicant->status);
-        Notification::assertSentTo([$admin, $logistics], CourierApplicationSubmittedNotification::class, function (CourierApplicationSubmittedNotification $notification, array $channels, User $notifiable) use ($applicant): bool {
+        $notificationMatchesReviewPage = function (CourierApplicationSubmittedNotification $notification, array $channels, User $notifiable) use ($applicant): bool {
             $reviewUrl = $notifiable->role === 'admin'
                 ? route('admin.registrations.index')
                 : route('logistics.riders');
 
-            return in_array('mail', $channels, true)
-                && in_array('database', $channels, true)
-                && $notification->applicant->is($applicant)
+            return $notification->applicant->is($applicant)
                 && $notification->toMail($notifiable)->actionUrl === $reviewUrl
                 && $notification->toDatabase($notifiable)['url'] === $reviewUrl;
-        });
+        };
+
+        foreach ([$admin, $logistics] as $reviewer) {
+            Notification::assertSentTo($reviewer, CourierApplicationSubmittedNotification::class, fn (CourierApplicationSubmittedNotification $notification, array $channels, User $notifiable): bool => $channels === ['database'] && $notificationMatchesReviewPage($notification, $channels, $notifiable));
+            Notification::assertSentTo($reviewer, CourierApplicationSubmittedNotification::class, fn (CourierApplicationSubmittedNotification $notification, array $channels, User $notifiable): bool => $channels === ['mail'] && $notificationMatchesReviewPage($notification, $channels, $notifiable));
+        }
+
         Notification::assertNotSentTo($buyer, CourierApplicationSubmittedNotification::class);
     }
 
@@ -157,6 +165,7 @@ class LogisticsWorkflowTest extends TestCase
     {
         Notification::fake();
         $order = $this->order(['status' => 'PLACED']);
+        $this->addOrderInventoryItem($order);
 
         $this->actingAsUser($order->seller)->patch(route('seller.orders.updateStatus', $order), ['status' => 'CONFIRMED'])
             ->assertRedirect();
@@ -415,7 +424,7 @@ class LogisticsWorkflowTest extends TestCase
             'municipality' => 'Majayjay',
             'barangay' => 'Poblacion',
             'street_address' => '2 Test Street',
-            'payment_method' => 'GCash',
+            'payment_method' => 'COD',
             'buyer_id' => $admin->id,
             'seller_id' => $admin->id,
             'delivery_courier_id' => $admin->id,
@@ -461,6 +470,7 @@ class LogisticsWorkflowTest extends TestCase
         $this->actingAsUser($rider)->post(route('courier.orders.startDelivery', $order))->assertRedirect();
         $this->patch(route('courier.orders.completeDelivery', $order), [
             'recipient_confirmation' => 'Test Buyer',
+            'cod_collected_amount' => $order->total_amount,
             'proof_file' => UploadedFile::fake()->image('delivery-proof.jpg'),
         ])->assertRedirect();
         $this->actingAsUser($buyer)->post(route('buyer.orders.confirm', $order))->assertRedirect();
@@ -668,6 +678,92 @@ class LogisticsWorkflowTest extends TestCase
         ]);
     }
 
+    public function test_legacy_courier_assignments_are_backfilled_without_overwriting_new_history(): void
+    {
+        $legacyRider = $this->user('courier', 'approved');
+        $newerRider = $this->user('courier', 'approved');
+        $assignedAt = now()->subDays(3)->startOfSecond();
+        $deliveredAt = now()->subDay()->startOfSecond();
+        $activeOrder = $this->order([
+            'courier_id' => $legacyRider->id,
+            'status' => 'OUT_FOR_DELIVERY',
+            'assigned_at' => $assignedAt,
+        ]);
+        $completedOrder = $this->order([
+            'courier_id' => $legacyRider->id,
+            'status' => 'COMPLETED',
+            'delivered_at' => $deliveredAt,
+        ]);
+        $returnedOrder = $this->order([
+            'courier_id' => $legacyRider->id,
+            'status' => 'RETURNED_TO_SELLER',
+            'return_handed_to_seller_at' => now()->subHours(6),
+        ]);
+        $cancelledOrder = $this->order([
+            'courier_id' => $legacyRider->id,
+            'status' => 'CANCELLED',
+        ]);
+        $orderWithNewerHistory = $this->order([
+            'courier_id' => $legacyRider->id,
+            'status' => 'SORTED',
+        ]);
+        DB::table('delivery_assignments')->insert([
+            'order_id' => $orderWithNewerHistory->id,
+            'active_order_id' => null,
+            'rider_id' => $newerRider->id,
+            'assigned_by' => null,
+            'status' => 'declined',
+            'assigned_at' => now()->subHour(),
+            'released_at' => now(),
+            'created_at' => now()->subHour(),
+            'updated_at' => now(),
+        ]);
+
+        $migration = require database_path('migrations/2026_10_05_060618_backfill_legacy_courier_assignment_history.php');
+        $migration->up();
+
+        $this->assertDatabaseHas('orders', [
+            'id' => $activeOrder->id,
+            'courier_id' => $legacyRider->id,
+            'delivery_courier_id' => $legacyRider->id,
+        ]);
+        $this->assertDatabaseHas('delivery_assignments', [
+            'order_id' => $activeOrder->id,
+            'active_order_id' => $activeOrder->id,
+            'rider_id' => $legacyRider->id,
+            'status' => 'active',
+        ]);
+        $this->assertDatabaseHas('delivery_assignments', [
+            'order_id' => $completedOrder->id,
+            'active_order_id' => null,
+            'rider_id' => $legacyRider->id,
+            'status' => 'completed',
+        ]);
+        $this->assertNotNull(DB::table('delivery_assignments')->where('order_id', $completedOrder->id)->value('completed_at'));
+        $this->assertDatabaseHas('delivery_assignments', [
+            'order_id' => $returnedOrder->id,
+            'active_order_id' => null,
+            'rider_id' => $legacyRider->id,
+            'status' => 'returned',
+        ]);
+        $this->assertDatabaseHas('delivery_assignments', [
+            'order_id' => $cancelledOrder->id,
+            'active_order_id' => null,
+            'rider_id' => $legacyRider->id,
+            'status' => 'cancelled',
+        ]);
+        $this->assertDatabaseHas('orders', ['id' => $orderWithNewerHistory->id, 'delivery_courier_id' => null]);
+        $this->assertDatabaseHas('delivery_assignments', [
+            'order_id' => $orderWithNewerHistory->id,
+            'rider_id' => $newerRider->id,
+            'status' => 'declined',
+        ]);
+
+        $migration->up();
+
+        $this->assertSame(1, DB::table('delivery_assignments')->where('order_id', $activeOrder->id)->count());
+    }
+
     public function test_order_records_cannot_be_deleted_while_tracking_history_exists(): void
     {
         $order = $this->order();
@@ -703,14 +799,16 @@ class LogisticsWorkflowTest extends TestCase
         $this->actingAsUser($rider)->patch(route('courier.orders.failDelivery', $order), ['failure_reason' => 'recipient_unavailable'])->assertRedirect();
         $this->assertDatabaseHas('orders', ['id' => $order->id, 'status' => 'DELIVERY_FAILED', 'delivery_failure_reason' => 'recipient_unavailable']);
 
-        $deliveryOrder = $this->order(['status' => 'OUT_FOR_DELIVERY', 'delivery_courier_id' => $rider->id]);
+        $deliveryOrder = $this->order(['status' => 'OUT_FOR_DELIVERY', 'payment_method' => 'COD', 'delivery_courier_id' => $rider->id]);
         $this->actingAsUser($rider)->patch(route('courier.orders.completeDelivery', $deliveryOrder), [
             'recipient_confirmation' => 'A. Buyer',
             'delivery_notes' => 'Left at door',
+            'cod_collected_amount' => $deliveryOrder->total_amount,
         ])->assertSessionHasErrors('proof_file');
         $this->patch(route('courier.orders.completeDelivery', $deliveryOrder), [
             'recipient_confirmation' => 'A. Buyer',
             'delivery_notes' => 'Left at door',
+            'cod_collected_amount' => $deliveryOrder->total_amount,
             'proof_file' => UploadedFile::fake()->image('delivery-proof.jpg'),
         ])->assertRedirect();
         $this->assertDatabaseHas('orders', ['id' => $deliveryOrder->id, 'status' => 'DELIVERED']);
@@ -835,6 +933,12 @@ class LogisticsWorkflowTest extends TestCase
             'delivery_courier_id' => $secondRider->id,
             'scheduled_at' => $scheduledAt,
         ])->assertRedirect();
+        $previousRiderNotification = $firstRider->notifications()
+            ->where('type', OrderWorkflowNotification::class)
+            ->get()
+            ->first(fn ($notification): bool => $notification->data['event_type'] === 'delivery_assignment_replaced');
+        $this->assertNotNull($previousRiderNotification);
+        $this->assertSame(route('courier.history', ['search' => $order->order_number]), $previousRiderNotification->data['url']);
         $this->assertDatabaseHas('orders', ['id' => $order->id, 'status' => 'ASSIGNED_TO_RIDER', 'delivery_notes' => null]);
         $this->assertDatabaseHas('delivery_attempts', [
             'order_id' => $order->id,
@@ -877,13 +981,48 @@ class LogisticsWorkflowTest extends TestCase
         $this->order(['status' => 'AT_SORTING_CENTER']);
 
         $this->actingAsUser($center)->get(route('logistics.dashboard'))->assertOk();
-        $this->get(route('logistics.intake'))->assertOk();
+        $this->get(route('logistics.intake'))
+            ->assertOk()
+            ->assertSee('id="reference"', false)
+            ->assertSee('autofocus', false);
         $this->get(route('logistics.pickupRequests'))->assertOk();
         $this->get(route('logistics.sorting'))->assertOk();
         $this->get(route('logistics.dispatch'))->assertOk();
         $this->get(route('logistics.tracking'))->assertOk();
         $this->get(route('logistics.riders'))->assertOk();
         $this->get(route('logistics.reports'))->assertOk();
+    }
+
+    public function test_logistics_tracking_search_treats_like_wildcards_as_literal_order_number_characters(): void
+    {
+        $center = $this->user('sorting_center', 'approved');
+        $literalMatch = $this->order(['status' => 'OUT_FOR_DELIVERY', 'order_number' => 'EZC-TRACK-100%_A!B']);
+        $wildcardMatch = $this->order(['status' => 'OUT_FOR_DELIVERY', 'order_number' => 'EZC-TRACK-100xyAB']);
+
+        $this->actingAsUser($center)->get(route('logistics.tracking', ['search' => '100%_A!']))
+            ->assertOk()
+            ->assertViewHas('orders', function ($orders) use ($literalMatch, $wildcardMatch): bool {
+                $orderIds = collect($orders->items())->pluck('id')->all();
+
+                return $orderIds === [$literalMatch->id] && ! in_array($wildcardMatch->id, $orderIds, true);
+            });
+    }
+
+    public function test_logistics_tracking_date_filter_includes_the_selected_day_and_excludes_the_next_day(): void
+    {
+        $center = $this->user('sorting_center', 'approved');
+        $selectedDayOrder = $this->order(['status' => 'OUT_FOR_DELIVERY']);
+        $nextDayOrder = $this->order(['status' => 'OUT_FOR_DELIVERY']);
+        $selectedDayOrder->forceFill(['updated_at' => today()->endOfDay()])->saveQuietly();
+        $nextDayOrder->forceFill(['updated_at' => today()->addDay()->startOfDay()])->saveQuietly();
+
+        $this->actingAsUser($center)->get(route('logistics.tracking', ['date' => today()->toDateString()]))
+            ->assertOk()
+            ->assertViewHas('orders', function ($orders) use ($selectedDayOrder, $nextDayOrder): bool {
+                $orderIds = collect($orders->items())->pluck('id')->all();
+
+                return in_array($selectedDayOrder->id, $orderIds, true) && ! in_array($nextDayOrder->id, $orderIds, true);
+            });
     }
 
     public function test_logistics_dashboard_caches_counters_briefly_and_refreshes_them(): void
@@ -921,7 +1060,9 @@ class LogisticsWorkflowTest extends TestCase
         $courier = $this->user('courier', 'approved');
         $assignedOrder = $this->order(['status' => 'ASSIGNED_TO_RIDER', 'delivery_courier_id' => $courier->id, 'delivery_area' => 'Area Z', 'assigned_at' => now()]);
         $nextAreaOrder = $this->order(['status' => 'OUT_FOR_DELIVERY', 'delivery_courier_id' => $courier->id, 'delivery_area' => 'Area A', 'assigned_at' => now()->addMinute()]);
+        $deliveredOrder = $this->order(['status' => 'DELIVERED', 'delivery_courier_id' => $courier->id]);
         $completedOrder = $this->order(['status' => 'COMPLETED', 'delivery_courier_id' => $courier->id]);
+        $returnedOrder = $this->order(['status' => 'RETURNED_TO_SELLER', 'delivery_courier_id' => $courier->id]);
         $otherOrder = $this->order(['status' => 'ASSIGNED_TO_RIDER', 'delivery_courier_id' => $this->user('courier', 'approved')->id]);
 
         $this->actingAsUser($courier)->get(route('courier.dashboard'))
@@ -930,8 +1071,36 @@ class LogisticsWorkflowTest extends TestCase
         $this->get(route('courier.tracking'))->assertOk();
         $this->get(route('courier.history'))->assertOk();
         $this->get(route('courier.orders.show', $assignedOrder))->assertOk()->assertSee($assignedOrder->order_number);
+        $this->get(route('courier.orders.show', $deliveredOrder))->assertForbidden();
         $this->get(route('courier.orders.show', $completedOrder))->assertForbidden();
+        $this->get(route('courier.orders.show', $returnedOrder))->assertForbidden();
         $this->get(route('courier.orders.show', $otherOrder))->assertForbidden();
+    }
+
+    public function test_courier_history_escapes_search_wildcards_and_validates_status_filters(): void
+    {
+        $courier = $this->user('courier', 'approved');
+        $literalMatch = $this->order([
+            'order_number' => 'EZC-100%_A',
+            'status' => 'DELIVERY_FAILED',
+            'delivery_courier_id' => $courier->id,
+        ]);
+        $wildcardMatch = $this->order([
+            'order_number' => 'EZC-100XYA',
+            'status' => 'DELIVERY_FAILED',
+            'delivery_courier_id' => $courier->id,
+        ]);
+
+        $this->actingAsUser($courier)->get(route('courier.history', ['search' => '%_']))
+            ->assertOk()
+            ->assertViewHas('orders', function ($orders) use ($literalMatch, $wildcardMatch): bool {
+                $orderIds = collect($orders->items())->pluck('id')->all();
+
+                return $orderIds === [$literalMatch->id] && ! in_array($wildcardMatch->id, $orderIds, true);
+            });
+
+        $this->get(route('courier.history', ['status' => 'UNKNOWN']))->assertSessionHasErrors('status');
+        $this->get(route('courier.history', ['search' => str_repeat('A', 101)]))->assertSessionHasErrors('search');
     }
 
     public function test_cod_delivery_requires_exact_amount_in_centavos(): void
@@ -964,31 +1133,51 @@ class LogisticsWorkflowTest extends TestCase
         $this->get(route('buyer.orders.show', $order))->assertOk()->assertSee('Download proof');
     }
 
-    public function test_non_cod_delivery_needs_no_cash_and_rejects_a_cod_amount(): void
+    public function test_non_cod_orders_remain_held_at_delivery_until_payment_verification_is_configured(): void
     {
         Storage::fake('private');
         $rider = $this->user('courier', 'approved');
         $order = $this->order(['status' => 'OUT_FOR_DELIVERY', 'payment_method' => 'GCash', 'delivery_courier_id' => $rider->id]);
 
+        $this->actingAsUser($rider)->get(route('courier.orders.show', $order))
+            ->assertOk()
+            ->assertSee('Delivery confirmation is unavailable until payment verification is configured.')
+            ->assertDontSee('Confirm delivered');
+
         $this->actingAsUser($rider)->patch(route('courier.orders.completeDelivery', $order), [
             'recipient_confirmation' => 'Buyer',
             'proof_file' => UploadedFile::fake()->image('delivery-proof.jpg'),
-        ])->assertRedirect();
+        ])->assertUnprocessable();
 
         $this->assertDatabaseHas('orders', [
             'id' => $order->id,
-            'status' => 'DELIVERED',
+            'status' => 'OUT_FOR_DELIVERY',
             'cod_collected_amount' => null,
         ]);
+
+        $this->patch(route('courier.orders.failDelivery', $order), [
+            'failure_reason' => 'recipient_unavailable',
+        ])->assertRedirect();
+        $this->assertDatabaseHas('orders', ['id' => $order->id, 'status' => 'DELIVERY_FAILED']);
 
         $secondOrder = $this->order(['status' => 'OUT_FOR_DELIVERY', 'payment_method' => 'GCash', 'delivery_courier_id' => $rider->id]);
         $this->patch(route('courier.orders.completeDelivery', $secondOrder), [
             'recipient_confirmation' => 'Buyer',
             'cod_collected_amount' => '150.00',
             'proof_file' => UploadedFile::fake()->image('delivery-proof-2.jpg'),
-        ])->assertSessionHasErrors('cod_collected_amount');
+        ])->assertUnprocessable();
 
         $this->assertDatabaseHas('orders', ['id' => $secondOrder->id, 'status' => 'OUT_FOR_DELIVERY']);
+
+        $sortingCenter = $this->user('sorting_center', 'approved');
+        $this->actingAsUser($sortingCenter)->post(route('logistics.orders.return', $order))->assertRedirect();
+        $this->actingAsUser($rider)->post(route('courier.orders.confirmReturnDelivery', $order))->assertRedirect();
+        $this->actingAsUser($order->seller)->post(route('seller.orders.confirmReturn', $order))->assertRedirect();
+        $this->assertDatabaseHas('orders', [
+            'id' => $order->id,
+            'status' => 'RETURNED_TO_SELLER',
+        ]);
+        $this->assertNotNull($order->fresh()->inventory_restored_at);
     }
 
     public function test_buyer_registration_stays_blocked_until_admin_approval_and_documents_are_private(): void
@@ -1037,8 +1226,75 @@ class LogisticsWorkflowTest extends TestCase
         $pendingSeller = $this->user('seller', 'pending');
         $this->actingAsUser($admin)->post(route('admin.moderation.reactivate', $rejected))->assertUnprocessable();
         $this->post(route('admin.moderation.reactivate', $pendingSeller))->assertUnprocessable();
+        $this->post(route('admin.moderation.suspend', $rejected), ['suspension_reason' => 'Policy violation'])->assertUnprocessable();
+        $this->post(route('admin.moderation.suspend', $pendingSeller), ['suspension_reason' => 'Policy violation'])->assertUnprocessable();
         $this->assertDatabaseHas('users', ['id' => $rejected->id, 'status' => 'rejected']);
         $this->assertDatabaseHas('users', ['id' => $pendingSeller->id, 'status' => 'pending']);
+    }
+
+    public function test_account_restoration_preserves_known_approval_and_requires_review_for_legacy_suspensions(): void
+    {
+        $admin = $this->user('admin', 'approved');
+        $approvedSeller = $this->user('seller', 'approved');
+        $legacySuspendedSeller = $this->user('seller', 'suspended');
+
+        $this->actingAsUser($admin)->post(route('admin.moderation.suspend', $approvedSeller), [
+            'suspension_reason' => 'Repeated policy violations.',
+        ])->assertRedirect();
+        $this->assertDatabaseHas('users', [
+            'id' => $approvedSeller->id,
+            'status' => 'suspended',
+            'suspension_previous_status' => 'approved',
+        ]);
+
+        $this->post(route('admin.moderation.reactivate', $approvedSeller))->assertRedirect();
+        $this->assertDatabaseHas('users', [
+            'id' => $approvedSeller->id,
+            'status' => 'approved',
+            'suspension_previous_status' => null,
+        ]);
+
+        $this->post(route('admin.moderation.reactivate', $legacySuspendedSeller))->assertUnprocessable();
+        $this->assertDatabaseHas('users', ['id' => $legacySuspendedSeller->id, 'status' => 'suspended']);
+        $this->get(route('admin.moderation.index'))
+            ->assertOk()
+            ->assertSee('Prior status is unknown. Review the account before restoring it.')
+            ->assertSee('Restore status after review');
+
+        $this->post(route('admin.moderation.reactivate', $legacySuspendedSeller), [
+            'restored_status' => 'pending',
+        ])->assertRedirect();
+        $this->assertDatabaseHas('users', [
+            'id' => $legacySuspendedSeller->id,
+            'status' => 'pending',
+            'suspension_previous_status' => null,
+        ]);
+        $this->assertDatabaseHas('notifications', [
+            'notifiable_id' => $legacySuspendedSeller->id,
+            'type' => AccountStatusNotification::class,
+        ]);
+        $this->assertSame('pending', $legacySuspendedSeller->notifications()->firstOrFail()->data['status']);
+    }
+
+    public function test_remembered_session_is_invalidated_after_the_account_is_suspended(): void
+    {
+        $buyer = $this->user('buyer', 'approved');
+        $this->post(route('login.post'), [
+            'email' => $buyer->email,
+            'password' => 'password',
+            'remember' => true,
+        ])->assertRedirect(route('buyer.dashboard'));
+        $this->assertAuthenticatedAs($buyer);
+        $this->assertNotNull($buyer->fresh()->remember_token);
+
+        $buyer->forceFill(['status' => 'suspended'])->save();
+        Auth::forgetGuards();
+
+        $this->get(route('buyer.dashboard'))
+            ->assertRedirect(route('login'))
+            ->assertSessionHas('error', 'Your account is no longer active. Please contact support.');
+        $this->assertGuest();
+        $this->assertDatabaseHas('users', ['id' => $buyer->id, 'status' => 'suspended', 'remember_token' => null]);
     }
 
     public function test_database_seeder_can_create_accounts_with_protected_role_and_status_fields(): void
@@ -1160,6 +1416,38 @@ class LogisticsWorkflowTest extends TestCase
             ->assertTooManyRequests();
     }
 
+    public function test_login_attempt_limits_do_not_block_password_reset_or_registration(): void
+    {
+        Notification::fake();
+        $user = $this->user('buyer', 'approved');
+
+        for ($attempt = 1; $attempt <= 5; $attempt++) {
+            $this->post(route('login.post'), ['email' => $user->email, 'password' => 'bad-password'])
+                ->assertSessionHasErrors('email');
+        }
+
+        $this->post(route('password.email'), ['email' => $user->email])
+            ->assertRedirect()
+            ->assertSessionHas('status', 'If an account matches that email address, a password reset link has been sent.');
+        $this->post(route('register.post'))->assertSessionHasErrors('first_name');
+    }
+
+    public function test_logistics_rider_review_actions_are_throttled(): void
+    {
+        $center = $this->user('sorting_center', 'approved');
+        $rider = $this->user('courier', 'pending');
+        $this->actingAsUser($center);
+
+        for ($attempt = 1; $attempt <= 30; $attempt++) {
+            $this->post(route('logistics.riders.approve', $rider));
+        }
+
+        $this->assertSame('approved', $rider->fresh()->status);
+        $this->post(route('logistics.riders.suspend', $rider))->assertRedirect();
+        $this->assertSame('suspended', $rider->fresh()->status);
+        $this->post(route('logistics.riders.approve', $rider))->assertTooManyRequests();
+    }
+
     public function test_admin_account_decisions_send_email_and_in_app_notifications(): void
     {
         Notification::fake();
@@ -1171,9 +1459,13 @@ class LogisticsWorkflowTest extends TestCase
         $rejectedRider = $this->user('courier', 'pending');
 
         $this->actingAsUser($admin)->post(route('admin.registrations.approve', $approvedUser))->assertRedirect();
+        $this->post(route('admin.registrations.reject', $approvedUser))->assertUnprocessable();
         $this->post(route('admin.registrations.reject', $rejectedUser))->assertRedirect();
+        $this->post(route('admin.registrations.approve', $rejectedUser))->assertUnprocessable();
         $this->actingAsUser($center)->post(route('logistics.riders.approve', $approvedRider))->assertRedirect();
+        $this->post(route('logistics.riders.reject', $approvedRider))->assertNotFound();
         $this->post(route('logistics.riders.reject', $rejectedRider))->assertRedirect();
+        $this->post(route('logistics.riders.approve', $rejectedRider))->assertNotFound();
 
         Notification::assertSentTo($approvedUser, AccountStatusNotification::class, function (AccountStatusNotification $notification) use ($approvedUser): bool {
             return $notification->status === 'approved'
@@ -1195,6 +1487,46 @@ class LogisticsWorkflowTest extends TestCase
         $this->assertDatabaseHas('users', ['id' => $rejectedUser->id, 'status' => 'rejected']);
         $this->assertDatabaseHas('users', ['id' => $approvedRider->id, 'status' => 'approved']);
         $this->assertDatabaseHas('users', ['id' => $rejectedRider->id, 'status' => 'rejected']);
+    }
+
+    public function test_logistics_can_reactivate_only_couriers_it_suspended(): void
+    {
+        Notification::fake();
+        $admin = $this->user('admin', 'approved');
+        $center = $this->user('sorting_center', 'approved');
+        $adminSuspendedRider = $this->user('courier', 'approved');
+        $logisticsSuspendedRider = $this->user('courier', 'approved');
+
+        $this->actingAsUser($admin)->post(route('admin.moderation.suspend', $adminSuspendedRider), [
+            'suspension_reason' => 'Admin review required.',
+        ])->assertRedirect();
+        Notification::assertSentTo($adminSuspendedRider, AccountStatusNotification::class, function (AccountStatusNotification $notification) use ($adminSuspendedRider): bool {
+            return $notification->status === 'suspended'
+                && str_contains($notification->toDatabase($adminSuspendedRider)['message'], 'Admin review required.');
+        });
+        $this->actingAsUser($center)->post(route('logistics.riders.reactivate', $adminSuspendedRider))->assertNotFound();
+        $this->get(route('logistics.riders'))->assertOk()->assertSee('Admin review required');
+        $this->assertDatabaseHas('users', [
+            'id' => $adminSuspendedRider->id,
+            'status' => 'suspended',
+            'suspension_source' => 'admin',
+        ]);
+
+        $this->post(route('logistics.riders.suspend', $logisticsSuspendedRider))->assertRedirect();
+        Notification::assertSentTo($logisticsSuspendedRider, AccountStatusNotification::class, fn (AccountStatusNotification $notification): bool => $notification->status === 'suspended');
+        $this->assertDatabaseHas('users', [
+            'id' => $logisticsSuspendedRider->id,
+            'status' => 'suspended',
+            'suspension_source' => 'logistics',
+            'suspension_previous_status' => 'approved',
+        ]);
+        $this->post(route('logistics.riders.reactivate', $logisticsSuspendedRider))->assertRedirect();
+        $this->assertDatabaseHas('users', [
+            'id' => $logisticsSuspendedRider->id,
+            'status' => 'approved',
+            'suspension_source' => null,
+            'suspension_previous_status' => null,
+        ]);
     }
 
     public function test_password_reset_uses_one_time_expiring_broker_tokens_and_neutral_responses(): void
@@ -1308,6 +1640,7 @@ class LogisticsWorkflowTest extends TestCase
     public function test_seller_confirmation_and_preparation_are_separate_locked_transitions(): void
     {
         $order = $this->order();
+        $product = $this->addOrderInventoryItem($order, 2);
         $seller = $order->seller;
 
         $this->actingAsUser($seller)->get(route('seller.orders.index'))->assertOk();
@@ -1317,11 +1650,109 @@ class LogisticsWorkflowTest extends TestCase
         $this->patch(route('seller.orders.updateStatus', $order), ['status' => 'PREPARING'])->assertRedirect();
         $this->assertDatabaseHas('orders', ['id' => $order->id, 'status' => 'PREPARING']);
         $this->assertDatabaseHas('parcel_tracking_events', ['order_id' => $order->id, 'event_type' => 'confirmed']);
+        $this->assertSame(0, (int) $product->fresh()->stock);
+    }
+
+    public function test_seller_confirmation_checks_reserved_inventory_without_decrementing_it_again(): void
+    {
+        $emptyOrder = $this->order();
+        $this->actingAsUser($emptyOrder->seller)
+            ->patch(route('seller.orders.updateStatus', $emptyOrder), ['status' => 'CONFIRMED'])
+            ->assertUnprocessable();
+        $this->assertDatabaseHas('orders', ['id' => $emptyOrder->id, 'status' => 'PLACED']);
+
+        $order = $this->order();
+        $product = $this->addOrderInventoryItem($order, 2);
+        $this->actingAsUser($order->seller)
+            ->patch(route('seller.orders.updateStatus', $order), ['status' => 'CONFIRMED'])
+            ->assertRedirect();
+        $this->assertDatabaseHas('products', ['id' => $product->id, 'stock' => 0]);
+
+        $archivedOrder = $this->order();
+        $this->addOrderInventoryItem($archivedOrder, 1, true);
+        $this->actingAsUser($archivedOrder->seller)
+            ->patch(route('seller.orders.updateStatus', $archivedOrder), ['status' => 'CONFIRMED'])
+            ->assertUnprocessable();
+        $this->assertDatabaseHas('orders', ['id' => $archivedOrder->id, 'status' => 'PLACED']);
+
+        $flaggedOrder = $this->order();
+        $this->addOrderInventoryItem($flaggedOrder, 1, false, 'flagged');
+        $this->actingAsUser($flaggedOrder->seller)
+            ->patch(route('seller.orders.updateStatus', $flaggedOrder), ['status' => 'CONFIRMED'])
+            ->assertUnprocessable();
+        $this->assertDatabaseHas('orders', ['id' => $flaggedOrder->id, 'status' => 'PLACED']);
+
+        $restoredOrder = $this->order();
+        $restoredProduct = $this->addOrderInventoryItem($restoredOrder, 1);
+        app(InventoryRestorationService::class)->restore($restoredOrder);
+        $this->actingAsUser($restoredOrder->seller)
+            ->patch(route('seller.orders.updateStatus', $restoredOrder), ['status' => 'CONFIRMED'])
+            ->assertUnprocessable();
+        $this->assertDatabaseHas('products', ['id' => $restoredProduct->id, 'stock' => 1]);
+        $this->assertDatabaseHas('orders', ['id' => $restoredOrder->id, 'status' => 'PLACED']);
+    }
+
+    public function test_cashless_orders_remain_held_until_payment_verification_is_configured(): void
+    {
+        $order = $this->order(['payment_method' => 'GCash']);
+        $seller = $order->seller;
+
+        $this->actingAsUser($seller)->get(route('seller.orders.show', $order))
+            ->assertOk()
+            ->assertSee('Fulfillment is on hold because payment verification for GCash is not configured yet.')
+            ->assertDontSee('Accept order');
+
+        $this->patch(route('seller.orders.updateStatus', $order), ['status' => 'CONFIRMED'])->assertUnprocessable();
+        $this->assertDatabaseHas('orders', ['id' => $order->id, 'status' => 'PLACED']);
+
+        $legacyLogisticsOrder = $this->order(['payment_method' => 'GCash', 'status' => 'SORTED']);
+        $sortingCenter = $this->user('sorting_center', 'approved');
+        $rider = $this->user('courier', 'approved');
+        $this->actingAsUser($sortingCenter)
+            ->post(route('logistics.orders.assignRider', $legacyLogisticsOrder), ['delivery_courier_id' => $rider->id])
+            ->assertUnprocessable();
+        $this->assertDatabaseHas('orders', ['id' => $legacyLogisticsOrder->id, 'status' => 'SORTED']);
+
+        $legacyPickupOrder = $this->order([
+            'payment_method' => 'GCash',
+            'status' => 'READY_FOR_PICKUP',
+            'pickup_courier_id' => $rider->id,
+            'pickup_claimed_at' => now(),
+            'pickup_arrived_at' => now(),
+            'pickup_requested_at' => now(),
+        ]);
+        $this->actingAsUser($legacyPickupOrder->seller)
+            ->post(route('seller.orders.confirmHandover', $legacyPickupOrder))
+            ->assertUnprocessable();
+        $this->actingAsUser($rider)
+            ->post(route('courier.orders.confirmPickup', $legacyPickupOrder))
+            ->assertUnprocessable();
+        $this->assertDatabaseHas('orders', [
+            'id' => $legacyPickupOrder->id,
+            'status' => 'READY_FOR_PICKUP',
+            'seller_handover_at' => null,
+        ]);
+
+        $this->actingAsUser($order->buyer)->get(route('buyer.orders.show', $order))
+            ->assertOk()
+            ->assertSee('Fulfillment is on hold because payment verification for GCash is not configured yet.');
+
+        $this->withSession(['cart' => [[
+            'product_id' => 1,
+            'name' => 'Payment hold test item',
+            'price' => 100,
+            'quantity' => 1,
+            'variation_id' => null,
+        ]]])->get(route('checkout.index'))
+            ->assertOk()
+            ->assertSee('value="Bank Transfer"', false)
+            ->assertSee('Order fulfillment will remain on hold until payment verification is configured.');
     }
 
     public function test_order_notifications_are_visible_only_to_the_notifiable_account(): void
     {
         $order = $this->order();
+        $this->addOrderInventoryItem($order);
         $buyer = $order->buyer;
         $seller = $order->seller;
 
@@ -1336,6 +1767,51 @@ class LogisticsWorkflowTest extends TestCase
 
         $otherBuyer = $this->user('buyer', 'approved');
         $this->actingAsUser($otherBuyer)->post(route('notifications.read', $buyerNotification->id))->assertNotFound();
+    }
+
+    public function test_notification_database_record_and_email_are_discarded_when_order_transaction_rolls_back(): void
+    {
+        Mail::fake();
+        $recipient = $this->user('buyer', 'approved');
+        $sender = new TransactionAwareNotificationSender;
+
+        try {
+            DB::transaction(function () use ($recipient, $sender): void {
+                $sender->send($recipient, new AccountStatusNotification('approved'));
+                $this->assertDatabaseHas('notifications', [
+                    'notifiable_id' => $recipient->id,
+                    'type' => AccountStatusNotification::class,
+                ]);
+                Mail::assertNothingOutgoing();
+
+                throw new \RuntimeException('Force the notification transaction to roll back.');
+            });
+        } catch (\RuntimeException $exception) {
+            $this->assertSame('Force the notification transaction to roll back.', $exception->getMessage());
+        }
+
+        $this->assertDatabaseMissing('notifications', [
+            'notifiable_id' => $recipient->id,
+            'type' => AccountStatusNotification::class,
+        ]);
+        Mail::assertNothingOutgoing();
+    }
+
+    public function test_mail_transport_failure_does_not_roll_back_order_transition(): void
+    {
+        config(['mail.default' => 'missing-mailer']);
+        $order = $this->order();
+        $this->addOrderInventoryItem($order);
+
+        $this->actingAsUser($order->seller)
+            ->patch(route('seller.orders.updateStatus', $order), ['status' => 'CONFIRMED'])
+            ->assertRedirect();
+
+        $this->assertDatabaseHas('orders', ['id' => $order->id, 'status' => 'CONFIRMED']);
+        $this->assertDatabaseHas('notifications', [
+            'notifiable_id' => $order->buyer_id,
+            'type' => OrderStatusNotification::class,
+        ]);
     }
 
     public function test_seller_schedules_pickup_before_logistics_can_assign_a_rider(): void
@@ -1622,9 +2098,38 @@ class LogisticsWorkflowTest extends TestCase
             'shipping_fee' => 50,
             'commission_fee' => 10,
             'total_amount' => 150,
-            'payment_method' => 'GCash',
+            'payment_method' => 'COD',
             'status' => 'PLACED',
         ], $extra));
+    }
+
+    private function addOrderInventoryItem(
+        Order $order,
+        int $quantity = 1,
+        bool $archived = false,
+        string $complianceStatus = 'approved',
+    ): Product {
+        $product = Product::query()->create([
+            'user_id' => $order->seller_id,
+            'name' => 'Reserved order item',
+            'description' => 'Inventory reserved at checkout.',
+            'category' => 'Test',
+            'price' => 100,
+            'stock' => 0,
+            'is_archived' => $archived,
+        ]);
+        $product->forceFill(['compliance_status' => $complianceStatus])->save();
+        OrderItem::query()->create([
+            'order_id' => $order->id,
+            'product_id' => $product->id,
+            'variation_id' => null,
+            'product_name' => $product->name,
+            'unit_price' => 100,
+            'quantity' => $quantity,
+            'item_total' => 100 * $quantity,
+        ]);
+
+        return $product;
     }
 
     private function area(string $province, string $municipality): Area

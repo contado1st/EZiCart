@@ -56,6 +56,11 @@
                                         <div class="form-group"><label class="form-label" for="note-{{ $product->id }}">Review note (required when flagging)</label><textarea id="note-{{ $product->id }}" class="form-control" name="compliance_note" maxlength="1000"></textarea></div>
                                         <button class="dash-btn-sm dash-btn-primary" type="submit">Save review</button>
                                     </form>
+                                    <form method="POST" action="{{ route('admin.compliance.products.warn', $product) }}" style="margin-top:1rem;">
+                                        @csrf
+                                        <div class="form-group"><label class="form-label" for="warning-{{ $product->id }}">Separate seller warning</label><textarea id="warning-{{ $product->id }}" class="form-control" name="warning_note" maxlength="1000" required></textarea></div>
+                                        <button class="dash-btn-sm" type="submit">Issue warning</button>
+                                    </form>
                                 </td>
                             </tr>
                         @empty

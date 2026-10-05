@@ -5,12 +5,12 @@ namespace App\Http\Controllers\Auth;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use App\Notifications\CourierApplicationSubmittedNotification;
+use App\Services\TransactionAwareNotificationSender;
 use Carbon\Carbon;
 use Illuminate\Auth\Events\PasswordReset;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Password;
 use Illuminate\Support\Str;
 
@@ -228,7 +228,7 @@ class AuthController extends Controller
         return view('auth.register-courier');
     }
 
-    public function courierRegister(Request $request)
+    public function courierRegister(Request $request, TransactionAwareNotificationSender $notifications)
     {
         $validated = $request->validate([
             'first_name' => 'required|string|max:100',
@@ -279,7 +279,7 @@ class AuthController extends Controller
             ->whereIn('role', ['admin', 'sorting_center'])
             ->where('status', 'approved')
             ->get();
-        Notification::send($reviewers, new CourierApplicationSubmittedNotification($courier));
+        $notifications->send($reviewers, new CourierApplicationSubmittedNotification($courier));
 
         return redirect()->route('login')->with('success', 'Rider application submitted! Please wait for Logistics / Sorting Center approval.');
     }

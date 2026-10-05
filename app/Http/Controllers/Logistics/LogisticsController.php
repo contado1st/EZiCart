@@ -14,6 +14,7 @@ use App\Notifications\AccountStatusNotification;
 use App\Notifications\OrderWorkflowNotification;
 use App\Services\OrderAreaService;
 use App\Services\OrderTransitionService;
+use App\Services\TransactionAwareNotificationSender;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\RedirectResponse;
@@ -74,6 +75,7 @@ class LogisticsController extends Controller
     {
         $orders = Order::query()->with(['seller', 'items', 'pickupCourier'])
             ->where('status', 'READY_FOR_PICKUP')
+            ->where('payment_method', 'COD')
             ->whereNotNull('pickup_requested_at')
             ->whereNull('pickup_claimed_at')
             ->latest()->paginate(20);
@@ -82,15 +84,16 @@ class LogisticsController extends Controller
         return view('logistics.pickup-requests', compact('orders', 'riders'));
     }
 
-    public function assignPickup(Request $request, Order $order): RedirectResponse
+    public function assignPickup(Request $request, Order $order, TransactionAwareNotificationSender $notifications): RedirectResponse
     {
         $validated = $request->validate(['pickup_courier_id' => ['required', 'integer', 'exists:users,id']]);
         $operator = $this->authenticatedUser();
 
-        return DB::transaction(function () use ($order, $validated, $operator): RedirectResponse {
+        return DB::transaction(function () use ($order, $validated, $operator, $notifications): RedirectResponse {
             $lockedOrder = Order::query()->whereKey($order->id)->lockForUpdate()->firstOrFail();
             abort_unless(
                 $lockedOrder->status === 'READY_FOR_PICKUP'
+                    && $lockedOrder->payment_method === 'COD'
                     && $lockedOrder->pickup_requested_at !== null
                     && $lockedOrder->pickup_claimed_at === null
                     && $lockedOrder->pickup_arrived_at === null
@@ -115,10 +118,10 @@ class LogisticsController extends Controller
                     : "Pickup reassigned from {$previousRider->first_name} {$previousRider->last_name} to {$rider->first_name} {$rider->last_name} before rider acceptance.",
             ]);
             if ($previousRider !== null) {
-                $previousRider->notify(new OrderWorkflowNotification($lockedOrder, 'pickup_reassigned', 'Logistics reassigned this pickup before you accepted it.'));
+                $notifications->send($previousRider, new OrderWorkflowNotification($lockedOrder, 'pickup_reassigned', 'Logistics reassigned this pickup before you accepted it.'));
             }
-            $rider->notify(new OrderWorkflowNotification($lockedOrder, 'pickup_assigned', 'Logistics assigned you a seller pickup.'));
-            $lockedOrder->seller?->notify(new OrderWorkflowNotification(
+            $notifications->send($rider, new OrderWorkflowNotification($lockedOrder, 'pickup_assigned', 'Logistics assigned you a seller pickup.'));
+            $notifications->send($lockedOrder->seller, new OrderWorkflowNotification(
                 $lockedOrder,
                 $previousRider === null ? 'pickup_assigned' : 'pickup_reassigned',
                 $previousRider === null ? 'Logistics assigned a rider to your pickup request.' : 'Logistics reassigned the rider for your pickup request.',
@@ -210,8 +213,12 @@ class LogisticsController extends Controller
         return view('logistics.dispatch', compact('parcels', 'riders', 'suggestedRiders', 'maxActiveDeliveries'));
     }
 
-    public function assignRider(Request $request, Order $order, OrderTransitionService $transitions): RedirectResponse
-    {
+    public function assignRider(
+        Request $request,
+        Order $order,
+        OrderTransitionService $transitions,
+        TransactionAwareNotificationSender $notifications,
+    ): RedirectResponse {
         $rules = [
             'delivery_courier_id' => ['required', 'integer', 'exists:users,id'],
             'scheduled_at' => ['nullable', 'date', 'after:now'],
@@ -222,8 +229,9 @@ class LogisticsController extends Controller
         $validated = $request->validate($rules);
         $operator = $this->authenticatedUser();
 
-        return DB::transaction(function () use ($order, $validated, $operator, $transitions): RedirectResponse {
+        return DB::transaction(function () use ($order, $validated, $operator, $transitions, $notifications): RedirectResponse {
             $lockedOrder = Order::whereKey($order->id)->lockForUpdate()->firstOrFail();
+            $previousRiderId = $lockedOrder->delivery_courier_id;
             abort_unless(in_array($lockedOrder->status, ['SORTED', 'ASSIGNED_TO_RIDER', 'DELIVERY_FAILED'], true), 422, 'This parcel cannot be assigned at its current stage.');
             if ($lockedOrder->status === OrderStatus::AssignedToRider->value) {
                 abort_unless($lockedOrder->hub_released_at === null, 422, 'This parcel cannot be reassigned after Logistics records the hub handoff.');
@@ -254,6 +262,18 @@ class LogisticsController extends Controller
                 'delivery_notes' => null,
             ]);
 
+            if ($previousRiderId !== null && (int) $previousRiderId !== $rider->id) {
+                $previousRider = User::query()->find($previousRiderId);
+
+                if ($previousRider !== null) {
+                    $notifications->send($previousRider, new OrderWorkflowNotification(
+                        $lockedOrder->refresh(),
+                        'delivery_assignment_replaced',
+                        'Logistics removed this delivery assignment and assigned it to another rider.',
+                    ));
+                }
+            }
+
             if (isset($validated['scheduled_at'])) {
                 $scheduledAttempt = DeliveryAttempt::query()
                     ->where('order_id', $lockedOrder->id)
@@ -278,13 +298,14 @@ class LogisticsController extends Controller
         });
     }
 
-    public function releaseToRider(Order $order): RedirectResponse
+    public function releaseToRider(Order $order, TransactionAwareNotificationSender $notifications): RedirectResponse
     {
         $operator = $this->authenticatedUser();
 
-        return DB::transaction(function () use ($order, $operator): RedirectResponse {
+        return DB::transaction(function () use ($order, $operator, $notifications): RedirectResponse {
             $lockedOrder = Order::query()->whereKey($order->id)->lockForUpdate()->firstOrFail();
             abort_unless($lockedOrder->status === OrderStatus::AssignedToRider->value, 422, 'Assign this parcel before releasing it to a rider.');
+            abort_unless($lockedOrder->payment_method === 'COD', 422, 'This parcel is on hold until payment verification is configured.');
             abort_unless($lockedOrder->delivery_courier_id !== null && $lockedOrder->hub_released_at === null, 422, 'This parcel has already been released or has no assigned rider.');
 
             $rider = User::query()->whereKey($lockedOrder->delivery_courier_id)->lockForUpdate()->firstOrFail();
@@ -299,7 +320,7 @@ class LogisticsController extends Controller
                 'location' => $operator->municipality,
                 'notes' => "Logistics released the parcel to {$rider->first_name} {$rider->last_name} for final delivery.",
             ]);
-            $rider->notify(new OrderWorkflowNotification($lockedOrder, 'hub_released_to_rider', 'Logistics released your assigned parcel from the sorting center.'));
+            $notifications->send($rider, new OrderWorkflowNotification($lockedOrder, 'hub_released_to_rider', 'Logistics released your assigned parcel from the sorting center.'));
 
             return back()->with('success', "Parcel {$lockedOrder->order_number} released to {$rider->first_name} {$rider->last_name}.");
         });
@@ -436,20 +457,28 @@ class LogisticsController extends Controller
         return back()->with('success', 'Rider service areas updated. The first selected area is primary.');
     }
 
-    public function approveRider(User $user): RedirectResponse
+    public function approveRider(User $user, TransactionAwareNotificationSender $notifications): RedirectResponse
     {
-        abort_unless($user->role === 'courier' && $user->status === 'pending', 404);
-        $user->forceFill(['status' => 'approved'])->save();
-        $user->notify(new AccountStatusNotification('approved'));
+        DB::transaction(function () use ($user, $notifications): void {
+            $lockedUser = User::query()->whereKey($user->id)->lockForUpdate()->firstOrFail();
+            abort_unless($lockedUser->role === 'courier' && $lockedUser->status === 'pending', 404);
+
+            $lockedUser->forceFill(['status' => 'approved'])->save();
+            $notifications->send($lockedUser, new AccountStatusNotification('approved'));
+        });
 
         return back()->with('success', "Courier {$user->first_name} {$user->last_name} approved.");
     }
 
-    public function rejectRider(User $user): RedirectResponse
+    public function rejectRider(User $user, TransactionAwareNotificationSender $notifications): RedirectResponse
     {
-        abort_unless($user->role === 'courier' && $user->status === 'pending', 404);
-        $user->forceFill(['status' => 'rejected'])->save();
-        $user->notify(new AccountStatusNotification('rejected'));
+        DB::transaction(function () use ($user, $notifications): void {
+            $lockedUser = User::query()->whereKey($user->id)->lockForUpdate()->firstOrFail();
+            abort_unless($lockedUser->role === 'courier' && $lockedUser->status === 'pending', 404);
+
+            $lockedUser->forceFill(['status' => 'rejected'])->save();
+            $notifications->send($lockedUser, new AccountStatusNotification('rejected'));
+        });
 
         return back()->with('success', 'Courier application rejected.');
     }
@@ -463,18 +492,43 @@ class LogisticsController extends Controller
         return back()->with('success', "Order {$order->order_number} marked for return handling.");
     }
 
-    public function suspendRider(User $user): RedirectResponse
+    public function suspendRider(User $user, TransactionAwareNotificationSender $notifications): RedirectResponse
     {
-        abort_unless($user->role === 'courier' && $user->status === 'approved', 404);
-        $user->forceFill(['status' => 'suspended'])->save();
+        DB::transaction(function () use ($user, $notifications): void {
+            $lockedUser = User::query()->whereKey($user->id)->lockForUpdate()->firstOrFail();
+            abort_unless($lockedUser->role === 'courier' && $lockedUser->status === 'approved', 404);
+
+            $lockedUser->forceFill([
+                'status' => 'suspended',
+                'suspension_previous_status' => 'approved',
+                'suspension_source' => 'logistics',
+            ])->save();
+            $notifications->send($lockedUser, new AccountStatusNotification('suspended'));
+        });
 
         return back()->with('success', 'Rider suspended from dispatch.');
     }
 
     public function reactivateRider(User $user): RedirectResponse
     {
-        abort_unless($user->role === 'courier' && $user->status === 'suspended', 404);
-        $user->forceFill(['status' => 'approved'])->save();
+        DB::transaction(function () use ($user): void {
+            $lockedUser = User::query()->whereKey($user->id)->lockForUpdate()->firstOrFail();
+            abort_unless(
+                $lockedUser->role === 'courier'
+                    && $lockedUser->status === 'suspended'
+                    && $lockedUser->suspension_previous_status === 'approved'
+                    && $lockedUser->suspension_source === 'logistics',
+                404,
+            );
+
+            $lockedUser->forceFill([
+                'status' => 'approved',
+                'suspension_previous_status' => null,
+                'suspension_source' => null,
+                'suspension_reason' => null,
+                'suspended_at' => null,
+            ])->save();
+        });
 
         return back()->with('success', 'Rider reactivated.');
     }

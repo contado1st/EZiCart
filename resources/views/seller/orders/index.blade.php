@@ -126,7 +126,9 @@
                                 🖨️ Waybill
                             </a>
 
-                            @if ($order->status === 'PLACED')
+                            @if ($order->payment_method !== 'COD' && in_array($order->status, ['PLACED', 'CONFIRMED', 'PREPARING', 'READY_FOR_PICKUP'], true))
+                                <p role="status">Fulfillment on hold: payment verification is not configured for {{ $order->payment_method }}.</p>
+                            @elseif ($order->status === 'PLACED')
                                 <form action="{{ route('seller.orders.updateStatus', $order->id) }}" method="POST">
                                     @csrf
                                     @method('PATCH')

@@ -11,6 +11,7 @@ use App\Models\ParcelTrackingEvent;
 use App\Models\User;
 use App\Notifications\OrderWorkflowNotification;
 use App\Services\OrderTransitionService;
+use App\Services\TransactionAwareNotificationSender;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -71,29 +72,35 @@ class CourierController extends Controller
         return view('courier.orders.show', compact('order'));
     }
 
-    public function claimPickup(Order $order): RedirectResponse
+    public function claimPickup(Order $order, TransactionAwareNotificationSender $notifications): RedirectResponse
     {
         $courier = $this->authenticatedUser();
 
-        return DB::transaction(function () use ($order, $courier): RedirectResponse {
+        return DB::transaction(function () use ($order, $courier, $notifications): RedirectResponse {
             $lockedOrder = Order::whereKey($order->id)->lockForUpdate()->firstOrFail();
             abort_unless($courier->status === 'approved', 403, 'Your rider account is not approved for pickups.');
             abort_unless($lockedOrder->pickup_courier_id === $courier->id, 403);
-            abort_unless($lockedOrder->status === 'READY_FOR_PICKUP' && $lockedOrder->pickup_claimed_at === null, 422, 'This pickup has already been accepted or is no longer available.');
+            abort_unless(
+                $lockedOrder->payment_method === 'COD'
+                    && $lockedOrder->status === 'READY_FOR_PICKUP'
+                    && $lockedOrder->pickup_claimed_at === null,
+                422,
+                'This pickup has already been accepted, is on payment verification hold, or is no longer available.',
+            );
             $lockedOrder->forceFill(['pickup_claimed_at' => now()])->save();
             $this->recordEvent($lockedOrder, 'pickup_accepted', $courier, $lockedOrder->seller?->municipality, 'Rider accepted the Logistics pickup assignment.');
-            $lockedOrder->seller?->notify(new OrderWorkflowNotification($lockedOrder, 'pickup_accepted', 'The assigned rider accepted the pickup request.'));
+            $notifications->send($lockedOrder->seller, new OrderWorkflowNotification($lockedOrder, 'pickup_accepted', 'The assigned rider accepted the pickup request.'));
 
             return back()->with('success', "Pickup {$lockedOrder->order_number} added to your route.");
         });
     }
 
-    public function declinePickup(Request $request, Order $order): RedirectResponse
+    public function declinePickup(Request $request, Order $order, TransactionAwareNotificationSender $notifications): RedirectResponse
     {
         $validated = $request->validate(['reason' => ['nullable', 'string', 'max:500']]);
         $courier = $this->authenticatedUser();
 
-        return DB::transaction(function () use ($order, $courier, $validated): RedirectResponse {
+        return DB::transaction(function () use ($order, $courier, $validated, $notifications): RedirectResponse {
             $lockedOrder = Order::query()->whereKey($order->id)->lockForUpdate()->firstOrFail();
             abort_unless($courier->status === 'approved' && $lockedOrder->status === 'READY_FOR_PICKUP', 422, 'This pickup cannot be declined.');
             abort_unless($lockedOrder->pickup_courier_id === $courier->id && $lockedOrder->pickup_claimed_at === null, 403);
@@ -106,27 +113,34 @@ class CourierController extends Controller
                 $lockedOrder->seller?->municipality,
                 filled($validated['reason'] ?? null) ? $validated['reason'] : 'Rider declined the pickup assignment.',
             );
-            $lockedOrder->seller?->notify(new OrderWorkflowNotification($lockedOrder, 'pickup_declined', 'The assigned rider declined the pickup. Logistics will reassign it.'));
+            $notifications->send($lockedOrder->seller, new OrderWorkflowNotification($lockedOrder, 'pickup_declined', 'The assigned rider declined the pickup. Logistics will reassign it.'));
             User::query()->where('role', 'sorting_center')->where('status', 'approved')->each(
-                fn (User $operator) => $operator->notify(new OrderWorkflowNotification($lockedOrder, 'pickup_declined', 'A rider declined a pickup and it is back in the Logistics queue.')),
+                fn (User $operator) => $notifications->send($operator, new OrderWorkflowNotification($lockedOrder, 'pickup_declined', 'A rider declined a pickup and it is back in the Logistics queue.')),
             );
 
             return back()->with('success', "Pickup {$lockedOrder->order_number} returned to the Logistics queue.");
         });
     }
 
-    public function confirmPickup(Order $order, OrderTransitionService $transitions): RedirectResponse
+    public function confirmPickup(Order $order, OrderTransitionService $transitions, TransactionAwareNotificationSender $notifications): RedirectResponse
     {
         $courier = $this->authenticatedUser();
 
-        return DB::transaction(function () use ($order, $courier, $transitions): RedirectResponse {
+        return DB::transaction(function () use ($order, $courier, $transitions, $notifications): RedirectResponse {
             $lockedOrder = Order::whereKey($order->id)->lockForUpdate()->firstOrFail();
             abort_unless($lockedOrder->pickup_courier_id === $courier->id, 403);
-            abort_unless($courier->status === 'approved' && $lockedOrder->status === 'READY_FOR_PICKUP' && $lockedOrder->pickup_claimed_at !== null, 422, 'This pickup cannot be confirmed.');
+            abort_unless(
+                $courier->status === 'approved'
+                    && $lockedOrder->payment_method === 'COD'
+                    && $lockedOrder->status === 'READY_FOR_PICKUP'
+                    && $lockedOrder->pickup_claimed_at !== null,
+                422,
+                'This pickup cannot be confirmed.',
+            );
             if ($lockedOrder->pickup_arrived_at === null) {
                 $lockedOrder->forceFill(['pickup_arrived_at' => now()])->save();
                 $this->recordEvent($lockedOrder, 'pickup_arrived', $courier, $lockedOrder->seller?->municipality, 'Rider arrived and requested seller handover confirmation.');
-                $lockedOrder->seller?->notify(new OrderWorkflowNotification($lockedOrder, 'pickup_arrived', 'The rider arrived. Confirm the parcel handover when ready.'));
+                $notifications->send($lockedOrder->seller, new OrderWorkflowNotification($lockedOrder, 'pickup_arrived', 'The rider arrived. Confirm the parcel handover when ready.'));
 
                 return back()->with('success', 'Arrival recorded. Wait for the seller to confirm parcel handover, then confirm possession.');
             }
@@ -146,6 +160,7 @@ class CourierController extends Controller
             $lockedOrder = Order::whereKey($order->id)->lockForUpdate()->firstOrFail();
             abort_unless($lockedOrder->delivery_courier_id === $courier->id, 403);
             abort_unless($courier->status === 'approved' && $lockedOrder->status === 'ASSIGNED_TO_RIDER', 422, 'This parcel cannot be started for delivery.');
+            abort_unless($lockedOrder->payment_method === 'COD', 422, 'Delivery is on hold until payment verification for this method is configured.');
             abort_unless($lockedOrder->hub_released_at !== null, 422, 'Logistics must confirm the hub handoff before delivery can start.');
             $scheduledAttempt = DeliveryAttempt::query()
                 ->where('order_id', $lockedOrder->id)
@@ -168,12 +183,12 @@ class CourierController extends Controller
         return back()->with('success', "Delivery assignment for {$order->order_number} declined. Logistics can dispatch it to another rider.");
     }
 
-    public function confirmReturnDelivery(Order $order): RedirectResponse
+    public function confirmReturnDelivery(Order $order, TransactionAwareNotificationSender $notifications): RedirectResponse
     {
         $courier = $this->authenticatedUser();
         abort_unless($order->delivery_courier_id === $courier->id, 403);
 
-        DB::transaction(function () use ($order, $courier): void {
+        DB::transaction(function () use ($order, $courier, $notifications): void {
             $lockedOrder = Order::query()->whereKey($order->id)->lockForUpdate()->firstOrFail();
             abort_unless($lockedOrder->delivery_courier_id === $courier->id, 403);
             abort_unless($courier->status === 'approved' && $lockedOrder->status === OrderStatus::ReturnInTransit->value, 422, 'This parcel is not on an active return to seller.');
@@ -189,7 +204,7 @@ class CourierController extends Controller
                 'location' => $seller?->municipality,
                 'notes' => 'Courier recorded handing the return parcel to the seller; seller receipt confirmation is pending.',
             ]);
-            $seller?->notify(new OrderWorkflowNotification($lockedOrder, 'return_handed_to_seller', 'The courier recorded a return handoff. Confirm receipt only after you physically receive the parcel.'));
+            $notifications->send($seller, new OrderWorkflowNotification($lockedOrder, 'return_handed_to_seller', 'The courier recorded a return handoff. Confirm receipt only after you physically receive the parcel.'));
 
             $assignment = DeliveryAssignment::query()
                 ->where('order_id', $lockedOrder->id)
@@ -223,12 +238,9 @@ class CourierController extends Controller
             $lockedOrder = Order::whereKey($order->id)->lockForUpdate()->firstOrFail();
             abort_unless($lockedOrder->delivery_courier_id === $courier->id, 403);
             abort_unless($courier->status === 'approved' && $lockedOrder->status === 'OUT_FOR_DELIVERY', 422, 'This parcel is not out for delivery.');
-            if ($lockedOrder->payment_method === 'COD') {
-                if (! isset($validated['cod_collected_amount']) || $this->amountInCentavos($validated['cod_collected_amount']) !== $this->amountInCentavos((string) $lockedOrder->total_amount)) {
-                    throw ValidationException::withMessages(['cod_collected_amount' => 'Enter the exact full order amount collected for cash on delivery.']);
-                }
-            } elseif (isset($validated['cod_collected_amount'])) {
-                throw ValidationException::withMessages(['cod_collected_amount' => 'Cash collection is only recorded for cash-on-delivery orders.']);
+            abort_unless($lockedOrder->payment_method === 'COD', 422, 'Delivery is on hold until payment verification for this method is configured.');
+            if (! isset($validated['cod_collected_amount']) || $this->amountInCentavos($validated['cod_collected_amount']) !== $this->amountInCentavos((string) $lockedOrder->total_amount)) {
+                throw ValidationException::withMessages(['cod_collected_amount' => 'Enter the exact full order amount collected for cash on delivery.']);
             }
             $notes = trim('Recipient: '.$validated['recipient_confirmation'].'. '.($validated['delivery_notes'] ?? ''));
             $attempt = $this->recordDeliveryAttempt($lockedOrder, $courier, 'delivered', [
@@ -279,6 +291,10 @@ class CourierController extends Controller
     public function history(Request $request): View
     {
         $courier = $this->authenticatedUser();
+        $validated = $request->validate([
+            'search' => ['nullable', 'string', 'max:100'],
+            'status' => ['nullable', 'in:DELIVERED,COMPLETED,DELIVERY_FAILED,RETURN_IN_TRANSIT,RETURNED_TO_SELLER,PICKED_UP'],
+        ]);
         $orders = Order::query()
             ->select([
                 'id', 'order_number', 'status', 'delivery_courier_id', 'pickup_courier_id',
@@ -290,8 +306,11 @@ class CourierController extends Controller
                     ->orWhere('pickup_courier_id', $courier->id)
                     ->orWhereHas('deliveryAssignments', fn (Builder $assignments) => $assignments->where('rider_id', $courier->id));
             })
-            ->when($request->filled('search'), fn (Builder $query) => $query->where('order_number', 'like', '%'.$request->string('search').'%'))
-            ->when($request->filled('status'), fn (Builder $query) => $query->where('status', $request->string('status')->toString()))
+            ->when(filled($validated['search'] ?? null), fn (Builder $query) => $query->whereRaw(
+                "order_number LIKE ? ESCAPE '!'",
+                [$this->orderNumberSearchPattern($validated['search'])],
+            ))
+            ->when(filled($validated['status'] ?? null), fn (Builder $query) => $query->where('status', $validated['status']))
             ->latest('updated_at')->paginate(20)->withQueryString();
 
         return view('courier.history', compact('orders'));
@@ -324,6 +343,11 @@ class CourierController extends Controller
         [$pesos, $centavos] = array_pad(explode('.', $amount, 2), 2, '');
 
         return ((int) $pesos * 100) + (int) str_pad(substr($centavos, 0, 2), 2, '0');
+    }
+
+    private function orderNumberSearchPattern(string $search): string
+    {
+        return '%'.strtr($search, ['!' => '!!', '%' => '!%', '_' => '!_']).'%';
     }
 
     /** @param array<string, mixed> $attributes */

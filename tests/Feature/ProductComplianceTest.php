@@ -128,6 +128,49 @@ class ProductComplianceTest extends TestCase
         $this->assertDatabaseHas('product_compliance_events', ['product_id' => $product->id, 'action' => 'resubmitted']);
     }
 
+    public function test_admin_can_issue_a_logged_seller_warning_without_changing_listing_status(): void
+    {
+        $seller = $this->user('seller');
+        $admin = $this->user('admin');
+        $product = Product::query()->forceCreate([
+            'user_id' => $seller->id,
+            'name' => 'Reviewed product',
+            'description' => 'Reviewed description',
+            'category' => 'Home & Living',
+            'price' => 100,
+            'stock' => 4,
+            'compliance_status' => 'approved',
+            'is_archived' => false,
+        ]);
+        $warningNote = 'Please provide supporting documents for the environmental claim.';
+
+        $this->actingAsUser($seller)->post(route('admin.compliance.products.warn', $product), [
+            'warning_note' => $warningNote,
+        ])->assertForbidden();
+
+        $this->actingAsUser($admin)->from(route('admin.compliance.products.index'))
+            ->post(route('admin.compliance.products.warn', $product), ['warning_note' => ''])
+            ->assertSessionHasErrors('warning_note');
+        $this->assertDatabaseCount('product_compliance_events', 0);
+
+        $this->post(route('admin.compliance.products.warn', $product), [
+            'warning_note' => $warningNote,
+        ])->assertRedirect(route('admin.compliance.products.index'));
+
+        $this->assertDatabaseHas('products', ['id' => $product->id, 'compliance_status' => 'approved']);
+        $this->assertDatabaseHas('product_compliance_events', [
+            'product_id' => $product->id,
+            'actor_id' => $admin->id,
+            'action' => 'warning_issued',
+            'previous_status' => 'approved',
+            'new_status' => 'approved',
+            'note' => $warningNote,
+        ]);
+        $notification = $seller->notifications()->firstOrFail();
+        $this->assertSame('warning_issued', $notification->data['status']);
+        $this->assertSame($warningNote, $notification->data['note']);
+    }
+
     private function actingAsUser(User $user): static
     {
         $this->flushSession();

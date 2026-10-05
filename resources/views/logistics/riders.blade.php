@@ -71,8 +71,14 @@
                                     <form method="POST" action="{{ route('logistics.riders.suspend', $rider) }}">
                                         @csrf<button class="ops-btn ops-btn--danger">Suspend</button></form>
                                 @elseif($rider->status === 'suspended')
-                                    <form method="POST" action="{{ route('logistics.riders.reactivate', $rider) }}">
-                                    @csrf<button class="ops-btn">Reactivate</button></form>@else<span
+                                    @if ($rider->suspension_source === 'logistics' && $rider->suspension_previous_status === 'approved')
+                                        <form method="POST" action="{{ route('logistics.riders.reactivate', $rider) }}">
+                                            @csrf<button class="ops-btn">Reactivate</button>
+                                        </form>
+                                    @else
+                                        <span class="ops-muted">Admin review required</span>
+                                    @endif
+                                @else<span
                                         class="ops-muted">No action</span>
                                 @endif
                             </td>

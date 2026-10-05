@@ -102,26 +102,33 @@
                                     </td>
                                     <td>
                                         @if ($user->status === 'suspended')
-                                            <form action="{{ route('admin.moderation.reactivate', $user->id) }}"
-                                                method="POST">
+                                            @if ($user->suspension_previous_status === 'approved')
+                                                <form action="{{ route('admin.moderation.reactivate', $user->id) }}" method="POST">
+                                                    @csrf
+                                                    <button type="submit" class="dash-btn-sm dash-btn-success">Reactivate</button>
+                                                </form>
+                                            @else
+                                                <p class="text-muted-small">Prior status is unknown. Review the account before restoring it.</p>
+                                                <form action="{{ route('admin.moderation.reactivate', $user->id) }}" method="POST">
+                                                    @csrf
+                                                    <label class="form-label" for="restore-status-{{ $user->id }}">Restore status after review</label>
+                                                    <select id="restore-status-{{ $user->id }}" class="controls-select" name="restored_status" required>
+                                                        <option value="" disabled selected>Choose status</option>
+                                                        <option value="pending">Pending review</option>
+                                                        <option value="approved">Approved after review</option>
+                                                        <option value="rejected">Rejected</option>
+                                                    </select>
+                                                    <button type="submit" class="dash-btn-sm dash-btn-success">Restore account</button>
+                                                </form>
+                                            @endif
+                                        @elseif ($user->status === 'approved')
+                                            <form action="{{ route('admin.moderation.suspend', $user->id) }}" method="POST" style="display: flex; gap: 0.35rem;">
                                                 @csrf
-                                                <button type="submit" class="dash-btn-sm dash-btn-success">
-                                                    Reactivate
-                                                </button>
+                                                <input type="text" name="suspension_reason" placeholder="Violation reason..." class="controls-input" style="padding: 0.3rem 0.5rem; font-size: 0.75rem; max-width: 180px;" required>
+                                                <button type="submit" class="dash-btn-sm dash-btn-danger" onclick="return confirm('Suspend this user from platform access?');">Suspend</button>
                                             </form>
                                         @else
-                                            <form action="{{ route('admin.moderation.suspend', $user->id) }}"
-                                                method="POST" style="display: flex; gap: 0.35rem;">
-                                                @csrf
-                                                <input type="text" name="suspension_reason"
-                                                    placeholder="Violation reason..." class="controls-input"
-                                                    style="padding: 0.3rem 0.5rem; font-size: 0.75rem; max-width: 180px;"
-                                                    required>
-                                                <button type="submit" class="dash-btn-sm dash-btn-danger"
-                                                    onclick="return confirm('Suspend this user from platform access?');">
-                                                    Suspend
-                                                </button>
-                                            </form>
+                                            <span class="text-muted-small">Registration review handles pending and rejected accounts.</span>
                                         @endif
                                     </td>
                                 </tr>

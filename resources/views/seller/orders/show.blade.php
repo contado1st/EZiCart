@@ -64,6 +64,9 @@
                 @endforeach
 
                 <h2 class="courier-section-title">Order summary</h2>
+                @if ($order->payment_method !== 'COD' && in_array($order->status, ['PLACED', 'CONFIRMED', 'PREPARING', 'READY_FOR_PICKUP'], true))
+                    <p role="status">Fulfillment is on hold because payment verification for {{ $order->payment_method }} is not configured yet.</p>
+                @endif
                 <p>Subtotal: {{ number_format($order->subtotal, 2) }}</p>
                 @if ($order->discount_amount)
                     <p>Discount: −{{ number_format($order->discount_amount, 2) }} ({{ $order->voucher_code }})</p>
@@ -79,7 +82,9 @@
                     <a href="{{ route('seller.orders.waybill', $order->id) }}" class="dash-btn-sm dash-btn-outline">View
                         waybill</a>
                     <a href="{{ route('seller.orders.messages.show', $order) }}" class="dash-btn-sm dash-btn-outline">Message buyer</a>
-                    @if ($order->status === 'PLACED')
+                    @if ($order->payment_method !== 'COD' && in_array($order->status, ['PLACED', 'CONFIRMED', 'PREPARING', 'READY_FOR_PICKUP'], true))
+                        <span>Fulfillment is on hold until payment verification is configured.</span>
+                    @elseif ($order->status === 'PLACED')
                         <form action="{{ route('seller.orders.updateStatus', $order->id) }}" method="POST">
                             @csrf
                             @method('PATCH')

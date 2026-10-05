@@ -9,6 +9,9 @@
         </div><span class="ops-status">{{ str_replace('_', ' ', $order->status) }}</span>
         <a class="ops-btn" href="{{ route('courier.orders.messages.show', $order) }}">Order messages</a>
     </header>
+    @if ($order->payment_method !== 'COD' && ! in_array($order->status, ['CANCELLED', 'COMPLETED', 'RETURN_IN_TRANSIT', 'RETURNED_TO_SELLER'], true))
+        <section class="ops-panel" role="status">Fulfillment is on hold because payment verification for {{ $order->payment_method }} is not configured yet.</section>
+    @endif
     <section class="ops-grid">
         <div class="ops-panel">
             <h2>Drop-off</h2>
@@ -31,7 +34,9 @@
     @if ($order->delivery_courier_id === auth()->id() && $order->status === 'ASSIGNED_TO_RIDER')
         <section class="ops-panel">
             <h2>Start delivery</h2>
-            @if ($order->hub_released_at)
+            @if ($order->payment_method !== 'COD')
+                <p class="ops-muted">Delivery is on hold until payment verification for this method is configured.</p>
+            @elseif ($order->hub_released_at)
                 <p class="ops-muted">Logistics confirmed the hub release at {{ $order->hub_released_at->format('d M Y H:i') }}.</p>
                 <form method="POST" action="{{ route('courier.orders.startDelivery', $order) }}">@csrf<button
                         class="ops-btn ops-btn--primary">Start delivery</button></form>
@@ -49,7 +54,8 @@
         <section class="ops-panel">
             <h2>Delivery result</h2>
             <div class="ops-grid">
-                <form class="ops-form" method="POST" action="{{ route('courier.orders.completeDelivery', $order) }}" enctype="multipart/form-data"
+                @if ($order->payment_method === 'COD')
+                    <form class="ops-form" method="POST" action="{{ route('courier.orders.completeDelivery', $order) }}" enctype="multipart/form-data"
                     onsubmit="return confirm('Confirm this parcel was delivered?')">@csrf @method('PATCH')<div
                         class="ops-field"><label>Recipient confirmation</label><input name="recipient_confirmation"
                             maxlength="120" required></div>
@@ -64,6 +70,9 @@
                     <div class="ops-field"><label>Proof of delivery (photo or PDF)</label><input type="file" name="proof_file" accept=".jpg,.jpeg,.png,.pdf" required></div>
                     <button class="ops-btn ops-btn--primary">Confirm delivered</button>
                 </form>
+                @else
+                    <p class="ops-muted">Delivery confirmation is unavailable until payment verification is configured.</p>
+                @endif
                 <form class="ops-form" method="POST" action="{{ route('courier.orders.failDelivery', $order) }}"
                     onsubmit="return confirm('Record a failed delivery attempt?')">@csrf @method('PATCH')<div
                         class="ops-field"><label>Failure reason</label><select name="failure_reason" required>

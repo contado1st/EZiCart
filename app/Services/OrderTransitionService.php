@@ -5,7 +5,10 @@ namespace App\Services;
 use App\Enums\OrderStatus;
 use App\Models\DeliveryAssignment;
 use App\Models\Order;
+use App\Models\OrderItem;
 use App\Models\ParcelTrackingEvent;
+use App\Models\Product;
+use App\Models\ProductVariation;
 use App\Models\User;
 use App\Notifications\OrderStatusNotification;
 use App\Notifications\OrderWorkflowNotification;
@@ -42,7 +45,10 @@ class OrderTransitionService
     ];
 
     /** @param array<string, mixed> $attributes */
-    public function __construct(private InventoryRestorationService $inventoryRestoration) {}
+    public function __construct(
+        private InventoryRestorationService $inventoryRestoration,
+        private TransactionAwareNotificationSender $notifications,
+    ) {}
 
     public function transition(
         Order $order,
@@ -66,7 +72,20 @@ class OrderTransitionService
                 throw new HttpException(422, 'This order cannot move to that status.');
             }
 
+            if ($lockedOrder->payment_method !== 'COD' && ! in_array($target, [
+                OrderStatus::Cancelled,
+                OrderStatus::DeliveryFailed,
+                OrderStatus::ReturnInTransit,
+                OrderStatus::ReturnedToSeller,
+            ], true)) {
+                throw new HttpException(422, 'Fulfillment is on hold because payment verification for this method is not configured.');
+            }
+
             $this->authorizeActor($lockedOrder, $actor, $target);
+            if ($target === OrderStatus::Confirmed) {
+                $this->validateSellerOrderInventory($lockedOrder);
+            }
+
             $lockedOrder->forceFill([...$attributes, 'status' => $target->value])->save();
 
             $this->recordAssignmentLifecycle($lockedOrder->refresh(), $actor, $target);
@@ -85,7 +104,7 @@ class OrderTransitionService
             ]);
 
             foreach ($this->notificationRecipients($lockedOrder, $target) as $recipient) {
-                $recipient->notify(new OrderStatusNotification(
+                $this->notifications->send($recipient, new OrderStatusNotification(
                     $lockedOrder,
                     $target->value,
                     $eventType,
@@ -142,7 +161,7 @@ class OrderTransitionService
                 'notes' => $message,
             ]);
             foreach ($this->notificationRecipients($sortedOrder, OrderStatus::Sorted) as $recipient) {
-                $recipient->notify(new OrderStatusNotification(
+                $this->notifications->send($recipient, new OrderStatusNotification(
                     $sortedOrder,
                     OrderStatus::Sorted->value,
                     'delivery_assignment_declined',
@@ -150,7 +169,7 @@ class OrderTransitionService
                 ));
             }
             User::query()->where('role', 'sorting_center')->where('status', 'approved')->each(
-                fn (User $operator) => $operator->notify(new OrderWorkflowNotification($sortedOrder, 'delivery_assignment_declined', 'A rider declined a delivery before hub release. The parcel is back in the dispatch queue.')),
+                fn (User $operator) => $this->notifications->send($operator, new OrderWorkflowNotification($sortedOrder, 'delivery_assignment_declined', 'A rider declined a delivery before hub release. The parcel is back in the dispatch queue.')),
             );
 
             return $sortedOrder->refresh();
@@ -204,11 +223,11 @@ class OrderTransitionService
             ]);
 
             if ($rider !== null) {
-                $rider->notify(new OrderWorkflowNotification($sortedOrder, 'delivery_parcel_recovered_at_hub', 'Logistics recorded that the parcel was recovered from you at the hub.'));
+                $this->notifications->send($rider, new OrderWorkflowNotification($sortedOrder, 'delivery_parcel_recovered_at_hub', 'Logistics recorded that the parcel was recovered from you at the hub.'));
             }
 
             foreach ($this->notificationRecipients($sortedOrder, OrderStatus::Sorted) as $recipient) {
-                $recipient->notify(new OrderStatusNotification(
+                $this->notifications->send($recipient, new OrderStatusNotification(
                     $sortedOrder,
                     OrderStatus::Sorted->value,
                     'delivery_parcel_recovered_at_hub',
@@ -236,6 +255,44 @@ class OrderTransitionService
 
         if (! $authorized || $actor->status !== 'approved') {
             abort(403, 'You are not authorized to make this order transition.');
+        }
+    }
+
+    private function validateSellerOrderInventory(Order $order): void
+    {
+        $items = OrderItem::query()
+            ->where('order_id', $order->id)
+            ->lockForUpdate()
+            ->get();
+
+        if ($items->isEmpty() || $order->inventory_restored_at !== null) {
+            throw new HttpException(422, 'This order has no valid reserved inventory to fulfill.');
+        }
+
+        foreach ($items as $item) {
+            $product = $item->product_id === null
+                ? null
+                : Product::query()->whereKey($item->product_id)->lockForUpdate()->first();
+
+            if (
+                $product === null
+                || (int) $product->user_id !== (int) $order->seller_id
+                || $product->is_archived
+                || $product->compliance_status !== 'approved'
+                || $item->quantity < 1
+            ) {
+                throw new HttpException(422, 'An order item is no longer available for fulfillment.');
+            }
+
+            if ($item->variation_id === null) {
+                continue;
+            }
+
+            $variation = ProductVariation::query()->whereKey($item->variation_id)->lockForUpdate()->first();
+
+            if ($variation === null || (int) $variation->product_id !== (int) $product->id) {
+                throw new HttpException(422, 'An order variation is no longer available for fulfillment.');
+            }
         }
     }
 

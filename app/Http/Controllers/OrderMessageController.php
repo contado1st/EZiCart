@@ -7,6 +7,7 @@ use App\Models\OrderConversation;
 use App\Models\OrderMessage;
 use App\Models\User;
 use App\Notifications\OrderMessageNotification;
+use App\Services\TransactionAwareNotificationSender;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -31,12 +32,12 @@ class OrderMessageController extends Controller
         return view('orders.messages', compact('order', 'conversation'));
     }
 
-    public function store(Request $request, Order $order): RedirectResponse
+    public function store(Request $request, Order $order, TransactionAwareNotificationSender $notifications): RedirectResponse
     {
         $validated = $request->validate(['body' => ['required', 'string', 'max:2000']]);
         $actor = $this->authenticatedUser();
 
-        DB::transaction(function () use ($order, $actor, $validated): void {
+        DB::transaction(function () use ($order, $actor, $validated, $notifications): void {
             $lockedOrder = Order::query()->whereKey($order->id)->lockForUpdate()->firstOrFail();
             $this->authorizeParticipant($lockedOrder, $actor);
             $conversation = OrderConversation::query()->firstOrCreate(['order_id' => $lockedOrder->id]);
@@ -47,7 +48,7 @@ class OrderMessageController extends Controller
             ]);
 
             foreach ($conversation->participants()->where('id', '!=', $actor->id) as $recipient) {
-                $recipient->notify(new OrderMessageNotification($lockedOrder, $actor->first_name.' '.$actor->last_name));
+                $notifications->send($recipient, new OrderMessageNotification($lockedOrder, $actor->first_name.' '.$actor->last_name));
             }
         });
 

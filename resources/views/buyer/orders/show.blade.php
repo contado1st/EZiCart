@@ -45,6 +45,10 @@
                         class="status-pill status-{{ strtolower(str_replace('_', '-', $order->status)) }}">{{ str_replace('_', ' ', $order->status) }}</span>
                 </div>
 
+                @if ($order->payment_method !== 'COD' && ! in_array($order->status, ['CANCELLED', 'COMPLETED', 'RETURN_IN_TRANSIT', 'RETURNED_TO_SELLER'], true))
+                    <p role="status">Fulfillment is on hold because payment verification for {{ $order->payment_method }} is not configured yet.</p>
+                @endif
+
                 <h2 class="courier-section-title">Items</h2>
                 @foreach ($order->items as $item)
                     <div class="order-item-row">

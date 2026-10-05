@@ -9,6 +9,7 @@ use App\Models\ParcelTrackingEvent;
 use App\Models\User;
 use App\Notifications\OrderWorkflowNotification;
 use App\Services\OrderTransitionService;
+use App\Services\TransactionAwareNotificationSender;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -77,7 +78,7 @@ class SellerOrderController extends Controller
         return back()->with('success', 'Return receipt confirmed and inventory restored.');
     }
 
-    public function schedulePickup(Request $request, Order $order)
+    public function schedulePickup(Request $request, Order $order, TransactionAwareNotificationSender $notifications)
     {
         $seller = $this->authenticatedUser();
         abort_if($order->seller_id !== $seller->id, 403);
@@ -88,9 +89,16 @@ class SellerOrderController extends Controller
             'pickup_notes' => ['nullable', 'string', 'max:1000'],
         ]);
 
-        return DB::transaction(function () use ($order, $seller, $validated) {
+        return DB::transaction(function () use ($order, $seller, $validated, $notifications) {
             $lockedOrder = Order::query()->whereKey($order->id)->lockForUpdate()->firstOrFail();
-            abort_unless($lockedOrder->status === 'READY_FOR_PICKUP' && $lockedOrder->pickup_requested_at === null && $lockedOrder->pickup_courier_id === null, 422, 'This order is not eligible for pickup scheduling.');
+            abort_unless(
+                $lockedOrder->status === 'READY_FOR_PICKUP'
+                    && $lockedOrder->payment_method === 'COD'
+                    && $lockedOrder->pickup_requested_at === null
+                    && $lockedOrder->pickup_courier_id === null,
+                422,
+                'This order is not eligible for pickup scheduling.',
+            );
 
             $lockedOrder->forceFill([
                 'pickup_requested_at' => now(),
@@ -107,21 +115,29 @@ class SellerOrderController extends Controller
                 'notes' => 'Seller requested pickup for '.$lockedOrder->pickup_scheduled_for->format('M j, Y g:i A').' ('.$lockedOrder->pickup_window.').',
             ]);
             User::query()->where('role', 'sorting_center')->where('status', 'approved')->each(
-                fn (User $operator) => $operator->notify(new OrderWorkflowNotification($lockedOrder, 'pickup_requested', 'A seller requested pickup for an order.')),
+                fn (User $operator) => $notifications->send($operator, new OrderWorkflowNotification($lockedOrder, 'pickup_requested', 'A seller requested pickup for an order.')),
             );
 
             return back()->with('success', 'Pickup request sent to Logistics.');
         });
     }
 
-    public function confirmHandover(Order $order)
+    public function confirmHandover(Order $order, TransactionAwareNotificationSender $notifications)
     {
         $seller = $this->authenticatedUser();
         abort_if($order->seller_id !== $seller->id, 403);
 
-        return DB::transaction(function () use ($order, $seller) {
+        return DB::transaction(function () use ($order, $seller, $notifications) {
             $lockedOrder = Order::query()->whereKey($order->id)->lockForUpdate()->firstOrFail();
-            abort_unless($lockedOrder->status === 'READY_FOR_PICKUP' && $lockedOrder->pickup_courier_id !== null && $lockedOrder->pickup_arrived_at !== null && $lockedOrder->seller_handover_at === null, 422, 'Seller handover is not ready to confirm.');
+            abort_unless(
+                $lockedOrder->status === 'READY_FOR_PICKUP'
+                    && $lockedOrder->payment_method === 'COD'
+                    && $lockedOrder->pickup_courier_id !== null
+                    && $lockedOrder->pickup_arrived_at !== null
+                    && $lockedOrder->seller_handover_at === null,
+                422,
+                'Seller handover is not ready to confirm.',
+            );
             $lockedOrder->forceFill(['seller_handover_at' => now()])->save();
             ParcelTrackingEvent::create([
                 'order_id' => $lockedOrder->id,
@@ -131,7 +147,7 @@ class SellerOrderController extends Controller
                 'location' => $seller->municipality,
                 'notes' => 'Seller confirmed releasing the parcel to the assigned rider.',
             ]);
-            $lockedOrder->pickupCourier?->notify(new OrderWorkflowNotification($lockedOrder, 'seller_handover_confirmed', 'The seller confirmed parcel handover. Confirm possession to complete pickup.'));
+            $notifications->send($lockedOrder->pickupCourier, new OrderWorkflowNotification($lockedOrder, 'seller_handover_confirmed', 'The seller confirmed parcel handover. Confirm possession to complete pickup.'));
 
             return back()->with('success', 'Handover recorded. The rider must confirm possession to complete pickup.');
         });
