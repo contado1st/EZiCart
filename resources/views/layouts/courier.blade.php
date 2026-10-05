@@ -15,7 +15,9 @@
                         class="{{ request()->routeIs('courier.tracking') ? 'active' : '' }}"
                         href="{{ route('courier.tracking') }}">My active tracking</a><a
                         class="{{ request()->routeIs('courier.history') ? 'active' : '' }}"
-                        href="{{ route('courier.history') }}">Delivery history</a></nav>
+                        href="{{ route('courier.history') }}">Delivery history</a><a
+                        class="{{ request()->routeIs('courier.earnings') ? 'active' : '' }}"
+                        href="{{ route('courier.earnings') }}">Earnings</a></nav>
             </div>
             <form action="{{ route('logout') }}" method="POST">@csrf<button class="ops-logout" type="submit">Sign
                     out</button></form>

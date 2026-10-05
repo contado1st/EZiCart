@@ -45,6 +45,10 @@
                         class="status-pill status-{{ strtolower(str_replace('_', '-', $order->status)) }}">{{ str_replace('_', ' ', $order->status) }}</span>
                 </div>
 
+                @if ($order->payment_method !== 'COD' && ! in_array($order->status, ['CANCELLED', 'COMPLETED', 'RETURN_IN_TRANSIT', 'RETURNED_TO_SELLER'], true))
+                    <p role="status">Fulfillment is on hold because payment verification for {{ $order->payment_method }} is not configured yet.</p>
+                @endif
+
                 <h2 class="courier-section-title">Items</h2>
                 @foreach ($order->items as $item)
                     <div class="order-item-row">
@@ -79,14 +83,28 @@
                 @forelse($order->trackingEvents as $event)
                     <p><strong>{{ str_replace('_', ' ', $event->event_type) }}</strong> ·
                         {{ $event->created_at->format('M d, Y h:i A') }} · {{ $event->location ?? '—' }} @if ($event->actor)
-                            · {{ $event->actor->first_name }} {{ $event->actor->last_name }}
+                            · {{ match ($event->actor->role) { 'admin' => 'Platform support', 'sorting_center' => 'Logistics', 'courier' => 'Courier', 'seller' => 'Seller', default => 'EZiCart' } }}
                         @endif
                     </p>
                 @empty
                     <p>Tracking events will appear as the order moves through fulfillment.</p>
                 @endforelse
 
+                <h2 class="courier-section-title">Delivery attempts and proof</h2>
+                @forelse ($order->deliveryAttempts as $attempt)
+                    <p>Attempt {{ $attempt->attempt_no }} · {{ ucfirst($attempt->outcome) }}
+                        @if ($attempt->reason) · {{ str_replace('_', ' ', $attempt->reason) }} @endif
+                        · {{ $attempt->attempted_at?->format('M d, Y h:i A') ?? 'Time unavailable' }}
+                        @if ($attempt->proof_path)
+                            · <a href="{{ route('delivery-attempts.proof', $attempt) }}">Download proof</a>
+                        @endif
+                    </p>
+                @empty
+                    <p>No delivery attempts are recorded yet.</p>
+                @endforelse
+
                 <div class="order-card-footer">
+                    <a href="{{ route('buyer.orders.messages.show', $order) }}" class="dash-btn-sm dash-btn-outline">Message seller</a>
                     @if ($order->dispute)
                         <span class="status-pill">Dispute: {{ str_replace('_', ' ', $order->dispute->status) }}</span>
                     @elseif(in_array($order->status, ['DELIVERED', 'COMPLETED']))

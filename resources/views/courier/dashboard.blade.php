@@ -19,6 +19,7 @@
         <div class="ops-stat"><span>Pickup claims</span><strong>{{ $stats['claimed_pickups'] }}</strong></div>
         <div class="ops-stat"><span>Parcels to hub</span><strong>{{ $stats['in_transit_hub'] }}</strong></div>
         <div class="ops-stat"><span>Delivery workload</span><strong>{{ $stats['assigned_delivery'] }}</strong></div>
+        <div class="ops-stat"><span>Returns to seller</span><strong>{{ $stats['returning_to_seller'] }}</strong></div>
         <div class="ops-stat"><span>Delivered today</span><strong>{{ $stats['completed_today'] }}</strong></div>
         <div class="ops-stat"><span>Failed today</span><strong>{{ $stats['failed_today'] }}</strong></div>
     </section>
@@ -48,7 +49,11 @@
                             <td>
                                 <form method="POST" action="{{ route('courier.orders.claim', $order) }}">@csrf<button
                                         class="ops-btn ops-btn--primary" type="submit" @disabled($courier->status !== 'approved')>Accept
-                                        pickup</button></form>
+                                        assigned pickup</button></form>
+                                <form method="POST" action="{{ route('courier.orders.declinePickup', $order) }}" style="margin-top:.5rem">@csrf
+                                    <input type="text" name="reason" maxlength="500" placeholder="Reason (optional)" aria-label="Reason for declining pickup">
+                                    <button class="ops-btn" type="submit" @disabled($courier->status !== 'approved')>Decline assignment</button>
+                                </form>
                             </td>
                     </tr>@empty<tr>
                             <td colspan="5">
@@ -83,8 +88,7 @@
                             <td>{{ $order->pickup_claimed_at?->format('d M H:i') }}</td>
                             <td>
                                 <form method="POST" action="{{ route('courier.orders.confirmPickup', $order) }}">
-                                    @csrf<button class="ops-btn ops-btn--primary" @disabled($courier->status !== 'approved')>Confirm
-                                        parcel collected</button></form>
+                                    @csrf<button class="ops-btn ops-btn--primary" @disabled($courier->status !== 'approved')>{{ $order->pickup_arrived_at && $order->seller_handover_at ? 'Confirm parcel possession' : ($order->pickup_arrived_at ? 'Waiting for seller handover' : 'Record arrival at seller') }}</button></form>
                             </td>
                     </tr>@empty<tr>
                             <td colspan="4">
@@ -126,6 +130,45 @@
         </div>
     </section>
     <section class="ops-panel courier-delivery">
+        <h2>Return parcels to sellers</h2>
+        <div class="ops-table-wrap">
+            <table class="ops-table">
+                <thead><tr><th>Order</th><th>Seller return address</th><th>Next step</th></tr></thead>
+                <tbody>
+                    @forelse ($myReturns as $order)
+                        <tr>
+                            <td class="ops-mono">{{ $order->order_number }}</td>
+                            <td>{{ $order->seller?->business_name ?? $order->seller?->first_name }}<div class="ops-muted">{{ $order->seller?->street_address }}, {{ $order->seller?->barangay }}, {{ $order->seller?->municipality }}</div></td>
+                            <td><form method="POST" action="{{ route('courier.orders.confirmReturnDelivery', $order) }}" onsubmit="return confirm('Confirm that you physically handed this return parcel to the seller?')">@csrf<button class="ops-btn ops-btn--primary" @disabled($courier->status !== 'approved')>Record seller handoff</button></form></td>
+                        </tr>
+                    @empty
+                        <tr><td colspan="3"><div class="ops-empty">No return parcels are waiting for seller handoff.</div></td></tr>
+                    @endforelse
+                </tbody>
+            </table>
+        </div>
+    </section>
+    <section class="ops-panel courier-delivery">
+        <h2>Failed deliveries requiring logistics follow-up</h2>
+        <div class="ops-table-wrap">
+            <table class="ops-table">
+                <thead><tr><th>Order</th><th>Latest attempt</th><th>Recorded</th><th>Next step</th></tr></thead>
+                <tbody>
+                    @forelse ($myFailedDeliveries as $order)
+                        <tr>
+                            <td class="ops-mono">{{ $order->order_number }}</td>
+                            <td>{{ str_replace('_', ' ', $order->delivery_failure_reason) }}</td>
+                            <td>{{ $order->failed_at?->format('d M H:i') }}</td>
+                            <td>Logistics will reassign the delivery or initiate a return.</td>
+                        </tr>
+                    @empty
+                        <tr><td colspan="4"><div class="ops-empty">No failed deliveries need follow-up.</div></td></tr>
+                    @endforelse
+                </tbody>
+            </table>
+        </div>
+    </section>
+    <section class="ops-panel courier-delivery">
         <h2>Doorstep delivery work</h2>
         <div class="ops-table-wrap">
             <table class="ops-table">
@@ -153,14 +196,25 @@
                             </td>
                             <td>
                                 @if ($order->status === 'ASSIGNED_TO_RIDER')
-                                    <form method="POST" action="{{ route('courier.orders.startDelivery', $order) }}">
-                                        @csrf<button class="ops-btn ops-btn--primary" @disabled($courier->status !== 'approved')>Collect
-                                            from hub & start</button></form>
+                                    @if ($order->hub_released_at)
+                                        <form method="POST" action="{{ route('courier.orders.startDelivery', $order) }}">
+                                            @csrf<button class="ops-btn ops-btn--primary" @disabled($courier->status !== 'approved')>Start delivery</button></form>
+                                    @else
+                                        <span class="ops-muted">Waiting for Logistics hub release</span>
+                                        <form class="ops-form" method="POST" action="{{ route('courier.orders.declineDeliveryAssignment', $order) }}"
+                                            onsubmit="return confirm('Decline this delivery assignment and return the parcel to dispatch?')">
+                                            @csrf
+                                            <div class="ops-field"><label for="decline-reason-{{ $order->id }}">Reason (optional)</label>
+                                                <input id="decline-reason-{{ $order->id }}" name="reason" maxlength="500"></div>
+                                            <button class="ops-btn ops-btn--danger" type="submit" @disabled($courier->status !== 'approved')>Decline assignment</button>
+                                        </form>
+                                    @endif
                                 @else
                                     <details>
                                         <summary class="ops-btn ops-btn--primary">Complete delivery</summary>
                                         <form class="ops-form" method="POST"
                                             action="{{ route('courier.orders.completeDelivery', $order) }}"
+                                            enctype="multipart/form-data"
                                             onsubmit="return confirm('Confirm this parcel was delivered to the named recipient?')">
                                             @csrf @method('PATCH')<div class="ops-field"><label>Recipient
                                                     confirmation</label><input name="recipient_confirmation" maxlength="120"
@@ -173,7 +227,9 @@
                                             @endif
                                             <div class="ops-field">
                                                 <label>Delivery notes</label><input name="delivery_notes" maxlength="1000">
-                                            </div><button class="ops-btn ops-btn--primary">Confirm delivered</button>
+                                            </div>
+                                            <div class="ops-field"><label>Proof of delivery (photo or PDF)</label><input type="file" name="proof_file" accept=".jpg,.jpeg,.png,.pdf" required></div>
+                                            <button class="ops-btn ops-btn--primary">Confirm delivered</button>
                                         </form>
                                     </details>
                                     <details>

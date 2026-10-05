@@ -87,7 +87,15 @@
                             <input type="radio" name="payment_method" value="GCash">
                             <div>
                                 <div class="payment-title">GCash / E-Wallet</div>
-                                <div class="payment-desc">Instant digital wallet confirmation.</div>
+                                <div class="payment-desc">Order fulfillment will remain on hold until payment verification is configured.</div>
+                            </div>
+                        </label>
+
+                        <label class="payment-option">
+                            <input type="radio" name="payment_method" value="Bank Transfer">
+                            <div>
+                                <div class="payment-title">Bank Transfer</div>
+                                <div class="payment-desc">Order fulfillment will remain on hold until payment verification is configured.</div>
                             </div>
                         </label>
                     </div>

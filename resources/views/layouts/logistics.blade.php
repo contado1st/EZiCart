@@ -15,6 +15,8 @@
                         href="{{ route('logistics.dashboard') }}">Overview</a>
                     <a class="{{ request()->routeIs('logistics.intake') ? 'active' : '' }}"
                         href="{{ route('logistics.intake') }}">Parcel intake</a>
+                    <a class="{{ request()->routeIs('logistics.pickupRequests') ? 'active' : '' }}"
+                        href="{{ route('logistics.pickupRequests') }}">Pickup requests</a>
                     <a class="{{ request()->routeIs('logistics.sorting') ? 'active' : '' }}"
                         href="{{ route('logistics.sorting') }}">Sorting queue</a>
                     <a class="{{ request()->routeIs('logistics.dispatch') ? 'active' : '' }}"
@@ -23,6 +25,8 @@
                         href="{{ route('logistics.tracking') }}">Delivery tracking</a>
                     <a class="{{ request()->routeIs('logistics.riders') ? 'active' : '' }}"
                         href="{{ route('logistics.riders') }}">Riders</a>
+                    <a class="{{ request()->routeIs('logistics.areas*') ? 'active' : '' }}"
+                        href="{{ route('logistics.areas') }}">Routing areas</a>
                     <a class="{{ request()->routeIs('logistics.reports') ? 'active' : '' }}"
                         href="{{ route('logistics.reports') }}">Reports</a>
                 </nav>

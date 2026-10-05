@@ -9,7 +9,7 @@
         <div class="admin-header-row">
             <div>
                 <h1 class="admin-page-title">Add New Product</h1>
-                <p class="admin-page-desc">List a new item in your store's inventory.</p>
+                <p class="admin-page-desc">New listings remain hidden from buyers until Product Compliance approves them.</p>
             </div>
             <a href="{{ route('seller.products.index') }}"
                 style="color: var(--slate-500); text-decoration: none; font-weight: 600;">← Back to Inventory</a>

@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Seller;
 
 use App\Http\Controllers\Controller;
 use App\Models\Product;
+use App\Models\ProductComplianceEvent;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 
@@ -51,6 +52,15 @@ class ProductController extends Controller
             'image_path' => $imagePath,
             'is_archived' => false,
         ]);
+        $product->refresh();
+        ProductComplianceEvent::query()->create([
+            'product_id' => $product->id,
+            'actor_id' => $product->user_id,
+            'action' => 'submitted',
+            'previous_status' => null,
+            'new_status' => $product->compliance_status,
+            'note' => 'New product submitted for compliance review.',
+        ]);
 
         if (! empty($validated['variations'])) {
             foreach ($validated['variations'] as $variationData) {
@@ -95,6 +105,10 @@ class ProductController extends Controller
         ]);
 
         $imagePath = $product->image_path;
+        $complianceFieldsChanged = $product->name !== $validated['name']
+            || $product->category !== $validated['category']
+            || $product->description !== ($validated['description'] ?? null)
+            || $request->hasFile('image');
         if ($request->hasFile('image')) {
             if ($product->image_path) {
                 Storage::disk('public')->delete($product->image_path);
@@ -110,6 +124,24 @@ class ProductController extends Controller
             'stock' => $validated['stock'],
             'image_path' => $imagePath,
         ]);
+
+        if ($complianceFieldsChanged && $product->compliance_status !== 'pending_review') {
+            $previousStatus = $product->compliance_status;
+            $product->forceFill([
+                'compliance_status' => 'pending_review',
+                'compliance_note' => null,
+                'compliance_reviewed_by' => null,
+                'compliance_reviewed_at' => null,
+            ])->save();
+            ProductComplianceEvent::query()->create([
+                'product_id' => $product->id,
+                'actor_id' => $this->authenticatedUser()->id,
+                'action' => 'resubmitted',
+                'previous_status' => $previousStatus,
+                'new_status' => 'pending_review',
+                'note' => 'Seller changed product details that require another compliance review.',
+            ]);
+        }
 
         // Refresh variations
         $product->variations()->delete();
@@ -132,6 +164,12 @@ class ProductController extends Controller
     public function destroy(Product $product)
     {
         abort_if($product->user_id !== $this->authenticatedUser()->id, 403);
+
+        if ($product->complianceEvents()->exists()) {
+            $product->update(['is_archived' => true]);
+
+            return redirect()->route('seller.products.index')->with('success', 'Product archived so its compliance review history is preserved.');
+        }
 
         if ($product->image_path) {
             Storage::disk('public')->delete($product->image_path);

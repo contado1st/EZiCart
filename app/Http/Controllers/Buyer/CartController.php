@@ -20,6 +20,8 @@ class CartController extends Controller
 
     public function add(Request $request, Product $product): RedirectResponse
     {
+        abort_unless($product->compliance_status === 'approved' && ! $product->is_archived && $product->stock > 0, 404);
+
         $request->validate([
             'quantity' => 'required|integer|min:1',
             'variation_id' => 'nullable|exists:product_variations,id',

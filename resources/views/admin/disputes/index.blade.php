@@ -43,7 +43,7 @@
                 <a href="{{ route('admin.disputes.index', ['status' => 'UNDER_REVIEW']) }}"
                     class="dispute-filter-link {{ $status === 'UNDER_REVIEW' ? 'active' : '' }}">Under Review</a>
                 <a href="{{ route('admin.disputes.index', ['status' => 'REFUND_APPROVED']) }}"
-                    class="dispute-filter-link {{ $status === 'REFUND_APPROVED' ? 'active' : '' }}">Refunded</a>
+                    class="dispute-filter-link {{ $status === 'REFUND_APPROVED' ? 'active' : '' }}">Refund approved</a>
                 <a href="{{ route('admin.disputes.index', ['status' => 'REJECTED']) }}"
                     class="dispute-filter-link {{ $status === 'REJECTED' ? 'active' : '' }}">Rejected</a>
             </div>

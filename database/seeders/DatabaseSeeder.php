@@ -11,7 +11,7 @@ class DatabaseSeeder extends Seeder
     public function run(): void
     {
         // 1. Admin Account
-        User::updateOrCreate(
+        $this->updateOrCreateUser(
             ['email' => 'admin@ezicart.com'],
             [
                 'first_name' => 'System',
@@ -32,7 +32,7 @@ class DatabaseSeeder extends Seeder
         );
 
         // 2. Buyer Account (Approved)
-        User::updateOrCreate(
+        $this->updateOrCreateUser(
             ['email' => 'buyer@ezicart.com'],
             [
                 'first_name' => 'John',
@@ -53,7 +53,7 @@ class DatabaseSeeder extends Seeder
         );
 
         // 3. Seller Account (Approved)
-        User::updateOrCreate(
+        $this->updateOrCreateUser(
             ['email' => 'seller@ezicart.com'],
             [
                 'first_name' => 'Sarah',
@@ -76,7 +76,7 @@ class DatabaseSeeder extends Seeder
         );
 
         // 4. Courier Account (Approved)
-        User::updateOrCreate(
+        $this->updateOrCreateUser(
             ['email' => 'courier@ezicart.com'],
             [
                 'first_name' => 'Carlos',
@@ -99,7 +99,7 @@ class DatabaseSeeder extends Seeder
         );
 
         // 5. Logistics / Sorting Center Account (Approved)
-        User::updateOrCreate(
+        $this->updateOrCreateUser(
             ['email' => 'sorting@ezicart.com'],
             [
                 'first_name' => 'Laguna Central',
@@ -121,7 +121,7 @@ class DatabaseSeeder extends Seeder
         );
 
         // 6. Pending Seller (To test Admin Approval flow)
-        User::updateOrCreate(
+        $this->updateOrCreateUser(
             ['email' => 'pending.seller@ezicart.com'],
             [
                 'first_name' => 'Pending',
@@ -142,5 +142,11 @@ class DatabaseSeeder extends Seeder
                 'password' => Hash::make('password123'),
             ]
         );
+    }
+
+    /** @param array<string, string|int> $identity @param array<string, mixed> $attributes */
+    private function updateOrCreateUser(array $identity, array $attributes): User
+    {
+        return User::unguarded(fn (): User => User::query()->updateOrCreate($identity, $attributes));
     }
 }

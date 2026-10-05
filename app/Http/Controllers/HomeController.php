@@ -17,7 +17,8 @@ class HomeController extends Controller
             ['name' => 'Groceries', 'icon' => '🛒'],
         ];
 
-        $query = Product::where('is_archived', false)
+        $query = Product::where('compliance_status', 'approved')
+            ->where('is_archived', false)
             ->where('stock', '>', 0)
             ->with('seller');
 
@@ -41,7 +42,7 @@ class HomeController extends Controller
 
     public function showProduct(Product $product)
     {
-        abort_if($product->is_archived || $product->stock <= 0, 404);
+        abort_if($product->compliance_status !== 'approved' || $product->is_archived || $product->stock <= 0, 404);
 
         $product->load('seller');
 

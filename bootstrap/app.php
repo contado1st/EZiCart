@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Middleware\CheckRole;
+use App\Http\Middleware\EnsureAccountActive;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -13,23 +14,19 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
 
-    ->withMiddleware(function (Middleware $middleware) {
-        // Add this block to register your middleware alias
+    ->withMiddleware(function (Middleware $middleware): void {
         $middleware->alias([
             'role' => CheckRole::class,
+            'account.active' => EnsureAccountActive::class,
         ]);
-    })
 
-    ->withMiddleware(function (Middleware $middleware): void {
-        // Trust all proxies for the local tunnel connection
-        $middleware->trustProxies(at: '*');
-
-        // Optional: specify headers Cloudflare uses
-        $middleware->trustProxies(headers: Request::HEADER_X_FORWARDED_FOR |
+        $middleware->trustProxies(
+            at: env('TRUSTED_PROXIES', env('APP_ENV') === 'local' ? '*' : null),
+            headers: Request::HEADER_X_FORWARDED_FOR |
             Request::HEADER_X_FORWARDED_HOST |
             Request::HEADER_X_FORWARDED_PORT |
             Request::HEADER_X_FORWARDED_PROTO |
-            Request::HEADER_X_FORWARDED_PREFIX
+            Request::HEADER_X_FORWARDED_PREFIX,
         );
     })
     ->withExceptions(function (Exceptions $exceptions): void {

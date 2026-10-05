@@ -9,9 +9,12 @@ use App\Models\ParcelTrackingEvent;
 use App\Models\Product;
 use App\Models\ProductVariation;
 use App\Models\Voucher;
+use App\Notifications\OrderWorkflowNotification;
+use App\Services\TransactionAwareNotificationSender;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use Throwable;
 
 class CheckoutController extends Controller
 {
@@ -88,7 +91,7 @@ class CheckoutController extends Controller
         return back()->with('success', 'Voucher removed.');
     }
 
-    public function process(Request $request)
+    public function process(Request $request, TransactionAwareNotificationSender $notifications)
     {
         $cart = session()->get('cart', []);
 
@@ -124,7 +127,7 @@ class CheckoutController extends Controller
                 $productId = $item['product_id'] ?? $item['id'];
                 $product = Product::lockForUpdate()->find($productId);
 
-                if (! $product || $product->stock < $item['quantity']) {
+                if (! $product || $product->compliance_status !== 'approved' || $product->is_archived || $product->stock < $item['quantity']) {
                     DB::rollBack();
 
                     return back()->with('error', "Sorry, {$item['name']} is out of stock or has insufficient inventory.");
@@ -173,7 +176,7 @@ class CheckoutController extends Controller
                 $shippingFee = 50.00;
                 $orderTotal = max(0, $sellerSubtotal - $sellerDiscount) + $shippingFee;
 
-                $order = Order::create([
+                $order = Order::query()->forceCreate([
                     'order_number' => 'EZC-'.strtoupper(Str::random(10)),
                     'buyer_id' => $this->authenticatedUser()->id,
                     'seller_id' => $sellerId,
@@ -206,6 +209,7 @@ class CheckoutController extends Controller
                     OrderItem::create([
                         'order_id' => $order->id,
                         'product_id' => $itm['product']->id,
+                        'variation_id' => $itm['variation_id'] ?? null,
                         'variation_info' => $itm['variation_info'] ?? null,
                         'product_name' => $itm['product']->name,
                         'unit_price' => $itm['price'],
@@ -219,6 +223,12 @@ class CheckoutController extends Controller
                         ProductVariation::where('id', $itm['variation_id'])->decrement('stock', $itm['quantity']);
                     }
                 }
+
+                $paymentNotice = $order->payment_method === 'COD'
+                    ? 'A buyer placed an order. Review it and confirm whether you can fulfill it.'
+                    : "A buyer placed an order using {$order->payment_method}. Payment verification is pending, so fulfillment actions are on hold.";
+
+                $notifications->send($order->seller, new OrderWorkflowNotification($order, 'order_placed', $paymentNotice));
             }
 
             DB::commit();
@@ -226,10 +236,14 @@ class CheckoutController extends Controller
             session()->forget(['cart', 'applied_voucher']);
 
             return redirect()->route('buyer.dashboard')->with('success', 'Order placed successfully! Waiting for seller preparation.');
-        } catch (\Exception $e) {
-            DB::rollBack();
+        } catch (Throwable $exception) {
+            if (DB::transactionLevel() > 0) {
+                DB::rollBack();
+            }
 
-            return back()->with('error', 'Failed to place order: '.$e->getMessage());
+            report($exception);
+
+            return back()->with('error', "We couldn't place your order right now. Please try again.");
         }
     }
 }

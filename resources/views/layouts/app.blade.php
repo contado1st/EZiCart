@@ -50,6 +50,12 @@
                 @endif
 
                 @auth
+                    <a href="{{ route('notifications.index') }}" class="nav-link">Notifications
+                        @if (auth()->user()->unreadNotifications()->exists())
+                            <span class="cart-count-badge">{{ auth()->user()->unreadNotifications()->count() }}</span>
+                        @endif
+                    </a>
+                    <a href="{{ route('account.profile.edit') }}" class="nav-link">Account</a>
                     @if (auth()->user()->role === 'seller')
                         <a href="{{ route('seller.dashboard') }}" class="btn-primary nav-btn-compact">Dashboard</a>
                     @elseif(auth()->user()->role === 'admin')
