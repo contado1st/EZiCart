@@ -48,7 +48,11 @@ class CourierController extends Controller
             'assigned_delivery' => Order::where('delivery_courier_id', $courier->id)->whereIn('status', ['ASSIGNED_TO_RIDER', 'OUT_FOR_DELIVERY'])->count(),
             'returning_to_seller' => $myReturns->count(),
             'completed_today' => Order::where('delivery_courier_id', $courier->id)->whereIn('status', ['DELIVERED', 'COMPLETED'])->whereBetween('delivered_at', [$todayStart, $tomorrowStart])->count(),
-            'failed_today' => Order::where('delivery_courier_id', $courier->id)->where('status', 'DELIVERY_FAILED')->whereBetween('failed_at', [$todayStart, $tomorrowStart])->count(),
+            'failed_today' => DeliveryAttempt::query()
+                ->where('rider_id', $courier->id)
+                ->where('outcome', 'failed')
+                ->whereBetween('attempted_at', [$todayStart, $tomorrowStart])
+                ->count(),
         ];
 
         return view('courier.dashboard', compact('courier', 'availablePickups', 'claimedPickups', 'myActivePickups', 'myReturns', 'myDeliveryAssignments', 'myFailedDeliveries', 'stats'));

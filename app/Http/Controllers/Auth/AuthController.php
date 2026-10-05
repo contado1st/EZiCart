@@ -4,11 +4,13 @@ namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use App\Notifications\CourierApplicationSubmittedNotification;
 use Carbon\Carbon;
 use Illuminate\Auth\Events\PasswordReset;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Password;
 use Illuminate\Support\Str;
 
@@ -251,7 +253,7 @@ class AuthController extends Controller
         $orCrPath = $request->file('or_cr_document')->store('documents/or_cr', 'private');
         $age = Carbon::parse($validated['birthday'])->age;
 
-        User::query()->forceCreate([
+        $courier = User::query()->forceCreate([
             'first_name' => $validated['first_name'],
             'last_name' => $validated['last_name'],
             'middle_initial' => $validated['middle_initial'] ?? null,
@@ -272,6 +274,12 @@ class AuthController extends Controller
             'status' => 'pending',
             'password' => Hash::make($validated['password']),
         ]);
+
+        $reviewers = User::query()
+            ->whereIn('role', ['admin', 'sorting_center'])
+            ->where('status', 'approved')
+            ->get();
+        Notification::send($reviewers, new CourierApplicationSubmittedNotification($courier));
 
         return redirect()->route('login')->with('success', 'Rider application submitted! Please wait for Logistics / Sorting Center approval.');
     }

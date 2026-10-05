@@ -25,6 +25,8 @@
                         href="{{ route('logistics.tracking') }}">Delivery tracking</a>
                     <a class="{{ request()->routeIs('logistics.riders') ? 'active' : '' }}"
                         href="{{ route('logistics.riders') }}">Riders</a>
+                    <a class="{{ request()->routeIs('logistics.areas*') ? 'active' : '' }}"
+                        href="{{ route('logistics.areas') }}">Routing areas</a>
                     <a class="{{ request()->routeIs('logistics.reports') ? 'active' : '' }}"
                         href="{{ route('logistics.reports') }}">Reports</a>
                 </nav>

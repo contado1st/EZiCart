@@ -5,6 +5,7 @@ namespace App\Notifications;
 use App\Models\Order;
 use App\Models\User;
 use Illuminate\Bus\Queueable;
+use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
 
 class OrderWorkflowNotification extends Notification
@@ -20,11 +21,32 @@ class OrderWorkflowNotification extends Notification
     /** @return array<int, string> */
     public function via(object $notifiable): array
     {
-        return ['database'];
+        return ['mail', 'database'];
+    }
+
+    public function toMail(User $notifiable): MailMessage
+    {
+        return (new MailMessage)
+            ->subject("Order update: {$this->order->order_number}")
+            ->greeting('Hello '.$notifiable->first_name.',')
+            ->line($this->message)
+            ->line("Order reference: {$this->order->order_number}")
+            ->action('View order update', $this->destinationUrl($notifiable));
     }
 
     /** @return array<string, int|string> */
     public function toDatabase(User $notifiable): array
+    {
+        return [
+            'order_id' => $this->order->id,
+            'order_number' => $this->order->order_number,
+            'event_type' => $this->eventType,
+            'message' => $this->message,
+            'url' => $this->destinationUrl($notifiable),
+        ];
+    }
+
+    private function destinationUrl(User $notifiable): string
     {
         [$routeName, $parameters] = match ($notifiable->role) {
             'buyer' => ['buyer.orders.show', [$this->order->id]],
@@ -34,12 +56,6 @@ class OrderWorkflowNotification extends Notification
             default => ['notifications.index', []],
         };
 
-        return [
-            'order_id' => $this->order->id,
-            'order_number' => $this->order->order_number,
-            'event_type' => $this->eventType,
-            'message' => $this->message,
-            'url' => route($routeName, $parameters),
-        ];
+        return route($routeName, $parameters);
     }
 }

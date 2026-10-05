@@ -3,7 +3,9 @@
 namespace App\Notifications;
 
 use App\Models\Product;
+use App\Models\User;
 use Illuminate\Bus\Queueable;
+use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
 
 class ProductComplianceNotification extends Notification
@@ -19,7 +21,25 @@ class ProductComplianceNotification extends Notification
     /** @return array<int, string> */
     public function via(object $notifiable): array
     {
-        return ['database'];
+        return ['mail', 'database'];
+    }
+
+    public function toMail(User $notifiable): MailMessage
+    {
+        $approved = $this->status === 'approved';
+        $message = $approved
+            ? "{$this->product->name} was approved for sale."
+            : "{$this->product->name} was flagged by the compliance team. Review the note and update the listing.";
+        $mail = (new MailMessage)
+            ->subject($approved ? 'Product approved for sale' : 'Product compliance action required')
+            ->greeting('Hello '.$notifiable->first_name.',')
+            ->line($message);
+
+        if (filled($this->note)) {
+            $mail->line('Review note: '.$this->note);
+        }
+
+        return $mail->action('Review your products', route('seller.products.index'));
     }
 
     /** @return array<string, int|string> */

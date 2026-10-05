@@ -149,6 +149,10 @@ Route::middleware(['auth', 'account.active', 'auth.session'])->group(function ()
         Route::get('/orders/{order}/messages', [OrderMessageController::class, 'show'])->name('orders.messages.show');
         Route::post('/orders/{order}/messages', [OrderMessageController::class, 'store'])->middleware('throttle:30,1')->name('orders.messages.store');
         Route::get('/reports', [LogisticsController::class, 'reports'])->name('reports');
+        Route::get('/areas', [LogisticsController::class, 'areas'])->name('areas');
+        Route::post('/areas', [LogisticsController::class, 'storeArea'])->middleware('throttle:30,1')->name('areas.store');
+        Route::post('/areas/municipalities', [LogisticsController::class, 'storeAreaMunicipality'])->middleware('throttle:30,1')->name('areas.municipalities.store');
+        Route::patch('/areas/municipalities/{areaMunicipality}', [LogisticsController::class, 'updateAreaMunicipality'])->middleware('throttle:30,1')->name('areas.municipalities.update');
         Route::post('/orders/{order}/receive', [LogisticsController::class, 'receiveParcel'])->middleware('throttle:30,1')->name('orders.receive');
         Route::post('/orders/{order}/sort', [LogisticsController::class, 'sortParcel'])->middleware('throttle:30,1')->name('orders.sort');
         Route::post('/orders/{order}/assign-rider', [LogisticsController::class, 'assignRider'])->middleware('throttle:30,1')->name('orders.assignRider');

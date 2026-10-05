@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Logistics;
 use App\Enums\OrderStatus;
 use App\Http\Controllers\Controller;
 use App\Models\Area;
+use App\Models\AreaMunicipality;
 use App\Models\DeliveryAttempt;
 use App\Models\Order;
 use App\Models\ParcelTrackingEvent;
@@ -14,9 +15,11 @@ use App\Notifications\OrderWorkflowNotification;
 use App\Services\OrderAreaService;
 use App\Services\OrderTransitionService;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\QueryException;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
@@ -28,18 +31,22 @@ class LogisticsController extends Controller
     {
         $todayStart = today()->startOfDay();
         $tomorrowStart = today()->addDay()->startOfDay();
-        $stats = [
-            'inbound' => Order::where('status', 'PICKED_UP')->count(),
-            'at_center' => Order::where('status', 'AT_SORTING_CENTER')->count(),
-            'sorted' => Order::where('status', 'SORTED')->count(),
-            'assigned' => Order::where('status', 'ASSIGNED_TO_RIDER')->count(),
-            'out' => Order::where('status', 'OUT_FOR_DELIVERY')->count(),
-            'delivered_today' => Order::whereIn('status', ['DELIVERED', 'COMPLETED'])->whereBetween('delivered_at', [$todayStart, $tomorrowStart])->count(),
-            'failed' => Order::where('status', 'DELIVERY_FAILED')->count(),
-            'returned' => Order::whereIn('status', ['RETURN_IN_TRANSIT', 'RETURNED_TO_SELLER'])->count(),
-            'active_riders' => User::where('role', 'courier')->where('status', 'approved')->count(),
-            'available_riders' => User::where('role', 'courier')->where('status', 'approved')->whereDoesntHave('finalDeliveries', fn (Builder $query) => $query->activeCourierWorkload())->count(),
-        ];
+        $stats = Cache::remember(
+            'logistics.dashboard.stats.'.today()->toDateString(),
+            now()->addSeconds(max(1, (int) config('logistics.dashboard_cache_seconds', 20))),
+            fn (): array => [
+                'inbound' => Order::where('status', 'PICKED_UP')->count(),
+                'at_center' => Order::where('status', 'AT_SORTING_CENTER')->count(),
+                'sorted' => Order::where('status', 'SORTED')->count(),
+                'assigned' => Order::where('status', 'ASSIGNED_TO_RIDER')->count(),
+                'out' => Order::where('status', 'OUT_FOR_DELIVERY')->count(),
+                'delivered_today' => Order::whereIn('status', ['DELIVERED', 'COMPLETED'])->whereBetween('delivered_at', [$todayStart, $tomorrowStart])->count(),
+                'failed' => Order::where('status', 'DELIVERY_FAILED')->count(),
+                'returned' => Order::whereIn('status', ['RETURN_IN_TRANSIT', 'RETURNED_TO_SELLER'])->count(),
+                'active_riders' => User::where('role', 'courier')->where('status', 'approved')->count(),
+                'available_riders' => User::where('role', 'courier')->where('status', 'approved')->whereDoesntHave('finalDeliveries', fn (Builder $query) => $query->activeCourierWorkload())->count(),
+            ],
+        );
 
         $queues = [
             'inbound' => Order::with(['seller', 'pickupCourier'])->where('status', 'PICKED_UP')->latest()->limit(8)->get(),
@@ -316,6 +323,93 @@ class LogisticsController extends Controller
         $areas = Area::query()->where('is_active', true)->orderBy('name')->get();
 
         return view('logistics.riders', compact('riders', 'areas'));
+    }
+
+    public function areas(): View
+    {
+        $areas = Area::query()
+            ->with('municipalities')
+            ->withCount(['riders', 'orders'])
+            ->orderBy('name')
+            ->get();
+
+        return view('logistics.areas', compact('areas'));
+    }
+
+    public function storeArea(Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'name' => ['required', 'string', 'max:255'],
+            'code' => ['required', 'string', 'alpha_dash', 'max:255', 'unique:areas,code'],
+        ]);
+
+        Area::query()->create([
+            'name' => trim($validated['name']),
+            'code' => strtoupper(trim($validated['code'])),
+            'is_active' => true,
+        ]);
+
+        return back()->with('success', 'Routing area created. Map its municipalities to make it available for parcel sorting.');
+    }
+
+    public function storeAreaMunicipality(Request $request, OrderAreaService $areas): RedirectResponse
+    {
+        $validated = $request->validate([
+            'area_id' => ['required', 'integer', 'exists:areas,id'],
+            'province' => ['required', 'string', 'max:191'],
+            'municipality' => ['required', 'string', 'max:191'],
+        ]);
+        $province = trim($validated['province']);
+        $municipality = trim($validated['municipality']);
+        $provinceNormalized = $areas->normalizeAddressValue($province);
+        $municipalityNormalized = $areas->normalizeAddressValue($municipality);
+
+        $this->assertAreaMunicipalityAvailable($provinceNormalized, $municipalityNormalized);
+        $area = Area::query()->findOrFail($validated['area_id']);
+        abort_unless($area->is_active, 422, 'Select an active routing area.');
+
+        try {
+            AreaMunicipality::query()->create([
+                'area_id' => $area->id,
+                'province' => $province,
+                'municipality' => $municipality,
+                'province_normalized' => $provinceNormalized,
+                'municipality_normalized' => $municipalityNormalized,
+            ]);
+        } catch (QueryException $exception) {
+            $this->assertAreaMunicipalityAvailable($provinceNormalized, $municipalityNormalized);
+
+            throw $exception;
+        }
+
+        return back()->with('success', "{$municipality}, {$province} now routes to {$area->name}.");
+    }
+
+    public function updateAreaMunicipality(Request $request, AreaMunicipality $areaMunicipality): RedirectResponse
+    {
+        $validated = $request->validate([
+            'area_id' => ['required', 'integer', 'exists:areas,id'],
+        ]);
+        $area = Area::query()->findOrFail($validated['area_id']);
+        abort_unless($area->is_active, 422, 'Select an active routing area.');
+
+        $areaMunicipality->update(['area_id' => $area->id]);
+
+        return back()->with('success', "{$areaMunicipality->municipality}, {$areaMunicipality->province} now routes to {$area->name}.");
+    }
+
+    private function assertAreaMunicipalityAvailable(string $provinceNormalized, string $municipalityNormalized): void
+    {
+        $alreadyMapped = AreaMunicipality::query()
+            ->where('province_normalized', $provinceNormalized)
+            ->where('municipality_normalized', $municipalityNormalized)
+            ->exists();
+
+        if ($alreadyMapped) {
+            throw ValidationException::withMessages([
+                'municipality' => 'This province and municipality are already mapped. Change the area in the existing mapping.',
+            ]);
+        }
     }
 
     public function updateRiderAreas(Request $request, User $user): RedirectResponse

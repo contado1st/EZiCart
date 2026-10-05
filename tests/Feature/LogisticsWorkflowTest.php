@@ -13,13 +13,18 @@ use App\Models\ParcelTrackingEvent;
 use App\Models\Product;
 use App\Models\User;
 use App\Notifications\AccountStatusNotification;
+use App\Notifications\CourierApplicationSubmittedNotification;
+use App\Notifications\OrderMessageNotification;
+use App\Notifications\OrderStatusNotification;
 use App\Notifications\OrderWorkflowNotification;
+use App\Notifications\ProductComplianceNotification;
 use App\Services\OrderTransitionService;
 use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Database\QueryException;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Notification;
@@ -78,6 +83,138 @@ class LogisticsWorkflowTest extends TestCase
         $this->actingAsUser($center)->post(route('logistics.orders.receive', $order))->assertRedirect();
         $this->assertDatabaseHas('orders', ['id' => $order->id, 'status' => 'AT_SORTING_CENTER', 'sorting_center_id' => $center->id]);
         $this->assertDatabaseHas('parcel_tracking_events', ['order_id' => $order->id, 'event_type' => 'hub_received']);
+    }
+
+    public function test_order_workflow_notifications_send_email_and_in_app_links_for_the_recipient_role(): void
+    {
+        Notification::fake();
+        $courier = $this->user('courier', 'approved');
+        $order = $this->order([
+            'status' => 'READY_FOR_PICKUP',
+            'pickup_requested_at' => now(),
+            'pickup_courier_id' => $courier->id,
+        ]);
+
+        $this->actingAsUser($courier)->post(route('courier.orders.claim', $order))->assertRedirect();
+
+        $seller = $order->seller;
+        Notification::assertSentTo($seller, OrderWorkflowNotification::class, function (OrderWorkflowNotification $notification) use ($seller, $order): bool {
+            return $notification->eventType === 'pickup_accepted'
+                && in_array('mail', $notification->via($seller), true)
+                && in_array('database', $notification->via($seller), true)
+                && $notification->toMail($seller)->actionUrl === route('seller.orders.show', $order)
+                && $notification->toDatabase($seller)['url'] === route('seller.orders.show', $order);
+        });
+    }
+
+    public function test_courier_registration_notifies_admin_and_logistics_to_review_the_application(): void
+    {
+        Storage::fake('private');
+        Notification::fake();
+        $admin = $this->user('admin', 'approved');
+        $logistics = $this->user('sorting_center', 'approved');
+        $buyer = $this->user('buyer', 'approved');
+
+        $this->post(route('register.courier.post'), [
+            'first_name' => 'Rider',
+            'last_name' => 'Applicant',
+            'sex' => 'Other',
+            'email' => 'courier-review@example.test',
+            'contact_no' => '09123456789',
+            'birthday' => '1990-01-01',
+            'province' => 'Laguna',
+            'municipality' => 'Majayjay',
+            'barangay' => 'Poblacion',
+            'street_address' => '1 Test Street',
+            'vehicle_type' => 'Motorcycle',
+            'plate_number' => 'ABC1234',
+            'id_document' => UploadedFile::fake()->image('license.png'),
+            'or_cr_document' => UploadedFile::fake()->image('or-cr.png'),
+            'password' => 'password123',
+            'password_confirmation' => 'password123',
+            'role' => 'admin',
+            'status' => 'approved',
+        ])->assertRedirect(route('login'));
+
+        $applicant = User::query()->where('email', 'courier-review@example.test')->firstOrFail();
+        $this->assertSame('courier', $applicant->role);
+        $this->assertSame('pending', $applicant->status);
+        Notification::assertSentTo([$admin, $logistics], CourierApplicationSubmittedNotification::class, function (CourierApplicationSubmittedNotification $notification, array $channels, User $notifiable) use ($applicant): bool {
+            $reviewUrl = $notifiable->role === 'admin'
+                ? route('admin.registrations.index')
+                : route('logistics.riders');
+
+            return in_array('mail', $channels, true)
+                && in_array('database', $channels, true)
+                && $notification->applicant->is($applicant)
+                && $notification->toMail($notifiable)->actionUrl === $reviewUrl
+                && $notification->toDatabase($notifiable)['url'] === $reviewUrl;
+        });
+        Notification::assertNotSentTo($buyer, CourierApplicationSubmittedNotification::class);
+    }
+
+    public function test_order_status_notifications_send_email_and_in_app_links_to_the_buyer(): void
+    {
+        Notification::fake();
+        $order = $this->order(['status' => 'PLACED']);
+
+        $this->actingAsUser($order->seller)->patch(route('seller.orders.updateStatus', $order), ['status' => 'CONFIRMED'])
+            ->assertRedirect();
+
+        $buyer = $order->buyer;
+        Notification::assertSentTo($buyer, OrderStatusNotification::class, function (OrderStatusNotification $notification) use ($buyer, $order): bool {
+            return $notification->status === 'CONFIRMED'
+                && in_array('mail', $notification->via($buyer), true)
+                && in_array('database', $notification->via($buyer), true)
+                && $notification->toMail($buyer)->actionUrl === route('buyer.orders.show', $order)
+                && $notification->toDatabase($buyer)['url'] === route('buyer.orders.show', $order);
+        });
+    }
+
+    public function test_order_message_notification_sends_email_and_in_app_conversation_link(): void
+    {
+        Notification::fake();
+        $order = $this->order();
+
+        $this->actingAsUser($order->seller)->post(route('seller.orders.messages.store', $order), ['body' => 'Your parcel is ready.'])
+            ->assertRedirect();
+
+        $buyer = $order->buyer;
+        Notification::assertSentTo($buyer, OrderMessageNotification::class, function (OrderMessageNotification $notification) use ($buyer, $order): bool {
+            return in_array('mail', $notification->via($buyer), true)
+                && in_array('database', $notification->via($buyer), true)
+                && $notification->toMail($buyer)->actionUrl === route('buyer.orders.messages.show', $order)
+                && $notification->toDatabase($buyer)['url'] === route('buyer.orders.messages.show', $order);
+        });
+    }
+
+    public function test_product_compliance_notice_sends_email_and_in_app_notification_to_seller(): void
+    {
+        Notification::fake();
+        $admin = $this->user('admin', 'approved');
+        $seller = $this->user('seller', 'approved');
+        $product = Product::query()->create([
+            'user_id' => $seller->id,
+            'name' => 'Restricted sample listing',
+            'description' => 'Listing requires an edit.',
+            'category' => 'Test',
+            'price' => 10,
+            'stock' => 1,
+            'is_archived' => false,
+        ]);
+
+        $this->actingAsUser($admin)->patch(route('admin.compliance.products.review', $product), [
+            'compliance_status' => 'flagged',
+            'compliance_note' => 'Update the listing details before selling.',
+        ])->assertRedirect();
+
+        Notification::assertSentTo($seller, ProductComplianceNotification::class, function (ProductComplianceNotification $notification) use ($seller): bool {
+            return $notification->status === 'flagged'
+                && in_array('mail', $notification->via($seller), true)
+                && in_array('database', $notification->via($seller), true)
+                && str_contains($notification->toMail($seller)->introLines[0], 'flagged')
+                && $notification->toDatabase($seller)['url'] === route('seller.products.index');
+        });
     }
 
     public function test_logistics_can_reassign_only_unclaimed_pickups_and_preserve_history(): void
@@ -377,6 +514,73 @@ class LogisticsWorkflowTest extends TestCase
         $this->assertDatabaseHas('orders', ['id' => $order->id, 'delivery_courier_id' => $rider->id, 'status' => 'ASSIGNED_TO_RIDER']);
         $this->assertDatabaseHas('delivery_assignments', ['order_id' => $order->id, 'rider_id' => $rider->id, 'status' => 'active', 'assigned_by' => $center->id]);
         $this->assertDatabaseHas('parcel_tracking_events', ['order_id' => $order->id, 'event_type' => 'rider_assigned']);
+    }
+
+    public function test_logistics_can_configure_areas_and_route_multiple_municipalities_to_one_area(): void
+    {
+        $center = $this->user('sorting_center', 'approved');
+        $order = $this->order(['status' => 'AT_SORTING_CENTER']);
+        $order->forceFill(['province' => 'Quezon', 'municipality' => 'Lucban'])->save();
+
+        $this->actingAsUser($center)->post(route('logistics.orders.sort', $order))
+            ->assertUnprocessable();
+        $this->assertDatabaseMissing('area_municipalities', [
+            'province_normalized' => 'quezon',
+            'municipality_normalized' => 'lucban',
+        ]);
+
+        $this->get(route('logistics.areas'))->assertOk()->assertSee('Routing areas');
+        $this->post(route('logistics.areas.store'), [
+            'name' => 'South Quezon',
+            'code' => 'south-quezon',
+        ])->assertRedirect();
+        $area = Area::query()->where('code', 'SOUTH-QUEZON')->firstOrFail();
+
+        foreach (['Lucban', 'Tayabas'] as $municipality) {
+            $this->post(route('logistics.areas.municipalities.store'), [
+                'area_id' => $area->id,
+                'province' => 'Quezon',
+                'municipality' => $municipality,
+            ])->assertRedirect();
+        }
+
+        $this->post(route('logistics.areas.municipalities.store'), [
+            'area_id' => $area->id,
+            'province' => ' QUEZON ',
+            'municipality' => 'lucban',
+        ])->assertSessionHasErrors('municipality');
+
+        $otherOrder = $this->order(['status' => 'AT_SORTING_CENTER']);
+        $otherOrder->forceFill(['province' => 'Quezon', 'municipality' => 'Tayabas'])->save();
+        $this->post(route('logistics.orders.sort', $order))->assertRedirect();
+        $this->post(route('logistics.orders.sort', $otherOrder))->assertRedirect();
+        $this->assertDatabaseHas('orders', ['id' => $order->id, 'destination_area_id' => $area->id]);
+        $this->assertDatabaseHas('orders', ['id' => $otherOrder->id, 'destination_area_id' => $area->id]);
+        $this->get(route('logistics.areas'))->assertSee('Lucban, Quezon')->assertSee('Tayabas, Quezon');
+
+        $this->actingAsUser($this->user('buyer', 'approved'))->get(route('logistics.areas'))->assertForbidden();
+    }
+
+    public function test_logistics_can_correct_an_existing_municipality_area_mapping(): void
+    {
+        $center = $this->user('sorting_center', 'approved');
+        $this->actingAsUser($center)->post(route('logistics.areas.store'), ['name' => 'Zone One', 'code' => 'zone-one'])->assertRedirect();
+        $this->post(route('logistics.areas.store'), ['name' => 'Zone Two', 'code' => 'zone-two'])->assertRedirect();
+        $firstArea = Area::query()->where('code', 'ZONE-ONE')->firstOrFail();
+        $secondArea = Area::query()->where('code', 'ZONE-TWO')->firstOrFail();
+        $this->post(route('logistics.areas.municipalities.store'), [
+            'area_id' => $firstArea->id,
+            'province' => 'Laguna',
+            'municipality' => 'Liliw',
+        ])->assertRedirect();
+        $mapping = AreaMunicipality::query()->where('province_normalized', 'laguna')->where('municipality_normalized', 'liliw')->firstOrFail();
+
+        $this->patch(route('logistics.areas.municipalities.update', $mapping), ['area_id' => $secondArea->id])->assertRedirect();
+
+        $this->assertDatabaseHas('area_municipalities', ['id' => $mapping->id, 'area_id' => $secondArea->id]);
+        $order = $this->order(['status' => 'AT_SORTING_CENTER', 'province' => 'Laguna', 'municipality' => 'Liliw']);
+        $this->post(route('logistics.orders.sort', $order))->assertRedirect();
+        $this->assertDatabaseHas('orders', ['id' => $order->id, 'destination_area_id' => $secondArea->id]);
     }
 
     public function test_logistics_cannot_reassign_a_delivery_after_hub_handoff(): void
@@ -680,6 +884,24 @@ class LogisticsWorkflowTest extends TestCase
         $this->get(route('logistics.tracking'))->assertOk();
         $this->get(route('logistics.riders'))->assertOk();
         $this->get(route('logistics.reports'))->assertOk();
+    }
+
+    public function test_logistics_dashboard_caches_counters_briefly_and_refreshes_them(): void
+    {
+        Cache::forget('logistics.dashboard.stats.'.today()->toDateString());
+        $center = $this->user('sorting_center', 'approved');
+
+        $this->actingAsUser($center)->get(route('logistics.dashboard'))
+            ->assertOk()
+            ->assertViewHas('stats', fn (array $stats): bool => $stats['inbound'] === 0);
+        $this->order(['status' => 'PICKED_UP']);
+
+        $this->get(route('logistics.dashboard'))
+            ->assertViewHas('stats', fn (array $stats): bool => $stats['inbound'] === 0);
+
+        Cache::forget('logistics.dashboard.stats.'.today()->toDateString());
+        $this->get(route('logistics.dashboard'))
+            ->assertViewHas('stats', fn (array $stats): bool => $stats['inbound'] === 1);
     }
 
     public function test_logistics_reports_filter_events_by_event_timestamp(): void
@@ -1178,6 +1400,8 @@ class LogisticsWorkflowTest extends TestCase
         $this->actingAsUser($rider)->patch(route('courier.orders.failDelivery', $activeOrder), ['failure_reason' => 'recipient_unavailable'])->assertRedirect();
         $this->assertDatabaseHas('orders', ['id' => $activeOrder->id, 'status' => 'RETURN_IN_TRANSIT']);
         $this->assertDatabaseHas('delivery_attempts', ['order_id' => $activeOrder->id, 'attempt_no' => 1, 'outcome' => 'failed']);
+        $this->actingAsUser($rider)->get(route('courier.dashboard'))
+            ->assertViewHas('stats', fn (array $stats): bool => $stats['failed_today'] === 1);
         $this->actingAsUser($center)->post(route('logistics.orders.assignRider', $dispatchOrder), ['delivery_courier_id' => $rider->id])->assertUnprocessable();
     }
 

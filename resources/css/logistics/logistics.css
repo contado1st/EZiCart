@@ -9,3 +9,30 @@
     padding: 2px 6px;
     border-radius: 3px;
 }
+.ops-area-mapping {
+    display: grid;
+    gap: 6px;
+    padding: 8px 0;
+    border-bottom: 1px solid #e8e5ed;
+}
+.ops-area-mapping:last-child {
+    border-bottom: 0;
+}
+.ops-area-mapping .ops-form {
+    align-items: center;
+}
+.ops-area-mapping .ops-form label {
+    color: #736d7b;
+    font-size: 11px;
+}
+.ops-area-mapping .ops-form select {
+    min-height: 40px;
+    max-width: 220px;
+    padding: 7px 9px;
+    border: 1px solid #ded9e5;
+    border-radius: 5px;
+    background: #fff;
+}
+.ops-area-mapping .ops-form .ops-btn {
+    min-height: 40px;
+}

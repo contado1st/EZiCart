@@ -14,6 +14,18 @@ return new class extends Migration
      */
     public function up(): void
     {
+        if (Schema::hasTable('areas') || Schema::hasTable('area_municipalities')) {
+            $hasAreaData = (Schema::hasTable('areas') && DB::table('areas')->exists())
+                || (Schema::hasTable('area_municipalities') && DB::table('area_municipalities')->exists());
+
+            if ($hasAreaData || Schema::hasTable('area_user') || Schema::hasColumn('orders', 'destination_area_id')) {
+                throw new RuntimeException('Area routing tables already contain data or related schema. Review the partial migration before retrying.');
+            }
+
+            Schema::dropIfExists('area_municipalities');
+            Schema::dropIfExists('areas');
+        }
+
         Schema::create('areas', function (Blueprint $table) {
             $table->id();
             $table->string('name');
@@ -30,7 +42,7 @@ return new class extends Migration
             $table->string('province_normalized', 191);
             $table->string('municipality_normalized', 191);
             $table->timestamps();
-            $table->unique(['province_normalized', 'municipality_normalized']);
+            $table->unique(['province_normalized', 'municipality_normalized'], 'area_municipalities_address_unique');
         });
 
         Schema::create('area_user', function (Blueprint $table) {
