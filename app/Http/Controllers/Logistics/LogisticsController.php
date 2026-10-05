@@ -208,8 +208,10 @@ class LogisticsController extends Controller
             $transitions->transition($lockedOrder, $operator, OrderStatus::AssignedToRider, 'rider_assigned', $lockedOrder->delivery_area, "Assigned to {$rider->first_name} {$rider->last_name}.{$scheduleNote}", [
                 'delivery_courier_id' => $rider->id,
                 'assigned_at' => now(),
+                'hub_released_at' => null,
                 'failed_at' => null,
                 'delivery_failure_reason' => null,
+                'delivery_notes' => null,
             ]);
 
             if (isset($validated['scheduled_at'])) {
@@ -233,6 +235,33 @@ class LogisticsController extends Controller
             }
 
             return back()->with('success', "Parcel {$lockedOrder->order_number} assigned to {$rider->first_name} {$rider->last_name}.");
+        });
+    }
+
+    public function releaseToRider(Order $order): RedirectResponse
+    {
+        $operator = $this->authenticatedUser();
+
+        return DB::transaction(function () use ($order, $operator): RedirectResponse {
+            $lockedOrder = Order::query()->whereKey($order->id)->lockForUpdate()->firstOrFail();
+            abort_unless($lockedOrder->status === OrderStatus::AssignedToRider->value, 422, 'Assign this parcel before releasing it to a rider.');
+            abort_unless($lockedOrder->delivery_courier_id !== null && $lockedOrder->hub_released_at === null, 422, 'This parcel has already been released or has no assigned rider.');
+
+            $rider = User::query()->whereKey($lockedOrder->delivery_courier_id)->lockForUpdate()->firstOrFail();
+            abort_unless($rider->role === 'courier' && $rider->status === 'approved', 422, 'Only an approved rider can receive a hub release.');
+
+            $lockedOrder->forceFill(['hub_released_at' => now()])->save();
+            ParcelTrackingEvent::query()->create([
+                'order_id' => $lockedOrder->id,
+                'actor_id' => $operator->id,
+                'event_type' => 'hub_released_to_rider',
+                'status' => $lockedOrder->status,
+                'location' => $operator->municipality,
+                'notes' => "Logistics released the parcel to {$rider->first_name} {$rider->last_name} for final delivery.",
+            ]);
+            $rider->notify(new OrderWorkflowNotification($lockedOrder, 'hub_released_to_rider', 'Logistics released your assigned parcel from the sorting center.'));
+
+            return back()->with('success', "Parcel {$lockedOrder->order_number} released to {$rider->first_name} {$rider->last_name}.");
         });
     }
 

@@ -31,8 +31,19 @@
     @if ($order->delivery_courier_id === auth()->id() && $order->status === 'ASSIGNED_TO_RIDER')
         <section class="ops-panel">
             <h2>Start delivery</h2>
-            <form method="POST" action="{{ route('courier.orders.startDelivery', $order) }}">@csrf<button
-                    class="ops-btn ops-btn--primary">Collect from hub and start</button></form>
+            @if ($order->hub_released_at)
+                <p class="ops-muted">Logistics confirmed the hub release at {{ $order->hub_released_at->format('d M Y H:i') }}.</p>
+                <form method="POST" action="{{ route('courier.orders.startDelivery', $order) }}">@csrf<button
+                        class="ops-btn ops-btn--primary">Start delivery</button></form>
+            @else
+                <p class="ops-muted">Waiting for Logistics to verify and release this parcel from the hub.</p>
+                <form class="ops-form" method="POST" action="{{ route('courier.orders.declineDeliveryAssignment', $order) }}"
+                    onsubmit="return confirm('Decline this delivery assignment and return the parcel to dispatch?')">
+                    @csrf
+                    <div class="ops-field"><label>Reason (optional)</label><input name="reason" maxlength="500"></div>
+                    <button class="ops-btn ops-btn--danger" type="submit">Decline assignment</button>
+                </form>
+            @endif
         </section>
     @elseif($order->delivery_courier_id === auth()->id() && $order->status === 'OUT_FOR_DELIVERY')
         <section class="ops-panel">

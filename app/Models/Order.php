@@ -131,6 +131,7 @@ class Order extends Model
             'received_at' => 'datetime',
             'sorted_at' => 'datetime',
             'assigned_at' => 'datetime',
+            'hub_released_at' => 'datetime',
             'out_for_delivery_at' => 'datetime',
             'delivered_at' => 'datetime',
             'failed_at' => 'datetime',

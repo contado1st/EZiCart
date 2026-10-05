@@ -154,6 +154,16 @@ class LogisticsWorkflowTest extends TestCase
         $this->actingAsUser($center)->post(route('logistics.orders.receive', $order))->assertRedirect();
         $this->post(route('logistics.orders.sort', $order), [])->assertRedirect();
         $this->post(route('logistics.orders.assignRider', $order), ['delivery_courier_id' => $rider->id])->assertRedirect();
+        $this->actingAsUser($center)->get(route('logistics.dispatch'))->assertSee('Confirm hub handoff to rider');
+        $this->actingAsUser($rider)->get(route('courier.dashboard'))->assertSee('Waiting for Logistics hub release');
+        $this->actingAsUser($rider)->post(route('logistics.orders.releaseToRider', $order))->assertForbidden();
+        $this->post(route('courier.orders.startDelivery', $order))->assertUnprocessable();
+        $this->actingAsUser($center)->post(route('logistics.orders.releaseToRider', $order))->assertRedirect();
+        $this->get(route('logistics.dispatch'))->assertSee('Hub release recorded');
+        $this->assertDatabaseHas('orders', ['id' => $order->id, 'status' => 'ASSIGNED_TO_RIDER']);
+        $this->assertNotNull($order->fresh()->hub_released_at);
+        $this->assertDatabaseHas('parcel_tracking_events', ['order_id' => $order->id, 'event_type' => 'hub_released_to_rider', 'actor_id' => $center->id]);
+        $this->post(route('logistics.orders.releaseToRider', $order))->assertUnprocessable();
         $this->actingAsUser($rider)->post(route('courier.orders.startDelivery', $order))->assertRedirect();
         $this->patch(route('courier.orders.completeDelivery', $order), [
             'recipient_confirmation' => 'Test Buyer',
@@ -382,9 +392,19 @@ class LogisticsWorkflowTest extends TestCase
         ]);
 
         $this->actingAsUser($center)->post(route('logistics.orders.assignRider', $order), ['delivery_courier_id' => $firstRider->id])->assertRedirect();
+        $this->actingAsUser($center)->post(route('logistics.orders.releaseToRider', $order))->assertRedirect();
         $this->actingAsUser($firstRider)->post(route('courier.orders.startDelivery', $order))->assertRedirect();
-        $this->patch(route('courier.orders.failDelivery', $order), ['failure_reason' => 'recipient_unavailable'])->assertRedirect();
+        $this->patch(route('courier.orders.failDelivery', $order), [
+            'failure_reason' => 'recipient_unavailable',
+            'delivery_notes' => 'Gate code missing.',
+        ])->assertRedirect();
         $this->assertDatabaseHas('orders', ['id' => $order->id, 'status' => 'DELIVERY_FAILED']);
+        $this->assertDatabaseHas('delivery_attempts', [
+            'order_id' => $order->id,
+            'attempt_no' => 1,
+            'outcome' => 'failed',
+            'notes' => 'Gate code missing.',
+        ]);
 
         $this->actingAsUser($center)->post(route('logistics.orders.assignRider', $order), ['delivery_courier_id' => $secondRider->id])
             ->assertSessionHasErrors('scheduled_at');
@@ -393,6 +413,13 @@ class LogisticsWorkflowTest extends TestCase
             'delivery_courier_id' => $secondRider->id,
             'scheduled_at' => $scheduledAt,
         ])->assertRedirect();
+        $this->assertDatabaseHas('orders', ['id' => $order->id, 'status' => 'ASSIGNED_TO_RIDER', 'delivery_notes' => null]);
+        $this->assertDatabaseHas('delivery_attempts', [
+            'order_id' => $order->id,
+            'attempt_no' => 1,
+            'notes' => 'Gate code missing.',
+        ]);
+        $this->actingAsUser($center)->post(route('logistics.orders.releaseToRider', $order))->assertRedirect();
         $this->actingAsUser($firstRider)->get(route('courier.history'))
             ->assertSee($order->order_number)
             ->assertDontSee($order->recipient_contact);
@@ -907,6 +934,61 @@ class LogisticsWorkflowTest extends TestCase
         $this->assertDatabaseHas('orders', ['id' => $activeOrder->id, 'status' => 'RETURN_IN_TRANSIT']);
         $this->assertDatabaseHas('delivery_attempts', ['order_id' => $activeOrder->id, 'attempt_no' => 1, 'outcome' => 'failed']);
         $this->actingAsUser($center)->post(route('logistics.orders.assignRider', $dispatchOrder), ['delivery_courier_id' => $rider->id])->assertUnprocessable();
+    }
+
+    public function test_assigned_rider_can_decline_before_hub_release_and_preserve_assignment_history(): void
+    {
+        $center = $this->user('sorting_center', 'approved');
+        $rider = $this->user('courier', 'approved', ['assigned_area' => 'Majayjay']);
+        $replacementRider = $this->user('courier', 'approved', ['assigned_area' => 'Majayjay']);
+        $order = $this->order(['status' => 'SORTED']);
+        $this->actingAsUser($center)->post(route('logistics.orders.assignRider', $order), [
+            'delivery_courier_id' => $rider->id,
+        ])->assertRedirect();
+
+        $this->actingAsUser($replacementRider)->post(route('courier.orders.declineDeliveryAssignment', $order), [
+            'reason' => 'Wrong rider',
+        ])->assertForbidden();
+        $this->actingAsUser($rider)->get(route('courier.dashboard'))->assertSee('Decline assignment');
+        $this->post(route('courier.orders.declineDeliveryAssignment', $order), [
+            'reason' => 'Vehicle issue',
+        ])->assertRedirect();
+
+        $this->assertDatabaseHas('orders', [
+            'id' => $order->id,
+            'status' => 'SORTED',
+            'delivery_courier_id' => null,
+            'assigned_at' => null,
+            'hub_released_at' => null,
+        ]);
+        $this->assertDatabaseHas('delivery_assignments', [
+            'order_id' => $order->id,
+            'rider_id' => $rider->id,
+            'status' => 'declined',
+            'active_order_id' => null,
+        ]);
+        $this->assertDatabaseHas('parcel_tracking_events', [
+            'order_id' => $order->id,
+            'actor_id' => $rider->id,
+            'event_type' => 'delivery_assignment_declined',
+            'notes' => 'The assigned rider declined before hub release: Vehicle issue',
+        ]);
+        $this->assertContains(
+            'delivery_assignment_declined',
+            $center->notifications()->where('type', OrderWorkflowNotification::class)->get()->pluck('data.event_type')->all(),
+        );
+
+        $this->actingAsUser($center)->post(route('logistics.orders.assignRider', $order), [
+            'delivery_courier_id' => $replacementRider->id,
+        ])->assertRedirect();
+        $this->assertDatabaseHas('delivery_assignments', [
+            'order_id' => $order->id,
+            'rider_id' => $replacementRider->id,
+            'status' => 'active',
+            'active_order_id' => $order->id,
+        ]);
+        $this->actingAsUser($center)->post(route('logistics.orders.releaseToRider', $order))->assertRedirect();
+        $this->actingAsUser($replacementRider)->post(route('courier.orders.declineDeliveryAssignment', $order))->assertUnprocessable();
     }
 
     public function test_delivery_attempt_migration_backfills_known_legacy_failures_and_deliveries(): void

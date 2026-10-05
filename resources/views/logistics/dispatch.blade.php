@@ -66,6 +66,16 @@
                                     <button class="ops-btn ops-btn--primary"
                                         type="submit">{{ $order->delivery_courier_id ? 'Reassign' : 'Assign' }}</button>
                                 </form>
+                                @if ($order->status === 'ASSIGNED_TO_RIDER')
+                                    @if ($order->hub_released_at)
+                                        <div class="ops-muted">Hub release recorded {{ $order->hub_released_at->format('d M Y H:i') }}.</div>
+                                    @else
+                                        <form method="POST" action="{{ route('logistics.orders.releaseToRider', $order) }}">
+                                            @csrf
+                                            <button class="ops-btn ops-btn--primary" type="submit">Confirm hub handoff to rider</button>
+                                        </form>
+                                    @endif
+                                @endif
                                 @endif
                             </td>
                         </tr>

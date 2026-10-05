@@ -196,9 +196,19 @@
                             </td>
                             <td>
                                 @if ($order->status === 'ASSIGNED_TO_RIDER')
-                                    <form method="POST" action="{{ route('courier.orders.startDelivery', $order) }}">
-                                        @csrf<button class="ops-btn ops-btn--primary" @disabled($courier->status !== 'approved')>Collect
-                                            from hub & start</button></form>
+                                    @if ($order->hub_released_at)
+                                        <form method="POST" action="{{ route('courier.orders.startDelivery', $order) }}">
+                                            @csrf<button class="ops-btn ops-btn--primary" @disabled($courier->status !== 'approved')>Start delivery</button></form>
+                                    @else
+                                        <span class="ops-muted">Waiting for Logistics hub release</span>
+                                        <form class="ops-form" method="POST" action="{{ route('courier.orders.declineDeliveryAssignment', $order) }}"
+                                            onsubmit="return confirm('Decline this delivery assignment and return the parcel to dispatch?')">
+                                            @csrf
+                                            <div class="ops-field"><label for="decline-reason-{{ $order->id }}">Reason (optional)</label>
+                                                <input id="decline-reason-{{ $order->id }}" name="reason" maxlength="500"></div>
+                                            <button class="ops-btn ops-btn--danger" type="submit" @disabled($courier->status !== 'approved')>Decline assignment</button>
+                                        </form>
+                                    @endif
                                 @else
                                     <details>
                                         <summary class="ops-btn ops-btn--primary">Complete delivery</summary>

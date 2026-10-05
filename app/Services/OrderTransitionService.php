@@ -8,6 +8,7 @@ use App\Models\Order;
 use App\Models\ParcelTrackingEvent;
 use App\Models\User;
 use App\Notifications\OrderStatusNotification;
+use App\Notifications\OrderWorkflowNotification;
 use Illuminate\Support\Facades\DB;
 use Symfony\Component\HttpKernel\Exception\HttpException;
 
@@ -34,7 +35,7 @@ class OrderTransitionService
         'PICKED_UP' => ['picked_up_at'],
         'AT_SORTING_CENTER' => ['sorting_center_id', 'received_at'],
         'SORTED' => ['destination_area_id', 'delivery_area', 'sorted_at'],
-        'ASSIGNED_TO_RIDER' => ['delivery_courier_id', 'assigned_at', 'failed_at', 'delivery_failure_reason'],
+        'ASSIGNED_TO_RIDER' => ['delivery_courier_id', 'assigned_at', 'hub_released_at', 'failed_at', 'delivery_failure_reason', 'delivery_notes'],
         'OUT_FOR_DELIVERY' => ['out_for_delivery_at'],
         'DELIVERY_FAILED' => ['failed_at', 'delivery_failure_reason', 'delivery_notes'],
         'DELIVERED' => ['delivered_at', 'delivery_notes', 'cod_collected_amount'],
@@ -96,6 +97,66 @@ class OrderTransitionService
         });
     }
 
+    public function declineDeliveryAssignment(Order $order, User $actor, ?string $reason = null): Order
+    {
+        return DB::transaction(function () use ($order, $actor, $reason): Order {
+            $lockedOrder = Order::query()->whereKey($order->id)->lockForUpdate()->firstOrFail();
+            abort_unless(
+                $actor->role === 'courier'
+                    && $actor->status === 'approved'
+                    && $lockedOrder->status === OrderStatus::AssignedToRider->value
+                    && $lockedOrder->delivery_courier_id === $actor->id,
+                403,
+                'You do not have an active delivery assignment for this parcel.',
+            );
+            abort_unless($lockedOrder->hub_released_at === null, 422, 'A parcel cannot be declined after Logistics releases it from the hub.');
+
+            $assignment = DeliveryAssignment::query()
+                ->where('order_id', $lockedOrder->id)
+                ->where('rider_id', $actor->id)
+                ->where('status', 'active')
+                ->lockForUpdate()
+                ->firstOrFail();
+            $message = filled($reason)
+                ? "The assigned rider declined before hub release: {$reason}"
+                : 'The assigned rider declined before hub release. Logistics can assign another rider.';
+            $lockedOrder->forceFill([
+                'status' => OrderStatus::Sorted->value,
+                'delivery_courier_id' => null,
+                'assigned_at' => null,
+                'hub_released_at' => null,
+            ])->save();
+
+            $assignment->update([
+                'status' => 'declined',
+                'active_order_id' => null,
+                'released_at' => now(),
+            ]);
+            $sortedOrder = $lockedOrder->refresh();
+            ParcelTrackingEvent::query()->create([
+                'order_id' => $sortedOrder->id,
+                'actor_id' => $actor->id,
+                'event_type' => 'delivery_assignment_declined',
+                'status' => OrderStatus::Sorted->value,
+                'location' => $sortedOrder->delivery_area,
+                'notes' => $message,
+            ]);
+            foreach ($this->notificationRecipients($sortedOrder, OrderStatus::Sorted) as $recipient) {
+                $recipient->notify(new OrderStatusNotification(
+                    $sortedOrder,
+                    OrderStatus::Sorted->value,
+                    'delivery_assignment_declined',
+                    $message,
+                ));
+            }
+            User::query()->where('role', 'sorting_center')->where('status', 'approved')->each(
+                fn (User $operator) => $operator->notify(new OrderWorkflowNotification($sortedOrder, 'delivery_assignment_declined', 'A rider declined a delivery before hub release. The parcel is back in the dispatch queue.')),
+            );
+
+            return $sortedOrder->refresh();
+        });
+    }
+
     private function authorizeActor(Order $order, User $actor, OrderStatus $target): void
     {
         $authorized = match ($target) {
@@ -104,7 +165,8 @@ class OrderTransitionService
             OrderStatus::Cancelled => $actor->role === 'buyer' && $order->buyer_id === $actor->id,
             OrderStatus::PickedUp => $actor->role === 'courier' && $order->pickup_courier_id === $actor->id,
             OrderStatus::OutForDelivery, OrderStatus::Delivered, OrderStatus::DeliveryFailed => $actor->role === 'courier' && $order->delivery_courier_id === $actor->id,
-            OrderStatus::AtSortingCenter, OrderStatus::Sorted, OrderStatus::AssignedToRider => $actor->role === 'sorting_center',
+            OrderStatus::AtSortingCenter, OrderStatus::AssignedToRider => $actor->role === 'sorting_center',
+            OrderStatus::Sorted => $actor->role === 'sorting_center',
             OrderStatus::ReturnInTransit => $actor->role === 'sorting_center' || ($actor->role === 'courier' && $order->delivery_courier_id === $actor->id),
             default => false,
         };

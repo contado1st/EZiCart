@@ -128,6 +128,7 @@ Route::middleware(['auth', 'account.active', 'auth.session'])->group(function ()
         Route::post('/orders/{order}/messages', [OrderMessageController::class, 'store'])->middleware('throttle:30,1')->name('orders.messages.store');
         Route::post('/orders/{order}/confirm-pickup', [CourierController::class, 'confirmPickup'])->middleware('throttle:30,1')->name('orders.confirmPickup');
         Route::post('/orders/{order}/start-delivery', [CourierController::class, 'startDelivery'])->middleware('throttle:30,1')->name('orders.startDelivery');
+        Route::post('/orders/{order}/decline-delivery-assignment', [CourierController::class, 'declineDeliveryAssignment'])->middleware('throttle:30,1')->name('orders.declineDeliveryAssignment');
         Route::post('/orders/{order}/confirm-return-delivery', [CourierController::class, 'confirmReturnDelivery'])->middleware('throttle:30,1')->name('orders.confirmReturnDelivery');
         Route::patch('/orders/{order}/complete-delivery', [CourierController::class, 'completeDelivery'])->middleware('throttle:30,1')->name('orders.completeDelivery');
         Route::patch('/orders/{order}/fail-delivery', [CourierController::class, 'failDelivery'])->middleware('throttle:30,1')->name('orders.failDelivery');
@@ -151,6 +152,7 @@ Route::middleware(['auth', 'account.active', 'auth.session'])->group(function ()
         Route::post('/orders/{order}/receive', [LogisticsController::class, 'receiveParcel'])->middleware('throttle:30,1')->name('orders.receive');
         Route::post('/orders/{order}/sort', [LogisticsController::class, 'sortParcel'])->middleware('throttle:30,1')->name('orders.sort');
         Route::post('/orders/{order}/assign-rider', [LogisticsController::class, 'assignRider'])->middleware('throttle:30,1')->name('orders.assignRider');
+        Route::post('/orders/{order}/release-to-rider', [LogisticsController::class, 'releaseToRider'])->middleware('throttle:30,1')->name('orders.releaseToRider');
         Route::post('/orders/{order}/return', [LogisticsController::class, 'returnParcel'])->middleware('throttle:30,1')->name('orders.return');
 
         Route::get('/riders', [LogisticsController::class, 'riders'])->name('riders');

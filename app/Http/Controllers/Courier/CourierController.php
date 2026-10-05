@@ -142,6 +142,7 @@ class CourierController extends Controller
             $lockedOrder = Order::whereKey($order->id)->lockForUpdate()->firstOrFail();
             abort_unless($lockedOrder->delivery_courier_id === $courier->id, 403);
             abort_unless($courier->status === 'approved' && $lockedOrder->status === 'ASSIGNED_TO_RIDER', 422, 'This parcel cannot be started for delivery.');
+            abort_unless($lockedOrder->hub_released_at !== null, 422, 'Logistics must confirm the hub handoff before delivery can start.');
             $scheduledAttempt = DeliveryAttempt::query()
                 ->where('order_id', $lockedOrder->id)
                 ->where('rider_id', $courier->id)
@@ -153,6 +154,14 @@ class CourierController extends Controller
 
             return back()->with('success', "Order {$lockedOrder->order_number} is out for delivery.");
         });
+    }
+
+    public function declineDeliveryAssignment(Request $request, Order $order, OrderTransitionService $transitions): RedirectResponse
+    {
+        $validated = $request->validate(['reason' => ['nullable', 'string', 'max:500']]);
+        $transitions->declineDeliveryAssignment($order, $this->authenticatedUser(), $validated['reason'] ?? null);
+
+        return back()->with('success', "Delivery assignment for {$order->order_number} declined. Logistics can dispatch it to another rider.");
     }
 
     public function confirmReturnDelivery(Order $order): RedirectResponse
