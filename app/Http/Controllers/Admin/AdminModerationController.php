@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use App\Notifications\AccountStatusNotification;
+use App\Services\LogisticsExceptionService;
 use App\Services\TransactionAwareNotificationSender;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -18,6 +19,11 @@ class AdminModerationController extends Controller
         $search = $request->query('search');
 
         $users = User::whereNotIn('role', ['admin'])
+            ->withCount([
+                'pickupDeliveries as active_pickups_count' => fn ($query) => $query->where('status', 'READY_FOR_PICKUP')
+                    ->whereNotNull('pickup_claimed_at')->whereNull('seller_handover_at'),
+                'finalDeliveries as active_parcels_count' => fn ($query) => $query->whereIn('status', ['ASSIGNED_TO_RIDER', 'OUT_FOR_DELIVERY', 'DELIVERY_FAILED', 'RETURN_IN_TRANSIT']),
+            ])
             ->when($role, fn ($q) => $q->where('role', $role))
             ->when($search, function ($q) use ($search) {
                 $q->where(function ($sub) use ($search) {
@@ -33,7 +39,7 @@ class AdminModerationController extends Controller
         return view('admin.moderation.index', compact('users', 'role', 'search'));
     }
 
-    public function suspend(Request $request, User $user, TransactionAwareNotificationSender $notifications): RedirectResponse
+    public function suspend(Request $request, User $user, TransactionAwareNotificationSender $notifications, LogisticsExceptionService $exceptions): RedirectResponse
     {
         abort_unless($user->role !== 'admin' && $user->status === 'approved', 422, 'Only approved accounts can be suspended here.');
 
@@ -41,7 +47,7 @@ class AdminModerationController extends Controller
             'suspension_reason' => 'required|string|max:500',
         ]);
 
-        DB::transaction(function () use ($user, $validated, $notifications): void {
+        DB::transaction(function () use ($user, $validated, $notifications, $exceptions, $request): void {
             $lockedUser = User::query()->whereKey($user->id)->lockForUpdate()->firstOrFail();
             abort_unless($lockedUser->role !== 'admin' && $lockedUser->status === 'approved', 422, 'Only approved accounts can be suspended here.');
 
@@ -52,6 +58,9 @@ class AdminModerationController extends Controller
                 'suspension_reason' => $validated['suspension_reason'],
                 'suspended_at' => now(),
             ])->save();
+            if ($lockedUser->role === 'courier') {
+                $exceptions->openForRiderSuspension($lockedUser, $request->user(), $validated['suspension_reason']);
+            }
             $notifications->send($lockedUser, new AccountStatusNotification('suspended', $validated['suspension_reason']));
         });
 

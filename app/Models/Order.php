@@ -16,6 +16,8 @@ class Order extends Model
 {
     use HasFactory;
 
+    private bool $parcelCodeRotationAllowed = false;
+
     protected $fillable = [
         'recipient_name',
         'recipient_contact',
@@ -35,10 +37,35 @@ class Order extends Model
         });
 
         static::updating(function (Order $order): void {
-            if ($order->isDirty('parcel_code') && filled($order->getOriginal('parcel_code'))) {
+            if ($order->isDirty('parcel_code') && filled($order->getOriginal('parcel_code')) && ! $order->parcelCodeRotationAllowed) {
                 throw new LogicException('Parcel identifiers are immutable after assignment.');
             }
         });
+    }
+
+    public function rotateParcelCodeForReprint(string $parcelCode, int $version, User $seller): void
+    {
+        abort_unless($seller->role === 'seller' && $this->seller_id === $seller->id, 403);
+        abort_unless(
+            $this->exists
+                && in_array($this->status, ['PLACED', 'CONFIRMED', 'PREPARING', 'READY_FOR_PICKUP'], true)
+                && $this->pickup_claimed_at === null
+                && $this->seller_handover_at === null
+                && $version === (int) $this->parcel_code_version + 1,
+            422,
+            'A parcel label can only be replaced before physical pickup begins.',
+        );
+
+        $this->parcelCodeRotationAllowed = true;
+
+        try {
+            $this->forceFill([
+                'parcel_code' => $parcelCode,
+                'parcel_code_version' => $version,
+            ])->save();
+        } finally {
+            $this->parcelCodeRotationAllowed = false;
+        }
     }
 
     public function buyer(): BelongsTo

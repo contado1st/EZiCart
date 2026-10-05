@@ -112,6 +112,7 @@ Route::middleware(['auth', 'account.active', 'auth.session'])->group(function ()
         Route::post('/orders/{order}/confirm-handover', [SellerOrderController::class, 'confirmHandover'])->middleware('throttle:operational-action')->name('orders.confirmHandover');
         Route::post('/orders/{order}/confirm-return', [SellerOrderController::class, 'confirmReturn'])->middleware('throttle:operational-action')->name('orders.confirmReturn');
         Route::get('/orders/{order}/waybill', [SellerOrderController::class, 'waybill'])->name('orders.waybill');
+        Route::post('/orders/{order}/waybill/reprint', [SellerOrderController::class, 'reprintWaybill'])->middleware('throttle:operational-action')->name('orders.waybill.reprint');
 
         // Promotional Vouchers & Discounts
         Route::get('/vouchers', [SellerVoucherController::class, 'index'])->name('vouchers.index');
@@ -149,6 +150,7 @@ Route::middleware(['auth', 'account.active', 'auth.session'])->group(function ()
         Route::post('/scan', [LogisticsController::class, 'scan'])->middleware('throttle:operational-action')->name('scan');
         Route::get('/sorting', [LogisticsController::class, 'sorting'])->name('sorting');
         Route::get('/storage', [LogisticsController::class, 'storage'])->name('storage');
+        Route::get('/scan-history', [LogisticsController::class, 'scanHistory'])->name('scan-history');
         Route::post('/storage/locations', [LogisticsController::class, 'createStorageLocation'])->middleware('throttle:operational-action')->name('storage.locations.create');
         Route::post('/storage/putaway', [LogisticsController::class, 'putAwayParcel'])->middleware('throttle:operational-action')->name('storage.putaway');
         Route::post('/storage/pick', [LogisticsController::class, 'pickStoredParcel'])->middleware('throttle:operational-action')->name('storage.pick');

@@ -732,6 +732,75 @@ class LogisticsWorkflowTest extends TestCase
         ])->assertUnprocessable();
     }
 
+    public function test_seller_label_reprint_rotates_the_parcel_code_and_records_actor_reason_and_version(): void
+    {
+        $order = $this->order(['status' => 'READY_FOR_PICKUP']);
+        $previousParcelCode = $order->parcel_code;
+        $otherSeller = $this->user('seller', 'approved');
+
+        $this->actingAsUser($otherSeller)->post(route('seller.orders.waybill.reprint', $order), [
+            'reason' => 'Attempted cross-seller label replacement.',
+        ])->assertForbidden();
+
+        $this->actingAsUser($order->seller)
+            ->get(route('seller.orders.waybill', $order))
+            ->assertOk()
+            ->assertSee('Current parcel label version: 1')
+            ->assertSee(route('seller.orders.waybill.reprint', $order));
+
+        $this->post(route('seller.orders.waybill.reprint', $order), [
+            'reason' => 'The printed label was damaged before pickup.',
+        ])->assertRedirect(route('seller.orders.waybill', $order));
+
+        $order->refresh();
+        $this->assertNotSame($previousParcelCode, $order->parcel_code);
+        $this->assertSame(2, (int) $order->parcel_code_version);
+        $this->assertDatabaseHas('parcel_label_reprints', [
+            'order_id' => $order->id,
+            'actor_id' => $order->seller_id,
+            'previous_parcel_code' => $previousParcelCode,
+            'replacement_parcel_code' => $order->parcel_code,
+            'previous_version' => 1,
+            'replacement_version' => 2,
+            'reason' => 'The printed label was damaged before pickup.',
+        ]);
+        $this->assertDatabaseHas('scan_events', [
+            'order_id' => $order->id,
+            'actor_id' => $order->seller_id,
+            'station' => 'parcel_label_reprint',
+            'result' => 'accepted',
+        ]);
+
+        $order->forceFill(['pickup_claimed_at' => now()])->save();
+        $this->post(route('seller.orders.waybill.reprint', $order), [
+            'reason' => 'Too late to replace after rider accepted pickup.',
+        ])->assertUnprocessable();
+
+        $order->forceFill(['status' => 'PICKED_UP'])->save();
+        $center = $this->user('sorting_center', 'approved');
+        $this->actingAsUser($center)->post(route('logistics.scan'), [
+            'reference' => 'EZP:'.$previousParcelCode,
+            'method' => 'camera',
+        ])->assertSessionHasErrors(['reference' => 'The parcel reference could not be processed.']);
+        $this->post(route('logistics.scan'), [
+            'reference' => 'EZP:'.$order->parcel_code,
+            'method' => 'camera',
+        ])->assertRedirect();
+        $this->assertDatabaseHas('orders', ['id' => $order->id, 'status' => 'AT_SORTING_CENTER']);
+        $this->assertDatabaseHas('scan_events', [
+            'actor_id' => $center->id,
+            'station' => 'intake',
+            'result' => 'rejected',
+            'method' => 'camera',
+        ]);
+        $this->assertDatabaseHas('scan_events', [
+            'order_id' => $order->id,
+            'station' => 'intake',
+            'result' => 'accepted',
+            'method' => 'camera',
+        ]);
+    }
+
     public function test_sorting_center_cannot_operate_on_another_centers_parcel(): void
     {
         $ownerCenter = $this->user('sorting_center', 'approved');
@@ -831,6 +900,38 @@ class LogisticsWorkflowTest extends TestCase
             'station' => 'putaway',
             'result' => 'rejected',
         ]);
+    }
+
+    public function test_scan_history_is_paginated_filterable_and_scoped_to_the_current_hub(): void
+    {
+        $center = $this->user('sorting_center', 'approved');
+        $otherCenter = $this->user('sorting_center', 'approved');
+        $rider = $this->user('courier', 'approved');
+        $currentParcel = $this->order(['status' => 'AT_SORTING_CENTER', 'sorting_center_id' => $center->id]);
+        $otherParcel = $this->order(['status' => 'AT_SORTING_CENTER', 'sorting_center_id' => $otherCenter->id]);
+
+        foreach ([[$currentParcel, $rider, 'accepted'], [$otherParcel, $center, 'rejected']] as [$parcel, $actor, $result]) {
+            DB::table('scan_events')->insert([
+                'order_id' => $parcel->id,
+                'actor_id' => $actor->id,
+                'station' => 'intake',
+                'result' => $result,
+                'method' => 'camera',
+                'created_at' => now(),
+            ]);
+        }
+
+        $this->actingAsUser($center)->get(route('logistics.scan-history'))
+            ->assertOk()
+            ->assertSee($currentParcel->order_number)
+            ->assertDontSee($otherParcel->order_number)
+            ->assertSee('Camera')
+            ->assertSee($rider->first_name);
+
+        $this->get(route('logistics.scan-history', ['station' => 'intake', 'result' => 'accepted']))
+            ->assertOk()
+            ->assertSee($currentParcel->order_number)
+            ->assertDontSee($otherParcel->order_number);
     }
 
     public function test_logistics_order_search_treats_like_wildcards_as_literal_characters(): void
@@ -1019,20 +1120,60 @@ class LogisticsWorkflowTest extends TestCase
             'parcel_reference' => 'EZP:'.$order->parcel_code,
             'method' => 'manual',
         ])->assertRedirect();
-        $this->actingAsUser($center)->post(route('logistics.orders.receive', $order))->assertRedirect();
+        $this->actingAsUser($center)->post(route('logistics.scan'), [
+            'reference' => 'EZP:'.$order->parcel_code,
+            'method' => 'camera',
+        ])->assertRedirect();
         $this->post(route('logistics.orders.sort', $order), [])->assertRedirect();
+        $order->refresh();
+        $this->post(route('logistics.storage.locations.create'), [
+            'label' => 'Professor Flow staging bin',
+            'type' => 'STAGING',
+            'area_id' => $order->destination_area_id,
+            'capacity' => 5,
+        ])->assertRedirect();
+        $stagingLocation = DB::table('storage_locations')->where('hub_id', $center->id)->where('label', 'Professor Flow staging bin')->firstOrFail();
+        $this->post(route('logistics.storage.putaway'), [
+            'parcel_reference' => 'EZP:'.$order->parcel_code,
+            'location_reference' => 'EZL:'.$stagingLocation->code,
+            'method' => 'camera',
+        ])->assertRedirect();
+        $this->assertDatabaseHas('parcel_placements', [
+            'order_id' => $order->id,
+            'location_id' => $stagingLocation->id,
+            'active_order_id' => $order->id,
+        ]);
         $this->post(route('logistics.orders.assignRider', $order), ['delivery_courier_id' => $rider->id])->assertRedirect();
+        $this->post(route('logistics.storage.pick'), [
+            'parcel_reference' => 'EZP:'.$order->parcel_code,
+            'location_reference' => 'EZL:'.$stagingLocation->code,
+            'method' => 'handheld',
+        ])->assertRedirect();
+        $this->assertDatabaseHas('parcel_placements', [
+            'order_id' => $order->id,
+            'location_id' => $stagingLocation->id,
+            'active_order_id' => null,
+            'removed_by' => $center->id,
+        ]);
         $this->actingAsUser($center)->get(route('logistics.dispatch'))->assertSee('Confirm scanned hub handoff');
         $this->actingAsUser($rider)->get(route('courier.dashboard'))->assertSee('Waiting for Logistics hub release');
         $this->actingAsUser($rider)->post(route('logistics.orders.releaseToRider', $order))->assertForbidden();
         $this->post(route('courier.orders.startDelivery', $order))->assertUnprocessable();
-        $this->releaseParcel($order, $center)->assertRedirect();
+        $this->actingAsUser($center)->post(route('logistics.dispatch.releaseBatch'), [
+            'rider_badge' => 'EZR:'.app(RiderBadgeService::class)->ensure($rider),
+            'order_ids' => [$order->id],
+            'parcel_references_text' => 'EZP:'.$order->parcel_code,
+            'method' => 'camera',
+        ])->assertRedirect();
         $this->get(route('logistics.dispatch'))->assertSee('Hub release recorded');
         $this->assertDatabaseHas('orders', ['id' => $order->id, 'status' => 'ASSIGNED_TO_RIDER']);
         $this->assertNotNull($order->fresh()->hub_released_at);
         $this->assertDatabaseHas('parcel_tracking_events', ['order_id' => $order->id, 'event_type' => 'hub_released_to_rider', 'actor_id' => $center->id]);
         $this->post(route('logistics.orders.releaseToRider', $order))->assertSessionHasErrors(['rider_badge', 'parcel_reference']);
-        $this->actingAsUser($rider)->post(route('courier.orders.startDelivery', $order))->assertRedirect();
+        $this->actingAsUser($rider)->post(route('courier.orders.startDelivery', $order), [
+            'parcel_reference' => 'EZP:'.$order->parcel_code,
+            'method' => 'camera',
+        ])->assertRedirect();
         $deliveryCode = Crypt::decryptString($order->fresh()->delivery_code_encrypted);
         $this->patch(route('courier.orders.completeDelivery', $order), [
             'recipient_confirmation' => 'Test Buyer',
@@ -1644,6 +1785,7 @@ class LogisticsWorkflowTest extends TestCase
         $this->get(route('logistics.sorting'))->assertOk();
         $this->get(route('logistics.dispatch'))->assertOk();
         $this->get(route('logistics.tracking'))->assertOk();
+        $this->get(route('logistics.scan-history'))->assertOk();
         $this->get(route('logistics.riders'))->assertOk();
         $this->get(route('logistics.reports'))->assertOk();
     }
@@ -2075,6 +2217,30 @@ class LogisticsWorkflowTest extends TestCase
         ]);
     }
 
+    public function test_transition_map_includes_every_supported_order_lifecycle_edge(): void
+    {
+        $transitionMap = (new \ReflectionClass(OrderTransitionService::class))->getConstant('TRANSITIONS');
+
+        $this->assertIsArray($transitionMap);
+        $expectedTransitions = [
+            'PLACED' => ['CONFIRMED', 'CANCELLED'],
+            'CONFIRMED' => ['PREPARING', 'CANCELLED'],
+            'PREPARING' => ['READY_FOR_PICKUP', 'CANCELLED'],
+            'READY_FOR_PICKUP' => ['PICKED_UP', 'CANCELLED'],
+            'PICKED_UP' => ['AT_SORTING_CENTER'],
+            'AT_SORTING_CENTER' => ['SORTED'],
+            'SORTED' => ['ASSIGNED_TO_RIDER'],
+            'ASSIGNED_TO_RIDER' => ['OUT_FOR_DELIVERY', 'ASSIGNED_TO_RIDER', 'SORTED', 'RETURN_IN_TRANSIT'],
+            'OUT_FOR_DELIVERY' => ['DELIVERED', 'DELIVERY_FAILED'],
+            'DELIVERY_FAILED' => ['SORTED'],
+            'DELIVERED' => ['COMPLETED', 'RETURN_IN_TRANSIT'],
+            'COMPLETED' => ['RETURN_IN_TRANSIT'],
+            'RETURN_IN_TRANSIT' => ['RETURNED_TO_SELLER'],
+        ];
+
+        $this->assertSame($expectedTransitions, $transitionMap);
+    }
+
     public function test_checkout_does_not_expose_database_exception_details(): void
     {
         $buyer = $this->user('buyer', 'approved');
@@ -2309,6 +2475,37 @@ class LogisticsWorkflowTest extends TestCase
         $this->assertDatabaseHas('orders', ['id' => $order->id, 'status' => 'SORTED', 'delivery_courier_id' => null]);
         $this->assertDatabaseHas('logistics_exceptions', ['order_id' => $order->id, 'status' => 'RESOLVED']);
         $this->assertDatabaseHas('scan_events', ['order_id' => $order->id, 'station' => 'rider_exception_intake', 'result' => 'accepted']);
+    }
+
+    public function test_admin_suspension_opens_a_hub_exception_for_the_logistics_recovery_queue(): void
+    {
+        $admin = $this->user('admin', 'approved');
+        $center = $this->user('sorting_center', 'approved');
+        $rider = $this->user('courier', 'approved');
+        $order = $this->order([
+            'status' => 'OUT_FOR_DELIVERY',
+            'delivery_courier_id' => $rider->id,
+            'sorting_center_id' => $center->id,
+        ]);
+
+        $this->actingAsUser($admin)->get(route('admin.moderation.index', ['role' => 'courier']))
+            ->assertOk()
+            ->assertSee('Suspending this rider will open 1 logistics recovery case.');
+
+        $this->actingAsUser($admin)->post(route('admin.moderation.suspend', $rider), [
+            'suspension_reason' => 'Admin credential review.',
+        ])->assertRedirect();
+
+        $this->assertDatabaseHas('logistics_exceptions', [
+            'order_id' => $order->id,
+            'previous_rider_id' => $rider->id,
+            'opened_by' => $admin->id,
+            'status' => 'OPEN',
+        ]);
+        $this->actingAsUser($center)->get(route('logistics.dashboard'))
+            ->assertOk()
+            ->assertSee($order->order_number)
+            ->assertSee('Admin credential review.');
     }
 
     public function test_suspended_rider_accepted_pickup_can_be_reassigned_with_exception_history(): void

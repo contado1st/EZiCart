@@ -23,11 +23,11 @@ Laravel is accessible, powerful, and provides tools required for large, robust a
 
 ## Order status extensions
 
-EZiCart keeps the professor's core fulfillment flow and adds three explicit statuses for operational cases:
+EZiCart keeps the professor's core fulfillment flow, adds two operational statuses, and uses a more specific name for the terminal seller-return stage:
 
 - `CANCELLED` records an approved buyer, seller, or administrator cancellation before the parcel enters physical custody.
 - `RETURN_IN_TRANSIT` records a parcel moving through the seller return workflow after failed delivery or an approved dispute outcome.
-- `RETURNED_TO_SELLER` records seller receipt and closes that return workflow; it is the terminal return status in the application.
+- `RETURNED_TO_SELLER` is the application's more specific name for the professor's terminal `RETURNED` stage. It records seller receipt and closes that return workflow; it is not an additional lifecycle stage.
 
 These statuses are handled by the centralized `OrderTransitionService`. A dispute refund decision does not represent a payment-provider refund; the application does not currently process money movements.
 

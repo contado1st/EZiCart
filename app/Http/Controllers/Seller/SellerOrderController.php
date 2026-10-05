@@ -10,6 +10,7 @@ use App\Models\User;
 use App\Notifications\OrderWorkflowNotification;
 use App\Services\LogisticsHubNotificationService;
 use App\Services\OrderTransitionService;
+use App\Services\ParcelLabelService;
 use App\Services\QrCodeService;
 use App\Services\RiderBadgeService;
 use App\Services\TransactionAwareNotificationSender;
@@ -266,5 +267,14 @@ class SellerOrderController extends Controller
         $parcelQr = $qrCodes->svg('EZP:'.$order->parcel_code);
 
         return view('seller.orders.waybill', compact('order', 'parcelQr'));
+    }
+
+    public function reprintWaybill(Request $request, Order $order, ParcelLabelService $labels): RedirectResponse
+    {
+        $validated = $request->validate(['reason' => ['required', 'string', 'max:500']]);
+        $seller = $this->authenticatedUser();
+        $labels->reprint($order, $seller, $validated['reason']);
+
+        return redirect()->route('seller.orders.waybill', $order)->with('success', 'A new parcel label code was issued. Any previous label code is now invalid.');
     }
 }

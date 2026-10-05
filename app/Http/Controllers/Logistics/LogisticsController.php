@@ -12,6 +12,7 @@ use App\Models\ParcelTrackingEvent;
 use App\Models\User;
 use App\Notifications\AccountStatusNotification;
 use App\Notifications\OrderWorkflowNotification;
+use App\Services\LogisticsExceptionService;
 use App\Services\OrderAreaService;
 use App\Services\OrderTransitionService;
 use App\Services\QrCodeService;
@@ -19,6 +20,7 @@ use App\Services\RiderBadgeService;
 use App\Services\TransactionAwareNotificationSender;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
+use Illuminate\Database\Query\Builder as QueryBuilder;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -364,6 +366,9 @@ class LogisticsController extends Controller
                 'storage_locations.code as location_code', 'storage_locations.label as location_label',
                 'orders.order_number', 'orders.parcel_code',
             ]);
+        $placements->each(function (object $placement): void {
+            $placement->dwell_time = Carbon::parse($placement->placed_at)->diffForHumans();
+        });
         $locations->each(function (object $location) use ($qrCodes): void {
             $location->qr_svg = $qrCodes->svg('EZL:'.$location->code, 120);
         });
@@ -371,6 +376,40 @@ class LogisticsController extends Controller
         $areas = Area::query()->where('is_active', true)->orderBy('name')->get();
 
         return view('logistics.storage', compact('locations', 'placements', 'areas'));
+    }
+
+    public function scanHistory(Request $request): View
+    {
+        $validated = $request->validate([
+            'station' => ['nullable', 'in:intake,seller_pickup,seller_handover,seller_return_receipt,putaway,pick,cycle_count,dispatch_release,dispatch_batch_rider,dispatch_batch_parcel,dispatch_batch_release,delivery_start,return_to_seller,rider_exception_intake,failed_return_intake,parcel_label_reprint'],
+            'result' => ['nullable', 'in:accepted,rejected,correct,missing,unexpected'],
+        ]);
+        $operator = $this->authenticatedUser();
+        $scans = DB::table('scan_events')
+            ->leftJoin('orders', 'orders.id', '=', 'scan_events.order_id')
+            ->leftJoin('users as scan_actors', 'scan_actors.id', '=', 'scan_events.actor_id')
+            ->where(function (QueryBuilder $query) use ($operator): void {
+                $query->where('orders.sorting_center_id', $operator->id)
+                    ->orWhereExists(function ($areaQuery) use ($operator): void {
+                        $areaQuery->selectRaw('1')->from('areas')
+                            ->whereColumn('areas.id', 'orders.destination_area_id')
+                            ->where('areas.sorting_center_id', $operator->id);
+                    })
+                    ->orWhere(function (QueryBuilder $unresolvedScan) use ($operator): void {
+                        $unresolvedScan->whereNull('orders.id')->where('scan_events.actor_id', $operator->id);
+                    });
+            })
+            ->when(isset($validated['station']), fn ($query) => $query->where('scan_events.station', $validated['station']))
+            ->when(isset($validated['result']), fn ($query) => $query->where('scan_events.result', $validated['result']))
+            ->orderByDesc('scan_events.created_at')->orderByDesc('scan_events.id')
+            ->select([
+                'scan_events.id', 'scan_events.order_id', 'scan_events.station', 'scan_events.result',
+                'scan_events.failure_reason', 'scan_events.method', 'scan_events.created_at',
+                'orders.order_number', 'scan_actors.first_name as actor_first_name', 'scan_actors.last_name as actor_last_name',
+            ])
+            ->paginate(50)->withQueryString();
+
+        return view('logistics.scan-history', compact('scans'));
     }
 
     public function createStorageLocation(Request $request): RedirectResponse
@@ -1274,12 +1313,12 @@ class LogisticsController extends Controller
         return back()->with('success', "Order {$order->order_number} marked for return handling.");
     }
 
-    public function suspendRider(Request $request, User $user, TransactionAwareNotificationSender $notifications): RedirectResponse
+    public function suspendRider(Request $request, User $user, TransactionAwareNotificationSender $notifications, LogisticsExceptionService $exceptions): RedirectResponse
     {
         $validated = $request->validate(['reason' => ['required', 'string', 'max:500']]);
         $operator = $this->authenticatedUser();
 
-        DB::transaction(function () use ($user, $notifications, $validated, $request, $operator): void {
+        DB::transaction(function () use ($user, $notifications, $validated, $operator, $exceptions): void {
             $lockedUser = User::query()->whereKey($user->id)->lockForUpdate()->firstOrFail();
             abort_unless($lockedUser->role === 'courier' && $lockedUser->status === 'approved', 404);
             abort_unless($this->riderBelongsToHub($lockedUser, $operator) || ! $this->isMultiHubOperation(), 403, 'This rider is not assigned to this sorting center.');
@@ -1291,32 +1330,7 @@ class LogisticsController extends Controller
                 'suspension_reason' => $validated['reason'],
             ])->save();
 
-            $activeParcels = Order::query()
-                ->where(function (Builder $query) use ($lockedUser): void {
-                    $query->where(fn (Builder $deliveryQuery) => $deliveryQuery->where('delivery_courier_id', $lockedUser->id)
-                        ->whereIn('status', ['ASSIGNED_TO_RIDER', 'OUT_FOR_DELIVERY', 'DELIVERY_FAILED', 'RETURN_IN_TRANSIT']))
-                        ->orWhere(fn (Builder $pickupQuery) => $pickupQuery->where('pickup_courier_id', $lockedUser->id)
-                            ->where('status', 'READY_FOR_PICKUP')->whereNotNull('pickup_claimed_at')->whereNull('seller_handover_at'));
-                })
-                ->lockForUpdate()
-                ->get();
-
-            foreach ($activeParcels as $parcel) {
-                DB::table('logistics_exceptions')->insert([
-                    'order_id' => $parcel->id,
-                    'type' => $parcel->pickup_courier_id === $lockedUser->id ? 'SUSPENDED_RIDER_PICKUP_ACCEPTED' : 'RIDER_SUSPENDED_WITH_ACTIVE_PARCEL',
-                    'reason' => $validated['reason'],
-                    'opened_by' => $request->user()->id,
-                    'previous_rider_id' => $lockedUser->id,
-                    'new_rider_id' => null,
-                    'status' => 'OPEN',
-                    'resolution' => null,
-                    'resolved_by' => null,
-                    'resolved_at' => null,
-                    'created_at' => now(),
-                    'updated_at' => now(),
-                ]);
-            }
+            $exceptions->openForRiderSuspension($lockedUser, $operator, $validated['reason']);
 
             $notifications->send($lockedUser, new AccountStatusNotification('suspended'));
         });

@@ -63,16 +63,16 @@
     <section class="ops-panel">
         <h2>Active placements <span class="ops-muted">{{ $placements->count() }} recent</span></h2>
         <div class="ops-table-wrap"><table class="ops-table">
-            <thead><tr><th>Parcel</th><th>Location</th><th>Placed</th><th>Pick</th></tr></thead>
+            <thead><tr><th>Parcel</th><th>Location</th><th>Placed</th><th>Dwell time</th><th>Pick</th></tr></thead>
             <tbody>@forelse($placements as $placement)
-                <tr><td class="ops-mono">{{ $placement->order_number }}</td><td>{{ $placement->location_code }} · {{ $placement->location_label }}</td><td>{{ $placement->placed_at }}</td><td>
+                <tr><td class="ops-mono">{{ $placement->order_number }}</td><td>{{ $placement->location_code }} · {{ $placement->location_label }}</td><td>{{ $placement->placed_at }}</td><td>{{ $placement->dwell_time }}</td><td>
                     <form class="ops-form" method="POST" action="{{ route('logistics.storage.pick') }}">@csrf
                         <input type="hidden" name="parcel_reference" value="EZP:{{ $placement->parcel_code }}">
                         <input type="hidden" name="location_reference" value="EZL:{{ $placement->location_code }}">
                         <input type="hidden" name="method" value="manual"><button class="ops-btn">Remove from location</button>
                     </form>
                 </td></tr>
-            @empty<tr><td colspan="4"><div class="ops-empty">No parcels have an active storage placement.</div></td></tr>@endforelse</tbody>
+            @empty<tr><td colspan="5"><div class="ops-empty">No parcels have an active storage placement.</div></td></tr>@endforelse</tbody>
         </table></div>
     </section>
 @endsection
