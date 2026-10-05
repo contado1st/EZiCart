@@ -136,6 +136,14 @@
                             <span class="text-muted-small">Awaiting courier handoff</span>
                         @endif
                     @endif
+                    @if (in_array($order->status, ['PLACED', 'CONFIRMED', 'PREPARING', 'READY_FOR_PICKUP'], true) && $order->picked_up_at === null && $order->seller_handover_at === null)
+                        <form action="{{ route('seller.orders.cancel', $order) }}" method="POST" class="order-schedule-form">
+                            @csrf
+                            <label for="seller-cancel-reason">Reason for cancelling</label>
+                            <textarea id="seller-cancel-reason" name="reason" maxlength="500" required></textarea>
+                            <button type="submit" class="dash-btn-sm dash-btn-outline">Cancel order</button>
+                        </form>
+                    @endif
                 </div>
             </section>
         </main>

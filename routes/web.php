@@ -74,7 +74,7 @@ Route::middleware(['auth', 'account.active', 'auth.session'])->group(function ()
             Route::post('/orders/{order}/messages', [OrderMessageController::class, 'store'])->middleware('throttle:operational-action')->name('orders.messages.store');
             Route::post('/orders/{order}/confirm', [BuyerController::class, 'confirmReceived'])->middleware('throttle:operational-action')->name('orders.confirm');
             Route::post('/orders/{order}/cancel', [BuyerController::class, 'cancel'])->middleware('throttle:operational-action')->name('orders.cancel');
-            Route::post('/orders/{order}/review', [ReviewController::class, 'store'])->name('orders.review');
+            Route::post('/orders/{order}/review', [ReviewController::class, 'store'])->middleware('throttle:operational-action')->name('orders.review');
             Route::get('/orders/{order}/dispute', [DisputeController::class, 'create'])->name('orders.dispute.create');
             Route::post('/orders/{order}/dispute', [DisputeController::class, 'store'])->middleware('throttle:operational-action')->name('orders.dispute.store');
         });
@@ -82,16 +82,16 @@ Route::middleware(['auth', 'account.active', 'auth.session'])->group(function ()
         // Cart Actions
         Route::prefix('cart')->name('cart.')->group(function () {
             Route::get('/', [CartController::class, 'index'])->name('index');
-            Route::post('/add/{product}', [CartController::class, 'add'])->name('add');
-            Route::patch('/update/{cartKey}', [CartController::class, 'update'])->name('update');
-            Route::delete('/remove/{cartKey}', [CartController::class, 'remove'])->name('remove');
+            Route::post('/add/{product}', [CartController::class, 'add'])->middleware('throttle:operational-action')->name('add');
+            Route::patch('/update/{cartKey}', [CartController::class, 'update'])->middleware('throttle:operational-action')->name('update');
+            Route::delete('/remove/{cartKey}', [CartController::class, 'remove'])->middleware('throttle:operational-action')->name('remove');
         });
 
         // Checkout Actions & Voucher Application
         Route::get('/checkout', [CheckoutController::class, 'index'])->name('checkout.index');
-        Route::post('/checkout', [CheckoutController::class, 'process'])->name('checkout.process');
-        Route::post('/checkout/voucher', [CheckoutController::class, 'applyVoucher'])->name('checkout.voucher.apply');
-        Route::delete('/checkout/voucher', [CheckoutController::class, 'removeVoucher'])->name('checkout.voucher.remove');
+        Route::post('/checkout', [CheckoutController::class, 'process'])->middleware('throttle:operational-action')->name('checkout.process');
+        Route::post('/checkout/voucher', [CheckoutController::class, 'applyVoucher'])->middleware('throttle:operational-action')->name('checkout.voucher.apply');
+        Route::delete('/checkout/voucher', [CheckoutController::class, 'removeVoucher'])->middleware('throttle:operational-action')->name('checkout.voucher.remove');
     });
 
     // Seller-Only Routes
@@ -106,6 +106,7 @@ Route::middleware(['auth', 'account.active', 'auth.session'])->group(function ()
         Route::get('/orders/{order}/messages', [OrderMessageController::class, 'show'])->name('orders.messages.show');
         Route::post('/orders/{order}/messages', [OrderMessageController::class, 'store'])->middleware('throttle:operational-action')->name('orders.messages.store');
         Route::patch('/orders/{order}/status', [SellerOrderController::class, 'updateStatus'])->middleware('throttle:operational-action')->name('orders.updateStatus');
+        Route::post('/orders/{order}/cancel', [SellerOrderController::class, 'cancel'])->middleware('throttle:operational-action')->name('orders.cancel');
         Route::post('/orders/{order}/schedule-pickup', [SellerOrderController::class, 'schedulePickup'])->middleware('throttle:pickup-schedule')->name('orders.schedulePickup');
         Route::post('/orders/{order}/confirm-handover', [SellerOrderController::class, 'confirmHandover'])->middleware('throttle:operational-action')->name('orders.confirmHandover');
         Route::post('/orders/{order}/confirm-return', [SellerOrderController::class, 'confirmReturn'])->middleware('throttle:operational-action')->name('orders.confirmReturn');
@@ -145,6 +146,11 @@ Route::middleware(['auth', 'account.active', 'auth.session'])->group(function ()
         Route::post('/orders/{order}/assign-pickup', [LogisticsController::class, 'assignPickup'])->middleware('throttle:operational-action')->name('orders.assignPickup');
         Route::post('/scan', [LogisticsController::class, 'scan'])->middleware('throttle:operational-action')->name('scan');
         Route::get('/sorting', [LogisticsController::class, 'sorting'])->name('sorting');
+        Route::get('/storage', [LogisticsController::class, 'storage'])->name('storage');
+        Route::post('/storage/locations', [LogisticsController::class, 'createStorageLocation'])->middleware('throttle:operational-action')->name('storage.locations.create');
+        Route::post('/storage/putaway', [LogisticsController::class, 'putAwayParcel'])->middleware('throttle:operational-action')->name('storage.putaway');
+        Route::post('/storage/pick', [LogisticsController::class, 'pickStoredParcel'])->middleware('throttle:operational-action')->name('storage.pick');
+        Route::post('/storage/cycle-count', [LogisticsController::class, 'cycleCount'])->middleware('throttle:operational-action')->name('storage.cycle-count');
         Route::get('/dispatch', [LogisticsController::class, 'dispatch'])->name('dispatch');
         Route::get('/tracking', [LogisticsController::class, 'tracking'])->name('tracking');
         Route::get('/orders/{order}/messages', [OrderMessageController::class, 'show'])->name('orders.messages.show');
@@ -175,6 +181,7 @@ Route::middleware(['auth', 'account.active', 'auth.session'])->group(function ()
         Route::get('/dashboard', [AdminController::class, 'dashboard'])->name('dashboard');
         Route::get('/orders/{order}/messages', [OrderMessageController::class, 'show'])->name('orders.messages.show');
         Route::post('/orders/{order}/messages', [OrderMessageController::class, 'store'])->middleware('throttle:operational-action')->name('orders.messages.store');
+        Route::post('/orders/{order}/cancel', [AdminController::class, 'cancelOrder'])->middleware('throttle:operational-action')->name('orders.cancel');
         Route::get('/compliance/products', [AdminComplianceController::class, 'index'])->name('compliance.products.index');
         Route::patch('/compliance/products/{product}', [AdminComplianceController::class, 'review'])->middleware('throttle:operational-action')->name('compliance.products.review');
         Route::post('/compliance/products/{product}/warn-seller', [AdminComplianceController::class, 'warn'])->middleware('throttle:operational-action')->name('compliance.products.warn');
@@ -188,7 +195,7 @@ Route::middleware(['auth', 'account.active', 'auth.session'])->group(function ()
         Route::get('/users/{user}/documents/{type}', [SecureDocumentController::class, 'userDocument'])->name('users.documents.show');
         Route::patch('/disputes/{dispute}/resolve', [AdminDisputeController::class, 'resolve'])->middleware('throttle:operational-action')->name('disputes.resolve');
         Route::get('/announcements', [AdminAnnouncementController::class, 'index'])->name('announcements.index');
-        Route::post('/announcements', [AdminAnnouncementController::class, 'store'])->name('announcements.store');
+        Route::post('/announcements', [AdminAnnouncementController::class, 'store'])->middleware('throttle:operational-action')->name('announcements.store');
         Route::patch('/announcements/{announcement}/toggle', [AdminAnnouncementController::class, 'toggle'])->name('announcements.toggle');
         Route::delete('/announcements/{announcement}', [AdminAnnouncementController::class, 'destroy'])->name('announcements.destroy');
         Route::get('/moderation', [AdminModerationController::class, 'index'])->name('moderation.index');

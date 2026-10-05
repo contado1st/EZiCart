@@ -46,7 +46,7 @@ class SecureDocumentController extends Controller
         $authorized = $actor->role === 'admin'
             || ($actor->role === 'buyer' && $attempt->order->buyer_id === $actor->id)
             || ($actor->role === 'courier' && $attempt->rider_id === $actor->id)
-            || $actor->role === 'sorting_center';
+            || ($actor->role === 'sorting_center' && (int) $attempt->order->sorting_center_id === $actor->id);
         abort_unless($authorized, 403);
         abort_unless(is_string($attempt->proof_path) && Storage::disk('private')->exists($attempt->proof_path), 404);
 

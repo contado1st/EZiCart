@@ -9,6 +9,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Str;
+use LogicException;
 
 class Order extends Model
 {
@@ -23,6 +25,21 @@ class Order extends Model
         'street_address',
         'notes',
     ];
+
+    protected static function booted(): void
+    {
+        static::creating(function (Order $order): void {
+            if (blank($order->parcel_code)) {
+                $order->parcel_code = Str::upper(Str::random(24));
+            }
+        });
+
+        static::updating(function (Order $order): void {
+            if ($order->isDirty('parcel_code') && filled($order->getOriginal('parcel_code'))) {
+                throw new LogicException('Parcel identifiers are immutable after assignment.');
+            }
+        });
+    }
 
     public function buyer(): BelongsTo
     {

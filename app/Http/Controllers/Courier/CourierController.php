@@ -16,8 +16,11 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
+use RuntimeException;
+use Throwable;
 
 class CourierController extends Controller
 {
@@ -162,6 +165,12 @@ class CourierController extends Controller
             abort_unless($courier->status === 'approved' && $lockedOrder->status === 'ASSIGNED_TO_RIDER', 422, 'This parcel cannot be started for delivery.');
             abort_unless($lockedOrder->payment_method === 'COD', 422, 'Delivery is on hold until payment verification for this method is configured.');
             abort_unless($lockedOrder->hub_released_at !== null, 422, 'Logistics must confirm the hub handoff before delivery can start.');
+            abort_unless(
+                DeliveryAttempt::query()->where('order_id', $lockedOrder->id)->where('outcome', 'failed')->count()
+                    < max(1, (int) config('logistics.maximum_delivery_attempts', 3)),
+                422,
+                'The maximum delivery attempts have been reached. Logistics must return the parcel to the seller.',
+            );
             $scheduledAttempt = DeliveryAttempt::query()
                 ->where('order_id', $lockedOrder->id)
                 ->where('rider_id', $courier->id)
@@ -234,27 +243,41 @@ class CourierController extends Controller
             'proof_file' => ['required', 'file', 'mimes:jpg,jpeg,png,pdf', 'max:4096'],
         ]);
 
-        return DB::transaction(function () use ($request, $order, $courier, $validated, $transitions): RedirectResponse {
-            $lockedOrder = Order::whereKey($order->id)->lockForUpdate()->firstOrFail();
-            abort_unless($lockedOrder->delivery_courier_id === $courier->id, 403);
-            abort_unless($courier->status === 'approved' && $lockedOrder->status === 'OUT_FOR_DELIVERY', 422, 'This parcel is not out for delivery.');
-            abort_unless($lockedOrder->payment_method === 'COD', 422, 'Delivery is on hold until payment verification for this method is configured.');
-            if (! isset($validated['cod_collected_amount']) || $this->amountInCentavos($validated['cod_collected_amount']) !== $this->amountInCentavos((string) $lockedOrder->total_amount)) {
-                throw ValidationException::withMessages(['cod_collected_amount' => 'Enter the exact full order amount collected for cash on delivery.']);
-            }
-            $notes = trim('Recipient: '.$validated['recipient_confirmation'].'. '.($validated['delivery_notes'] ?? ''));
-            $attempt = $this->recordDeliveryAttempt($lockedOrder, $courier, 'delivered', [
-                'notes' => $notes,
-                'proof_path' => $request->file('proof_file')?->store('delivery-proofs', 'private'),
-            ]);
-            $transitions->transition($lockedOrder, $courier, OrderStatus::Delivered, 'delivered', $lockedOrder->delivery_area, $notes, [
-                'delivered_at' => now(),
-                'delivery_notes' => $notes,
-                'cod_collected_amount' => $validated['cod_collected_amount'] ?? null,
-            ]);
+        $proofPath = null;
 
-            return back()->with('success', "Order {$lockedOrder->order_number} marked delivered.");
-        });
+        try {
+            return DB::transaction(function () use ($request, $order, $courier, $validated, $transitions, &$proofPath): RedirectResponse {
+                $lockedOrder = Order::whereKey($order->id)->lockForUpdate()->firstOrFail();
+                abort_unless($lockedOrder->delivery_courier_id === $courier->id, 403);
+                abort_unless($courier->status === 'approved' && $lockedOrder->status === 'OUT_FOR_DELIVERY', 422, 'This parcel is not out for delivery.');
+                abort_unless($lockedOrder->payment_method === 'COD', 422, 'Delivery is on hold until payment verification for this method is configured.');
+                if (! isset($validated['cod_collected_amount']) || $this->amountInCentavos($validated['cod_collected_amount']) !== $this->amountInCentavos((string) $lockedOrder->total_amount)) {
+                    throw ValidationException::withMessages(['cod_collected_amount' => 'Enter the exact full order amount collected for cash on delivery.']);
+                }
+                $notes = trim('Recipient: '.$validated['recipient_confirmation'].'. '.($validated['delivery_notes'] ?? ''));
+                $proofPath = $request->file('proof_file')?->store('delivery-proofs', 'private');
+                if (! is_string($proofPath)) {
+                    throw new RuntimeException('Delivery proof could not be stored.');
+                }
+                $this->recordDeliveryAttempt($lockedOrder, $courier, 'delivered', [
+                    'notes' => $notes,
+                    'proof_path' => $proofPath,
+                ]);
+                $transitions->transition($lockedOrder, $courier, OrderStatus::Delivered, 'delivered', $lockedOrder->delivery_area, $notes, [
+                    'delivered_at' => now(),
+                    'delivery_notes' => $notes,
+                    'cod_collected_amount' => $validated['cod_collected_amount'],
+                ]);
+
+                return back()->with('success', "Order {$lockedOrder->order_number} marked delivered.");
+            });
+        } catch (Throwable $exception) {
+            if (is_string($proofPath)) {
+                Storage::disk('private')->delete($proofPath);
+            }
+
+            throw $exception;
+        }
     }
 
     public function failDelivery(Request $request, Order $order, OrderTransitionService $transitions): RedirectResponse
@@ -280,11 +303,11 @@ class CourierController extends Controller
                 'delivery_notes' => $validated['delivery_notes'] ?? null,
             ]);
 
-            if ($attempt->attempt_no >= max(1, (int) config('logistics.maximum_delivery_attempts', 3))) {
-                $transitions->transition($lockedOrder->refresh(), $courier, OrderStatus::ReturnInTransit, 'return_in_transit', $lockedOrder->delivery_area, 'Maximum delivery attempts reached; parcel is returning to sender.');
-            }
+            $message = $attempt->attempt_no >= max(1, (int) config('logistics.maximum_delivery_attempts', 3))
+                ? "Failure recorded for {$lockedOrder->order_number}. The parcel must be physically scanned back into the hub before Logistics can return it to the seller."
+                : "Failure recorded for {$lockedOrder->order_number}. Logistics can review the next step.";
 
-            return back()->with('success', "Failure recorded for {$lockedOrder->order_number}. Logistics can review the next step.");
+            return back()->with('success', $message);
         });
     }
 

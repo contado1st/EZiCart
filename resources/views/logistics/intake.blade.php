@@ -12,6 +12,8 @@
         <form class="ops-form" action="{{ route('logistics.scan') }}" method="POST">@csrf<div class="ops-field"><label
                     for="reference">Order number / waybill reference</label><input id="reference" name="reference"
                     value="{{ old('reference', request('search')) }}" required autocomplete="off" autofocus placeholder="EZC-…"></div>
+            <div class="ops-field"><label for="location_reference">Returns / Exception location for failed parcels (optional)</label>
+                <input id="location_reference" name="location_reference" placeholder="EZL:…"></div>
             <button class="ops-btn ops-btn--primary" type="submit">Verify and receive</button>
         </form>
         <p class="ops-muted">Barcode scanners can type into this field and submit. Unknown or duplicate references are

@@ -33,6 +33,15 @@
                             <td>
                                 @if ($order->status === 'RETURN_IN_TRANSIT')
                                     <span class="ops-muted">{{ $order->return_handed_to_seller_at ? 'Seller receipt confirmation pending' : 'Awaiting courier to record seller handoff' }}</span>
+                                @elseif ($order->status === 'DELIVERY_FAILED' || ($order->status === 'OUT_FOR_DELIVERY' && $order->deliveryCourier?->status === 'suspended'))
+                                    <div class="ops-muted">{{ $order->deliveryAttempts->count() }} attempts recorded. Scan the parcel into a Returns or Exception location before retry or seller return.</div>
+                                    <form class="ops-form" method="POST" action="{{ route('logistics.scan') }}">@csrf
+                                        <input type="hidden" name="reference" value="EZP:{{ $order->parcel_code }}">
+                                        <input type="hidden" name="method" value="manual">
+                                        <div class="ops-field"><label for="return-location-{{ $order->id }}">Returns / Exception location QR or code</label>
+                                            <input id="return-location-{{ $order->id }}" name="location_reference" placeholder="EZL:…" required></div>
+                                        <button class="ops-btn ops-btn--primary">Confirm physical return to hub</button>
+                                    </form>
                                 @else
                                 @if ($order->status === 'ASSIGNED_TO_RIDER' && $order->hub_released_at)
                                     <div class="ops-muted">Hub handoff is complete. Confirm physical recovery before dispatching this parcel to another rider.</div>
@@ -43,8 +52,8 @@
                                     </form>
                                 @else
                                 @php($suggestedRider = $suggestedRiders[$order->id] ?? null)
-                                @if ($order->status === 'DELIVERY_FAILED')
-                                    <div class="ops-muted">{{ $order->deliveryAttempts->count() }} attempts recorded. Schedule the next attempt or return the parcel.</div>
+                                @if ($order->status === 'SORTED' && $order->deliveryAttempts->where('outcome', 'failed')->count() >= max(1, (int) config('logistics.maximum_delivery_attempts', 3)))
+                                    <div class="ops-muted">Maximum delivery attempts reached. Assign a courier, confirm hub handoff, then start a seller return.</div>
                                 @endif
                                 @if ($suggestedRider)
                                     <div class="ops-muted">Suggested: {{ $suggestedRider->first_name }} {{ $suggestedRider->last_name }} ({{ $suggestedRider->capacity_load_count }}/{{ $maxActiveDeliveries }} parcels in progress)</div>
@@ -66,11 +75,6 @@
                                                 @endif
                                             @endforeach
                                         </select></div>
-                                    @if ($order->status === 'DELIVERY_FAILED')
-                                        <div class="ops-field"><label for="retry-schedule-{{ $order->id }}">Retry date and time</label>
-                                            <input id="retry-schedule-{{ $order->id }}" type="datetime-local" name="scheduled_at" min="{{ now()->addMinutes(15)->format('Y-m-d\\TH:i') }}" required>
-                                        </div>
-                                    @endif
                                     <button class="ops-btn ops-btn--primary"
                                         type="submit">{{ $order->delivery_courier_id ? 'Reassign' : 'Assign' }}</button>
                                 </form>
@@ -78,6 +82,9 @@
                                 @if ($order->status === 'ASSIGNED_TO_RIDER')
                                     @if ($order->hub_released_at)
                                         <div class="ops-muted">Hub release recorded {{ $order->hub_released_at->format('d M Y H:i') }}.</div>
+                                        <form method="POST" action="{{ route('logistics.orders.return', $order) }}">
+                                            @csrf<button class="ops-btn ops-btn--danger" type="submit">Start seller return</button>
+                                        </form>
                                     @else
                                         <form method="POST" action="{{ route('logistics.orders.releaseToRider', $order) }}">
                                             @csrf

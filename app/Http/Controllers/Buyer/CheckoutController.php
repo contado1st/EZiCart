@@ -106,7 +106,7 @@ class CheckoutController extends Controller
             'municipality' => 'required|string',
             'barangay' => 'required|string',
             'street_address' => 'required|string',
-            'payment_method' => 'required|string|in:COD,GCash,Bank Transfer',
+            'payment_method' => 'required|string|in:COD',
             'notes' => 'nullable|string|max:500',
         ]);
 
@@ -224,11 +224,10 @@ class CheckoutController extends Controller
                     }
                 }
 
-                $paymentNotice = $order->payment_method === 'COD'
-                    ? 'A buyer placed an order. Review it and confirm whether you can fulfill it.'
-                    : "A buyer placed an order using {$order->payment_method}. Payment verification is pending, so fulfillment actions are on hold.";
-
-                $notifications->send($order->seller, new OrderWorkflowNotification($order, 'order_placed', $paymentNotice));
+                $notifications->send(
+                    $order->seller,
+                    new OrderWorkflowNotification($order, 'order_placed', 'A buyer placed an order. Review it and confirm whether you can fulfill it.'),
+                );
             }
 
             DB::commit();

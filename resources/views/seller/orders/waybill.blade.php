@@ -31,7 +31,8 @@
                 </div>
                 <div class="waybill-tracking-block">
                     <div class="waybill-tracking-number">{{ $order->order_number }}</div>
-                    <div class="waybill-barcode-mock">|||||||||||||||||||||||</div>
+                    <div class="waybill-parcel-code">Parcel: {{ $order->parcel_code }}</div>
+                    <div class="waybill-qr">{!! $parcelQr !!}</div>
                 </div>
             </div>
 

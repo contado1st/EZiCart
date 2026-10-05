@@ -2,13 +2,16 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Enums\OrderStatus;
 use App\Http\Controllers\Controller;
 use App\Models\Order;
 use App\Models\Product;
 use App\Models\User;
 use App\Notifications\AccountStatusNotification;
+use App\Services\OrderTransitionService;
 use App\Services\TransactionAwareNotificationSender;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 class AdminController extends Controller
@@ -80,5 +83,22 @@ class AdminController extends Controller
         });
 
         return back()->with('success', "Account for {$user->first_name} {$user->last_name} ({$user->role}) has been rejected.");
+    }
+
+    public function cancelOrder(Request $request, Order $order, OrderTransitionService $transitions): RedirectResponse
+    {
+        $validated = $request->validate(['reason' => ['required', 'string', 'max:500']]);
+        $actor = $this->authenticatedUser();
+
+        $transitions->transition(
+            $order,
+            $actor,
+            OrderStatus::Cancelled,
+            'admin_cancelled',
+            $actor->municipality,
+            'Admin cancelled the order: '.$validated['reason'],
+        );
+
+        return back()->with('success', "Order {$order->order_number} cancelled and reserved inventory restored.");
     }
 }

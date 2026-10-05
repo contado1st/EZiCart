@@ -66,4 +66,39 @@
             </div>
         @endforeach
     </section>
+    <section class="ops-panel">
+        <h2>Rider suspension exceptions <span class="ops-muted">{{ $exceptions->count() }} open</span></h2>
+        @if ($exceptions->isEmpty())
+            <div class="ops-empty">No active parcels are waiting on suspended rider recovery.</div>
+        @else
+            <div class="ops-table-wrap">
+                <table class="ops-table">
+                    <thead><tr><th>Parcel</th><th>Former rider</th><th>Current stage</th><th>Reason</th><th>Action</th></tr></thead>
+                    <tbody>
+                        @foreach ($exceptions as $exception)
+                            <tr>
+                                <td class="ops-mono">{{ $exception->order_number }}</td>
+                                <td>{{ $exception->rider_first_name }} {{ $exception->rider_last_name }}</td>
+                                <td><span class="ops-status">{{ str_replace('_', ' ', $exception->order_status) }}</span></td>
+                                <td>{{ $exception->reason }}</td>
+                                <td>
+                                    @if ($exception->type === 'SUSPENDED_RIDER_PICKUP_ACCEPTED')
+                                        <a class="ops-btn" href="{{ route('logistics.pickupRequests') }}">Reassign pickup</a>
+                                    @elseif ($exception->order_status === 'OUT_FOR_DELIVERY')
+                                        <a class="ops-btn" href="{{ route('logistics.dispatch') }}">Scan recovered parcel</a>
+                                    @elseif ($exception->order_status === 'ASSIGNED_TO_RIDER' && $exception->hub_released_at)
+                                        <form method="POST" action="{{ route('logistics.orders.recoverReleasedParcel', $exception->order_id) }}">
+                                            @csrf<button class="ops-btn ops-btn--primary">Confirm physical hub recovery</button>
+                                        </form>
+                                    @else
+                                        <span class="ops-muted">Physical recovery or dispatch review required</span>
+                                    @endif
+                                </td>
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            </div>
+        @endif
+    </section>
 @endsection

@@ -9,6 +9,7 @@ use App\Models\ParcelTrackingEvent;
 use App\Models\User;
 use App\Notifications\OrderWorkflowNotification;
 use App\Services\OrderTransitionService;
+use App\Services\QrCodeService;
 use App\Services\TransactionAwareNotificationSender;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -66,6 +67,24 @@ class SellerOrderController extends Controller
         );
 
         return back()->with('success', 'Order status updated to '.str_replace('_', ' ', $validated['status']).'.');
+    }
+
+    public function cancel(Request $request, Order $order, OrderTransitionService $transitions)
+    {
+        $seller = $this->authenticatedUser();
+        abort_if($order->seller_id !== $seller->id, 403);
+        $validated = $request->validate(['reason' => ['required', 'string', 'max:500']]);
+
+        $transitions->transition(
+            $order,
+            $seller,
+            OrderStatus::Cancelled,
+            'seller_cancelled',
+            $seller->municipality,
+            'Seller cancelled the order: '.$validated['reason'],
+        );
+
+        return back()->with('success', 'Order cancelled and reserved inventory restored.');
     }
 
     public function confirmReturn(Order $order, OrderTransitionService $transitions)
@@ -153,12 +172,13 @@ class SellerOrderController extends Controller
         });
     }
 
-    public function waybill(Order $order)
+    public function waybill(Order $order, QrCodeService $qrCodes)
     {
         abort_if($order->seller_id !== $this->authenticatedUser()->id, 403);
 
         $order->load(['seller', 'buyer', 'items']);
+        $parcelQr = $qrCodes->svg('EZP:'.$order->parcel_code);
 
-        return view('seller.orders.waybill', compact('order'));
+        return view('seller.orders.waybill', compact('order', 'parcelQr'));
     }
 }

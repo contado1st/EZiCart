@@ -22,14 +22,15 @@ class OrderTransitionService
         'PLACED' => ['CONFIRMED', 'CANCELLED'],
         'CONFIRMED' => ['PREPARING', 'CANCELLED'],
         'PREPARING' => ['READY_FOR_PICKUP', 'CANCELLED'],
-        'READY_FOR_PICKUP' => ['PICKED_UP'],
+        'READY_FOR_PICKUP' => ['PICKED_UP', 'CANCELLED'],
         'PICKED_UP' => ['AT_SORTING_CENTER'],
         'AT_SORTING_CENTER' => ['SORTED'],
         'SORTED' => ['ASSIGNED_TO_RIDER'],
-        'ASSIGNED_TO_RIDER' => ['OUT_FOR_DELIVERY', 'ASSIGNED_TO_RIDER'],
+        'ASSIGNED_TO_RIDER' => ['OUT_FOR_DELIVERY', 'ASSIGNED_TO_RIDER', 'SORTED', 'RETURN_IN_TRANSIT'],
         'OUT_FOR_DELIVERY' => ['DELIVERED', 'DELIVERY_FAILED'],
-        'DELIVERY_FAILED' => ['ASSIGNED_TO_RIDER', 'RETURN_IN_TRANSIT'],
-        'DELIVERED' => ['COMPLETED'],
+        'DELIVERY_FAILED' => ['SORTED'],
+        'DELIVERED' => ['COMPLETED', 'RETURN_IN_TRANSIT'],
+        'COMPLETED' => ['RETURN_IN_TRANSIT'],
         'RETURN_IN_TRANSIT' => ['RETURNED_TO_SELLER'],
     ];
 
@@ -72,13 +73,31 @@ class OrderTransitionService
                 throw new HttpException(422, 'This order cannot move to that status.');
             }
 
+            if ($current === OrderStatus::AssignedToRider->value && $target === OrderStatus::Sorted) {
+                throw new HttpException(422, 'Use the dedicated assignment recovery workflow to return a parcel to dispatch.');
+            }
+            if ($current === OrderStatus::DeliveryFailed->value && $target === OrderStatus::Sorted) {
+                throw new HttpException(422, 'Scan the physical parcel into a Returns or Exception location before retrying delivery.');
+            }
+
             if ($lockedOrder->payment_method !== 'COD' && ! in_array($target, [
                 OrderStatus::Cancelled,
-                OrderStatus::DeliveryFailed,
                 OrderStatus::ReturnInTransit,
                 OrderStatus::ReturnedToSeller,
             ], true)) {
                 throw new HttpException(422, 'Fulfillment is on hold because payment verification for this method is not configured.');
+            }
+
+            if ($target === OrderStatus::Cancelled) {
+                $this->authorizeCancellation($lockedOrder, $actor, $current, $notes);
+            }
+
+            if ($target === OrderStatus::Completed && $lockedOrder->dispute()->whereIn('status', ['PENDING', 'UNDER_REVIEW'])->exists()) {
+                throw new HttpException(422, 'This order cannot be completed while its dispute is under review.');
+            }
+
+            if ($actor->role === 'sorting_center' && $lockedOrder->sorting_center_id !== null && (int) $lockedOrder->sorting_center_id !== $actor->id) {
+                abort(403, 'This parcel belongs to another sorting center.');
             }
 
             $this->authorizeActor($lockedOrder, $actor, $target);
@@ -189,6 +208,7 @@ class OrderTransitionService
                 422,
                 'Only a released parcel physically recovered at the hub can be returned to dispatch.',
             );
+            abort_unless($lockedOrder->sorting_center_id === null || (int) $lockedOrder->sorting_center_id === $actor->id, 403, 'This parcel belongs to another sorting center.');
 
             $rider = $lockedOrder->deliveryCourier;
             $assignment = DeliveryAssignment::query()
@@ -239,22 +259,121 @@ class OrderTransitionService
         });
     }
 
+    public function receiveFailedDeliveryAtHub(Order $order, User $actor, string $locationCode, string $method, ?string $ip): Order
+    {
+        return DB::transaction(function () use ($order, $actor, $locationCode, $method, $ip): Order {
+            abort_unless($actor->role === 'sorting_center' && $actor->status === 'approved', 403, 'Only an approved sorting center can receive a failed parcel.');
+            $lockedOrder = Order::query()->whereKey($order->id)->lockForUpdate()->firstOrFail();
+            $rider = User::query()->whereKey($lockedOrder->delivery_courier_id)->first();
+            $failedParcel = $lockedOrder->status === OrderStatus::DeliveryFailed->value;
+            $suspendedRiderRecovery = $lockedOrder->status === OrderStatus::OutForDelivery->value && $rider?->status === 'suspended';
+            abort_unless($lockedOrder->delivery_courier_id !== null && ($failedParcel || $suspendedRiderRecovery), 422, 'Only a failed parcel or parcel recovered from a suspended rider can be checked into the hub.');
+            abort_unless($lockedOrder->sorting_center_id === null || (int) $lockedOrder->sorting_center_id === $actor->id, 403, 'This parcel belongs to another sorting center.');
+
+            $location = DB::table('storage_locations')->where('hub_id', $actor->id)->where('code', $locationCode)->lockForUpdate()->first();
+            abort_unless($location !== null && $location->is_active && in_array($location->type, ['RETURNS', 'EXCEPTION'], true), 422, 'Scan an active Returns or Exception location for failed parcel intake.');
+            abort_unless($location->type === 'EXCEPTION' || $location->area_id === null || (int) $location->area_id === (int) $lockedOrder->destination_area_id, 422, 'The return location does not match the parcel area. Use an exception location for misrouted parcels.');
+
+            $activeCount = DB::table('parcel_placements')->where('location_id', $location->id)->whereNull('removed_at')->lockForUpdate()->count();
+            abort_if((int) $location->capacity > 0 && $activeCount >= (int) $location->capacity, 422, 'This return location has reached its capacity.');
+            abort_if(DB::table('parcel_placements')->where('active_order_id', $lockedOrder->id)->exists(), 422, 'This parcel already has an active storage placement.');
+
+            $riderId = (int) $lockedOrder->delivery_courier_id;
+            $scanStation = $failedParcel ? 'failed_return_intake' : 'rider_exception_intake';
+            $eventType = $failedParcel ? 'failed_parcel_returned_to_hub' : 'suspended_rider_parcel_recovered_at_hub';
+            $assignment = DeliveryAssignment::query()->where('order_id', $lockedOrder->id)->where('rider_id', $riderId)->where('status', 'active')->lockForUpdate()->first();
+            if ($assignment !== null) {
+                $assignment->update(['status' => 'returned', 'active_order_id' => null, 'released_at' => now()]);
+            }
+            $lockedOrder->forceFill([
+                'status' => OrderStatus::Sorted->value,
+                'delivery_courier_id' => null,
+                'assigned_at' => null,
+                'hub_released_at' => null,
+                'delivery_recovered_at' => now(),
+            ])->save();
+            DB::table('parcel_placements')->insert([
+                'order_id' => $lockedOrder->id,
+                'active_order_id' => $lockedOrder->id,
+                'location_id' => $location->id,
+                'placed_by' => $actor->id,
+                'placed_at' => now(),
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+            ParcelTrackingEvent::query()->create([
+                'order_id' => $lockedOrder->id,
+                'actor_id' => $actor->id,
+                'event_type' => $eventType,
+                'status' => OrderStatus::Sorted->value,
+                'location' => $actor->municipality,
+                'notes' => ($failedParcel ? 'Failed parcel physically returned' : 'Parcel physically recovered from a suspended rider').' and scanned into '.$location->code.'.',
+            ]);
+            DB::table('scan_events')->insert([
+                'order_id' => $lockedOrder->id,
+                'location_id' => $location->id,
+                'actor_id' => $actor->id,
+                'station' => $scanStation,
+                'result' => 'accepted',
+                'method' => $method,
+                'ip' => $ip,
+                'created_at' => now(),
+            ]);
+            DB::table('logistics_exceptions')->where('order_id', $lockedOrder->id)->where('status', 'OPEN')->update([
+                'status' => 'RESOLVED',
+                'resolution' => 'Parcel recovered at the hub and placed in '.$location->code.'.',
+                'resolved_by' => $actor->id,
+                'resolved_at' => now(),
+                'updated_at' => now(),
+            ]);
+
+            $receivedOrder = $lockedOrder->refresh();
+            $this->notifications->send($receivedOrder->buyer, new OrderStatusNotification($receivedOrder, OrderStatus::Sorted->value, $eventType, 'The parcel has returned to the hub for review.'));
+            $this->notifications->send($receivedOrder->seller, new OrderStatusNotification($receivedOrder, OrderStatus::Sorted->value, $eventType, 'The parcel has returned to the hub for review.'));
+            $this->notifications->send(User::query()->find($riderId), new OrderWorkflowNotification($receivedOrder, $eventType, 'Logistics recorded the parcel as physically returned to the hub.'));
+
+            return $receivedOrder;
+        });
+    }
+
     private function authorizeActor(Order $order, User $actor, OrderStatus $target): void
     {
         $authorized = match ($target) {
             OrderStatus::Confirmed, OrderStatus::Preparing, OrderStatus::ReadyForPickup, OrderStatus::ReturnedToSeller => $actor->role === 'seller' && $order->seller_id === $actor->id,
             OrderStatus::Completed => $actor->role === 'buyer' && $order->buyer_id === $actor->id,
-            OrderStatus::Cancelled => $actor->role === 'buyer' && $order->buyer_id === $actor->id,
+            OrderStatus::Cancelled => ($actor->role === 'buyer' && $order->buyer_id === $actor->id)
+                || ($actor->role === 'seller' && $order->seller_id === $actor->id)
+                || $actor->role === 'admin',
             OrderStatus::PickedUp => $actor->role === 'courier' && $order->pickup_courier_id === $actor->id,
             OrderStatus::OutForDelivery, OrderStatus::Delivered, OrderStatus::DeliveryFailed => $actor->role === 'courier' && $order->delivery_courier_id === $actor->id,
             OrderStatus::AtSortingCenter, OrderStatus::AssignedToRider => $actor->role === 'sorting_center',
             OrderStatus::Sorted => $actor->role === 'sorting_center',
-            OrderStatus::ReturnInTransit => $actor->role === 'sorting_center' || ($actor->role === 'courier' && $order->delivery_courier_id === $actor->id),
+            OrderStatus::ReturnInTransit => $actor->role === 'admin' || $actor->role === 'sorting_center' || ($actor->role === 'courier' && $order->delivery_courier_id === $actor->id),
             default => false,
         };
 
         if (! $authorized || $actor->status !== 'approved') {
             abort(403, 'You are not authorized to make this order transition.');
+        }
+    }
+
+    private function authorizeCancellation(Order $order, User $actor, string $currentStatus, ?string $reason): void
+    {
+        $buyerCancellableStatuses = [OrderStatus::Placed->value, OrderStatus::Confirmed->value, OrderStatus::Preparing->value];
+        $sellerAndAdminCancellableStatuses = [...$buyerCancellableStatuses, OrderStatus::ReadyForPickup->value];
+        $allowedStatuses = $actor->role === 'buyer' ? $buyerCancellableStatuses : $sellerAndAdminCancellableStatuses;
+
+        abort_unless(in_array($currentStatus, $allowedStatuses, true), 422, 'This order can no longer be cancelled before shipment.');
+        abort_unless(
+            $order->picked_up_at === null
+                && $order->received_at === null
+                && $order->seller_handover_at === null,
+            422,
+            'A parcel in physical custody cannot be cancelled.',
+        );
+
+        if (in_array($actor->role, ['seller', 'admin'], true) && blank($reason)) {
+            throw new HttpException(422, 'A cancellation reason is required.');
         }
     }
 
@@ -380,8 +499,21 @@ class OrderTransitionService
             $recipients[] = $order->pickupCourier;
         }
 
+        if ($target === OrderStatus::Sorted && $order->sortingCenter !== null) {
+            $recipients[] = $order->sortingCenter;
+        }
+
         if (in_array($target, [OrderStatus::AtSortingCenter, OrderStatus::DeliveryFailed, OrderStatus::ReturnInTransit], true)) {
-            array_push($recipients, ...User::query()->where('role', 'sorting_center')->where('status', 'approved')->get()->all());
+            if ($order->sortingCenter !== null) {
+                $recipients[] = $order->sortingCenter;
+            }
+        }
+
+        if ($target === OrderStatus::Cancelled && $order->pickup_requested_at !== null) {
+            $recipients[] = $order->pickupCourier;
+            if ($order->sortingCenter !== null) {
+                $recipients[] = $order->sortingCenter;
+            }
         }
 
         return collect($recipients)->filter(fn (?User $user): bool => $user !== null)->unique('id')->values()->all();
