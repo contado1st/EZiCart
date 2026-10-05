@@ -34,6 +34,14 @@
                                 @if ($order->status === 'RETURN_IN_TRANSIT')
                                     <span class="ops-muted">{{ $order->return_handed_to_seller_at ? 'Seller receipt confirmation pending' : 'Awaiting courier to record seller handoff' }}</span>
                                 @else
+                                @if ($order->status === 'ASSIGNED_TO_RIDER' && $order->hub_released_at)
+                                    <div class="ops-muted">Hub handoff is complete. Confirm physical recovery before dispatching this parcel to another rider.</div>
+                                    <form method="POST" action="{{ route('logistics.orders.recoverReleasedParcel', $order) }}"
+                                        onsubmit="return confirm('Confirm that Logistics physically received this parcel back from the assigned rider?')">
+                                        @csrf
+                                        <button class="ops-btn ops-btn--primary" type="submit">Record parcel recovered at hub</button>
+                                    </form>
+                                @else
                                 @php($suggestedRider = $suggestedRiders[$order->id] ?? null)
                                 @if ($order->status === 'DELIVERY_FAILED')
                                     <div class="ops-muted">{{ $order->deliveryAttempts->count() }} attempts recorded. Schedule the next attempt or return the parcel.</div>
@@ -66,6 +74,7 @@
                                     <button class="ops-btn ops-btn--primary"
                                         type="submit">{{ $order->delivery_courier_id ? 'Reassign' : 'Assign' }}</button>
                                 </form>
+                                @endif
                                 @if ($order->status === 'ASSIGNED_TO_RIDER')
                                     @if ($order->hub_released_at)
                                         <div class="ops-muted">Hub release recorded {{ $order->hub_released_at->format('d M Y H:i') }}.</div>

@@ -4,11 +4,11 @@
         <div>
             <div class="ops-eyebrow">Seller pickup queue</div>
             <h1>Review pickup requests</h1>
-            <p>Assign each prepared parcel to an approved rider before it appears on the rider board.</p>
+            <p>Assign an approved rider, or reassign a pickup while the current rider has not accepted it.</p>
         </div>
     </header>
     <section class="ops-panel">
-        <h2>Waiting for assignment <span class="ops-muted">{{ $orders->total() }}</span></h2>
+        <h2>Unclaimed pickup requests <span class="ops-muted">{{ $orders->total() }}</span></h2>
         <div class="ops-table-wrap">
             <table class="ops-table">
                 <thead><tr><th>Order</th><th>Seller pickup point</th><th>Contents</th><th>Assign rider</th></tr></thead>
@@ -24,9 +24,12 @@
                             </td>
                             <td>{{ $order->items->count() }} item(s)</td>
                             <td>
+                                @if ($order->pickupCourier)
+                                    <p class="ops-muted">Currently assigned: {{ $order->pickupCourier->first_name }} {{ $order->pickupCourier->last_name }} ({{ ucfirst($order->pickupCourier->status) }})</p>
+                                @endif
                                 <form class="ops-form" method="POST" action="{{ route('logistics.orders.assignPickup', $order) }}">
                                     @csrf
-                                    <div class="ops-field"><label for="pickup-rider-{{ $order->id }}">Approved rider</label>
+                                    <div class="ops-field"><label for="pickup-rider-{{ $order->id }}">{{ $order->pickupCourier ? 'Replacement rider' : 'Approved rider' }}</label>
                                         <select id="pickup-rider-{{ $order->id }}" name="pickup_courier_id" required>
                                             <option value="">Select rider</option>
                                             @foreach ($riders as $rider)
@@ -34,7 +37,7 @@
                                             @endforeach
                                         </select>
                                     </div>
-                                    <button class="ops-btn ops-btn--primary" type="submit">Assign pickup</button>
+                                    <button class="ops-btn ops-btn--primary" type="submit">{{ $order->pickupCourier ? 'Reassign pickup' : 'Assign pickup' }}</button>
                                 </form>
                             </td>
                         </tr>

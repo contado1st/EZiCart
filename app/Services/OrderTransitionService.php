@@ -157,6 +157,69 @@ class OrderTransitionService
         });
     }
 
+    public function recoverReleasedDeliveryParcel(Order $order, User $actor): Order
+    {
+        return DB::transaction(function () use ($order, $actor): Order {
+            $lockedOrder = Order::query()->whereKey($order->id)->lockForUpdate()->firstOrFail();
+            abort_unless(
+                $actor->role === 'sorting_center'
+                    && $actor->status === 'approved'
+                    && $lockedOrder->status === OrderStatus::AssignedToRider->value
+                    && $lockedOrder->delivery_courier_id !== null
+                    && $lockedOrder->hub_released_at !== null,
+                422,
+                'Only a released parcel physically recovered at the hub can be returned to dispatch.',
+            );
+
+            $rider = $lockedOrder->deliveryCourier;
+            $assignment = DeliveryAssignment::query()
+                ->where('order_id', $lockedOrder->id)
+                ->where('rider_id', $lockedOrder->delivery_courier_id)
+                ->where('status', 'active')
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            $lockedOrder->forceFill([
+                'status' => OrderStatus::Sorted->value,
+                'delivery_courier_id' => null,
+                'assigned_at' => null,
+                'hub_released_at' => null,
+                'delivery_recovered_at' => now(),
+            ])->save();
+            $assignment->update([
+                'status' => 'reassigned',
+                'active_order_id' => null,
+                'released_at' => now(),
+            ]);
+
+            $sortedOrder = $lockedOrder->refresh();
+            $message = 'Logistics confirmed physical recovery of the parcel from the rider at the sorting center.';
+            ParcelTrackingEvent::query()->create([
+                'order_id' => $sortedOrder->id,
+                'actor_id' => $actor->id,
+                'event_type' => 'delivery_parcel_recovered_at_hub',
+                'status' => OrderStatus::Sorted->value,
+                'location' => $actor->municipality,
+                'notes' => $message,
+            ]);
+
+            if ($rider !== null) {
+                $rider->notify(new OrderWorkflowNotification($sortedOrder, 'delivery_parcel_recovered_at_hub', 'Logistics recorded that the parcel was recovered from you at the hub.'));
+            }
+
+            foreach ($this->notificationRecipients($sortedOrder, OrderStatus::Sorted) as $recipient) {
+                $recipient->notify(new OrderStatusNotification(
+                    $sortedOrder,
+                    OrderStatus::Sorted->value,
+                    'delivery_parcel_recovered_at_hub',
+                    $message,
+                ));
+            }
+
+            return $sortedOrder;
+        });
+    }
+
     private function authorizeActor(Order $order, User $actor, OrderStatus $target): void
     {
         $authorized = match ($target) {

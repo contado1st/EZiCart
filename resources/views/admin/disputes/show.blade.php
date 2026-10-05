@@ -116,8 +116,8 @@
                                 <option value="UNDER_REVIEW" {{ $dispute->status === 'UNDER_REVIEW' ? 'selected' : '' }}>
                                     Mark as Under Investigation</option>
                                 <option value="REFUND_APPROVED"
-                                    {{ $dispute->status === 'REFUND_APPROVED' ? 'selected' : '' }}>Approve Full Refund to
-                                    Buyer</option>
+                                    {{ $dispute->status === 'REFUND_APPROVED' ? 'selected' : '' }}>Approve refund for
+                                    Buyer (payout must be processed separately)</option>
                                 <option value="REPLACEMENT_APPROVED"
                                     {{ $dispute->status === 'REPLACEMENT_APPROVED' ? 'selected' : '' }}>Order Merchant
                                     Replacement</option>
@@ -126,6 +126,7 @@
                                 <option value="RESOLVED" {{ $dispute->status === 'RESOLVED' ? 'selected' : '' }}>Mark
                                     Completely Resolved</option>
                             </select>
+                            <p class="ops-muted">This records the dispute decision. It does not issue or confirm a payment refund.</p>
                         </div>
 
                         <div style="margin-bottom: 1rem;">

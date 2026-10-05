@@ -223,6 +223,8 @@ class CourierController extends Controller
                 if (! isset($validated['cod_collected_amount']) || $this->amountInCentavos($validated['cod_collected_amount']) !== $this->amountInCentavos((string) $lockedOrder->total_amount)) {
                     throw ValidationException::withMessages(['cod_collected_amount' => 'Enter the exact full order amount collected for cash on delivery.']);
                 }
+            } elseif (isset($validated['cod_collected_amount'])) {
+                throw ValidationException::withMessages(['cod_collected_amount' => 'Cash collection is only recorded for cash-on-delivery orders.']);
             }
             $notes = trim('Recipient: '.$validated['recipient_confirmation'].'. '.($validated['delivery_notes'] ?? ''));
             $attempt = $this->recordDeliveryAttempt($lockedOrder, $courier, 'delivered', [

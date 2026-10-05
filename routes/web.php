@@ -153,6 +153,7 @@ Route::middleware(['auth', 'account.active', 'auth.session'])->group(function ()
         Route::post('/orders/{order}/sort', [LogisticsController::class, 'sortParcel'])->middleware('throttle:30,1')->name('orders.sort');
         Route::post('/orders/{order}/assign-rider', [LogisticsController::class, 'assignRider'])->middleware('throttle:30,1')->name('orders.assignRider');
         Route::post('/orders/{order}/release-to-rider', [LogisticsController::class, 'releaseToRider'])->middleware('throttle:30,1')->name('orders.releaseToRider');
+        Route::post('/orders/{order}/recover-from-rider', [LogisticsController::class, 'recoverReleasedParcel'])->middleware('throttle:30,1')->name('orders.recoverReleasedParcel');
         Route::post('/orders/{order}/return', [LogisticsController::class, 'returnParcel'])->middleware('throttle:30,1')->name('orders.return');
 
         Route::get('/riders', [LogisticsController::class, 'riders'])->name('riders');

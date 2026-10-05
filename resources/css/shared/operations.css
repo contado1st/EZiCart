@@ -45,7 +45,9 @@
     text-decoration: none;
     padding: 9px 12px;
     border-radius: 6px;
-    display: block;
+    display: flex;
+    align-items: center;
+    min-height: 44px;
 }
 .ops-nav a:hover,
 .ops-nav a.active {
@@ -191,6 +193,7 @@
     display: inline-flex;
     justify-content: center;
     align-items: center;
+    min-height: 44px;
     padding: 8px 11px;
     border: 1px solid #ded9e5;
     border-radius: 5px;
@@ -243,6 +246,10 @@
         13px "Manrope",
         sans-serif;
     min-width: 0;
+}
+.ops-field input,
+.ops-field select {
+    min-height: 44px;
 }
 .ops-alert {
     padding: 10px 13px;
@@ -314,6 +321,7 @@
     }
     .ops-nav a {
         white-space: nowrap;
+        flex: 0 0 auto;
     }
     .ops-main {
         padding: 22px 14px;

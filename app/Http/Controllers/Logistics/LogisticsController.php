@@ -20,6 +20,7 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
+use Symfony\Component\HttpKernel\Exception\HttpException;
 
 class LogisticsController extends Controller
 {
@@ -54,7 +55,9 @@ class LogisticsController extends Controller
     {
         $parcels = Order::with(['seller', 'pickupCourier'])
             ->where('status', 'PICKED_UP')
-            ->when($request->filled('search'), fn (Builder $query) => $query->where(fn (Builder $query) => $query->where('order_number', 'like', '%'.$request->string('search').'%')))
+            ->when($request->filled('search'), function (Builder $query) use ($request): void {
+                $query->whereRaw("order_number LIKE ? ESCAPE '!'", [$this->orderNumberSearchPattern($request->string('search')->toString())]);
+            })
             ->latest()->paginate(15)->withQueryString();
 
         return view('logistics.intake', compact('parcels'));
@@ -62,10 +65,10 @@ class LogisticsController extends Controller
 
     public function pickupRequests(): View
     {
-        $orders = Order::query()->with(['seller', 'items'])
+        $orders = Order::query()->with(['seller', 'items', 'pickupCourier'])
             ->where('status', 'READY_FOR_PICKUP')
             ->whereNotNull('pickup_requested_at')
-            ->whereNull('pickup_courier_id')
+            ->whereNull('pickup_claimed_at')
             ->latest()->paginate(20);
         $riders = User::query()->where('role', 'courier')->where('status', 'approved')->orderBy('first_name')->get();
 
@@ -79,21 +82,40 @@ class LogisticsController extends Controller
 
         return DB::transaction(function () use ($order, $validated, $operator): RedirectResponse {
             $lockedOrder = Order::query()->whereKey($order->id)->lockForUpdate()->firstOrFail();
-            abort_unless($lockedOrder->status === 'READY_FOR_PICKUP' && $lockedOrder->pickup_requested_at !== null && $lockedOrder->pickup_courier_id === null, 422, 'This pickup request is no longer available.');
+            abort_unless(
+                $lockedOrder->status === 'READY_FOR_PICKUP'
+                    && $lockedOrder->pickup_requested_at !== null
+                    && $lockedOrder->pickup_claimed_at === null
+                    && $lockedOrder->pickup_arrived_at === null
+                    && $lockedOrder->seller_handover_at === null,
+                422,
+                'This pickup request is no longer available for assignment.',
+            );
             $rider = User::query()->whereKey($validated['pickup_courier_id'])->lockForUpdate()->firstOrFail();
             abort_unless($rider->role === 'courier' && $rider->status === 'approved', 422, 'Choose an approved rider.');
+            $previousRider = $lockedOrder->pickupCourier;
+            abort_if($previousRider?->id === $rider->id, 422, 'Choose a different rider for reassignment.');
 
             $lockedOrder->forceFill(['pickup_courier_id' => $rider->id])->save();
             ParcelTrackingEvent::create([
                 'order_id' => $lockedOrder->id,
                 'actor_id' => $operator->id,
-                'event_type' => 'pickup_assigned',
+                'event_type' => $previousRider === null ? 'pickup_assigned' : 'pickup_reassigned',
                 'status' => $lockedOrder->status,
                 'location' => $lockedOrder->seller?->municipality,
-                'notes' => "Pickup assigned to {$rider->first_name} {$rider->last_name}.",
+                'notes' => $previousRider === null
+                    ? "Pickup assigned to {$rider->first_name} {$rider->last_name}."
+                    : "Pickup reassigned from {$previousRider->first_name} {$previousRider->last_name} to {$rider->first_name} {$rider->last_name} before rider acceptance.",
             ]);
+            if ($previousRider !== null) {
+                $previousRider->notify(new OrderWorkflowNotification($lockedOrder, 'pickup_reassigned', 'Logistics reassigned this pickup before you accepted it.'));
+            }
             $rider->notify(new OrderWorkflowNotification($lockedOrder, 'pickup_assigned', 'Logistics assigned you a seller pickup.'));
-            $lockedOrder->seller?->notify(new OrderWorkflowNotification($lockedOrder, 'pickup_assigned', 'Logistics assigned a rider to your pickup request.'));
+            $lockedOrder->seller?->notify(new OrderWorkflowNotification(
+                $lockedOrder,
+                $previousRider === null ? 'pickup_assigned' : 'pickup_reassigned',
+                $previousRider === null ? 'Logistics assigned a rider to your pickup request.' : 'Logistics reassigned the rider for your pickup request.',
+            ));
 
             return back()->with('success', "Pickup for {$lockedOrder->order_number} assigned to {$rider->first_name} {$rider->last_name}.");
         });
@@ -104,11 +126,19 @@ class LogisticsController extends Controller
         $validated = $request->validate(['reference' => ['required', 'string', 'max:100']]);
         $order = Order::where('order_number', $validated['reference'])->first();
 
-        if (! $order) {
+        if (! $order || $order->status !== OrderStatus::PickedUp->value) {
             return back()->withErrors(['reference' => 'The parcel reference could not be processed.']);
         }
 
-        return $this->receiveParcel($order, $transitions);
+        try {
+            return $this->receiveParcel($order, $transitions);
+        } catch (HttpException $exception) {
+            if ($exception->getStatusCode() !== 422) {
+                throw $exception;
+            }
+
+            return back()->withErrors(['reference' => 'The parcel reference could not be processed.']);
+        }
     }
 
     public function receiveParcel(Order $order, OrderTransitionService $transitions): RedirectResponse
@@ -188,6 +218,9 @@ class LogisticsController extends Controller
         return DB::transaction(function () use ($order, $validated, $operator, $transitions): RedirectResponse {
             $lockedOrder = Order::whereKey($order->id)->lockForUpdate()->firstOrFail();
             abort_unless(in_array($lockedOrder->status, ['SORTED', 'ASSIGNED_TO_RIDER', 'DELIVERY_FAILED'], true), 422, 'This parcel cannot be assigned at its current stage.');
+            if ($lockedOrder->status === OrderStatus::AssignedToRider->value) {
+                abort_unless($lockedOrder->hub_released_at === null, 422, 'This parcel cannot be reassigned after Logistics records the hub handoff.');
+            }
             if ($lockedOrder->status === OrderStatus::DeliveryFailed->value && empty($validated['scheduled_at'])) {
                 throw ValidationException::withMessages(['scheduled_at' => 'Choose a date and time for the retry delivery.']);
             }
@@ -263,6 +296,13 @@ class LogisticsController extends Controller
 
             return back()->with('success', "Parcel {$lockedOrder->order_number} released to {$rider->first_name} {$rider->last_name}.");
         });
+    }
+
+    public function recoverReleasedParcel(Order $order, OrderTransitionService $transitions): RedirectResponse
+    {
+        $transitions->recoverReleasedDeliveryParcel($order, $this->authenticatedUser());
+
+        return back()->with('success', "Parcel {$order->order_number} recovered at the hub and returned to dispatch.");
     }
 
     public function riders(): View
@@ -363,7 +403,9 @@ class LogisticsController extends Controller
                 $day = Carbon::parse($date);
                 $query->whereBetween('updated_at', [$day->copy()->startOfDay(), $day->copy()->endOfDay()]);
             })
-            ->when($validated['search'] ?? null, fn (Builder $query, string $search) => $query->where('order_number', 'like', '%'.$search.'%'))
+            ->when($validated['search'] ?? null, function (Builder $query, string $search): void {
+                $query->whereRaw("order_number LIKE ? ESCAPE '!'", [$this->orderNumberSearchPattern($search)]);
+            })
             ->latest()->paginate(20)->withQueryString();
         $riders = User::where('role', 'courier')->orderBy('first_name')->get(['id', 'first_name', 'last_name']);
         $areas = Area::query()->orderBy('name')->get(['id', 'name']);
@@ -401,5 +443,10 @@ class LogisticsController extends Controller
         ];
 
         return view('logistics.reports', compact('stats', 'volume', 'areaCounts', 'from', 'to'));
+    }
+
+    private function orderNumberSearchPattern(string $search): string
+    {
+        return '%'.strtr($search, ['!' => '!!', '%' => '!%', '_' => '!_']).'%';
     }
 }

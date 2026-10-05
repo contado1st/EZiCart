@@ -6,6 +6,7 @@ use App\Enums\OrderStatus;
 use App\Models\Area;
 use App\Models\AreaMunicipality;
 use App\Models\DeliveryAssignment;
+use App\Models\Dispute;
 use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\ParcelTrackingEvent;
@@ -77,6 +78,162 @@ class LogisticsWorkflowTest extends TestCase
         $this->actingAsUser($center)->post(route('logistics.orders.receive', $order))->assertRedirect();
         $this->assertDatabaseHas('orders', ['id' => $order->id, 'status' => 'AT_SORTING_CENTER', 'sorting_center_id' => $center->id]);
         $this->assertDatabaseHas('parcel_tracking_events', ['order_id' => $order->id, 'event_type' => 'hub_received']);
+    }
+
+    public function test_logistics_can_reassign_only_unclaimed_pickups_and_preserve_history(): void
+    {
+        $center = $this->user('sorting_center', 'approved');
+        $suspendedRider = $this->user('courier', 'suspended');
+        $replacementRider = $this->user('courier', 'approved');
+        $order = $this->order([
+            'status' => 'READY_FOR_PICKUP',
+            'pickup_requested_at' => now(),
+            'pickup_courier_id' => $suspendedRider->id,
+        ]);
+
+        $this->actingAsUser($center)->get(route('logistics.pickupRequests'))
+            ->assertOk()
+            ->assertSee($order->order_number)
+            ->assertSee('Reassign pickup');
+        $this->post(route('logistics.orders.assignPickup', $order), ['pickup_courier_id' => $replacementRider->id])->assertRedirect();
+
+        $this->assertDatabaseHas('orders', ['id' => $order->id, 'pickup_courier_id' => $replacementRider->id]);
+        $this->assertDatabaseHas('parcel_tracking_events', [
+            'order_id' => $order->id,
+            'event_type' => 'pickup_reassigned',
+        ]);
+        $this->assertDatabaseHas('notifications', [
+            'notifiable_id' => $suspendedRider->id,
+            'type' => OrderWorkflowNotification::class,
+        ]);
+        $this->assertContains('pickup_assigned', $replacementRider->notifications()->where('type', OrderWorkflowNotification::class)->get()->pluck('data.event_type')->all());
+
+        $order->forceFill(['pickup_claimed_at' => now()])->save();
+        $this->post(route('logistics.orders.assignPickup', $order), ['pickup_courier_id' => $this->user('courier', 'approved')->id])
+            ->assertUnprocessable();
+        $this->assertDatabaseHas('orders', ['id' => $order->id, 'pickup_courier_id' => $replacementRider->id]);
+    }
+
+    public function test_parcel_scan_uses_the_same_error_for_unknown_and_ineligible_references(): void
+    {
+        $center = $this->user('sorting_center', 'approved');
+        $ineligibleOrder = $this->order(['status' => 'PLACED']);
+
+        $this->actingAsUser($center)
+            ->from(route('logistics.intake'))
+            ->post(route('logistics.scan'), ['reference' => 'EZC-UNKNOWN'])
+            ->assertRedirect(route('logistics.intake'))
+            ->assertSessionHasErrors(['reference' => 'The parcel reference could not be processed.']);
+
+        $this->actingAsUser($center)
+            ->from(route('logistics.intake'))
+            ->post(route('logistics.scan'), ['reference' => $ineligibleOrder->order_number])
+            ->assertRedirect(route('logistics.intake'))
+            ->assertSessionHasErrors(['reference' => 'The parcel reference could not be processed.']);
+
+        $this->assertDatabaseHas('orders', ['id' => $ineligibleOrder->id, 'status' => 'PLACED']);
+    }
+
+    public function test_logistics_order_search_treats_like_wildcards_as_literal_characters(): void
+    {
+        $center = $this->user('sorting_center', 'approved');
+        $intakeMatch = $this->order(['status' => 'PICKED_UP', 'order_number' => 'EZC-TEST_100%']);
+        $this->order(['status' => 'PICKED_UP', 'order_number' => 'EZC-TESTX100Y']);
+        $trackingMatch = $this->order(['status' => 'OUT_FOR_DELIVERY', 'order_number' => 'EZC-TRACK_77%']);
+        $this->order(['status' => 'OUT_FOR_DELIVERY', 'order_number' => 'EZC-TRACKX77Y']);
+
+        $this->actingAsUser($center)
+            ->get(route('logistics.intake', ['search' => 'TEST_100%']))
+            ->assertOk()
+            ->assertViewHas('parcels', fn ($parcels): bool => collect($parcels->items())->pluck('id')->all() === [$intakeMatch->id]);
+        $this->get(route('logistics.tracking', ['search' => 'TRACK_77%']))
+            ->assertOk()
+            ->assertViewHas('orders', fn ($orders): bool => collect($orders->items())->pluck('id')->all() === [$trackingMatch->id]);
+    }
+
+    public function test_dispute_submission_rechecks_order_eligibility_before_create(): void
+    {
+        $order = $this->order(['status' => 'PREPARING']);
+
+        $this->actingAsUser($order->buyer)
+            ->post(route('buyer.orders.dispute.store', $order), [
+                'reason' => 'Other',
+                'description' => 'This submission should be rejected before delivery.',
+            ])
+            ->assertUnprocessable();
+
+        $this->assertDatabaseMissing('disputes', ['order_id' => $order->id]);
+    }
+
+    public function test_order_cannot_receive_a_second_dispute_submission(): void
+    {
+        Storage::fake('private');
+        $order = $this->order(['status' => 'COMPLETED']);
+        $payload = [
+            'reason' => 'Other',
+            'description' => 'A sufficiently detailed dispute description.',
+            'evidence_file' => UploadedFile::fake()->create('evidence.pdf', 10, 'application/pdf'),
+        ];
+
+        $this->actingAsUser($order->buyer)
+            ->post(route('buyer.orders.dispute.store', $order), $payload)
+            ->assertRedirect(route('buyer.dashboard'));
+        $evidencePath = Dispute::query()->where('order_id', $order->id)->value('evidence_path');
+        $this->assertIsString($evidencePath);
+        Storage::disk('private')->assertExists($evidencePath);
+
+        $this->actingAsUser($order->buyer)
+            ->post(route('buyer.orders.dispute.store', $order), [
+                'reason' => 'Other',
+                'description' => 'A second sufficiently detailed dispute description.',
+                'evidence_file' => UploadedFile::fake()->create('second-evidence.pdf', 10, 'application/pdf'),
+            ])
+            ->assertUnprocessable();
+
+        $this->assertSame(1, Dispute::query()->where('order_id', $order->id)->count());
+        Storage::disk('private')->assertExists($evidencePath);
+        $this->assertCount(1, Storage::disk('private')->allFiles('disputes/evidence'));
+    }
+
+    public function test_database_rejects_multiple_disputes_for_one_order(): void
+    {
+        $order = $this->order(['status' => 'COMPLETED']);
+        $dispute = [
+            'order_id' => $order->id,
+            'buyer_id' => $order->buyer_id,
+            'seller_id' => $order->seller_id,
+            'reason' => 'Other',
+            'description' => 'A sufficiently detailed dispute description.',
+            'status' => 'PENDING',
+        ];
+        Dispute::query()->create($dispute);
+
+        $this->expectException(QueryException::class);
+
+        Dispute::query()->create($dispute);
+    }
+
+    public function test_unique_dispute_migration_stops_when_existing_duplicate_history_needs_review(): void
+    {
+        $order = $this->order(['status' => 'COMPLETED']);
+        Schema::table('disputes', fn (Blueprint $table) => $table->dropUnique('disputes_order_id_unique'));
+        $dispute = [
+            'order_id' => $order->id,
+            'buyer_id' => $order->buyer_id,
+            'seller_id' => $order->seller_id,
+            'reason' => 'Other',
+            'description' => 'Legacy duplicate dispute data needs review.',
+            'status' => 'PENDING',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ];
+        DB::table('disputes')->insert([$dispute, $dispute]);
+        $migration = require database_path('migrations/2026_10_05_013448_add_unique_order_id_to_disputes_table.php');
+
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('Cannot add one-dispute-per-order constraint');
+
+        $migration->up();
     }
 
     public function test_professor_order_flow_completes_from_seller_acceptance_through_buyer_confirmation(): void
@@ -220,6 +377,67 @@ class LogisticsWorkflowTest extends TestCase
         $this->assertDatabaseHas('orders', ['id' => $order->id, 'delivery_courier_id' => $rider->id, 'status' => 'ASSIGNED_TO_RIDER']);
         $this->assertDatabaseHas('delivery_assignments', ['order_id' => $order->id, 'rider_id' => $rider->id, 'status' => 'active', 'assigned_by' => $center->id]);
         $this->assertDatabaseHas('parcel_tracking_events', ['order_id' => $order->id, 'event_type' => 'rider_assigned']);
+    }
+
+    public function test_logistics_cannot_reassign_a_delivery_after_hub_handoff(): void
+    {
+        $center = $this->user('sorting_center', 'approved');
+        $currentRider = $this->user('courier', 'approved', ['assigned_area' => 'Majayjay']);
+        $replacementRider = $this->user('courier', 'approved', ['assigned_area' => 'Majayjay']);
+        $order = $this->order([
+            'status' => 'ASSIGNED_TO_RIDER',
+            'delivery_courier_id' => $currentRider->id,
+            'assigned_at' => now()->subMinute(),
+            'hub_released_at' => now(),
+        ]);
+        DeliveryAssignment::query()->create([
+            'order_id' => $order->id,
+            'active_order_id' => $order->id,
+            'rider_id' => $currentRider->id,
+            'status' => 'active',
+            'assigned_at' => $order->assigned_at,
+        ]);
+
+        $this->actingAsUser($center)->post(route('logistics.orders.assignRider', $order), [
+            'delivery_courier_id' => $replacementRider->id,
+        ])->assertUnprocessable();
+        $this->assertDatabaseHas('orders', [
+            'id' => $order->id,
+            'status' => 'ASSIGNED_TO_RIDER',
+            'delivery_courier_id' => $currentRider->id,
+        ]);
+        $this->get(route('logistics.dispatch'))
+            ->assertOk()
+            ->assertSee('Confirm physical recovery before dispatching this parcel to another rider');
+
+        $this->post(route('logistics.orders.recoverReleasedParcel', $order))->assertRedirect();
+        $this->assertDatabaseHas('orders', [
+            'id' => $order->id,
+            'status' => 'SORTED',
+            'delivery_courier_id' => null,
+            'hub_released_at' => null,
+        ]);
+        $this->assertNotNull($order->fresh()->delivery_recovered_at);
+        $this->assertDatabaseHas('delivery_assignments', [
+            'order_id' => $order->id,
+            'rider_id' => $currentRider->id,
+            'status' => 'reassigned',
+            'active_order_id' => null,
+        ]);
+        $this->assertDatabaseHas('parcel_tracking_events', [
+            'order_id' => $order->id,
+            'event_type' => 'delivery_parcel_recovered_at_hub',
+            'actor_id' => $center->id,
+        ]);
+
+        $this->post(route('logistics.orders.assignRider', $order), ['delivery_courier_id' => $replacementRider->id])->assertRedirect();
+        $this->post(route('logistics.orders.releaseToRider', $order))->assertRedirect();
+        $this->assertDatabaseHas('orders', [
+            'id' => $order->id,
+            'status' => 'ASSIGNED_TO_RIDER',
+            'delivery_courier_id' => $replacementRider->id,
+        ]);
+        $this->assertNotNull($order->fresh()->hub_released_at);
     }
 
     public function test_database_prevents_multiple_active_delivery_assignments_for_one_order(): void
@@ -498,7 +716,7 @@ class LogisticsWorkflowTest extends TestCase
     {
         Storage::fake('private');
         $rider = $this->user('courier', 'approved', ['assigned_area' => 'Majayjay']);
-        $order = $this->order(['status' => 'OUT_FOR_DELIVERY', 'payment_method' => 'COD', 'delivery_courier_id' => $rider->id]);
+        $order = $this->order(['status' => 'OUT_FOR_DELIVERY', 'payment_method' => 'COD', 'total_amount' => 150.25, 'delivery_courier_id' => $rider->id]);
 
         $this->actingAsUser($rider)->patch(route('courier.orders.completeDelivery', $order), [
             'recipient_confirmation' => 'Buyer',
@@ -506,15 +724,15 @@ class LogisticsWorkflowTest extends TestCase
         ])->assertSessionHasErrors('cod_collected_amount');
         $this->patch(route('courier.orders.completeDelivery', $order), [
             'recipient_confirmation' => 'Buyer',
-            'cod_collected_amount' => '150.01',
+            'cod_collected_amount' => '150.26',
             'proof_file' => UploadedFile::fake()->image('delivery-proof.jpg'),
         ])->assertSessionHasErrors('cod_collected_amount');
         $this->patch(route('courier.orders.completeDelivery', $order), [
             'recipient_confirmation' => 'Buyer',
-            'cod_collected_amount' => '150.00',
+            'cod_collected_amount' => '150.25',
             'proof_file' => UploadedFile::fake()->create('proof.pdf', 100, 'application/pdf'),
         ])->assertRedirect();
-        $this->assertDatabaseHas('orders', ['id' => $order->id, 'status' => 'DELIVERED', 'cod_collected_amount' => '150.00']);
+        $this->assertDatabaseHas('orders', ['id' => $order->id, 'status' => 'DELIVERED', 'cod_collected_amount' => '150.25']);
         $attempt = $order->deliveryAttempts()->firstOrFail();
         Storage::disk('private')->assertExists($attempt->proof_path);
         $this->get(route('delivery-attempts.proof', $attempt))->assertOk();
@@ -522,6 +740,33 @@ class LogisticsWorkflowTest extends TestCase
         $this->actingAsUser($otherBuyer)->get(route('delivery-attempts.proof', $attempt))->assertForbidden();
         $this->actingAsUser($order->buyer)->get(route('delivery-attempts.proof', $attempt))->assertOk();
         $this->get(route('buyer.orders.show', $order))->assertOk()->assertSee('Download proof');
+    }
+
+    public function test_non_cod_delivery_needs_no_cash_and_rejects_a_cod_amount(): void
+    {
+        Storage::fake('private');
+        $rider = $this->user('courier', 'approved');
+        $order = $this->order(['status' => 'OUT_FOR_DELIVERY', 'payment_method' => 'GCash', 'delivery_courier_id' => $rider->id]);
+
+        $this->actingAsUser($rider)->patch(route('courier.orders.completeDelivery', $order), [
+            'recipient_confirmation' => 'Buyer',
+            'proof_file' => UploadedFile::fake()->image('delivery-proof.jpg'),
+        ])->assertRedirect();
+
+        $this->assertDatabaseHas('orders', [
+            'id' => $order->id,
+            'status' => 'DELIVERED',
+            'cod_collected_amount' => null,
+        ]);
+
+        $secondOrder = $this->order(['status' => 'OUT_FOR_DELIVERY', 'payment_method' => 'GCash', 'delivery_courier_id' => $rider->id]);
+        $this->patch(route('courier.orders.completeDelivery', $secondOrder), [
+            'recipient_confirmation' => 'Buyer',
+            'cod_collected_amount' => '150.00',
+            'proof_file' => UploadedFile::fake()->image('delivery-proof-2.jpg'),
+        ])->assertSessionHasErrors('cod_collected_amount');
+
+        $this->assertDatabaseHas('orders', ['id' => $secondOrder->id, 'status' => 'OUT_FOR_DELIVERY']);
     }
 
     public function test_buyer_registration_stays_blocked_until_admin_approval_and_documents_are_private(): void
