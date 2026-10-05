@@ -9,6 +9,8 @@ use App\Models\ParcelTrackingEvent;
 use App\Models\Product;
 use App\Models\ProductVariation;
 use App\Models\Voucher;
+use App\Notifications\OrderWorkflowNotification;
+use App\Services\TransactionAwareNotificationSender;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -89,7 +91,7 @@ class CheckoutController extends Controller
         return back()->with('success', 'Voucher removed.');
     }
 
-    public function process(Request $request)
+    public function process(Request $request, TransactionAwareNotificationSender $notifications)
     {
         $cart = session()->get('cart', []);
 
@@ -221,6 +223,12 @@ class CheckoutController extends Controller
                         ProductVariation::where('id', $itm['variation_id'])->decrement('stock', $itm['quantity']);
                     }
                 }
+
+                $paymentNotice = $order->payment_method === 'COD'
+                    ? 'A buyer placed an order. Review it and confirm whether you can fulfill it.'
+                    : "A buyer placed an order using {$order->payment_method}. Payment verification is pending, so fulfillment actions are on hold.";
+
+                $notifications->send($order->seller, new OrderWorkflowNotification($order, 'order_placed', $paymentNotice));
             }
 
             DB::commit();

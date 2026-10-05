@@ -437,6 +437,12 @@ class LogisticsWorkflowTest extends TestCase
         $this->assertSame(150.0, (float) $order->total_amount);
         $this->assertNull($order->delivery_courier_id);
         $this->assertNotSame('EZC-SPOOFED', $order->order_number);
+        $sellerOrderNotice = $seller->notifications()
+            ->where('type', OrderWorkflowNotification::class)
+            ->get()
+            ->first(fn ($notification): bool => $notification->data['event_type'] === 'order_placed');
+        $this->assertNotNull($sellerOrderNotice);
+        $this->assertSame($order->id, $sellerOrderNotice->data['order_id']);
         $center = $this->user('sorting_center', 'approved');
         $rider = $this->user('courier', 'approved', ['assigned_area' => 'Majayjay']);
 
@@ -1070,11 +1076,19 @@ class LogisticsWorkflowTest extends TestCase
             ->assertViewHas('myDeliveryAssignments', fn ($assignments): bool => collect($assignments->items())->pluck('id')->all() === [$nextAreaOrder->id, $assignedOrder->id]);
         $this->get(route('courier.tracking'))->assertOk();
         $this->get(route('courier.history'))->assertOk();
+        $this->get(route('courier.earnings'))
+            ->assertOk()
+            ->assertSee('Earnings are hidden until the courier payment formula is defined.')
+            ->assertSee('No earnings amounts are calculated or displayed.')
+            ->assertDontSee('₱');
         $this->get(route('courier.orders.show', $assignedOrder))->assertOk()->assertSee($assignedOrder->order_number);
         $this->get(route('courier.orders.show', $deliveredOrder))->assertForbidden();
         $this->get(route('courier.orders.show', $completedOrder))->assertForbidden();
         $this->get(route('courier.orders.show', $returnedOrder))->assertForbidden();
         $this->get(route('courier.orders.show', $otherOrder))->assertForbidden();
+
+        $buyer = $this->user('buyer', 'approved');
+        $this->actingAsUser($buyer)->get(route('courier.earnings'))->assertForbidden();
     }
 
     public function test_courier_history_escapes_search_wildcards_and_validates_status_filters(): void
@@ -1747,6 +1761,40 @@ class LogisticsWorkflowTest extends TestCase
             ->assertOk()
             ->assertSee('value="Bank Transfer"', false)
             ->assertSee('Order fulfillment will remain on hold until payment verification is configured.');
+
+        $product = Product::query()->create([
+            'user_id' => $seller->id,
+            'name' => 'Bank transfer hold test item',
+            'description' => 'Checkout notification test item',
+            'category' => 'Test',
+            'price' => 100,
+            'stock' => 2,
+            'is_archived' => false,
+        ]);
+        $product->forceFill(['compliance_status' => 'approved'])->save();
+
+        $this->actingAsUser($order->buyer)->withSession(['cart' => [[
+            'product_id' => $product->id,
+            'name' => $product->name,
+            'price' => 100,
+            'quantity' => 1,
+            'variation_id' => null,
+        ]]])->post(route('checkout.process'), [
+            'recipient_name' => 'Payment Hold Buyer',
+            'recipient_contact' => '09123456789',
+            'province' => 'Laguna',
+            'municipality' => 'Majayjay',
+            'barangay' => 'Poblacion',
+            'street_address' => '2 Test Street',
+            'payment_method' => 'Bank Transfer',
+        ])->assertRedirect(route('buyer.dashboard'));
+
+        $sellerNotice = $seller->notifications()
+            ->where('type', OrderWorkflowNotification::class)
+            ->get()
+            ->first(fn ($notification): bool => $notification->data['event_type'] === 'order_placed');
+        $this->assertNotNull($sellerNotice);
+        $this->assertStringContainsString('Payment verification is pending', $sellerNotice->data['message']);
     }
 
     public function test_order_notifications_are_visible_only_to_the_notifiable_account(): void

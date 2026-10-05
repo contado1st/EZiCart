@@ -326,6 +326,11 @@ class CourierController extends Controller
         return view('courier.tracking', compact('orders'));
     }
 
+    public function earnings(): View
+    {
+        return view('courier.earnings');
+    }
+
     private function recordEvent(Order $order, string $eventType, User $actor, ?string $location = null, ?string $notes = null): void
     {
         ParcelTrackingEvent::create([

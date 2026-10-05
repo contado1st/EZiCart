@@ -134,6 +134,7 @@ Route::middleware(['auth', 'account.active', 'auth.session'])->group(function ()
         Route::patch('/orders/{order}/fail-delivery', [CourierController::class, 'failDelivery'])->middleware('throttle:operational-action')->name('orders.failDelivery');
         Route::get('/history', [CourierController::class, 'history'])->name('history');
         Route::get('/tracking', [CourierController::class, 'tracking'])->name('tracking');
+        Route::get('/earnings', [CourierController::class, 'earnings'])->name('earnings');
     });
 
     // Logistics / Sorting Center Routes
