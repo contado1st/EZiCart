@@ -70,6 +70,7 @@ Route::middleware(['auth', 'account.active', 'auth.session'])->group(function ()
         Route::prefix('buyer')->name('buyer.')->group(function () {
             Route::get('/dashboard', [BuyerController::class, 'dashboard'])->name('dashboard');
             Route::get('/orders/{order}', [BuyerController::class, 'showOrder'])->name('orders.show');
+            Route::post('/orders/{order}/delivery-code/refresh', [BuyerController::class, 'refreshDeliveryCode'])->middleware('throttle:operational-action')->name('orders.delivery-code.refresh');
             Route::get('/orders/{order}/messages', [OrderMessageController::class, 'show'])->name('orders.messages.show');
             Route::post('/orders/{order}/messages', [OrderMessageController::class, 'store'])->middleware('throttle:operational-action')->name('orders.messages.store');
             Route::post('/orders/{order}/confirm', [BuyerController::class, 'confirmReceived'])->middleware('throttle:operational-action')->name('orders.confirm');
@@ -122,6 +123,7 @@ Route::middleware(['auth', 'account.active', 'auth.session'])->group(function ()
     // Courier-Only Routes (Fulfillment & Delivery Workspace)
     Route::middleware(['role:courier'])->prefix('courier')->name('courier.')->group(function () {
         Route::get('/dashboard', [CourierController::class, 'dashboard'])->name('dashboard');
+        Route::post('/badge/rotate', [CourierController::class, 'rotateBadge'])->middleware('throttle:operational-action')->name('badge.rotate');
         Route::post('/orders/{order}/claim', [CourierController::class, 'claimPickup'])->middleware('throttle:operational-action')->name('orders.claim');
         Route::post('/orders/{order}/decline-pickup', [CourierController::class, 'declinePickup'])->middleware('throttle:operational-action')->name('orders.declinePickup');
         Route::get('/orders/{order}', [CourierController::class, 'showOrder'])->name('orders.show');
@@ -158,6 +160,7 @@ Route::middleware(['auth', 'account.active', 'auth.session'])->group(function ()
         Route::get('/reports', [LogisticsController::class, 'reports'])->name('reports');
         Route::get('/areas', [LogisticsController::class, 'areas'])->name('areas');
         Route::post('/areas', [LogisticsController::class, 'storeArea'])->middleware('throttle:operational-action')->name('areas.store');
+        Route::post('/areas/{area}/claim', [LogisticsController::class, 'claimArea'])->middleware('throttle:operational-action')->name('areas.claim');
         Route::post('/areas/municipalities', [LogisticsController::class, 'storeAreaMunicipality'])->middleware('throttle:operational-action')->name('areas.municipalities.store');
         Route::patch('/areas/municipalities/{areaMunicipality}', [LogisticsController::class, 'updateAreaMunicipality'])->middleware('throttle:operational-action')->name('areas.municipalities.update');
         Route::post('/orders/{order}/receive', [LogisticsController::class, 'receiveParcel'])->middleware('throttle:operational-action')->name('orders.receive');

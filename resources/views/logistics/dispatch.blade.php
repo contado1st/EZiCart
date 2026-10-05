@@ -86,8 +86,16 @@
                                             @csrf<button class="ops-btn ops-btn--danger" type="submit">Start seller return</button>
                                         </form>
                                     @else
+                                        @php($assignedRider = $riders->firstWhere('id', $order->delivery_courier_id))
+                                        @if ($assignedRider)
+                                            <div class="ops-muted">Verify assigned rider: {{ $assignedRider->first_name }} {{ $assignedRider->last_name }}</div>
+                                            <div aria-label="QR badge for assigned rider">{!! $assignedRider->badge_qr !!}</div>
+                                        @endif
                                         <form method="POST" action="{{ route('logistics.orders.releaseToRider', $order) }}">
                                             @csrf
+                                            <div class="ops-field"><label for="rider-badge-{{ $order->id }}">Rider badge QR/code (optional manual handoff fallback)</label>
+                                                <input id="rider-badge-{{ $order->id }}" name="rider_badge" placeholder="EZR:…" autocomplete="off"></div>
+                                            <input type="hidden" name="method" value="manual">
                                             <button class="ops-btn ops-btn--primary" type="submit">Confirm hub handoff to rider</button>
                                         </form>
                                     @endif

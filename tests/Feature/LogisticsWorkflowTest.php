@@ -20,6 +20,7 @@ use App\Notifications\OrderWorkflowNotification;
 use App\Notifications\ProductComplianceNotification;
 use App\Services\InventoryRestorationService;
 use App\Services\OrderTransitionService;
+use App\Services\RiderBadgeService;
 use App\Services\TransactionAwareNotificationSender;
 use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Database\QueryException;
@@ -28,6 +29,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
@@ -79,14 +81,289 @@ class LogisticsWorkflowTest extends TestCase
         $this->actingAsUser($otherCourier)->post(route('courier.orders.claim', $order))->assertForbidden();
         $this->actingAsUser($courier)->post(route('courier.orders.confirmPickup', $order))->assertRedirect();
         $this->assertContains('pickup_arrived', $order->seller->notifications()->where('type', OrderWorkflowNotification::class)->get()->pluck('data.event_type')->all());
-        $this->actingAsUser($order->seller)->post(route('seller.orders.confirmHandover', $order))->assertRedirect();
+        $pickupBadge = app(RiderBadgeService::class)->ensure($courier);
+        $this->actingAsUser($order->seller)->post(route('seller.orders.confirmHandover', $order), [
+            'rider_badge' => 'EZR:'.$pickupBadge,
+        ])->assertRedirect();
         $this->assertContains('seller_handover_confirmed', $courier->notifications()->where('type', OrderWorkflowNotification::class)->get()->pluck('data.event_type')->all());
-        $this->actingAsUser($courier)->post(route('courier.orders.confirmPickup', $order))->assertRedirect();
+        $this->actingAsUser($courier)->post(route('courier.orders.confirmPickup', $order), [
+            'parcel_reference' => 'EZP:'.$order->parcel_code,
+            'method' => 'handheld',
+        ])->assertRedirect();
         $this->assertDatabaseHas('orders', ['id' => $order->id, 'status' => 'PICKED_UP']);
+        $this->assertDatabaseHas('scan_events', [
+            'order_id' => $order->id,
+            'actor_id' => $courier->id,
+            'station' => 'seller_pickup',
+            'result' => 'accepted',
+            'method' => 'handheld',
+        ]);
 
         $this->actingAsUser($center)->post(route('logistics.orders.receive', $order))->assertRedirect();
         $this->assertDatabaseHas('orders', ['id' => $order->id, 'status' => 'AT_SORTING_CENTER', 'sorting_center_id' => $center->id]);
         $this->assertDatabaseHas('parcel_tracking_events', ['order_id' => $order->id, 'event_type' => 'hub_received']);
+    }
+
+    public function test_hub_area_ownership_scopes_intake_and_blocks_cross_hub_receipt(): void
+    {
+        $hubA = $this->user('sorting_center', 'approved');
+        $hubB = $this->user('sorting_center', 'approved');
+        $area = $this->area('Laguna', 'Majayjay');
+        $area->forceFill(['sorting_center_id' => $hubA->id])->save();
+        $order = $this->order(['status' => 'PICKED_UP']);
+
+        $this->actingAsUser($hubA)->get(route('logistics.intake'))->assertOk()->assertSee($order->order_number);
+        $this->actingAsUser($hubB)->get(route('logistics.intake'))->assertOk()->assertDontSee($order->order_number);
+        $this->actingAsUser($hubB)->post(route('logistics.orders.receive', $order))->assertForbidden();
+        $this->actingAsUser($hubA)->post(route('logistics.orders.receive', $order))->assertRedirect();
+        $this->assertDatabaseHas('orders', ['id' => $order->id, 'sorting_center_id' => $hubA->id]);
+    }
+
+    public function test_checkout_records_the_server_resolved_destination_hub_area(): void
+    {
+        $buyer = $this->user('buyer', 'approved');
+        $seller = $this->user('seller', 'approved');
+        $area = $this->area('Laguna', 'Majayjay');
+        $hub = $this->user('sorting_center', 'approved');
+        $area->forceFill(['sorting_center_id' => $hub->id])->save();
+        $product = Product::query()->create([
+            'user_id' => $seller->id,
+            'name' => 'Hub-routed checkout product',
+            'description' => 'Destination area must be resolved on the server.',
+            'category' => 'Test',
+            'price' => 100,
+            'stock' => 2,
+            'is_archived' => false,
+        ]);
+        $product->forceFill(['compliance_status' => 'approved'])->save();
+
+        $this->actingAsUser($buyer)->withSession(['cart' => [[
+            'product_id' => $product->id,
+            'name' => $product->name,
+            'price' => 100,
+            'quantity' => 1,
+            'variation_id' => null,
+        ]]])->post(route('checkout.process'), [
+            'recipient_name' => 'Hub Routed Buyer',
+            'recipient_contact' => '09123456789',
+            'province' => 'Laguna',
+            'municipality' => 'Majayjay',
+            'barangay' => 'Poblacion',
+            'street_address' => '3 Test Street',
+            'payment_method' => 'COD',
+        ])->assertRedirect();
+
+        $this->assertDatabaseHas('orders', [
+            'buyer_id' => $buyer->id,
+            'seller_id' => $seller->id,
+            'destination_area_id' => $area->id,
+        ]);
+    }
+
+    public function test_pickup_notifications_are_sent_only_to_the_area_owner_hub(): void
+    {
+        $hubA = $this->user('sorting_center', 'approved');
+        $hubB = $this->user('sorting_center', 'approved');
+        $seller = $this->user('seller', 'approved');
+        $area = $this->area('Laguna', 'Majayjay');
+        $area->forceFill(['sorting_center_id' => $hubA->id])->save();
+        $order = $this->order([
+            'seller_id' => $seller->id,
+            'destination_area_id' => $area->id,
+            'status' => 'READY_FOR_PICKUP',
+        ]);
+
+        $this->actingAsUser($seller)->post(route('seller.orders.schedulePickup', $order), [
+            'pickup_scheduled_for' => now()->addDay()->format('Y-m-d H:i:s'),
+            'pickup_window' => 'Morning',
+        ])->assertRedirect();
+
+        $this->assertContains('pickup_requested', $hubA->notifications()->where('type', OrderWorkflowNotification::class)->get()->pluck('data.event_type')->all());
+        $this->assertNotContains('pickup_requested', $hubB->notifications()->where('type', OrderWorkflowNotification::class)->get()->pluck('data.event_type')->all());
+    }
+
+    public function test_multi_hub_rider_profiles_actions_and_private_documents_are_scoped(): void
+    {
+        Storage::fake('private');
+        $hubA = $this->user('sorting_center', 'approved');
+        $hubB = $this->user('sorting_center', 'approved');
+        $areaA = $this->area('Laguna', 'Majayjay');
+        $areaB = $this->area('Laguna', 'Calamba');
+        $areaA->forceFill(['sorting_center_id' => $hubA->id])->save();
+        $areaB->forceFill(['sorting_center_id' => $hubB->id])->save();
+        $riderA = $this->user('courier', 'approved', ['id_path' => 'documents/ids/hub-a-rider.png']);
+        $riderA->serviceAreas()->attach($areaA->id, ['is_primary' => true, 'is_active' => true]);
+        $riderB = $this->user('courier', 'approved');
+        $riderB->serviceAreas()->attach($areaB->id, ['is_primary' => true, 'is_active' => true]);
+        $activeOrder = $this->order([
+            'status' => 'OUT_FOR_DELIVERY',
+            'sorting_center_id' => $hubA->id,
+            'destination_area_id' => $areaA->id,
+            'delivery_courier_id' => $riderA->id,
+        ]);
+        Storage::disk('private')->put($riderA->id_path, 'hub A private document');
+
+        $this->actingAsUser($hubA)->get(route('logistics.riders'))
+            ->assertOk()->assertSee($riderA->email)->assertDontSee($riderB->email);
+        $this->actingAsUser($hubB)->get(route('logistics.riders'))
+            ->assertOk()->assertSee($riderB->email)->assertDontSee($riderA->email);
+        $this->actingAsUser($hubA)->get(route('logistics.riders.documents.show', [$riderA, 'identity']))->assertOk();
+        $this->actingAsUser($hubB)->get(route('logistics.riders.documents.show', [$riderA, 'identity']))->assertForbidden();
+        $this->actingAsUser($hubA)->patch(route('logistics.riders.areas.update', $riderA), [
+            'area_ids' => [],
+        ])->assertUnprocessable();
+        $this->actingAsUser($hubB)->patch(route('logistics.riders.areas.update', $riderA), [
+            'area_ids' => [$areaB->id],
+        ])->assertForbidden();
+        $this->actingAsUser($hubB)->post(route('logistics.riders.suspend', $riderA), [
+            'reason' => 'Cross-hub suspension attempt.',
+        ])->assertForbidden();
+        $this->assertDatabaseHas('users', ['id' => $riderA->id, 'status' => 'approved']);
+        $this->assertDatabaseHas('orders', ['id' => $activeOrder->id, 'status' => 'OUT_FOR_DELIVERY', 'delivery_courier_id' => $riderA->id]);
+    }
+
+    public function test_rider_badge_is_displayed_rotatable_and_verified_at_hub_release(): void
+    {
+        $center = $this->user('sorting_center', 'approved');
+        $rider = $this->user('courier', 'approved');
+        $firstBadge = app(RiderBadgeService::class)->ensure($rider);
+
+        $this->actingAsUser($rider)->get(route('courier.dashboard'))
+            ->assertOk()->assertSee('EZR:'.$firstBadge)->assertSee('<svg', false);
+        $this->post(route('courier.badge.rotate'))->assertRedirect();
+        $rotatedBadge = app(RiderBadgeService::class)->ensure($rider);
+        $this->assertNotSame($firstBadge, $rotatedBadge);
+
+        $order = $this->order([
+            'status' => 'ASSIGNED_TO_RIDER',
+            'sorting_center_id' => $center->id,
+            'delivery_courier_id' => $rider->id,
+        ]);
+        $this->actingAsUser($center)->post(route('logistics.orders.releaseToRider', $order), [
+            'rider_badge' => 'EZR:WRONG-CODE',
+        ])->assertSessionHasErrors('rider_badge');
+        $this->assertNull($order->fresh()->hub_released_at);
+        $this->assertDatabaseHas('scan_events', [
+            'order_id' => $order->id,
+            'actor_id' => $center->id,
+            'station' => 'dispatch_release',
+            'result' => 'rejected',
+        ]);
+
+        $this->post(route('logistics.orders.releaseToRider', $order), [
+            'rider_badge' => 'EZR:'.$rotatedBadge,
+        ])->assertRedirect();
+        $this->assertNotNull($order->fresh()->hub_released_at);
+    }
+
+    public function test_seller_handover_verifies_and_audits_a_scanned_rider_badge(): void
+    {
+        $seller = $this->user('seller', 'approved');
+        $rider = $this->user('courier', 'approved');
+        $order = $this->order([
+            'seller_id' => $seller->id,
+            'status' => 'READY_FOR_PICKUP',
+            'pickup_courier_id' => $rider->id,
+            'pickup_requested_at' => now(),
+            'pickup_arrived_at' => now(),
+        ]);
+        $badgeCode = app(RiderBadgeService::class)->ensure($rider);
+
+        $this->actingAsUser($seller)->post(route('seller.orders.confirmHandover', $order), [
+            'rider_badge' => 'EZR:WRONG-CODE',
+            'method' => 'handheld',
+        ])->assertSessionHasErrors('rider_badge');
+        $this->assertDatabaseHas('scan_events', [
+            'order_id' => $order->id,
+            'station' => 'seller_handover',
+            'result' => 'rejected',
+            'method' => 'handheld',
+        ]);
+        $this->assertNull($order->fresh()->seller_handover_at);
+
+        $this->post(route('seller.orders.confirmHandover', $order), [
+            'rider_badge' => 'EZR:'.$badgeCode,
+            'method' => 'handheld',
+        ])->assertRedirect();
+        $this->assertDatabaseHas('scan_events', [
+            'order_id' => $order->id,
+            'station' => 'seller_handover',
+            'result' => 'accepted',
+            'method' => 'handheld',
+        ]);
+        $this->assertNotNull($order->fresh()->seller_handover_at);
+    }
+
+    public function test_rider_must_scan_the_assigned_parcel_before_confirming_pickup_possession(): void
+    {
+        $courier = $this->user('courier', 'approved');
+        $order = $this->order([
+            'status' => 'READY_FOR_PICKUP',
+            'pickup_courier_id' => $courier->id,
+            'pickup_claimed_at' => now(),
+            'pickup_arrived_at' => now(),
+            'seller_handover_at' => now(),
+        ]);
+
+        $this->actingAsUser($courier)->post(route('courier.orders.confirmPickup', $order), [
+            'parcel_reference' => 'EZP:WRONG-PARCEL',
+            'method' => 'handheld',
+        ])->assertSessionHasErrors('parcel_reference');
+        $this->assertDatabaseHas('orders', ['id' => $order->id, 'status' => 'READY_FOR_PICKUP']);
+        $this->assertDatabaseHas('scan_events', [
+            'order_id' => $order->id,
+            'actor_id' => $courier->id,
+            'station' => 'seller_pickup',
+            'result' => 'rejected',
+            'method' => 'handheld',
+        ]);
+
+        $this->post(route('courier.orders.confirmPickup', $order), [
+            'parcel_reference' => 'EZP:'.$order->parcel_code,
+            'method' => 'camera',
+        ])->assertRedirect();
+        $this->assertDatabaseHas('orders', ['id' => $order->id, 'status' => 'PICKED_UP']);
+        $this->assertDatabaseHas('scan_events', [
+            'order_id' => $order->id,
+            'actor_id' => $courier->id,
+            'station' => 'seller_pickup',
+            'result' => 'accepted',
+            'method' => 'camera',
+        ]);
+    }
+
+    public function test_delivery_start_scans_the_assigned_parcel_and_audits_rejections(): void
+    {
+        $rider = $this->user('courier', 'approved');
+        $order = $this->order([
+            'status' => 'ASSIGNED_TO_RIDER',
+            'delivery_courier_id' => $rider->id,
+            'hub_released_at' => now(),
+        ]);
+
+        $this->actingAsUser($rider)->post(route('courier.orders.startDelivery', $order), [
+            'parcel_reference' => 'EZP:WRONG-PARCEL',
+            'method' => 'handheld',
+        ])->assertSessionHasErrors('parcel_reference');
+        $this->assertDatabaseHas('scan_events', [
+            'order_id' => $order->id,
+            'station' => 'delivery_start',
+            'result' => 'rejected',
+            'method' => 'handheld',
+        ]);
+        $this->assertDatabaseHas('orders', ['id' => $order->id, 'status' => 'ASSIGNED_TO_RIDER']);
+
+        $this->post(route('courier.orders.startDelivery', $order), [
+            'parcel_reference' => 'EZP:'.$order->parcel_code,
+            'method' => 'handheld',
+        ])->assertRedirect();
+        $this->assertDatabaseHas('scan_events', [
+            'order_id' => $order->id,
+            'station' => 'delivery_start',
+            'result' => 'accepted',
+            'method' => 'handheld',
+        ]);
+        $this->assertDatabaseHas('orders', ['id' => $order->id, 'status' => 'OUT_FOR_DELIVERY']);
     }
 
     public function test_order_workflow_notifications_send_email_and_in_app_links_for_the_recipient_role(): void
@@ -602,8 +879,14 @@ class LogisticsWorkflowTest extends TestCase
         $this->actingAsUser($center)->post(route('logistics.orders.assignPickup', $order), ['pickup_courier_id' => $rider->id])->assertRedirect();
         $this->actingAsUser($rider)->post(route('courier.orders.claim', $order))->assertRedirect();
         $this->post(route('courier.orders.confirmPickup', $order))->assertRedirect();
-        $this->actingAsUser($seller)->post(route('seller.orders.confirmHandover', $order))->assertRedirect();
-        $this->actingAsUser($rider)->post(route('courier.orders.confirmPickup', $order))->assertRedirect();
+        $pickupBadge = app(RiderBadgeService::class)->ensure($rider);
+        $this->actingAsUser($seller)->post(route('seller.orders.confirmHandover', $order), [
+            'rider_badge' => 'EZR:'.$pickupBadge,
+        ])->assertRedirect();
+        $this->actingAsUser($rider)->post(route('courier.orders.confirmPickup', $order), [
+            'parcel_reference' => 'EZP:'.$order->parcel_code,
+            'method' => 'manual',
+        ])->assertRedirect();
         $this->actingAsUser($center)->post(route('logistics.orders.receive', $order))->assertRedirect();
         $this->post(route('logistics.orders.sort', $order), [])->assertRedirect();
         $this->post(route('logistics.orders.assignRider', $order), ['delivery_courier_id' => $rider->id])->assertRedirect();
@@ -618,8 +901,10 @@ class LogisticsWorkflowTest extends TestCase
         $this->assertDatabaseHas('parcel_tracking_events', ['order_id' => $order->id, 'event_type' => 'hub_released_to_rider', 'actor_id' => $center->id]);
         $this->post(route('logistics.orders.releaseToRider', $order))->assertUnprocessable();
         $this->actingAsUser($rider)->post(route('courier.orders.startDelivery', $order))->assertRedirect();
+        $deliveryCode = Crypt::decryptString($order->fresh()->delivery_code_encrypted);
         $this->patch(route('courier.orders.completeDelivery', $order), [
             'recipient_confirmation' => 'Test Buyer',
+            'delivery_code' => $deliveryCode,
             'cod_collected_amount' => $order->total_amount,
             'proof_file' => UploadedFile::fake()->image('delivery-proof.jpg'),
         ])->assertRedirect();
@@ -950,13 +1235,16 @@ class LogisticsWorkflowTest extends TestCase
         $this->assertDatabaseHas('orders', ['id' => $order->id, 'status' => 'DELIVERY_FAILED', 'delivery_failure_reason' => 'recipient_unavailable']);
 
         $deliveryOrder = $this->order(['status' => 'OUT_FOR_DELIVERY', 'payment_method' => 'COD', 'delivery_courier_id' => $rider->id]);
+        $deliveryCode = $this->issueDeliveryCode($deliveryOrder);
         $this->actingAsUser($rider)->patch(route('courier.orders.completeDelivery', $deliveryOrder), [
             'recipient_confirmation' => 'A. Buyer',
+            'delivery_code' => $deliveryCode,
             'delivery_notes' => 'Left at door',
             'cod_collected_amount' => $deliveryOrder->total_amount,
         ])->assertSessionHasErrors('proof_file');
         $this->patch(route('courier.orders.completeDelivery', $deliveryOrder), [
             'recipient_confirmation' => 'A. Buyer',
+            'delivery_code' => $deliveryCode,
             'delivery_notes' => 'Left at door',
             'cod_collected_amount' => $deliveryOrder->total_amount,
             'proof_file' => UploadedFile::fake()->image('delivery-proof.jpg'),
@@ -1029,21 +1317,69 @@ class LogisticsWorkflowTest extends TestCase
         $this->get(route('courier.tracking'))->assertSee($order->order_number);
         $this->actingAsUser($order->seller)->get(route('seller.orders.index'))
             ->assertSee('Awaiting courier handoff')
-            ->assertDontSee('Confirm returned parcel received');
-        $this->actingAsUser($order->seller)->post(route('seller.orders.confirmReturn', $order))->assertUnprocessable();
+            ->assertDontSee('Confirm scanned return received');
+        $returnBadge = app(RiderBadgeService::class)->ensure($nextRider);
+        $this->actingAsUser($order->seller)->post(route('seller.orders.confirmReturn', $order), [
+            'rider_badge' => 'EZR:'.$returnBadge,
+        ])->assertUnprocessable();
         $this->assertDatabaseHas('products', ['id' => $product->id, 'stock' => 2]);
         $this->actingAsUser($firstRider)->post(route('courier.orders.confirmReturnDelivery', $order))->assertForbidden();
-        $this->actingAsUser($nextRider)->post(route('courier.orders.confirmReturnDelivery', $order))->assertRedirect();
+        $this->actingAsUser($nextRider)->post(route('courier.orders.confirmReturnDelivery', $order), [
+            'parcel_reference' => 'EZP:WRONG-PARCEL',
+            'method' => 'handheld',
+        ])->assertSessionHasErrors('parcel_reference');
+        $this->assertDatabaseHas('orders', ['id' => $order->id, 'status' => 'RETURN_IN_TRANSIT', 'return_handed_to_seller_at' => null]);
+        $this->assertDatabaseHas('scan_events', [
+            'order_id' => $order->id,
+            'actor_id' => $nextRider->id,
+            'station' => 'return_to_seller',
+            'result' => 'rejected',
+            'method' => 'handheld',
+        ]);
+        $this->actingAsUser($nextRider)->post(route('courier.orders.confirmReturnDelivery', $order), [
+            'parcel_reference' => 'EZP:'.$order->parcel_code,
+            'method' => 'handheld',
+        ])->assertRedirect();
         $this->assertDatabaseHas('parcel_tracking_events', ['order_id' => $order->id, 'event_type' => 'return_handed_to_seller', 'actor_id' => $nextRider->id]);
+        $this->assertDatabaseHas('scan_events', [
+            'order_id' => $order->id,
+            'actor_id' => $nextRider->id,
+            'station' => 'return_to_seller',
+            'result' => 'accepted',
+            'method' => 'handheld',
+        ]);
         $this->assertDatabaseHas('delivery_assignments', ['order_id' => $order->id, 'rider_id' => $nextRider->id, 'status' => 'returned', 'active_order_id' => null]);
         $this->post(route('courier.orders.confirmReturnDelivery', $order))->assertUnprocessable();
         $this->actingAsUser($order->seller)->get(route('seller.orders.index'))
-            ->assertSee('Confirm returned parcel received');
-        $this->actingAsUser($order->seller)->post(route('seller.orders.confirmReturn', $order))->assertRedirect();
+            ->assertSee('Confirm scanned return received');
+        $this->post(route('seller.orders.confirmReturn', $order), [
+            'rider_badge' => 'EZR:WRONG-BADGE',
+            'method' => 'handheld',
+        ])->assertSessionHasErrors('rider_badge');
+        $this->assertDatabaseHas('scan_events', [
+            'order_id' => $order->id,
+            'actor_id' => $order->seller_id,
+            'station' => 'seller_return_receipt',
+            'result' => 'rejected',
+            'method' => 'handheld',
+        ]);
+        $this->actingAsUser($order->seller)->post(route('seller.orders.confirmReturn', $order), [
+            'rider_badge' => 'EZR:'.$returnBadge,
+            'method' => 'camera',
+        ])->assertRedirect();
         $this->assertDatabaseHas('orders', ['id' => $order->id, 'status' => 'RETURNED_TO_SELLER', 'delivery_courier_id' => $nextRider->id]);
         $this->assertDatabaseHas('parcel_tracking_events', ['order_id' => $order->id, 'event_type' => 'returned_to_seller']);
         $this->assertDatabaseHas('products', ['id' => $product->id, 'stock' => 5]);
-        $this->actingAsUser($order->seller)->post(route('seller.orders.confirmReturn', $order))->assertUnprocessable();
+        $this->assertDatabaseHas('scan_events', [
+            'order_id' => $order->id,
+            'actor_id' => $order->seller_id,
+            'station' => 'seller_return_receipt',
+            'result' => 'accepted',
+            'method' => 'camera',
+        ]);
+        $this->actingAsUser($order->seller)->post(route('seller.orders.confirmReturn', $order), [
+            'rider_badge' => 'EZR:'.$returnBadge,
+        ])->assertUnprocessable();
         $this->assertDatabaseHas('products', ['id' => $product->id, 'stock' => 5]);
     }
 
@@ -1149,9 +1485,15 @@ class LogisticsWorkflowTest extends TestCase
         $this->assertDatabaseHas('delivery_assignments', ['order_id' => $order->id, 'rider_id' => $secondRider->id, 'status' => 'active', 'active_order_id' => $order->id]);
         $this->assertDatabaseHas('products', ['id' => $product->id, 'stock' => 2]);
 
-        $this->actingAsUser($secondRider)->post(route('courier.orders.confirmReturnDelivery', $order))->assertRedirect();
+        $this->actingAsUser($secondRider)->post(route('courier.orders.confirmReturnDelivery', $order), [
+            'parcel_reference' => 'EZP:'.$order->parcel_code,
+            'method' => 'manual',
+        ])->assertRedirect();
         $this->assertDatabaseHas('delivery_assignments', ['order_id' => $order->id, 'rider_id' => $secondRider->id, 'status' => 'returned', 'active_order_id' => null]);
-        $this->actingAsUser($order->seller)->post(route('seller.orders.confirmReturn', $order))->assertRedirect();
+        $returnBadge = app(RiderBadgeService::class)->ensure($secondRider);
+        $this->actingAsUser($order->seller)->post(route('seller.orders.confirmReturn', $order), [
+            'rider_badge' => 'EZR:'.$returnBadge,
+        ])->assertRedirect();
         $this->assertDatabaseHas('orders', ['id' => $order->id, 'status' => 'RETURNED_TO_SELLER']);
         $this->assertDatabaseHas('products', ['id' => $product->id, 'stock' => 5]);
     }
@@ -1208,8 +1550,8 @@ class LogisticsWorkflowTest extends TestCase
 
     public function test_logistics_dashboard_caches_counters_briefly_and_refreshes_them(): void
     {
-        Cache::forget('logistics.dashboard.stats.'.today()->toDateString());
         $center = $this->user('sorting_center', 'approved');
+        Cache::forget('logistics.dashboard.stats.'.$center->id.'.'.today()->toDateString());
 
         $this->actingAsUser($center)->get(route('logistics.dashboard'))
             ->assertOk()
@@ -1219,7 +1561,7 @@ class LogisticsWorkflowTest extends TestCase
         $this->get(route('logistics.dashboard'))
             ->assertViewHas('stats', fn (array $stats): bool => $stats['inbound'] === 0);
 
-        Cache::forget('logistics.dashboard.stats.'.today()->toDateString());
+        Cache::forget('logistics.dashboard.stats.'.$center->id.'.'.today()->toDateString());
         $this->get(route('logistics.dashboard'))
             ->assertViewHas('stats', fn (array $stats): bool => $stats['inbound'] === 1);
     }
@@ -1297,18 +1639,22 @@ class LogisticsWorkflowTest extends TestCase
         Storage::fake('private');
         $rider = $this->user('courier', 'approved', ['assigned_area' => 'Majayjay']);
         $order = $this->order(['status' => 'OUT_FOR_DELIVERY', 'payment_method' => 'COD', 'total_amount' => 150.25, 'delivery_courier_id' => $rider->id]);
+        $deliveryCode = $this->issueDeliveryCode($order);
 
         $this->actingAsUser($rider)->patch(route('courier.orders.completeDelivery', $order), [
             'recipient_confirmation' => 'Buyer',
+            'delivery_code' => $deliveryCode,
             'proof_file' => UploadedFile::fake()->image('delivery-proof.jpg'),
         ])->assertSessionHasErrors('cod_collected_amount');
         $this->patch(route('courier.orders.completeDelivery', $order), [
             'recipient_confirmation' => 'Buyer',
+            'delivery_code' => $deliveryCode,
             'cod_collected_amount' => '150.26',
             'proof_file' => UploadedFile::fake()->image('delivery-proof.jpg'),
         ])->assertSessionHasErrors('cod_collected_amount');
         $this->patch(route('courier.orders.completeDelivery', $order), [
             'recipient_confirmation' => 'Buyer',
+            'delivery_code' => $deliveryCode,
             'cod_collected_amount' => '150.25',
             'proof_file' => UploadedFile::fake()->create('proof.pdf', 100, 'application/pdf'),
         ])->assertRedirect();
@@ -1322,6 +1668,49 @@ class LogisticsWorkflowTest extends TestCase
         $this->get(route('buyer.orders.show', $order))->assertOk()->assertSee('Download proof');
     }
 
+    public function test_delivery_code_is_private_to_buyer_refreshable_and_limited_to_five_attempts(): void
+    {
+        Storage::fake('private');
+        $buyer = $this->user('buyer', 'approved');
+        $rider = $this->user('courier', 'approved');
+        $otherBuyer = $this->user('buyer', 'approved');
+        $order = $this->order([
+            'buyer_id' => $buyer->id,
+            'status' => 'OUT_FOR_DELIVERY',
+            'payment_method' => 'COD',
+            'delivery_courier_id' => $rider->id,
+        ]);
+        $originalCode = $this->issueDeliveryCode($order);
+
+        $this->actingAsUser($buyer)->get(route('buyer.orders.show', $order))
+            ->assertOk()
+            ->assertSee($originalCode)
+            ->assertSee('<svg', false);
+        $this->actingAsUser($otherBuyer)->get(route('buyer.orders.show', $order))->assertForbidden();
+        $this->actingAsUser($otherBuyer)->post(route('buyer.orders.delivery-code.refresh', $order))->assertForbidden();
+
+        $this->actingAsUser($buyer)->post(route('buyer.orders.delivery-code.refresh', $order))->assertRedirect();
+        $order->refresh();
+        $currentCode = Crypt::decryptString($order->delivery_code_encrypted);
+        $this->assertNotSame($originalCode, $currentCode);
+        $this->assertSame(0, $order->delivery_code_attempts);
+        $wrongCode = $currentCode === '000000' ? '111111' : '000000';
+
+        for ($attempt = 1; $attempt <= 5; $attempt++) {
+            $this->actingAsUser($rider)->patch(route('courier.orders.completeDelivery', $order), [
+                'recipient_confirmation' => 'Buyer',
+                'delivery_code' => $wrongCode,
+                'cod_collected_amount' => $order->total_amount,
+                'proof_file' => UploadedFile::fake()->image('unused-proof.jpg'),
+            ])->assertSessionHasErrors('delivery_code');
+        }
+
+        $this->assertSame(5, $order->fresh()->delivery_code_attempts);
+        $this->actingAsUser($buyer)->get(route('buyer.orders.show', $order))
+            ->assertOk()
+            ->assertDontSee(Crypt::decryptString($order->fresh()->delivery_code_encrypted));
+    }
+
     public function test_delivery_proof_is_deleted_when_the_completion_transaction_rolls_back(): void
     {
         Storage::fake('private');
@@ -1332,6 +1721,7 @@ class LogisticsWorkflowTest extends TestCase
             'delivery_courier_id' => $courier->id,
             'hub_released_at' => now()->subMinute(),
         ]);
+        $deliveryCode = $this->issueDeliveryCode($order);
         $transitionFailure = new HttpException(422, 'Completion could not be committed.');
         $transitionService = \Mockery::mock(OrderTransitionService::class);
         $transitionService->shouldReceive('transition')->once()->andThrow($transitionFailure);
@@ -1339,6 +1729,7 @@ class LogisticsWorkflowTest extends TestCase
 
         $this->actingAsUser($courier)->patch(route('courier.orders.completeDelivery', $order), [
             'recipient_confirmation' => 'Recipient Test',
+            'delivery_code' => $deliveryCode,
             'cod_collected_amount' => '150.00',
             'proof_file' => UploadedFile::fake()->image('delivery-proof.jpg'),
         ])->assertUnprocessable();
@@ -1361,6 +1752,7 @@ class LogisticsWorkflowTest extends TestCase
 
         $this->actingAsUser($rider)->patch(route('courier.orders.completeDelivery', $order), [
             'recipient_confirmation' => 'Buyer',
+            'delivery_code' => '000000',
             'proof_file' => UploadedFile::fake()->image('delivery-proof.jpg'),
         ])->assertUnprocessable();
 
@@ -1379,6 +1771,7 @@ class LogisticsWorkflowTest extends TestCase
         $secondOrder = $this->order(['status' => 'OUT_FOR_DELIVERY', 'payment_method' => 'GCash', 'delivery_courier_id' => $rider->id]);
         $this->patch(route('courier.orders.completeDelivery', $secondOrder), [
             'recipient_confirmation' => 'Buyer',
+            'delivery_code' => '000000',
             'cod_collected_amount' => '150.00',
             'proof_file' => UploadedFile::fake()->image('delivery-proof-2.jpg'),
         ])->assertUnprocessable();
@@ -2048,8 +2441,11 @@ class LogisticsWorkflowTest extends TestCase
             'pickup_arrived_at' => now(),
             'pickup_requested_at' => now(),
         ]);
+        $legacyPickupBadge = app(RiderBadgeService::class)->ensure($rider);
         $this->actingAsUser($legacyPickupOrder->seller)
-            ->post(route('seller.orders.confirmHandover', $legacyPickupOrder))
+            ->post(route('seller.orders.confirmHandover', $legacyPickupOrder), [
+                'rider_badge' => 'EZR:'.$legacyPickupBadge,
+            ])
             ->assertUnprocessable();
         $this->actingAsUser($rider)
             ->post(route('courier.orders.confirmPickup', $legacyPickupOrder))
@@ -2474,6 +2870,20 @@ class LogisticsWorkflowTest extends TestCase
             'payment_method' => 'COD',
             'status' => 'PLACED',
         ], $extra));
+    }
+
+    private function issueDeliveryCode(Order $order): string
+    {
+        $code = '246810';
+        $order->forceFill([
+            'delivery_code_hash' => Hash::make($code),
+            'delivery_code_encrypted' => Crypt::encryptString($code),
+            'delivery_code_expires_at' => now()->addHour(),
+            'delivery_code_attempts' => 0,
+            'delivery_code_used_at' => null,
+        ])->save();
+
+        return $code;
     }
 
     private function addOrderInventoryItem(

@@ -155,6 +155,8 @@ class Order extends Model
             'failed_at' => 'datetime',
             'return_handed_to_seller_at' => 'datetime',
             'inventory_restored_at' => 'datetime',
+            'delivery_code_expires_at' => 'datetime',
+            'delivery_code_used_at' => 'datetime',
         ];
     }
 }

@@ -15,6 +15,7 @@ use App\Notifications\OrderWorkflowNotification;
 use App\Services\OrderAreaService;
 use App\Services\OrderTransitionService;
 use App\Services\QrCodeService;
+use App\Services\RiderBadgeService;
 use App\Services\TransactionAwareNotificationSender;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
@@ -37,28 +38,34 @@ class LogisticsController extends Controller
         $operator = $this->authenticatedUser();
         $todayStart = today()->startOfDay();
         $tomorrowStart = today()->addDay()->startOfDay();
+        $hubAreaIds = Area::query()->where(fn (Builder $query) => $query->where('sorting_center_id', $operator->id)
+            ->when(! $this->isMultiHubOperation(), fn (Builder $legacy) => $legacy->orWhereNull('sorting_center_id')))
+            ->pluck('id')->all();
         $stats = Cache::remember(
-            'logistics.dashboard.stats.'.today()->toDateString(),
+            'logistics.dashboard.stats.'.$operator->id.'.'.today()->toDateString(),
             now()->addSeconds(max(1, (int) config('logistics.dashboard_cache_seconds', 20))),
             fn (): array => [
-                'inbound' => Order::where('status', 'PICKED_UP')->count(),
-                'at_center' => Order::where('status', 'AT_SORTING_CENTER')->count(),
-                'sorted' => Order::where('status', 'SORTED')->count(),
-                'assigned' => Order::where('status', 'ASSIGNED_TO_RIDER')->count(),
-                'out' => Order::where('status', 'OUT_FOR_DELIVERY')->count(),
-                'delivered_today' => Order::whereIn('status', ['DELIVERED', 'COMPLETED'])->whereBetween('delivered_at', [$todayStart, $tomorrowStart])->count(),
-                'failed' => Order::where('status', 'DELIVERY_FAILED')->count(),
-                'returned' => Order::whereIn('status', ['RETURN_IN_TRANSIT', 'RETURNED_TO_SELLER'])->count(),
-                'active_riders' => User::where('role', 'courier')->where('status', 'approved')->count(),
-                'available_riders' => User::where('role', 'courier')->where('status', 'approved')->whereDoesntHave('finalDeliveries', fn (Builder $query) => $query->activeCourierWorkload())->count(),
+                'inbound' => $this->hubOrders($operator)->where('status', 'PICKED_UP')->count(),
+                'at_center' => $this->hubOrders($operator)->where('status', 'AT_SORTING_CENTER')->count(),
+                'sorted' => $this->hubOrders($operator)->where('status', 'SORTED')->count(),
+                'assigned' => $this->hubOrders($operator)->where('status', 'ASSIGNED_TO_RIDER')->count(),
+                'out' => $this->hubOrders($operator)->where('status', 'OUT_FOR_DELIVERY')->count(),
+                'delivered_today' => $this->hubOrders($operator)->whereIn('status', ['DELIVERED', 'COMPLETED'])->whereBetween('delivered_at', [$todayStart, $tomorrowStart])->count(),
+                'failed' => $this->hubOrders($operator)->where('status', 'DELIVERY_FAILED')->count(),
+                'returned' => $this->hubOrders($operator)->whereIn('status', ['RETURN_IN_TRANSIT', 'RETURNED_TO_SELLER'])->count(),
+                'active_riders' => User::query()->where('role', 'courier')->where('status', 'approved')
+                    ->whereHas('serviceAreas', fn (Builder $query) => $query->whereIn('areas.id', $hubAreaIds))->count(),
+                'available_riders' => User::query()->where('role', 'courier')->where('status', 'approved')
+                    ->whereHas('serviceAreas', fn (Builder $query) => $query->whereIn('areas.id', $hubAreaIds))
+                    ->whereDoesntHave('finalDeliveries', fn (Builder $query) => $query->activeCourierWorkload())->count(),
             ],
         );
 
         $queues = [
-            'inbound' => Order::with(['seller', 'pickupCourier'])->where('status', 'PICKED_UP')->latest()->limit(8)->get(),
-            'sorting' => Order::with('buyer')->where('status', 'AT_SORTING_CENTER')->latest()->limit(8)->get(),
-            'dispatch' => Order::with(['buyer', 'deliveryCourier'])->where('status', 'SORTED')->latest()->limit(8)->get(),
-            'failed' => Order::with(['buyer', 'deliveryCourier'])->where('status', 'DELIVERY_FAILED')->latest()->limit(5)->get(),
+            'inbound' => $this->hubOrders($operator)->with(['seller', 'pickupCourier'])->where('status', 'PICKED_UP')->latest()->limit(8)->get(),
+            'sorting' => $this->hubOrders($operator)->with('buyer')->where('status', 'AT_SORTING_CENTER')->latest()->limit(8)->get(),
+            'dispatch' => $this->hubOrders($operator)->with(['buyer', 'deliveryCourier'])->where('status', 'SORTED')->latest()->limit(8)->get(),
+            'failed' => $this->hubOrders($operator)->with(['buyer', 'deliveryCourier'])->where('status', 'DELIVERY_FAILED')->latest()->limit(5)->get(),
         ];
         $exceptions = DB::table('logistics_exceptions')
             ->join('orders', 'orders.id', '=', 'logistics_exceptions.order_id')
@@ -81,7 +88,7 @@ class LogisticsController extends Controller
 
     public function intake(Request $request): View
     {
-        $parcels = Order::with(['seller', 'pickupCourier'])
+        $parcels = $this->hubOrders($this->authenticatedUser())->with(['seller', 'pickupCourier'])
             ->where('status', 'PICKED_UP')
             ->when($request->filled('search'), function (Builder $query) use ($request): void {
                 $query->whereRaw("order_number LIKE ? ESCAPE '!'", [$this->orderNumberSearchPattern($request->string('search')->toString())]);
@@ -93,13 +100,17 @@ class LogisticsController extends Controller
 
     public function pickupRequests(): View
     {
-        $orders = Order::query()->with(['seller', 'items', 'pickupCourier'])
+        $operator = $this->authenticatedUser();
+        $orders = $this->hubOrders($operator)->with(['seller', 'items', 'pickupCourier'])
             ->where('status', 'READY_FOR_PICKUP')
             ->where('payment_method', 'COD')
             ->whereNotNull('pickup_requested_at')
             ->whereNull('pickup_claimed_at')
             ->latest()->paginate(20);
-        $riders = User::query()->where('role', 'courier')->where('status', 'approved')->orderBy('first_name')->get();
+        $areaIds = $orders->getCollection()->pluck('destination_area_id')->filter()->unique()->all();
+        $riders = User::query()->where('role', 'courier')->where('status', 'approved')
+            ->whereHas('serviceAreas', fn (Builder $query) => $query->whereIn('areas.id', $areaIds))
+            ->orderBy('first_name')->get();
 
         return view('logistics.pickup-requests', compact('orders', 'riders'));
     }
@@ -108,6 +119,7 @@ class LogisticsController extends Controller
     {
         $validated = $request->validate(['pickup_courier_id' => ['required', 'integer', 'exists:users,id']]);
         $operator = $this->authenticatedUser();
+        abort_unless($this->hubOrders($operator)->whereKey($order->id)->exists(), 403, 'This pickup belongs to another sorting center.');
 
         return DB::transaction(function () use ($order, $validated, $operator, $notifications): RedirectResponse {
             $lockedOrder = Order::query()->whereKey($order->id)->lockForUpdate()->firstOrFail();
@@ -165,7 +177,7 @@ class LogisticsController extends Controller
         });
     }
 
-    public function scan(Request $request, OrderTransitionService $transitions): RedirectResponse
+    public function scan(Request $request, OrderTransitionService $transitions, OrderAreaService $areaService): RedirectResponse
     {
         $validated = $request->validate([
             'reference' => ['required', 'string', 'max:100'],
@@ -239,7 +251,7 @@ class LogisticsController extends Controller
         }
 
         try {
-            $response = $this->receiveParcel($order, $transitions, $validated['method'] ?? 'manual');
+            $response = $this->receiveParcel($order, $transitions, $areaService, $validated['method'] ?? 'manual');
             DB::table('scan_events')->insert([
                 'order_id' => $order->id,
                 'actor_id' => $this->authenticatedUser()->id,
@@ -272,30 +284,53 @@ class LogisticsController extends Controller
         }
     }
 
-    public function receiveParcel(Order $order, OrderTransitionService $transitions, string $method = 'manual'): RedirectResponse
+    public function receiveParcel(Order $order, OrderTransitionService $transitions, OrderAreaService $areaService, string $method = 'manual'): RedirectResponse
     {
         $center = $this->authenticatedUser();
+        DB::transaction(function () use ($order, $center, $transitions, $areaService, $method): void {
+            $lockedOrder = Order::query()->whereKey($order->id)->lockForUpdate()->firstOrFail();
+            abort_unless($lockedOrder->status === OrderStatus::PickedUp->value, 422, 'This parcel is not eligible for hub intake.');
+            abort_unless($lockedOrder->sorting_center_id === null || (int) $lockedOrder->sorting_center_id === $center->id, 403, 'This parcel belongs to another sorting center.');
 
-        $transitions->transition(
-            $order,
-            $center,
-            OrderStatus::AtSortingCenter,
-            'hub_received',
-            $center->municipality,
-            'Parcel received at sorting center by '.($method === 'manual' ? 'manual entry.' : $method.' scan.'),
-            [
-                'sorting_center_id' => $center->id,
-                'received_at' => now(),
-            ],
-        );
+            try {
+                $area = $areaService->resolve($lockedOrder);
+            } catch (HttpException $exception) {
+                if ($exception->getStatusCode() !== 422 || $this->isMultiHubOperation()) {
+                    throw $exception;
+                }
+
+                $area = null;
+            }
+
+            if ($area !== null) {
+                $area = Area::query()->whereKey($area->id)->lockForUpdate()->firstOrFail();
+                if ($area->sorting_center_id === null) {
+                    abort_if($this->isMultiHubOperation(), 422, 'Assign this routing area to a hub before receiving its parcels.');
+                    $area->forceFill(['sorting_center_id' => $center->id])->save();
+                }
+                abort_unless((int) $area->sorting_center_id === $center->id, 403, 'This parcel destination belongs to another sorting center.');
+            }
+
+            $transitions->transition(
+                $lockedOrder,
+                $center,
+                OrderStatus::AtSortingCenter,
+                'hub_received',
+                $center->municipality,
+                'Parcel received at sorting center by '.($method === 'manual' ? 'manual entry.' : $method.' scan.'),
+                [
+                    'sorting_center_id' => $center->id,
+                    'received_at' => now(),
+                ],
+            );
+        });
 
         return back()->with('success', "Parcel {$order->order_number} received at the hub.");
     }
 
     public function sorting(): View
     {
-        $parcels = Order::where('status', 'AT_SORTING_CENTER')
-            ->where(fn (Builder $query) => $query->whereNull('sorting_center_id')->orWhere('sorting_center_id', $this->authenticatedUser()->id))
+        $parcels = $this->hubOrders($this->authenticatedUser())->where('status', 'AT_SORTING_CENTER')
             ->with(['buyer', 'trackingEvents'])->latest()->paginate(15);
 
         return view('logistics.sorting', compact('parcels'));
@@ -589,6 +624,7 @@ class LogisticsController extends Controller
 
     public function sortParcel(Order $order, OrderTransitionService $transitions, OrderAreaService $areas): RedirectResponse
     {
+        $this->assertHubAccess($order, $this->authenticatedUser());
         $area = $areas->resolve($order);
         $transitions->transition($order, $this->authenticatedUser(), OrderStatus::Sorted, 'sorted', $area->name, "Sorted to destination area {$area->code}.", [
             'destination_area_id' => $area->id,
@@ -599,10 +635,9 @@ class LogisticsController extends Controller
         return back()->with('success', "Parcel {$order->order_number} sorted to {$area->name}.");
     }
 
-    public function dispatch(): View
+    public function dispatch(RiderBadgeService $badges, QrCodeService $qrCodes): View
     {
-        $parcels = Order::whereIn('status', ['SORTED', 'ASSIGNED_TO_RIDER', 'OUT_FOR_DELIVERY', 'DELIVERY_FAILED', 'RETURN_IN_TRANSIT'])
-            ->where(fn (Builder $query) => $query->whereNull('sorting_center_id')->orWhere('sorting_center_id', $this->authenticatedUser()->id))
+        $parcels = $this->hubOrders($this->authenticatedUser())->whereIn('status', ['SORTED', 'ASSIGNED_TO_RIDER', 'OUT_FOR_DELIVERY', 'DELIVERY_FAILED', 'RETURN_IN_TRANSIT'])
             ->with(['buyer', 'deliveryCourier', 'destinationArea', 'deliveryAttempts'])->latest()->paginate(15);
         $pageAreaIds = $parcels->getCollection()->pluck('destination_area_id')->filter()->unique()->all();
         $riders = User::query()->where('role', 'courier')->where('status', 'approved')
@@ -612,6 +647,11 @@ class LogisticsController extends Controller
                 'finalDeliveries as failed_deliveries_count' => fn (Builder $query) => $query->where('status', 'DELIVERY_FAILED'),
                 'finalDeliveries as capacity_load_count' => fn (Builder $query) => $query->activeCourierWorkload(),
             ])->orderBy('first_name')->get();
+        $riders->each(function (User $rider) use ($badges, $qrCodes): void {
+            $badgeCode = $badges->ensure($rider);
+            $rider->badge_code = $badgeCode;
+            $rider->badge_qr = $qrCodes->svg('EZR:'.$badgeCode, 100);
+        });
         $maxActiveDeliveries = max(1, (int) config('logistics.maximum_active_deliveries_per_rider', 10));
         $suggestedRiders = [];
         foreach ($parcels as $parcel) {
@@ -642,6 +682,7 @@ class LogisticsController extends Controller
 
         return DB::transaction(function () use ($order, $validated, $operator, $transitions, $notifications): RedirectResponse {
             $lockedOrder = Order::whereKey($order->id)->lockForUpdate()->firstOrFail();
+            $this->assertHubAccess($lockedOrder, $operator);
             $previousRiderId = $lockedOrder->delivery_courier_id
                 ?? DB::table('delivery_assignments')->where('order_id', $lockedOrder->id)->orderByDesc('assigned_at')->value('rider_id');
             abort_unless(in_array($lockedOrder->status, ['SORTED', 'ASSIGNED_TO_RIDER'], true), 422, 'A failed parcel must be scanned into a hub Returns or Exception location before it can be assigned again.');
@@ -668,6 +709,7 @@ class LogisticsController extends Controller
                 'failed_at' => null,
                 'delivery_failure_reason' => null,
                 'delivery_notes' => null,
+                'sorting_center_id' => $operator->id,
             ]);
 
             if ($previousRiderId !== null && (int) $previousRiderId !== $rider->id) {
@@ -721,19 +763,65 @@ class LogisticsController extends Controller
         });
     }
 
-    public function releaseToRider(Order $order, TransactionAwareNotificationSender $notifications): RedirectResponse
+    public function releaseToRider(Request $request, Order $order, TransactionAwareNotificationSender $notifications, RiderBadgeService $badges): RedirectResponse
     {
+        $validated = $request->validate([
+            'rider_badge' => ['nullable', 'string', 'max:100'],
+            'method' => ['nullable', 'in:camera,handheld,manual'],
+        ]);
         $operator = $this->authenticatedUser();
+        $badgeRiderId = null;
+        $submittedBadge = null;
+        if (filled($validated['rider_badge'] ?? null)) {
+            $preselectedRider = User::query()->find($order->delivery_courier_id);
+            $submittedBadge = str_starts_with($validated['rider_badge'], 'EZR:')
+                ? substr($validated['rider_badge'], 4)
+                : $validated['rider_badge'];
+            $badgeMatches = $preselectedRider !== null
+                && $preselectedRider->role === 'courier'
+                && hash_equals($badges->ensure($preselectedRider), $submittedBadge);
 
-        return DB::transaction(function () use ($order, $operator, $notifications): RedirectResponse {
+            if (! $badgeMatches) {
+                DB::table('scan_events')->insert([
+                    'order_id' => $order->id,
+                    'actor_id' => $operator->id,
+                    'station' => 'dispatch_release',
+                    'result' => 'rejected',
+                    'failure_reason' => 'The scanned rider badge did not match the assigned delivery rider.',
+                    'method' => $validated['method'] ?? 'manual',
+                    'ip' => $request->ip(),
+                    'created_at' => now(),
+                ]);
+
+                throw ValidationException::withMessages([
+                    'rider_badge' => 'The scanned badge does not match the assigned delivery rider.',
+                ]);
+            }
+
+            $badgeRiderId = $preselectedRider->id;
+        }
+
+        return DB::transaction(function () use ($request, $order, $operator, $notifications, $badges, $validated, $badgeRiderId, $submittedBadge): RedirectResponse {
             $lockedOrder = Order::query()->whereKey($order->id)->lockForUpdate()->firstOrFail();
-            abort_unless($lockedOrder->sorting_center_id === null || (int) $lockedOrder->sorting_center_id === $operator->id, 403, 'This parcel belongs to another sorting center.');
+            $this->assertHubAccess($lockedOrder, $operator);
             abort_unless($lockedOrder->status === OrderStatus::AssignedToRider->value, 422, 'Assign this parcel before releasing it to a rider.');
             abort_unless($lockedOrder->payment_method === 'COD', 422, 'This parcel is on hold until payment verification is configured.');
             abort_unless($lockedOrder->delivery_courier_id !== null && $lockedOrder->hub_released_at === null, 422, 'This parcel has already been released or has no assigned rider.');
 
             $rider = User::query()->whereKey($lockedOrder->delivery_courier_id)->lockForUpdate()->firstOrFail();
             abort_unless($rider->role === 'courier' && $rider->status === 'approved', 422, 'Only an approved rider can receive a hub release.');
+            abort_unless($badgeRiderId === null || ($rider->id === $badgeRiderId && hash_equals($badges->ensure($rider), $submittedBadge)), 422, 'The rider assignment changed after the badge scan. Scan the current rider badge again.');
+            if ($badgeRiderId !== null) {
+                DB::table('scan_events')->insert([
+                    'order_id' => $lockedOrder->id,
+                    'actor_id' => $operator->id,
+                    'station' => 'dispatch_release',
+                    'result' => 'accepted',
+                    'method' => $validated['method'] ?? 'manual',
+                    'ip' => $request->ip(),
+                    'created_at' => now(),
+                ]);
+            }
 
             $lockedOrder->forceFill(['hub_released_at' => now()])->save();
             ParcelTrackingEvent::query()->create([
@@ -753,6 +841,7 @@ class LogisticsController extends Controller
     public function recoverReleasedParcel(Order $order, OrderTransitionService $transitions): RedirectResponse
     {
         $operator = $this->authenticatedUser();
+        $this->assertHubAccess($order, $operator);
         $transitions->recoverReleasedDeliveryParcel($order, $operator);
         DB::table('logistics_exceptions')
             ->where('order_id', $order->id)
@@ -768,24 +857,66 @@ class LogisticsController extends Controller
         return back()->with('success', "Parcel {$order->order_number} recovered at the hub and returned to dispatch.");
     }
 
-    public function riders(): View
+    public function riders(RiderBadgeService $badges, QrCodeService $qrCodes): View
     {
-        $riders = User::where('role', 'courier')->with('serviceAreas')->withCount([
+        $operator = $this->authenticatedUser();
+        $singleHub = ! $this->isMultiHubOperation();
+        $assignedHubRiderIds = DB::table('area_user')
+            ->join('areas', 'areas.id', '=', 'area_user.area_id')
+            ->where('area_user.is_active', true)
+            ->where('areas.is_active', true)
+            ->where(function ($query) use ($operator, $singleHub): void {
+                $query->where('areas.sorting_center_id', $operator->id);
+                if ($singleHub) {
+                    $query->orWhereNull('areas.sorting_center_id');
+                }
+            })
+            ->distinct()
+            ->pluck('area_user.user_id')
+            ->map(fn (int|string $id): int => (int) $id)
+            ->all();
+        $ridersQuery = User::query()->where('role', 'courier');
+        if (! $singleHub) {
+            $ridersWithOtherHub = DB::table('area_user')
+                ->join('areas', 'areas.id', '=', 'area_user.area_id')
+                ->where('area_user.is_active', true)
+                ->where('areas.is_active', true)
+                ->whereNotNull('areas.sorting_center_id')
+                ->where('areas.sorting_center_id', '!=', $operator->id)
+                ->distinct()
+                ->pluck('area_user.user_id')
+                ->all();
+            $ridersQuery->whereNotIn('id', $ridersWithOtherHub);
+        }
+        $riders = $ridersQuery->with('serviceAreas')->withCount([
             'finalDeliveries as active_deliveries_count' => fn (Builder $query) => $query->activeCourierWorkload(false),
             'finalDeliveries as completed_deliveries_count' => fn (Builder $query) => $query->whereIn('status', ['DELIVERED', 'COMPLETED']),
             'finalDeliveries as failed_deliveries_count' => fn (Builder $query) => $query->where('status', 'DELIVERY_FAILED'),
         ])->orderByRaw("CASE status WHEN 'pending' THEN 0 WHEN 'approved' THEN 1 WHEN 'suspended' THEN 2 ELSE 3 END")->paginate(20);
+        $riders->getCollection()->each(function (User $rider) use ($badges, $qrCodes, $assignedHubRiderIds, $singleHub): void {
+            $rider->setAttribute('assigned_to_hub', $singleHub || in_array($rider->id, $assignedHubRiderIds, true));
+            if (! $rider->assigned_to_hub) {
+                return;
+            }
+            $badgeCode = $badges->ensure($rider);
+            $rider->badge_code = $badgeCode;
+            $rider->badge_qr = $qrCodes->svg('EZR:'.$badgeCode, 120);
+        });
 
-        $areas = Area::query()->where('is_active', true)->orderBy('name')->get();
+        $areas = Area::query()->where('is_active', true)
+            ->where(fn (Builder $query) => $query->where('sorting_center_id', $operator->id)->orWhereNull('sorting_center_id'))
+            ->orderBy('name')->get();
 
         return view('logistics.riders', compact('riders', 'areas'));
     }
 
     public function areas(): View
     {
+        $operator = $this->authenticatedUser();
         $areas = Area::query()
             ->with('municipalities')
             ->withCount(['riders', 'orders'])
+            ->where(fn (Builder $query) => $query->whereNull('sorting_center_id')->orWhere('sorting_center_id', $operator->id))
             ->orderBy('name')
             ->get();
 
@@ -803,6 +934,7 @@ class LogisticsController extends Controller
             'name' => trim($validated['name']),
             'code' => strtoupper(trim($validated['code'])),
             'is_active' => true,
+            'sorting_center_id' => $this->authenticatedUser()->id,
         ]);
 
         return back()->with('success', 'Routing area created. Map its municipalities to make it available for parcel sorting.');
@@ -823,6 +955,7 @@ class LogisticsController extends Controller
         $this->assertAreaMunicipalityAvailable($provinceNormalized, $municipalityNormalized);
         $area = Area::query()->findOrFail($validated['area_id']);
         abort_unless($area->is_active, 422, 'Select an active routing area.');
+        $this->claimAreaForHub($area, $this->authenticatedUser());
 
         try {
             AreaMunicipality::query()->create([
@@ -846,12 +979,23 @@ class LogisticsController extends Controller
         $validated = $request->validate([
             'area_id' => ['required', 'integer', 'exists:areas,id'],
         ]);
+        $currentArea = $areaMunicipality->area;
+        abort_unless($currentArea?->sorting_center_id === null || (int) $currentArea->sorting_center_id === $this->authenticatedUser()->id, 403, 'This municipality mapping belongs to another sorting center.');
         $area = Area::query()->findOrFail($validated['area_id']);
         abort_unless($area->is_active, 422, 'Select an active routing area.');
+        $this->claimAreaForHub($area, $this->authenticatedUser());
+        abort_unless($areaMunicipality->area?->sorting_center_id === null || (int) $areaMunicipality->area->sorting_center_id === $this->authenticatedUser()->id, 403, 'This municipality mapping belongs to another sorting center.');
 
         $areaMunicipality->update(['area_id' => $area->id]);
 
         return back()->with('success', "{$areaMunicipality->municipality}, {$areaMunicipality->province} now routes to {$area->name}.");
+    }
+
+    public function claimArea(Area $area): RedirectResponse
+    {
+        $this->claimAreaForHub($area, $this->authenticatedUser());
+
+        return back()->with('success', "Routing area {$area->name} now belongs to this hub.");
     }
 
     private function assertAreaMunicipalityAvailable(string $provinceNormalized, string $municipalityNormalized): void
@@ -871,17 +1015,53 @@ class LogisticsController extends Controller
     public function updateRiderAreas(Request $request, User $user): RedirectResponse
     {
         abort_unless($user->role === 'courier', 404);
+        $operator = $this->authenticatedUser();
         $validated = $request->validate([
             'area_ids' => ['nullable', 'array'],
             'area_ids.*' => ['integer', 'distinct', 'exists:areas,id'],
         ]);
         $areaIds = array_values(array_unique($validated['area_ids'] ?? []));
-        $activeIds = Area::query()->where('is_active', true)->whereKey($areaIds)->pluck('id')->all();
+        $activeIds = Area::query()->where('is_active', true)->whereKey($areaIds)
+            ->where(fn (Builder $query) => $query->whereNull('sorting_center_id')->orWhere('sorting_center_id', $operator->id))
+            ->pluck('id')->all();
         abort_unless(count($activeIds) === count($areaIds), 422, 'Select active service areas only.');
 
-        DB::transaction(function () use ($user, $activeIds): void {
+        DB::transaction(function () use ($user, $activeIds, $operator): void {
+            $lockedUser = User::query()->whereKey($user->id)->lockForUpdate()->firstOrFail();
+            abort_unless($lockedUser->role === 'courier', 404);
+            $hasOtherHubAssignment = DB::table('area_user')
+                ->join('areas', 'areas.id', '=', 'area_user.area_id')
+                ->where('area_user.user_id', $lockedUser->id)
+                ->where('area_user.is_active', true)
+                ->where('areas.is_active', true)
+                ->whereNotNull('areas.sorting_center_id')
+                ->where('areas.sorting_center_id', '!=', $operator->id)
+                ->exists();
+            abort_unless(! $hasOtherHubAssignment, 403, 'This rider is assigned to another sorting center.');
+
+            $lockedAreas = Area::query()->whereKey($activeIds)->lockForUpdate()->get();
+            abort_unless($lockedAreas->count() === count($activeIds)
+                && $lockedAreas->every(fn (Area $area): bool => $area->is_active && ($area->sorting_center_id === null || (int) $area->sorting_center_id === $operator->id)),
+                422,
+                'A selected service area was assigned to another hub. Refresh and choose areas owned by this hub.',
+            );
+
+            $activeParcelAreaIds = Order::query()
+                ->whereNotNull('destination_area_id')
+                ->where(function (Builder $query) use ($lockedUser): void {
+                    $query->where(fn (Builder $deliveries) => $deliveries->where('delivery_courier_id', $lockedUser->id)
+                        ->whereIn('status', ['ASSIGNED_TO_RIDER', 'OUT_FOR_DELIVERY', 'DELIVERY_FAILED', 'RETURN_IN_TRANSIT']))
+                        ->orWhere(fn (Builder $pickups) => $pickups->where('pickup_courier_id', $lockedUser->id)
+                            ->whereIn('status', ['READY_FOR_PICKUP', 'PICKED_UP']));
+                })
+                ->distinct()
+                ->pluck('destination_area_id')
+                ->map(fn (int|string $id): int => (int) $id);
+            abort_unless($activeParcelAreaIds->diff($activeIds)->isEmpty(), 422, 'A service area with active parcels cannot be removed from this rider.');
+
             DB::table('area_user')->where('user_id', $user->id)->update(['is_active' => false, 'is_primary' => false, 'updated_at' => now()]);
             foreach ($activeIds as $index => $areaId) {
+                Area::query()->whereKey($areaId)->whereNull('sorting_center_id')->update(['sorting_center_id' => $operator->id]);
                 DB::table('area_user')->updateOrInsert(
                     ['user_id' => $user->id, 'area_id' => $areaId],
                     ['is_active' => true, 'is_primary' => $index === 0, 'updated_at' => now(), 'created_at' => now()],
@@ -894,9 +1074,11 @@ class LogisticsController extends Controller
 
     public function approveRider(User $user, TransactionAwareNotificationSender $notifications): RedirectResponse
     {
-        DB::transaction(function () use ($user, $notifications): void {
+        $operator = $this->authenticatedUser();
+        DB::transaction(function () use ($user, $notifications, $operator): void {
             $lockedUser = User::query()->whereKey($user->id)->lockForUpdate()->firstOrFail();
             abort_unless($lockedUser->role === 'courier' && $lockedUser->status === 'pending', 404);
+            abort_unless($this->riderBelongsToHub($lockedUser, $operator) || ! $this->isMultiHubOperation(), 403, 'Assign this rider to the hub before approving the application.');
 
             $lockedUser->forceFill(['status' => 'approved'])->save();
             $notifications->send($lockedUser, new AccountStatusNotification('approved'));
@@ -907,9 +1089,11 @@ class LogisticsController extends Controller
 
     public function rejectRider(User $user, TransactionAwareNotificationSender $notifications): RedirectResponse
     {
-        DB::transaction(function () use ($user, $notifications): void {
+        $operator = $this->authenticatedUser();
+        DB::transaction(function () use ($user, $notifications, $operator): void {
             $lockedUser = User::query()->whereKey($user->id)->lockForUpdate()->firstOrFail();
             abort_unless($lockedUser->role === 'courier' && $lockedUser->status === 'pending', 404);
+            abort_unless($this->riderBelongsToHub($lockedUser, $operator) || ! $this->isMultiHubOperation(), 403, 'This rider application belongs to another hub or is unassigned.');
 
             $lockedUser->forceFill(['status' => 'rejected'])->save();
             $notifications->send($lockedUser, new AccountStatusNotification('rejected'));
@@ -921,6 +1105,7 @@ class LogisticsController extends Controller
     public function returnParcel(Order $order, OrderTransitionService $transitions): RedirectResponse
     {
         $operator = $this->authenticatedUser();
+        $this->assertHubAccess($order, $operator);
         abort_unless(
             $order->status === OrderStatus::AssignedToRider->value
                 && $order->delivery_courier_id !== null
@@ -937,10 +1122,12 @@ class LogisticsController extends Controller
     public function suspendRider(Request $request, User $user, TransactionAwareNotificationSender $notifications): RedirectResponse
     {
         $validated = $request->validate(['reason' => ['required', 'string', 'max:500']]);
+        $operator = $this->authenticatedUser();
 
-        DB::transaction(function () use ($user, $notifications, $validated, $request): void {
+        DB::transaction(function () use ($user, $notifications, $validated, $request, $operator): void {
             $lockedUser = User::query()->whereKey($user->id)->lockForUpdate()->firstOrFail();
             abort_unless($lockedUser->role === 'courier' && $lockedUser->status === 'approved', 404);
+            abort_unless($this->riderBelongsToHub($lockedUser, $operator) || ! $this->isMultiHubOperation(), 403, 'This rider is not assigned to this sorting center.');
 
             $lockedUser->forceFill([
                 'status' => 'suspended',
@@ -984,7 +1171,8 @@ class LogisticsController extends Controller
 
     public function reactivateRider(User $user): RedirectResponse
     {
-        DB::transaction(function () use ($user): void {
+        $operator = $this->authenticatedUser();
+        DB::transaction(function () use ($user, $operator): void {
             $lockedUser = User::query()->whereKey($user->id)->lockForUpdate()->firstOrFail();
             abort_unless(
                 $lockedUser->role === 'courier'
@@ -993,6 +1181,7 @@ class LogisticsController extends Controller
                     && $lockedUser->suspension_source === 'logistics',
                 404,
             );
+            abort_unless($this->riderBelongsToHub($lockedUser, $operator) || ! $this->isMultiHubOperation(), 403, 'This rider is not assigned to this sorting center.');
 
             $lockedUser->forceFill([
                 'status' => 'approved',
@@ -1015,7 +1204,8 @@ class LogisticsController extends Controller
             'date' => ['nullable', 'date'],
             'search' => ['nullable', 'string', 'max:100'],
         ]);
-        $orders = Order::with(['deliveryCourier', 'pickupCourier', 'trackingEvents.actor'])
+        $operator = $this->authenticatedUser();
+        $orders = $this->hubOrders($operator)->with(['deliveryCourier', 'pickupCourier', 'trackingEvents.actor'])
             ->whereIn('status', ['PICKED_UP', 'AT_SORTING_CENTER', 'SORTED', 'ASSIGNED_TO_RIDER', 'OUT_FOR_DELIVERY', 'DELIVERY_FAILED', 'RETURN_IN_TRANSIT', 'RETURNED_TO_SELLER'])
             ->when($validated['status'] ?? null, fn (Builder $query, string $status) => $query->where('status', $status))
             ->when($validated['rider'] ?? null, fn (Builder $query, int $rider) => $query->where('delivery_courier_id', $rider))
@@ -1028,8 +1218,10 @@ class LogisticsController extends Controller
                 $query->whereRaw("order_number LIKE ? ESCAPE '!'", [$this->orderNumberSearchPattern($search)]);
             })
             ->latest()->paginate(20)->withQueryString();
-        $riders = User::where('role', 'courier')->orderBy('first_name')->get(['id', 'first_name', 'last_name']);
-        $areas = Area::query()->orderBy('name')->get(['id', 'name']);
+        $areas = Area::query()->where(fn (Builder $query) => $query->whereNull('sorting_center_id')->orWhere('sorting_center_id', $operator->id))->orderBy('name')->get(['id', 'name']);
+        $areaIds = $areas->pluck('id')->all();
+        $riders = User::query()->where('role', 'courier')->whereHas('serviceAreas', fn (Builder $query) => $query->whereIn('areas.id', $areaIds))
+            ->orderBy('first_name')->get(['id', 'first_name', 'last_name']);
 
         return view('logistics.tracking', compact('orders', 'riders', 'areas'));
     }
@@ -1042,9 +1234,10 @@ class LogisticsController extends Controller
         ]);
         $from = Carbon::parse($validated['from'] ?? today()->subDays(6))->startOfDay();
         $to = Carbon::parse($validated['to'] ?? today())->endOfDay();
-        $base = Order::query()->whereBetween('created_at', [$from, $to]);
+        $operator = $this->authenticatedUser();
+        $base = $this->hubOrders($operator)->whereBetween('created_at', [$from, $to]);
         $volume = (clone $base)->selectRaw('DATE(created_at) as day, COUNT(*) as total')->groupBy('day')->orderBy('day')->get();
-        $areaCounts = Order::query()
+        $areaCounts = $this->hubOrders($operator)
             ->select('destination_area_id')
             ->selectRaw('COUNT(*) as total')
             ->with('destinationArea')
@@ -1055,12 +1248,12 @@ class LogisticsController extends Controller
             ->orderByDesc('total')
             ->get();
         $stats = [
-            'received' => Order::whereBetween('received_at', [$from, $to])->count(),
-            'sorted' => Order::whereBetween('sorted_at', [$from, $to])->count(),
-            'dispatched' => Order::whereBetween('assigned_at', [$from, $to])->count(),
-            'delivered' => Order::whereBetween('delivered_at', [$from, $to])->count(),
-            'failed' => Order::whereBetween('failed_at', [$from, $to])->count(),
-            'backlog' => Order::whereIn('status', ['PICKED_UP', 'AT_SORTING_CENTER', 'SORTED', 'ASSIGNED_TO_RIDER', 'OUT_FOR_DELIVERY'])->count(),
+            'received' => $this->hubOrders($operator)->whereBetween('received_at', [$from, $to])->count(),
+            'sorted' => $this->hubOrders($operator)->whereBetween('sorted_at', [$from, $to])->count(),
+            'dispatched' => $this->hubOrders($operator)->whereBetween('assigned_at', [$from, $to])->count(),
+            'delivered' => $this->hubOrders($operator)->whereBetween('delivered_at', [$from, $to])->count(),
+            'failed' => $this->hubOrders($operator)->whereBetween('failed_at', [$from, $to])->count(),
+            'backlog' => $this->hubOrders($operator)->whereIn('status', ['PICKED_UP', 'AT_SORTING_CENTER', 'SORTED', 'ASSIGNED_TO_RIDER', 'OUT_FOR_DELIVERY'])->count(),
         ];
 
         return view('logistics.reports', compact('stats', 'volume', 'areaCounts', 'from', 'to'));
@@ -1069,5 +1262,70 @@ class LogisticsController extends Controller
     private function orderNumberSearchPattern(string $search): string
     {
         return '%'.strtr($search, ['!' => '!!', '%' => '!%', '_' => '!_']).'%';
+    }
+
+    private function hubOrders(User $operator): Builder
+    {
+        $singleHub = ! $this->isMultiHubOperation();
+
+        return Order::query()->where(function (Builder $query) use ($operator, $singleHub): void {
+            $query->where('sorting_center_id', $operator->id)
+                ->orWhere(function (Builder $unreceived) use ($operator, $singleHub): void {
+                    $unreceived->whereNull('sorting_center_id')->where(function (Builder $areaQuery) use ($operator, $singleHub): void {
+                        $areaQuery->whereHas('destinationArea', fn (Builder $area) => $area->where('sorting_center_id', $operator->id));
+
+                        if ($singleHub) {
+                            $areaQuery->orWhereHas('destinationArea', fn (Builder $area) => $area->whereNull('sorting_center_id'))
+                                ->orWhereDoesntHave('destinationArea');
+                        }
+                    });
+                });
+        });
+    }
+
+    private function isMultiHubOperation(): bool
+    {
+        return User::query()->where('role', 'sorting_center')->where('status', 'approved')->limit(2)->count() > 1;
+    }
+
+    private function riderBelongsToHub(User $rider, User $operator): bool
+    {
+        return DB::table('area_user')
+            ->join('areas', 'areas.id', '=', 'area_user.area_id')
+            ->where('area_user.user_id', $rider->id)
+            ->where('area_user.is_active', true)
+            ->where('areas.is_active', true)
+            ->where(function ($query) use ($operator): void {
+                $query->where('areas.sorting_center_id', $operator->id);
+                if (! $this->isMultiHubOperation()) {
+                    $query->orWhereNull('areas.sorting_center_id');
+                }
+            })
+            ->exists();
+    }
+
+    private function assertHubAccess(Order $order, User $operator): void
+    {
+        abort_unless($operator->role === 'sorting_center' && $operator->status === 'approved', 403);
+        abort_unless($order->sorting_center_id === null || (int) $order->sorting_center_id === $operator->id, 403, 'This parcel belongs to another sorting center.');
+
+        $areaHubId = $order->destination_area_id === null
+            ? null
+            : Area::query()->whereKey($order->destination_area_id)->value('sorting_center_id');
+        abort_unless($areaHubId === null || (int) $areaHubId === $operator->id, 403, 'This destination area belongs to another sorting center.');
+        abort_unless($areaHubId !== null || $order->sorting_center_id !== null || ! $this->isMultiHubOperation(), 403, 'Assign the destination area to this hub before operating the parcel.');
+    }
+
+    private function claimAreaForHub(Area $area, User $operator): void
+    {
+        DB::transaction(function () use ($area, $operator): void {
+            $lockedArea = Area::query()->whereKey($area->id)->lockForUpdate()->firstOrFail();
+            abort_unless($lockedArea->sorting_center_id === null || (int) $lockedArea->sorting_center_id === $operator->id, 403, 'This routing area belongs to another sorting center.');
+            abort_unless(! Order::query()->where('destination_area_id', $lockedArea->id)
+                ->whereNotNull('sorting_center_id')
+                ->where('sorting_center_id', '!=', $operator->id)
+                ->exists(), 403, 'This area has parcels assigned to another sorting center and cannot be claimed.');
+            $lockedArea->forceFill(['sorting_center_id' => $operator->id])->save();
+        });
     }
 }

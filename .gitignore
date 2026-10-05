@@ -1,4 +1,5 @@
 *.log
+cloudflared.exe
 .DS_Store
 .env
 .env.backup

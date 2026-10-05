@@ -8,11 +8,15 @@ use App\Models\Order;
 use App\Models\ParcelTrackingEvent;
 use App\Models\User;
 use App\Notifications\OrderWorkflowNotification;
+use App\Services\LogisticsHubNotificationService;
 use App\Services\OrderTransitionService;
 use App\Services\QrCodeService;
+use App\Services\RiderBadgeService;
 use App\Services\TransactionAwareNotificationSender;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 class SellerOrderController extends Controller
 {
@@ -87,17 +91,57 @@ class SellerOrderController extends Controller
         return back()->with('success', 'Order cancelled and reserved inventory restored.');
     }
 
-    public function confirmReturn(Order $order, OrderTransitionService $transitions)
+    public function confirmReturn(Request $request, Order $order, OrderTransitionService $transitions, RiderBadgeService $badges)
     {
-        abort_if($order->seller_id !== $this->authenticatedUser()->id, 403);
         $actor = $this->authenticatedUser();
-        abort_unless($order->return_handed_to_seller_at !== null, 422, 'The courier must record the return handoff before you confirm receipt.');
-        $transitions->transition($order, $actor, OrderStatus::ReturnedToSeller, 'returned_to_seller', $actor->municipality, 'Seller confirmed receipt of the returned parcel.');
+        abort_if($order->seller_id !== $actor->id, 403);
+        $validated = $request->validate([
+            'rider_badge' => ['required', 'string', 'max:100'],
+            'method' => ['nullable', 'in:camera,handheld,manual'],
+        ]);
+        $rider = User::query()->find($order->delivery_courier_id);
+        $submittedBadge = str_starts_with($validated['rider_badge'], 'EZR:')
+            ? substr($validated['rider_badge'], 4)
+            : $validated['rider_badge'];
+        $badgeMatches = $rider !== null
+            && $rider->role === 'courier'
+            && hash_equals($badges->ensure($rider), $submittedBadge);
+
+        if (! $badgeMatches) {
+            DB::table('scan_events')->insert([
+                'order_id' => $order->id,
+                'actor_id' => $actor->id,
+                'station' => 'seller_return_receipt',
+                'result' => 'rejected',
+                'failure_reason' => 'Scanned rider badge did not match the rider assigned to the return.',
+                'method' => $validated['method'] ?? 'manual',
+                'ip' => $request->ip(),
+                'created_at' => now(),
+            ]);
+
+            throw ValidationException::withMessages(['rider_badge' => 'The scanned badge does not match the rider assigned to this return.']);
+        }
+
+        DB::transaction(function () use ($request, $order, $actor, $transitions, $validated, $rider): void {
+            $lockedOrder = Order::query()->whereKey($order->id)->lockForUpdate()->firstOrFail();
+            abort_unless($lockedOrder->return_handed_to_seller_at !== null, 422, 'The courier must record the return handoff before you confirm receipt.');
+            abort_unless((int) $lockedOrder->delivery_courier_id === $rider->id, 422, 'The return assignment changed after the rider badge scan. Scan the current badge again.');
+            $transitions->transition($lockedOrder, $actor, OrderStatus::ReturnedToSeller, 'returned_to_seller', $actor->municipality, 'Seller confirmed receipt of the returned parcel.');
+            DB::table('scan_events')->insert([
+                'order_id' => $lockedOrder->id,
+                'actor_id' => $actor->id,
+                'station' => 'seller_return_receipt',
+                'result' => 'accepted',
+                'method' => $validated['method'] ?? 'manual',
+                'ip' => $request->ip(),
+                'created_at' => now(),
+            ]);
+        });
 
         return back()->with('success', 'Return receipt confirmed and inventory restored.');
     }
 
-    public function schedulePickup(Request $request, Order $order, TransactionAwareNotificationSender $notifications)
+    public function schedulePickup(Request $request, Order $order, TransactionAwareNotificationSender $notifications, LogisticsHubNotificationService $hubNotifications)
     {
         $seller = $this->authenticatedUser();
         abort_if($order->seller_id !== $seller->id, 403);
@@ -108,7 +152,7 @@ class SellerOrderController extends Controller
             'pickup_notes' => ['nullable', 'string', 'max:1000'],
         ]);
 
-        return DB::transaction(function () use ($order, $seller, $validated, $notifications) {
+        return DB::transaction(function () use ($order, $seller, $validated, $notifications, $hubNotifications) {
             $lockedOrder = Order::query()->whereKey($order->id)->lockForUpdate()->firstOrFail();
             abort_unless(
                 $lockedOrder->status === 'READY_FOR_PICKUP'
@@ -133,20 +177,52 @@ class SellerOrderController extends Controller
                 'location' => implode(', ', array_filter([$seller->street_address, $seller->municipality, $seller->province])),
                 'notes' => 'Seller requested pickup for '.$lockedOrder->pickup_scheduled_for->format('M j, Y g:i A').' ('.$lockedOrder->pickup_window.').',
             ]);
-            User::query()->where('role', 'sorting_center')->where('status', 'approved')->each(
-                fn (User $operator) => $notifications->send($operator, new OrderWorkflowNotification($lockedOrder, 'pickup_requested', 'A seller requested pickup for an order.')),
-            );
+            $hubNotifications->sendForOrder($lockedOrder, $notifications, new OrderWorkflowNotification($lockedOrder, 'pickup_requested', 'A seller requested pickup for an order.'));
 
             return back()->with('success', 'Pickup request sent to Logistics.');
         });
     }
 
-    public function confirmHandover(Order $order, TransactionAwareNotificationSender $notifications)
+    public function confirmHandover(Request $request, Order $order, TransactionAwareNotificationSender $notifications, RiderBadgeService $badges): RedirectResponse
     {
         $seller = $this->authenticatedUser();
         abort_if($order->seller_id !== $seller->id, 403);
+        $validated = $request->validate([
+            'rider_badge' => ['required', 'string', 'max:100'],
+            'method' => ['nullable', 'in:camera,handheld,manual'],
+        ]);
+        $badgeRiderId = null;
 
-        return DB::transaction(function () use ($order, $seller, $notifications) {
+        if (filled($validated['rider_badge'])) {
+            $assignedRider = User::query()->find($order->pickup_courier_id);
+            $submittedBadge = str_starts_with($validated['rider_badge'], 'EZR:')
+                ? substr($validated['rider_badge'], 4)
+                : $validated['rider_badge'];
+            $badgeMatches = $assignedRider !== null
+                && $assignedRider->role === 'courier'
+                && hash_equals($badges->ensure($assignedRider), $submittedBadge);
+
+            if (! $badgeMatches) {
+                DB::table('scan_events')->insert([
+                    'order_id' => $order->id,
+                    'actor_id' => $seller->id,
+                    'station' => 'seller_handover',
+                    'result' => 'rejected',
+                    'failure_reason' => 'The scanned rider badge did not match the assigned pickup rider.',
+                    'method' => $validated['method'] ?? 'manual',
+                    'ip' => $request->ip(),
+                    'created_at' => now(),
+                ]);
+
+                throw ValidationException::withMessages([
+                    'rider_badge' => 'The scanned badge does not match the assigned pickup rider.',
+                ]);
+            }
+
+            $badgeRiderId = $assignedRider->id;
+        }
+
+        return DB::transaction(function () use ($order, $seller, $notifications, $validated, $badgeRiderId, $request): RedirectResponse {
             $lockedOrder = Order::query()->whereKey($order->id)->lockForUpdate()->firstOrFail();
             abort_unless(
                 $lockedOrder->status === 'READY_FOR_PICKUP'
@@ -157,7 +233,17 @@ class SellerOrderController extends Controller
                 422,
                 'Seller handover is not ready to confirm.',
             );
+            abort_unless((int) $lockedOrder->pickup_courier_id === $badgeRiderId, 422, 'The pickup assignment changed after the badge scan. Scan the current rider badge again.');
             $lockedOrder->forceFill(['seller_handover_at' => now()])->save();
+            DB::table('scan_events')->insert([
+                'order_id' => $lockedOrder->id,
+                'actor_id' => $seller->id,
+                'station' => 'seller_handover',
+                'result' => 'accepted',
+                'method' => $validated['method'] ?? 'manual',
+                'ip' => $request->ip(),
+                'created_at' => now(),
+            ]);
             ParcelTrackingEvent::create([
                 'order_id' => $lockedOrder->id,
                 'actor_id' => $seller->id,

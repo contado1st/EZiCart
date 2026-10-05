@@ -5,8 +5,12 @@ namespace App\Http\Controllers\Buyer;
 use App\Enums\OrderStatus;
 use App\Http\Controllers\Controller;
 use App\Models\Order;
+use App\Services\DeliveryCodeService;
 use App\Services\OrderTransitionService;
+use App\Services\QrCodeService;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class BuyerController extends Controller
 {
@@ -34,13 +38,34 @@ class BuyerController extends Controller
         return view('buyer.dashboard', compact('orders', 'counts'));
     }
 
-    public function showOrder(Order $order)
+    public function showOrder(Order $order, DeliveryCodeService $deliveryCodes, QrCodeService $qrCodes)
     {
         abort_if($order->buyer_id !== $this->authenticatedUser()->id, 403);
 
         $order->load(['seller', 'items.product', 'dispute', 'trackingEvents.actor', 'deliveryAttempts']);
 
-        return view('buyer.orders.show', compact('order'));
+        $deliveryCode = $deliveryCodes->reveal($order);
+        $deliveryCodeQr = $deliveryCode === null ? null : $qrCodes->svg('EZD:'.$deliveryCode, 180);
+
+        return view('buyer.orders.show', compact('order', 'deliveryCode', 'deliveryCodeQr'));
+    }
+
+    public function refreshDeliveryCode(Order $order, DeliveryCodeService $deliveryCodes): RedirectResponse
+    {
+        $buyer = $this->authenticatedUser();
+        abort_unless($order->buyer_id === $buyer->id, 403);
+
+        DB::transaction(function () use ($order, $buyer, $deliveryCodes): void {
+            $lockedOrder = Order::query()->whereKey($order->id)->lockForUpdate()->firstOrFail();
+            abort_unless($lockedOrder->buyer_id === $buyer->id, 403);
+            abort_unless($lockedOrder->status === 'OUT_FOR_DELIVERY' && $lockedOrder->delivery_code_used_at === null, 422, 'A delivery code cannot be refreshed for this order.');
+
+            $issuedCode = $deliveryCodes->issue();
+            unset($issuedCode['code']);
+            $lockedOrder->forceFill($issuedCode)->save();
+        });
+
+        return back()->with('success', 'A new delivery code is ready for your courier.');
     }
 
     public function confirmReceived(Order $order, OrderTransitionService $transitions)

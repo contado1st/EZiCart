@@ -49,6 +49,26 @@
                     <p role="status">Fulfillment is on hold because payment verification for {{ $order->payment_method }} is not configured yet.</p>
                 @endif
 
+                @if ($order->status === 'OUT_FOR_DELIVERY' && $order->payment_method === 'COD')
+                    <section aria-labelledby="delivery-code-heading">
+                        <h2 id="delivery-code-heading" class="courier-section-title">Your delivery confirmation code</h2>
+                        @if ($deliveryCode)
+                            <p>Show this one-time code to your courier when your parcel arrives:</p>
+                            <p><strong>{{ $deliveryCode }}</strong></p>
+                            <div aria-label="QR code for delivery confirmation">{!! $deliveryCodeQr !!}</div>
+                            <p>Expires {{ $order->delivery_code_expires_at?->format('M d, Y h:i A') }}. Keep it private until the courier is with you.</p>
+                        @else
+                            <p>The code expired or is locked. Generate a new one before the courier arrives.</p>
+                        @endif
+                        @if ($order->delivery_code_used_at === null)
+                            <form method="POST" action="{{ route('buyer.orders.delivery-code.refresh', $order) }}">
+                                @csrf
+                                <button class="dash-btn-sm dash-btn-outline" type="submit">Generate a new delivery code</button>
+                            </form>
+                        @endif
+                    </section>
+                @endif
+
                 <h2 class="courier-section-title">Items</h2>
                 @foreach ($order->items as $item)
                     <div class="order-item-row">

@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Enums\OrderStatus;
+use App\Models\Area;
 use App\Models\DeliveryAssignment;
 use App\Models\Order;
 use App\Models\OrderItem;
@@ -39,10 +40,11 @@ class OrderTransitionService
         'PICKED_UP' => ['picked_up_at'],
         'AT_SORTING_CENTER' => ['sorting_center_id', 'received_at'],
         'SORTED' => ['destination_area_id', 'delivery_area', 'sorted_at'],
-        'ASSIGNED_TO_RIDER' => ['delivery_courier_id', 'assigned_at', 'hub_released_at', 'failed_at', 'delivery_failure_reason', 'delivery_notes'],
-        'OUT_FOR_DELIVERY' => ['out_for_delivery_at'],
-        'DELIVERY_FAILED' => ['failed_at', 'delivery_failure_reason', 'delivery_notes'],
-        'DELIVERED' => ['delivered_at', 'delivery_notes', 'cod_collected_amount'],
+        'ASSIGNED_TO_RIDER' => ['delivery_courier_id', 'assigned_at', 'hub_released_at', 'failed_at', 'delivery_failure_reason', 'delivery_notes', 'sorting_center_id'],
+        'OUT_FOR_DELIVERY' => ['out_for_delivery_at', 'delivery_code_hash', 'delivery_code_encrypted', 'delivery_code_expires_at', 'delivery_code_attempts', 'delivery_code_used_at'],
+        'DELIVERY_FAILED' => ['failed_at', 'delivery_failure_reason', 'delivery_notes', 'delivery_code_hash', 'delivery_code_encrypted', 'delivery_code_expires_at', 'delivery_code_attempts', 'delivery_code_used_at'],
+        'DELIVERED' => ['delivered_at', 'delivery_notes', 'cod_collected_amount', 'delivery_code_used_at'],
+        'RETURN_IN_TRANSIT' => ['delivery_code_hash', 'delivery_code_encrypted', 'delivery_code_expires_at', 'delivery_code_attempts'],
     ];
 
     /** @param array<string, mixed> $attributes */
@@ -96,8 +98,12 @@ class OrderTransitionService
                 throw new HttpException(422, 'This order cannot be completed while its dispute is under review.');
             }
 
-            if ($actor->role === 'sorting_center' && $lockedOrder->sorting_center_id !== null && (int) $lockedOrder->sorting_center_id !== $actor->id) {
-                abort(403, 'This parcel belongs to another sorting center.');
+            if ($target === OrderStatus::Delivered && blank($attributes['delivery_code_used_at'] ?? null)) {
+                throw new HttpException(422, 'A valid, unused delivery code is required to complete delivery.');
+            }
+
+            if ($actor->role === 'sorting_center') {
+                $this->assertHubOwnership($lockedOrder, $actor, $attributes['destination_area_id'] ?? null);
             }
 
             $this->authorizeActor($lockedOrder, $actor, $target);
@@ -105,7 +111,14 @@ class OrderTransitionService
                 $this->validateSellerOrderInventory($lockedOrder);
             }
 
-            $lockedOrder->forceFill([...$attributes, 'status' => $target->value])->save();
+            $transitionAttributes = $attributes;
+            if ($target === OrderStatus::DeliveryFailed) {
+                $transitionAttributes = [...$transitionAttributes, 'delivery_code_hash' => null, 'delivery_code_encrypted' => null, 'delivery_code_expires_at' => null, 'delivery_code_attempts' => 0, 'delivery_code_used_at' => null];
+            } elseif ($target === OrderStatus::ReturnInTransit) {
+                $transitionAttributes = [...$transitionAttributes, 'delivery_code_hash' => null, 'delivery_code_encrypted' => null, 'delivery_code_expires_at' => null, 'delivery_code_attempts' => 0];
+            }
+
+            $lockedOrder->forceFill([...$transitionAttributes, 'status' => $target->value])->save();
 
             $this->recordAssignmentLifecycle($lockedOrder->refresh(), $actor, $target);
 
@@ -187,9 +200,9 @@ class OrderTransitionService
                     $message,
                 ));
             }
-            User::query()->where('role', 'sorting_center')->where('status', 'approved')->each(
-                fn (User $operator) => $this->notifications->send($operator, new OrderWorkflowNotification($sortedOrder, 'delivery_assignment_declined', 'A rider declined a delivery before hub release. The parcel is back in the dispatch queue.')),
-            );
+            if ($sortedOrder->sortingCenter !== null) {
+                $this->notifications->send($sortedOrder->sortingCenter, new OrderWorkflowNotification($sortedOrder, 'delivery_assignment_declined', 'A rider declined a delivery before hub release. The parcel is back in the dispatch queue.'));
+            }
 
             return $sortedOrder->refresh();
         });
@@ -208,7 +221,7 @@ class OrderTransitionService
                 422,
                 'Only a released parcel physically recovered at the hub can be returned to dispatch.',
             );
-            abort_unless($lockedOrder->sorting_center_id === null || (int) $lockedOrder->sorting_center_id === $actor->id, 403, 'This parcel belongs to another sorting center.');
+            $this->assertHubOwnership($lockedOrder, $actor);
 
             $rider = $lockedOrder->deliveryCourier;
             $assignment = DeliveryAssignment::query()
@@ -268,7 +281,7 @@ class OrderTransitionService
             $failedParcel = $lockedOrder->status === OrderStatus::DeliveryFailed->value;
             $suspendedRiderRecovery = $lockedOrder->status === OrderStatus::OutForDelivery->value && $rider?->status === 'suspended';
             abort_unless($lockedOrder->delivery_courier_id !== null && ($failedParcel || $suspendedRiderRecovery), 422, 'Only a failed parcel or parcel recovered from a suspended rider can be checked into the hub.');
-            abort_unless($lockedOrder->sorting_center_id === null || (int) $lockedOrder->sorting_center_id === $actor->id, 403, 'This parcel belongs to another sorting center.');
+            $this->assertHubOwnership($lockedOrder, $actor);
 
             $location = DB::table('storage_locations')->where('hub_id', $actor->id)->where('code', $locationCode)->lockForUpdate()->first();
             abort_unless($location !== null && $location->is_active && in_array($location->type, ['RETURNS', 'EXCEPTION'], true), 422, 'Scan an active Returns or Exception location for failed parcel intake.');
@@ -354,6 +367,21 @@ class OrderTransitionService
 
         if (! $authorized || $actor->status !== 'approved') {
             abort(403, 'You are not authorized to make this order transition.');
+        }
+    }
+
+    private function assertHubOwnership(Order $order, User $actor, ?int $destinationAreaId = null): void
+    {
+        abort_unless($actor->role === 'sorting_center' && $actor->status === 'approved', 403, 'Only an approved sorting center can operate this parcel.');
+        abort_unless($order->sorting_center_id === null || (int) $order->sorting_center_id === $actor->id, 403, 'This parcel belongs to another sorting center.');
+
+        $areaId = $destinationAreaId ?? $order->destination_area_id;
+        $areaHubId = $areaId === null ? null : Area::query()->whereKey($areaId)->value('sorting_center_id');
+        abort_unless($areaHubId === null || (int) $areaHubId === $actor->id, 403, 'This destination area belongs to another sorting center.');
+
+        if ($areaHubId === null && $order->sorting_center_id === null) {
+            $hasMultipleHubs = User::query()->where('role', 'sorting_center')->where('status', 'approved')->limit(2)->count() > 1;
+            abort_unless(! $hasMultipleHubs, 403, 'Assign the destination area to this hub before operating the parcel.');
         }
     }
 
