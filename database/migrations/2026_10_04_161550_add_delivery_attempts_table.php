@@ -2,6 +2,7 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
@@ -26,6 +27,51 @@ return new class extends Migration
             $table->unique(['order_id', 'attempt_no']);
             $table->index(['rider_id', 'attempted_at']);
         });
+
+        DB::table('orders')
+            ->whereNotNull('delivery_courier_id')
+            ->where(function ($query): void {
+                $query->whereNotNull('failed_at')->orWhereNotNull('delivered_at');
+            })
+            ->orderBy('id')
+            ->chunkById(500, function ($orders): void {
+                foreach ($orders as $order) {
+                    $attempts = [];
+                    $attemptNo = 1;
+
+                    if ($order->failed_at !== null) {
+                        $attempts[] = [
+                            'order_id' => $order->id,
+                            'rider_id' => $order->delivery_courier_id,
+                            'attempt_no' => $attemptNo++,
+                            'outcome' => 'failed',
+                            'reason' => $order->delivery_failure_reason,
+                            'notes' => $order->delivery_notes,
+                            'attempted_at' => $order->failed_at,
+                            'created_at' => $order->failed_at,
+                            'updated_at' => $order->failed_at,
+                        ];
+                    }
+
+                    if ($order->delivered_at !== null) {
+                        $attempts[] = [
+                            'order_id' => $order->id,
+                            'rider_id' => $order->delivery_courier_id,
+                            'attempt_no' => $attemptNo,
+                            'outcome' => 'delivered',
+                            'reason' => null,
+                            'notes' => $order->delivery_notes,
+                            'attempted_at' => $order->delivered_at,
+                            'created_at' => $order->delivered_at,
+                            'updated_at' => $order->delivered_at,
+                        ];
+                    }
+
+                    if ($attempts !== []) {
+                        DB::table('delivery_attempts')->insert($attempts);
+                    }
+                }
+            });
     }
 
     /**

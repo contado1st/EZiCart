@@ -30,7 +30,7 @@ return new class extends Migration
         foreach (DB::table('orders')->whereNotNull('delivery_courier_id')->get() as $order) {
             $status = match ($order->status) {
                 'DELIVERED', 'COMPLETED' => 'completed',
-                'RETURN_IN_TRANSIT', 'RETURNED_TO_SELLER' => 'returned',
+                'RETURNED_TO_SELLER' => 'returned',
                 default => 'active',
             };
             $timestamp = $order->assigned_at ?? $order->created_at ?? now();

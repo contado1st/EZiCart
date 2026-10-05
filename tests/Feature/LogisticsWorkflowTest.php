@@ -16,10 +16,13 @@ use App\Notifications\OrderWorkflowNotification;
 use App\Services\OrderTransitionService;
 use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Database\QueryException;
+use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Notification;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Symfony\Component\HttpKernel\Exception\HttpException;
@@ -162,6 +165,29 @@ class LogisticsWorkflowTest extends TestCase
         $this->assertDatabaseHas('delivery_attempts', ['order_id' => $order->id, 'outcome' => 'delivered']);
         $this->assertDatabaseHas('delivery_assignments', ['order_id' => $order->id, 'rider_id' => $rider->id, 'status' => 'completed']);
         $this->assertDatabaseHas('parcel_tracking_events', ['order_id' => $order->id, 'event_type' => 'order_completed']);
+    }
+
+    public function test_buyer_registration_rejects_address_and_name_values_longer_than_database_columns(): void
+    {
+        Storage::fake('private');
+
+        $this->post(route('register.post'), [
+            'first_name' => str_repeat('A', 101),
+            'last_name' => 'Bounded',
+            'sex' => 'Other',
+            'email' => 'bounded-registration@example.test',
+            'contact_no' => '09123456789',
+            'birthday' => '1990-01-01',
+            'province' => str_repeat('P', 256),
+            'municipality' => str_repeat('M', 256),
+            'barangay' => str_repeat('B', 256),
+            'street_address' => str_repeat('S', 256),
+            'id_document' => UploadedFile::fake()->image('buyer-id.png'),
+            'password' => 'password123',
+            'password_confirmation' => 'password123',
+        ])->assertSessionHasErrors(['first_name', 'province', 'municipality', 'barangay', 'street_address']);
+
+        $this->assertDatabaseMissing('users', ['email' => 'bounded-registration@example.test']);
     }
 
     public function test_sorting_and_dispatch_require_destination_and_eligible_rider(): void
@@ -881,6 +907,105 @@ class LogisticsWorkflowTest extends TestCase
         $this->assertDatabaseHas('orders', ['id' => $activeOrder->id, 'status' => 'RETURN_IN_TRANSIT']);
         $this->assertDatabaseHas('delivery_attempts', ['order_id' => $activeOrder->id, 'attempt_no' => 1, 'outcome' => 'failed']);
         $this->actingAsUser($center)->post(route('logistics.orders.assignRider', $dispatchOrder), ['delivery_courier_id' => $rider->id])->assertUnprocessable();
+    }
+
+    public function test_delivery_attempt_migration_backfills_known_legacy_failures_and_deliveries(): void
+    {
+        $rider = $this->user('courier', 'approved');
+        $failedAt = now()->subDays(2)->startOfSecond();
+        $deliveredAt = now()->subDay()->startOfSecond();
+        $order = $this->order([
+            'status' => 'COMPLETED',
+            'delivery_courier_id' => $rider->id,
+            'failed_at' => $failedAt,
+            'delivered_at' => $deliveredAt,
+            'delivery_failure_reason' => 'recipient_unavailable',
+            'delivery_notes' => 'Recipient confirmed delivery later.',
+        ]);
+
+        Schema::dropIfExists('delivery_attempts');
+        $migration = require database_path('migrations/2026_10_04_161550_add_delivery_attempts_table.php');
+        $migration->up();
+
+        $this->assertDatabaseHas('delivery_attempts', [
+            'order_id' => $order->id,
+            'rider_id' => $rider->id,
+            'attempt_no' => 1,
+            'outcome' => 'failed',
+            'reason' => 'recipient_unavailable',
+            'attempted_at' => $failedAt,
+        ]);
+        $this->assertDatabaseHas('delivery_attempts', [
+            'order_id' => $order->id,
+            'rider_id' => $rider->id,
+            'attempt_no' => 2,
+            'outcome' => 'delivered',
+            'attempted_at' => $deliveredAt,
+        ]);
+    }
+
+    public function test_area_migration_links_legacy_riders_when_order_address_created_the_mapping_first(): void
+    {
+        $rider = $this->user('courier', 'approved', ['assigned_area' => 'majayjay']);
+        $order = $this->order(['province' => 'Laguna', 'municipality' => 'Majayjay']);
+
+        Schema::table('orders', fn (Blueprint $table) => $table->dropConstrainedForeignId('destination_area_id'));
+        Schema::dropIfExists('area_user');
+        Schema::dropIfExists('area_municipalities');
+        Schema::dropIfExists('areas');
+        $migration = require database_path('migrations/2026_10_04_172834_create_areas_and_rider_area_assignments.php');
+        $migration->up();
+
+        $areaId = DB::table('area_municipalities')
+            ->where('province_normalized', 'laguna')
+            ->where('municipality_normalized', 'majayjay')
+            ->value('area_id');
+
+        $this->assertNotNull($areaId);
+        $this->assertDatabaseHas('area_user', [
+            'user_id' => $rider->id,
+            'area_id' => $areaId,
+            'is_primary' => true,
+            'is_active' => true,
+        ]);
+        $this->assertDatabaseHas('orders', ['id' => $order->id, 'destination_area_id' => $areaId]);
+    }
+
+    public function test_return_handoff_releases_courier_capacity_before_seller_receipt_confirmation(): void
+    {
+        config()->set('logistics.maximum_active_deliveries_per_rider', 1);
+        $center = $this->user('sorting_center', 'approved');
+        $rider = $this->user('courier', 'approved', ['assigned_area' => 'Majayjay']);
+        $area = $this->area('Laguna', 'Majayjay');
+        $returnedOrder = $this->order([
+            'status' => 'RETURN_IN_TRANSIT',
+            'delivery_courier_id' => $rider->id,
+            'return_handed_to_seller_at' => now(),
+        ]);
+        DeliveryAssignment::query()->create([
+            'order_id' => $returnedOrder->id,
+            'active_order_id' => null,
+            'rider_id' => $rider->id,
+            'status' => 'returned',
+            'assigned_at' => now()->subHour(),
+            'released_at' => now(),
+        ]);
+        $dispatchOrder = $this->order([
+            'status' => 'SORTED',
+            'destination_area_id' => $area->id,
+            'delivery_area' => $area->name,
+        ]);
+
+        $this->actingAsUser($center)->post(route('logistics.orders.assignRider', $dispatchOrder), [
+            'delivery_courier_id' => $rider->id,
+        ])->assertRedirect();
+
+        $this->assertDatabaseHas('delivery_assignments', [
+            'order_id' => $dispatchOrder->id,
+            'rider_id' => $rider->id,
+            'status' => 'active',
+            'active_order_id' => $dispatchOrder->id,
+        ]);
     }
 
     public function test_rider_area_assignments_are_structured_and_area_filtered(): void

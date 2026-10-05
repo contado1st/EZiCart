@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -103,6 +104,19 @@ class Order extends Model
     public function trackingEvents(): HasMany
     {
         return $this->hasMany(ParcelTrackingEvent::class)->orderByDesc('created_at')->orderByDesc('id');
+    }
+
+    public function scopeActiveCourierWorkload(Builder $query, bool $includeFailed = true): Builder
+    {
+        $statuses = ['ASSIGNED_TO_RIDER', 'OUT_FOR_DELIVERY'];
+        if ($includeFailed) {
+            $statuses[] = 'DELIVERY_FAILED';
+        }
+
+        return $query->where(function (Builder $query) use ($statuses): void {
+            $query->whereIn('status', $statuses)
+                ->orWhere(fn (Builder $query): Builder => $query->where('status', 'RETURN_IN_TRANSIT')->whereNull('return_handed_to_seller_at'));
+        });
     }
 
     protected function casts(): array

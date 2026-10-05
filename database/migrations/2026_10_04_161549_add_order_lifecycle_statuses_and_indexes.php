@@ -28,7 +28,7 @@ return new class extends Migration
             $table->foreignId('variation_id')->nullable()->after('product_id')->constrained('product_variations')->nullOnDelete();
         });
 
-        DB::table('orders')->where('status', 'RETURNED')->update(['status' => 'RETURN_IN_TRANSIT']);
+        DB::table('orders')->where('status', 'RETURNED')->update(['status' => 'RETURNED_TO_SELLER']);
     }
 
     /**

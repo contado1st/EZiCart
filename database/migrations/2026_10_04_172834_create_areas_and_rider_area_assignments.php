@@ -2,6 +2,7 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
@@ -65,34 +66,48 @@ return new class extends Migration
                 ->where('municipality_normalized', $municipalityNormalized)
                 ->first();
 
-            if ($mapping !== null) {
-                continue;
+            if ($mapping === null) {
+                $baseCode = Str::slug(($province !== '' ? $province.'-' : '').$municipality) ?: 'area';
+                $code = substr($baseCode, 0, 180).'-'.substr(sha1($provinceNormalized.'|'.$municipalityNormalized), 0, 12);
+                $areaId = DB::table('areas')->insertGetId([
+                    'name' => $municipality,
+                    'code' => $code,
+                    'is_active' => true,
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
+                DB::table('area_municipalities')->insert([
+                    'area_id' => $areaId,
+                    'province' => $province,
+                    'municipality' => $municipality,
+                    'province_normalized' => $provinceNormalized,
+                    'municipality_normalized' => $municipalityNormalized,
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
             }
+        }
 
-            $baseCode = Str::slug(($province !== '' ? $province.'-' : '').$municipality) ?: 'area';
-            $code = substr($baseCode, 0, 180).'-'.substr(sha1($provinceNormalized.'|'.$municipalityNormalized), 0, 12);
-            $areaId = DB::table('areas')->insertGetId([
-                'name' => $municipality,
-                'code' => $code,
-                'is_active' => true,
-                'created_at' => now(),
-                'updated_at' => now(),
-            ]);
-            DB::table('area_municipalities')->insert([
-                'area_id' => $areaId,
-                'province' => $province,
-                'municipality' => $municipality,
-                'province_normalized' => $provinceNormalized,
-                'municipality_normalized' => $municipalityNormalized,
-                'created_at' => now(),
-                'updated_at' => now(),
-            ]);
+        $areaIdsByAddress = [];
+        foreach (DB::table('area_municipalities')->get(['area_id', 'province_normalized', 'municipality_normalized']) as $mapping) {
+            $areaIdsByAddress[$mapping->province_normalized.'|'.$mapping->municipality_normalized] = $mapping->area_id;
+        }
 
-            if ($province !== '') {
-                $riders = DB::table('users')->where('role', 'courier')->where('assigned_area', $municipality)->pluck('id');
-                foreach ($riders as $riderId) {
+        DB::table('users')->select('id', 'province', 'assigned_area')
+            ->where('role', 'courier')
+            ->whereNotNull('province')
+            ->whereNotNull('assigned_area')
+            ->orderBy('id')
+            ->chunkById(500, function (Collection $riders) use ($normalize, $areaIdsByAddress): void {
+                foreach ($riders as $rider) {
+                    $key = $normalize($rider->province).'|'.$normalize($rider->assigned_area);
+                    $areaId = $areaIdsByAddress[$key] ?? null;
+                    if ($areaId === null) {
+                        continue;
+                    }
+
                     DB::table('area_user')->insertOrIgnore([
-                        'user_id' => $riderId,
+                        'user_id' => $rider->id,
                         'area_id' => $areaId,
                         'is_primary' => true,
                         'is_active' => true,
@@ -100,8 +115,7 @@ return new class extends Migration
                         'updated_at' => now(),
                     ]);
                 }
-            }
-        }
+            });
 
         foreach (DB::table('orders')->select('id', 'province', 'municipality')->whereNotNull('municipality')->get() as $order) {
             DB::table('orders')->where('id', $order->id)->update([
