@@ -635,18 +635,35 @@ class LogisticsController extends Controller
         return back()->with('success', "Parcel {$order->order_number} sorted to {$area->name}.");
     }
 
-    public function dispatch(RiderBadgeService $badges, QrCodeService $qrCodes): View
+    public function dispatch(Request $request, RiderBadgeService $badges, QrCodeService $qrCodes): View
     {
-        $parcels = $this->hubOrders($this->authenticatedUser())->whereIn('status', ['SORTED', 'ASSIGNED_TO_RIDER', 'OUT_FOR_DELIVERY', 'DELIVERY_FAILED', 'RETURN_IN_TRANSIT'])
+        $validated = $request->validate(['rider_search' => ['nullable', 'string', 'max:100']]);
+        $operator = $this->authenticatedUser();
+        $singleHub = ! $this->isMultiHubOperation();
+        $parcels = $this->hubOrders($operator)->whereIn('status', ['SORTED', 'ASSIGNED_TO_RIDER', 'OUT_FOR_DELIVERY', 'DELIVERY_FAILED', 'RETURN_IN_TRANSIT'])
             ->with(['buyer', 'deliveryCourier', 'destinationArea', 'deliveryAttempts'])->latest()->paginate(15);
         $pageAreaIds = $parcels->getCollection()->pluck('destination_area_id')->filter()->unique()->all();
         $riders = User::query()->where('role', 'courier')->where('status', 'approved')
-            ->whereHas('serviceAreas', fn (Builder $query) => $query->whereIn('areas.id', $pageAreaIds))
+            ->whereHas('serviceAreas', function (Builder $query) use ($pageAreaIds, $operator, $singleHub): void {
+                $query->whereIn('areas.id', $pageAreaIds)
+                    ->where(function (Builder $areaQuery) use ($operator, $singleHub): void {
+                        $areaQuery->where('areas.sorting_center_id', $operator->id);
+                        if ($singleHub) {
+                            $areaQuery->orWhereNull('areas.sorting_center_id');
+                        }
+                    });
+            })
+            ->when(! $singleHub, fn (Builder $query) => $query->whereDoesntHave('serviceAreas', fn (Builder $areas) => $areas->whereNotNull('areas.sorting_center_id')->where('areas.sorting_center_id', '!=', $operator->id)))
+            ->when(filled($validated['rider_search'] ?? null), function (Builder $query) use ($validated): void {
+                $search = $validated['rider_search'];
+                $query->where(fn (Builder $riders): Builder => $riders->where('first_name', 'like', "%{$search}%")
+                    ->orWhere('last_name', 'like', "%{$search}%"));
+            })
             ->with('serviceAreas')->withCount([
                 'finalDeliveries as active_deliveries_count' => fn (Builder $query) => $query->activeCourierWorkload(false),
                 'finalDeliveries as failed_deliveries_count' => fn (Builder $query) => $query->where('status', 'DELIVERY_FAILED'),
                 'finalDeliveries as capacity_load_count' => fn (Builder $query) => $query->activeCourierWorkload(),
-            ])->orderBy('first_name')->get();
+            ])->orderBy('active_deliveries_count')->orderBy('failed_deliveries_count')->orderBy('first_name')->limit(50)->get();
         $riders->each(function (User $rider) use ($badges, $qrCodes): void {
             $badgeCode = $badges->ensure($rider);
             $rider->badge_code = $badgeCode;
@@ -691,6 +708,7 @@ class LogisticsController extends Controller
             }
             $rider = User::whereKey($validated['delivery_courier_id'])->lockForUpdate()->firstOrFail();
             abort_unless($rider->role === 'courier' && $rider->status === 'approved', 422, 'Choose an approved rider.');
+            abort_unless($this->riderBelongsToHub($rider, $operator) || ! $this->isMultiHubOperation(), 422, 'The rider is not assigned to this hub.');
             abort_if($rider->status === 'suspended', 422, 'Suspended riders cannot receive parcels.');
             abort_unless($lockedOrder->destination_area_id !== null, 422, 'Sort this parcel into a destination area before dispatch.');
             abort_unless($rider->serviceAreas()->whereKey($lockedOrder->destination_area_id)->exists(), 422, 'The rider is not assigned to this destination area.');
@@ -766,13 +784,14 @@ class LogisticsController extends Controller
     public function releaseToRider(Request $request, Order $order, TransactionAwareNotificationSender $notifications, RiderBadgeService $badges): RedirectResponse
     {
         $validated = $request->validate([
-            'rider_badge' => ['nullable', 'string', 'max:100'],
+            'rider_badge' => ['required', 'string', 'max:100'],
+            'parcel_reference' => ['required', 'string', 'max:100'],
             'method' => ['nullable', 'in:camera,handheld,manual'],
         ]);
         $operator = $this->authenticatedUser();
         $badgeRiderId = null;
         $submittedBadge = null;
-        if (filled($validated['rider_badge'] ?? null)) {
+        if (filled($validated['rider_badge'])) {
             $preselectedRider = User::query()->find($order->delivery_courier_id);
             $submittedBadge = str_starts_with($validated['rider_badge'], 'EZR:')
                 ? substr($validated['rider_badge'], 4)
@@ -801,7 +820,25 @@ class LogisticsController extends Controller
             $badgeRiderId = $preselectedRider->id;
         }
 
-        return DB::transaction(function () use ($request, $order, $operator, $notifications, $badges, $validated, $badgeRiderId, $submittedBadge): RedirectResponse {
+        $scannedParcelCode = str_starts_with($validated['parcel_reference'], 'EZP:')
+            ? substr($validated['parcel_reference'], 4)
+            : $validated['parcel_reference'];
+        if (! hash_equals((string) $order->parcel_code, $scannedParcelCode)) {
+            DB::table('scan_events')->insert([
+                'order_id' => $order->id,
+                'actor_id' => $operator->id,
+                'station' => 'dispatch_release',
+                'result' => 'rejected',
+                'failure_reason' => 'Scanned parcel code did not match the assigned parcel.',
+                'method' => $validated['method'] ?? 'manual',
+                'ip' => $request->ip(),
+                'created_at' => now(),
+            ]);
+
+            throw ValidationException::withMessages(['parcel_reference' => 'The scanned parcel does not match this dispatch assignment.']);
+        }
+
+        return DB::transaction(function () use ($request, $order, $operator, $notifications, $badges, $validated, $badgeRiderId, $submittedBadge, $scannedParcelCode): RedirectResponse {
             $lockedOrder = Order::query()->whereKey($order->id)->lockForUpdate()->firstOrFail();
             $this->assertHubAccess($lockedOrder, $operator);
             abort_unless($lockedOrder->status === OrderStatus::AssignedToRider->value, 422, 'Assign this parcel before releasing it to a rider.');
@@ -810,12 +847,15 @@ class LogisticsController extends Controller
 
             $rider = User::query()->whereKey($lockedOrder->delivery_courier_id)->lockForUpdate()->firstOrFail();
             abort_unless($rider->role === 'courier' && $rider->status === 'approved', 422, 'Only an approved rider can receive a hub release.');
-            abort_unless($badgeRiderId === null || ($rider->id === $badgeRiderId && hash_equals($badges->ensure($rider), $submittedBadge)), 422, 'The rider assignment changed after the badge scan. Scan the current rider badge again.');
-            if ($badgeRiderId !== null) {
+            abort_unless($this->riderBelongsToHub($rider, $operator) || ! $this->isMultiHubOperation(), 422, 'The rider is not assigned to this hub.');
+            abort_unless($badgeRiderId === $rider->id && hash_equals($badges->ensure($rider), $submittedBadge), 422, 'The rider assignment changed after the badge scan. Scan the current rider badge again.');
+            abort_unless(hash_equals((string) $lockedOrder->parcel_code, $scannedParcelCode), 422, 'The parcel changed after the scan. Scan the current parcel label again.');
+
+            foreach (['dispatch_release_rider', 'dispatch_release_parcel'] as $station) {
                 DB::table('scan_events')->insert([
                     'order_id' => $lockedOrder->id,
                     'actor_id' => $operator->id,
-                    'station' => 'dispatch_release',
+                    'station' => $station,
                     'result' => 'accepted',
                     'method' => $validated['method'] ?? 'manual',
                     'ip' => $request->ip(),
@@ -836,6 +876,121 @@ class LogisticsController extends Controller
 
             return back()->with('success', "Parcel {$lockedOrder->order_number} released to {$rider->first_name} {$rider->last_name}.");
         });
+    }
+
+    public function releaseBatch(Request $request, TransactionAwareNotificationSender $notifications, RiderBadgeService $badges): RedirectResponse
+    {
+        $validated = $request->validate([
+            'rider_badge' => ['required', 'string', 'max:100'],
+            'order_ids' => ['required', 'array', 'min:1', 'max:100'],
+            'order_ids.*' => ['required', 'integer', 'distinct', 'exists:orders,id'],
+            'parcel_references_text' => ['required', 'string', 'max:12000'],
+            'method' => ['nullable', 'in:camera,handheld,manual'],
+        ]);
+        $operator = $this->authenticatedUser();
+        $badgeCode = str_starts_with($validated['rider_badge'], 'EZR:')
+            ? substr($validated['rider_badge'], 4)
+            : $validated['rider_badge'];
+        $rider = User::query()->where('role', 'courier')->where('status', 'approved')->where('badge_code', $badgeCode)->first();
+
+        if ($rider === null) {
+            $this->recordDispatchBatchScan($request, null, $operator, 'dispatch_batch_rider', 'rejected', $validated['method'] ?? 'manual', 'Unknown or inactive rider badge.');
+
+            throw ValidationException::withMessages(['rider_badge' => 'Scan the badge of an approved rider.']);
+        }
+
+        $references = collect(preg_split('/\\R/', trim($validated['parcel_references_text'])) ?: [])->filter()->values();
+        $codes = $references->map(fn (string $reference): string => str_starts_with($reference, 'EZP:') ? substr($reference, 4) : $reference);
+        $orders = Order::query()->whereIn('id', $validated['order_ids'])->get(['id', 'parcel_code']);
+        $expectedCodes = $orders->pluck('parcel_code');
+        if (count($validated['order_ids']) !== $expectedCodes->count()
+            || $codes->count() !== $expectedCodes->count()
+            || $codes->unique()->count() !== $codes->count()
+            || $codes->sort()->values()->all() !== $expectedCodes->sort()->values()->all()) {
+            foreach ($orders as $order) {
+                $this->recordDispatchBatchScan($request, $order->id, $operator, 'dispatch_batch_parcel', 'rejected', $validated['method'] ?? 'manual', 'Scanned parcel list did not match the selected manifest.');
+            }
+
+            throw ValidationException::withMessages(['parcel_references' => 'Scanned parcel labels must match every selected parcel exactly once.']);
+        }
+
+        try {
+            DB::transaction(function () use ($request, $validated, $operator, $notifications, $badges, $rider): void {
+                $lockedRider = User::query()->whereKey($rider->id)->lockForUpdate()->firstOrFail();
+                abort_unless($lockedRider->status === 'approved' && hash_equals($badges->ensure($lockedRider), str_starts_with($validated['rider_badge'], 'EZR:') ? substr($validated['rider_badge'], 4) : $validated['rider_badge']), 422, 'The rider badge changed. Scan the current badge again.');
+                $orders = Order::query()->whereIn('id', $validated['order_ids'])->orderBy('id')->lockForUpdate()->get();
+                abort_unless($orders->count() === count($validated['order_ids']), 422, 'The selected manifest changed. Refresh dispatch and scan again.');
+                $parcelCodes = collect(preg_split('/\\R/', trim($validated['parcel_references_text'])) ?: [])
+                    ->filter()
+                    ->map(fn (string $reference): string => str_starts_with($reference, 'EZP:') ? substr($reference, 4) : $reference)
+                    ->sort()
+                    ->values()
+                    ->all();
+                abort_unless($orders->pluck('parcel_code')->sort()->values()->all() === $parcelCodes, 422, 'The scanned parcel list no longer matches the selected manifest.');
+
+                foreach ($orders as $order) {
+                    $this->assertHubAccess($order, $operator);
+                    abort_unless($order->status === OrderStatus::AssignedToRider->value && $order->payment_method === 'COD' && $order->delivery_courier_id === $lockedRider->id && $order->hub_released_at === null, 422, 'Every selected parcel must be assigned to this rider, fulfillable, and not yet released.');
+                    abort_unless($this->riderBelongsToHub($lockedRider, $operator) || ! $this->isMultiHubOperation(), 422, 'The rider is not assigned to this hub.');
+                    abort_unless($order->destination_area_id !== null && $lockedRider->serviceAreas()->whereKey($order->destination_area_id)->exists(), 422, 'The assigned rider no longer serves every selected parcel destination.');
+                    DB::table('scan_events')->insert([
+                        'order_id' => $order->id,
+                        'actor_id' => $operator->id,
+                        'station' => 'dispatch_batch_rider',
+                        'result' => 'accepted',
+                        'method' => $validated['method'] ?? 'manual',
+                        'ip' => $request->ip(),
+                        'created_at' => now(),
+                    ]);
+                    DB::table('scan_events')->insert([
+                        'order_id' => $order->id,
+                        'actor_id' => $operator->id,
+                        'station' => 'dispatch_batch_parcel',
+                        'result' => 'accepted',
+                        'method' => $validated['method'] ?? 'manual',
+                        'ip' => $request->ip(),
+                        'created_at' => now(),
+                    ]);
+                    $order->forceFill(['hub_released_at' => now()])->save();
+                    ParcelTrackingEvent::query()->create([
+                        'order_id' => $order->id,
+                        'actor_id' => $operator->id,
+                        'event_type' => 'hub_released_to_rider',
+                        'status' => $order->status,
+                        'location' => $operator->municipality,
+                        'notes' => "Logistics batch-released the parcel to {$lockedRider->first_name} {$lockedRider->last_name}.",
+                    ]);
+                    $notifications->send($lockedRider, new OrderWorkflowNotification($order, 'hub_released_to_rider', 'Logistics released your assigned parcel from the sorting center.'));
+                }
+            });
+        } catch (Throwable $exception) {
+            $failureReason = $exception instanceof HttpException
+                ? 'Manifest rejected: '.$exception->getMessage()
+                : 'Manifest release failed before the custody update completed.';
+            $failureReason = Str::limit($failureReason, 240);
+
+            foreach ($validated['order_ids'] as $orderId) {
+                $this->recordDispatchBatchScan($request, (int) $orderId, $operator, 'dispatch_batch_release', 'rejected', $validated['method'] ?? 'manual', $failureReason);
+            }
+
+            throw $exception;
+        }
+
+        return back()->with('success', count($validated['order_ids'])." parcels batch-released to {$rider->first_name} {$rider->last_name}.");
+    }
+
+    private function recordDispatchBatchScan(Request $request, ?int $orderId, User $operator, string $station, string $result, string $method, ?string $failureReason = null): void
+    {
+        DB::table('scan_events')->insert([
+            'order_id' => $orderId,
+            'actor_id' => $operator->id,
+            'station' => $station,
+            'result' => $result,
+            'failure_reason' => $failureReason,
+            'method' => $method,
+            'ip' => $request->ip(),
+            'created_at' => now(),
+        ]);
     }
 
     public function recoverReleasedParcel(Order $order, OrderTransitionService $transitions): RedirectResponse
@@ -1200,6 +1355,7 @@ class LogisticsController extends Controller
         $validated = $request->validate([
             'status' => ['nullable', 'in:PICKED_UP,AT_SORTING_CENTER,SORTED,ASSIGNED_TO_RIDER,OUT_FOR_DELIVERY,DELIVERY_FAILED,RETURN_IN_TRANSIT,RETURNED_TO_SELLER'],
             'rider' => ['nullable', 'integer', 'exists:users,id'],
+            'rider_search' => ['nullable', 'string', 'max:100'],
             'area' => ['nullable', 'integer', 'exists:areas,id'],
             'date' => ['nullable', 'date'],
             'search' => ['nullable', 'string', 'max:100'],
@@ -1218,10 +1374,19 @@ class LogisticsController extends Controller
                 $query->whereRaw("order_number LIKE ? ESCAPE '!'", [$this->orderNumberSearchPattern($search)]);
             })
             ->latest()->paginate(20)->withQueryString();
-        $areas = Area::query()->where(fn (Builder $query) => $query->whereNull('sorting_center_id')->orWhere('sorting_center_id', $operator->id))->orderBy('name')->get(['id', 'name']);
+        $singleHub = ! $this->isMultiHubOperation();
+        $areas = Area::query()->where(fn (Builder $query) => $query->where('sorting_center_id', $operator->id)
+            ->when($singleHub, fn (Builder $legacy) => $legacy->orWhereNull('sorting_center_id')))->orderBy('name')->get(['id', 'name']);
         $areaIds = $areas->pluck('id')->all();
-        $riders = User::query()->where('role', 'courier')->whereHas('serviceAreas', fn (Builder $query) => $query->whereIn('areas.id', $areaIds))
-            ->orderBy('first_name')->get(['id', 'first_name', 'last_name']);
+        $riders = User::query()->where('role', 'courier')->where('status', 'approved')
+            ->whereHas('serviceAreas', fn (Builder $query) => $query->whereIn('areas.id', $areaIds))
+            ->when(! $singleHub, fn (Builder $query) => $query->whereDoesntHave('serviceAreas', fn (Builder $areas) => $areas->whereNotNull('areas.sorting_center_id')->where('areas.sorting_center_id', '!=', $operator->id)))
+            ->when(filled($validated['rider_search'] ?? null), function (Builder $query) use ($validated): void {
+                $search = $validated['rider_search'];
+                $query->where(fn (Builder $riders): Builder => $riders->where('first_name', 'like', "%{$search}%")
+                    ->orWhere('last_name', 'like', "%{$search}%"));
+            })
+            ->orderBy('first_name')->orderBy('last_name')->limit(50)->get(['id', 'first_name', 'last_name']);
 
         return view('logistics.tracking', compact('orders', 'riders', 'areas'));
     }
@@ -1290,7 +1455,7 @@ class LogisticsController extends Controller
 
     private function riderBelongsToHub(User $rider, User $operator): bool
     {
-        return DB::table('area_user')
+        $hasCurrentHubArea = DB::table('area_user')
             ->join('areas', 'areas.id', '=', 'area_user.area_id')
             ->where('area_user.user_id', $rider->id)
             ->where('area_user.is_active', true)
@@ -1301,6 +1466,19 @@ class LogisticsController extends Controller
                     $query->orWhereNull('areas.sorting_center_id');
                 }
             })
+            ->exists();
+
+        if (! $hasCurrentHubArea || ! $this->isMultiHubOperation()) {
+            return $hasCurrentHubArea;
+        }
+
+        return ! DB::table('area_user')
+            ->join('areas', 'areas.id', '=', 'area_user.area_id')
+            ->where('area_user.user_id', $rider->id)
+            ->where('area_user.is_active', true)
+            ->where('areas.is_active', true)
+            ->whereNotNull('areas.sorting_center_id')
+            ->where('areas.sorting_center_id', '!=', $operator->id)
             ->exists();
     }
 

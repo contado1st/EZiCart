@@ -37,6 +37,7 @@ use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use Illuminate\Testing\TestResponse;
 use Symfony\Component\HttpKernel\Exception\HttpException;
 use Tests\TestCase;
 
@@ -241,6 +242,7 @@ class LogisticsWorkflowTest extends TestCase
         ]);
         $this->actingAsUser($center)->post(route('logistics.orders.releaseToRider', $order), [
             'rider_badge' => 'EZR:WRONG-CODE',
+            'parcel_reference' => 'EZP:'.$order->parcel_code,
         ])->assertSessionHasErrors('rider_badge');
         $this->assertNull($order->fresh()->hub_released_at);
         $this->assertDatabaseHas('scan_events', [
@@ -252,8 +254,138 @@ class LogisticsWorkflowTest extends TestCase
 
         $this->post(route('logistics.orders.releaseToRider', $order), [
             'rider_badge' => 'EZR:'.$rotatedBadge,
+            'parcel_reference' => 'EZP:'.$order->parcel_code,
         ])->assertRedirect();
         $this->assertNotNull($order->fresh()->hub_released_at);
+    }
+
+    public function test_batch_dispatch_releases_only_the_exact_scanned_manifest_for_one_rider(): void
+    {
+        $center = $this->user('sorting_center', 'approved');
+        $rider = $this->user('courier', 'approved', ['assigned_area' => 'Majayjay']);
+        $otherRider = $this->user('courier', 'approved', ['assigned_area' => 'Majayjay']);
+        $firstOrder = $this->order(['status' => 'ASSIGNED_TO_RIDER', 'sorting_center_id' => $center->id, 'delivery_courier_id' => $rider->id]);
+        $secondOrder = $this->order(['status' => 'ASSIGNED_TO_RIDER', 'sorting_center_id' => $center->id, 'delivery_courier_id' => $rider->id]);
+        $badge = app(RiderBadgeService::class)->ensure($rider);
+
+        $this->actingAsUser($center)->post(route('logistics.dispatch.releaseBatch'), [
+            'rider_badge' => 'EZR:'.$badge,
+            'order_ids' => [$firstOrder->id, $secondOrder->id],
+            'parcel_references_text' => 'EZP:'.$firstOrder->parcel_code."\nEZP:WRONG-PARCEL",
+            'method' => 'handheld',
+        ])->assertSessionHasErrors('parcel_references');
+        $this->assertDatabaseHas('orders', ['id' => $firstOrder->id, 'hub_released_at' => null]);
+        $this->assertDatabaseHas('orders', ['id' => $secondOrder->id, 'hub_released_at' => null]);
+        $this->assertDatabaseHas('scan_events', [
+            'order_id' => $firstOrder->id,
+            'station' => 'dispatch_batch_parcel',
+            'result' => 'rejected',
+            'method' => 'handheld',
+        ]);
+
+        $this->post(route('logistics.dispatch.releaseBatch'), [
+            'rider_badge' => 'EZR:'.app(RiderBadgeService::class)->ensure($otherRider),
+            'order_ids' => [$firstOrder->id, $secondOrder->id],
+            'parcel_references_text' => 'EZP:'.$firstOrder->parcel_code."\nEZP:".$secondOrder->parcel_code,
+            'method' => 'camera',
+        ])->assertUnprocessable();
+        $this->assertDatabaseHas('orders', ['id' => $firstOrder->id, 'hub_released_at' => null]);
+        $this->assertDatabaseHas('scan_events', [
+            'order_id' => $firstOrder->id,
+            'station' => 'dispatch_batch_release',
+            'result' => 'rejected',
+        ]);
+
+        $this->post(route('logistics.dispatch.releaseBatch'), [
+            'rider_badge' => 'EZR:'.$badge,
+            'order_ids' => [$firstOrder->id, $secondOrder->id],
+            'parcel_references_text' => 'EZP:'.$firstOrder->parcel_code."\nEZP:".$secondOrder->parcel_code,
+            'method' => 'camera',
+        ])->assertRedirect();
+        $this->assertNotNull($firstOrder->fresh()->hub_released_at);
+        $this->assertNotNull($secondOrder->fresh()->hub_released_at);
+        $this->assertDatabaseHas('scan_events', [
+            'order_id' => $secondOrder->id,
+            'actor_id' => $center->id,
+            'station' => 'dispatch_batch_rider',
+            'result' => 'accepted',
+            'method' => 'camera',
+        ]);
+        $this->assertDatabaseHas('scan_events', [
+            'order_id' => $secondOrder->id,
+            'actor_id' => $center->id,
+            'station' => 'dispatch_batch_parcel',
+            'result' => 'accepted',
+            'method' => 'camera',
+        ]);
+        $this->assertDatabaseHas('parcel_tracking_events', ['order_id' => $firstOrder->id, 'event_type' => 'hub_released_to_rider']);
+        $this->assertDatabaseHas('parcel_tracking_events', ['order_id' => $secondOrder->id, 'event_type' => 'hub_released_to_rider']);
+    }
+
+    public function test_logistics_dispatch_and_tracking_bound_rider_lists_and_search_within_the_current_hub(): void
+    {
+        $center = $this->user('sorting_center', 'approved');
+        $otherCenter = $this->user('sorting_center', 'approved');
+        $order = $this->order(['status' => 'SORTED', 'sorting_center_id' => $center->id]);
+        $area = $order->destinationArea;
+        $area->forceFill(['sorting_center_id' => $center->id])->save();
+        $otherArea = $this->area('Laguna', 'Calamba');
+        $otherArea->forceFill(['sorting_center_id' => $otherCenter->id])->save();
+
+        for ($index = 1; $index <= 52; $index++) {
+            $rider = $this->user('courier', 'approved', [
+                'first_name' => 'Rider',
+                'last_name' => 'Load'.$index,
+            ]);
+            $rider->serviceAreas()->attach($area->id, ['is_primary' => true, 'is_active' => true]);
+        }
+        $hubRider = $this->user('courier', 'approved', [
+            'first_name' => 'Search',
+            'last_name' => 'Target',
+        ]);
+        $hubRider->serviceAreas()->attach($area->id, ['is_primary' => true, 'is_active' => true]);
+        $otherHubRider = $this->user('courier', 'approved', [
+            'first_name' => 'Other',
+            'last_name' => 'HubRider',
+        ]);
+        $otherHubRider->serviceAreas()->attach($otherArea->id, ['is_primary' => true, 'is_active' => true]);
+        $dualHubRider = $this->user('courier', 'approved', [
+            'first_name' => 'Dual',
+            'last_name' => 'Hub',
+        ]);
+        $dualHubRider->serviceAreas()->attach($area->id, ['is_primary' => true, 'is_active' => true]);
+        $dualHubRider->serviceAreas()->attach($otherArea->id, ['is_primary' => false, 'is_active' => true]);
+
+        $this->actingAsUser($center)->get(route('logistics.dispatch'))
+            ->assertOk()
+            ->assertViewHas('riders', function ($riders) use ($otherHubRider, $dualHubRider): bool {
+                $this->assertSame(50, $riders->count());
+                $this->assertFalse($riders->contains('id', $otherHubRider->id), 'An other-hub rider appeared in dispatch candidates.');
+                $this->assertFalse($riders->contains('id', $dualHubRider->id), 'A rider assigned across hubs appeared in dispatch candidates.');
+
+                return true;
+            });
+        $this->get(route('logistics.dispatch', ['rider_search' => 'Target']))
+            ->assertOk()
+            ->assertViewHas('riders', fn ($riders): bool => $riders->count() === 1 && $riders->first()->id === $hubRider->id);
+        $this->post(route('logistics.orders.assignRider', $order), [
+            'delivery_courier_id' => $dualHubRider->id,
+        ])->assertUnprocessable();
+        $this->assertDatabaseHas('orders', ['id' => $order->id, 'status' => 'SORTED', 'delivery_courier_id' => null]);
+
+        $this->get(route('logistics.tracking'))
+            ->assertOk()
+            ->assertViewHas('riders', function ($riders) use ($otherHubRider, $dualHubRider): bool {
+                $this->assertSame(50, $riders->count());
+                $this->assertFalse($riders->contains('id', $otherHubRider->id), 'An other-hub rider appeared in tracking filters.');
+                $this->assertFalse($riders->contains('id', $dualHubRider->id), 'A rider assigned across hubs appeared in tracking filters.');
+
+                return true;
+            });
+        $this->get(route('logistics.tracking', ['rider_search' => 'Target']))
+            ->assertOk()
+            ->assertViewHas('riders', fn ($riders): bool => $riders->count() === 1 && $riders->first()->id === $hubRider->id)
+            ->assertDontSee($otherHubRider->last_name);
     }
 
     public function test_seller_handover_verifies_and_audits_a_scanned_rider_badge(): void
@@ -890,16 +1022,16 @@ class LogisticsWorkflowTest extends TestCase
         $this->actingAsUser($center)->post(route('logistics.orders.receive', $order))->assertRedirect();
         $this->post(route('logistics.orders.sort', $order), [])->assertRedirect();
         $this->post(route('logistics.orders.assignRider', $order), ['delivery_courier_id' => $rider->id])->assertRedirect();
-        $this->actingAsUser($center)->get(route('logistics.dispatch'))->assertSee('Confirm hub handoff to rider');
+        $this->actingAsUser($center)->get(route('logistics.dispatch'))->assertSee('Confirm scanned hub handoff');
         $this->actingAsUser($rider)->get(route('courier.dashboard'))->assertSee('Waiting for Logistics hub release');
         $this->actingAsUser($rider)->post(route('logistics.orders.releaseToRider', $order))->assertForbidden();
         $this->post(route('courier.orders.startDelivery', $order))->assertUnprocessable();
-        $this->actingAsUser($center)->post(route('logistics.orders.releaseToRider', $order))->assertRedirect();
+        $this->releaseParcel($order, $center)->assertRedirect();
         $this->get(route('logistics.dispatch'))->assertSee('Hub release recorded');
         $this->assertDatabaseHas('orders', ['id' => $order->id, 'status' => 'ASSIGNED_TO_RIDER']);
         $this->assertNotNull($order->fresh()->hub_released_at);
         $this->assertDatabaseHas('parcel_tracking_events', ['order_id' => $order->id, 'event_type' => 'hub_released_to_rider', 'actor_id' => $center->id]);
-        $this->post(route('logistics.orders.releaseToRider', $order))->assertUnprocessable();
+        $this->post(route('logistics.orders.releaseToRider', $order))->assertSessionHasErrors(['rider_badge', 'parcel_reference']);
         $this->actingAsUser($rider)->post(route('courier.orders.startDelivery', $order))->assertRedirect();
         $deliveryCode = Crypt::decryptString($order->fresh()->delivery_code_encrypted);
         $this->patch(route('courier.orders.completeDelivery', $order), [
@@ -1080,7 +1212,7 @@ class LogisticsWorkflowTest extends TestCase
         ]);
 
         $this->post(route('logistics.orders.assignRider', $order), ['delivery_courier_id' => $replacementRider->id])->assertRedirect();
-        $this->post(route('logistics.orders.releaseToRider', $order))->assertRedirect();
+        $this->releaseParcel($order, $center)->assertRedirect();
         $this->assertDatabaseHas('orders', [
             'id' => $order->id,
             'status' => 'ASSIGNED_TO_RIDER',
@@ -1307,7 +1439,7 @@ class LogisticsWorkflowTest extends TestCase
         ])->assertRedirect();
         $this->assertDatabaseHas('parcel_placements', ['order_id' => $order->id, 'location_id' => $returnLocation, 'active_order_id' => $order->id]);
         $this->post(route('logistics.orders.assignRider', $order), ['delivery_courier_id' => $nextRider->id])->assertRedirect();
-        $this->post(route('logistics.orders.releaseToRider', $order))->assertRedirect();
+        $this->releaseParcel($order, $center)->assertRedirect();
         $this->actingAsUser($center)->post(route('logistics.orders.return', $order))->assertRedirect();
         $this->assertDatabaseHas('orders', ['id' => $order->id, 'status' => 'RETURN_IN_TRANSIT', 'delivery_courier_id' => $nextRider->id]);
         $this->assertDatabaseHas('delivery_assignments', ['order_id' => $order->id, 'rider_id' => $nextRider->id, 'status' => 'active', 'active_order_id' => $order->id]);
@@ -1409,7 +1541,7 @@ class LogisticsWorkflowTest extends TestCase
         ]);
 
         $this->actingAsUser($center)->post(route('logistics.orders.assignRider', $order), ['delivery_courier_id' => $firstRider->id])->assertRedirect();
-        $this->actingAsUser($center)->post(route('logistics.orders.releaseToRider', $order))->assertRedirect();
+        $this->releaseParcel($order, $center)->assertRedirect();
         $this->actingAsUser($firstRider)->post(route('courier.orders.startDelivery', $order))->assertRedirect();
         $this->patch(route('courier.orders.failDelivery', $order), [
             'failure_reason' => 'recipient_unavailable',
@@ -1455,7 +1587,7 @@ class LogisticsWorkflowTest extends TestCase
             'attempt_no' => 1,
             'notes' => 'Gate code missing.',
         ]);
-        $this->actingAsUser($center)->post(route('logistics.orders.releaseToRider', $order))->assertRedirect();
+        $this->releaseParcel($order, $center)->assertRedirect();
         $this->actingAsUser($firstRider)->get(route('courier.history'))
             ->assertSee($order->order_number)
             ->assertDontSee($order->recipient_contact);
@@ -1476,7 +1608,7 @@ class LogisticsWorkflowTest extends TestCase
             'location_reference' => 'EZL:RET-RETRY-01',
         ])->assertRedirect();
         $this->post(route('logistics.orders.assignRider', $order), ['delivery_courier_id' => $secondRider->id])->assertRedirect();
-        $this->post(route('logistics.orders.releaseToRider', $order))->assertRedirect();
+        $this->releaseParcel($order, $center)->assertRedirect();
         $this->post(route('logistics.orders.return', $order))->assertRedirect();
         $this->assertDatabaseHas('orders', ['id' => $order->id, 'status' => 'RETURN_IN_TRANSIT', 'delivery_courier_id' => $secondRider->id]);
         $this->assertDatabaseHas('delivery_attempts', ['order_id' => $order->id, 'rider_id' => $firstRider->id, 'attempt_no' => 1, 'outcome' => 'failed']);
@@ -2641,7 +2773,7 @@ class LogisticsWorkflowTest extends TestCase
             'location_reference' => 'EZL:RET-MAX-01',
         ])->assertRedirect();
         $this->post(route('logistics.orders.assignRider', $activeOrder), ['delivery_courier_id' => $rider->id])->assertRedirect();
-        $this->post(route('logistics.orders.releaseToRider', $activeOrder))->assertRedirect();
+        $this->releaseParcel($activeOrder, $center)->assertRedirect();
         $this->actingAsUser($rider)->post(route('courier.orders.startDelivery', $activeOrder))->assertUnprocessable();
         $this->actingAsUser($center);
         $this->post(route('logistics.orders.return', $activeOrder))->assertRedirect();
@@ -2701,7 +2833,7 @@ class LogisticsWorkflowTest extends TestCase
             'status' => 'active',
             'active_order_id' => $order->id,
         ]);
-        $this->actingAsUser($center)->post(route('logistics.orders.releaseToRider', $order))->assertRedirect();
+        $this->releaseParcel($order, $center)->assertRedirect();
         $this->actingAsUser($replacementRider)->post(route('courier.orders.declineDeliveryAssignment', $order))->assertUnprocessable();
     }
 
@@ -2844,6 +2976,18 @@ class LogisticsWorkflowTest extends TestCase
         }
 
         return $user;
+    }
+
+    private function releaseParcel(Order $order, User $operator): TestResponse
+    {
+        $order->refresh();
+        $rider = User::query()->findOrFail($order->delivery_courier_id);
+
+        return $this->actingAsUser($operator)->post(route('logistics.orders.releaseToRider', $order), [
+            'rider_badge' => 'EZR:'.app(RiderBadgeService::class)->ensure($rider),
+            'parcel_reference' => 'EZP:'.$order->parcel_code,
+            'method' => 'manual',
+        ]);
     }
 
     private function order(array $extra = []): Order

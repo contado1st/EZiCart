@@ -72,3 +72,73 @@ document.querySelectorAll('[data-qr-input]').forEach((input) => {
         stop();
     });
 });
+
+document.querySelectorAll('[data-qr-batch]').forEach((input) => {
+    const form = input.closest('form');
+    const startButton = form?.querySelector('[data-qr-batch-start]');
+    const stopButton = form?.querySelector('[data-qr-batch-stop]');
+    const video = form?.querySelector('[data-qr-batch-video]');
+    const status = form?.querySelector('[data-qr-batch-status]');
+    const method = form?.querySelector('[name="method"]');
+
+    if (!form || !startButton || !stopButton || !video || !status || !method) {
+        return;
+    }
+
+    let stream = null;
+    let active = false;
+    const scannedCodes = new Set();
+
+    const stop = () => {
+        active = false;
+        stream?.getTracks().forEach((track) => track.stop());
+        stream = null;
+        video.srcObject = null;
+        video.hidden = true;
+        startButton.hidden = false;
+        stopButton.hidden = true;
+    };
+
+    stopButton.addEventListener('click', stop);
+    startButton.addEventListener('click', async () => {
+        if (!('BarcodeDetector' in window) || !navigator.mediaDevices?.getUserMedia) {
+            status.textContent = 'Camera scanning is unavailable. Use a handheld scanner or enter each code on a separate line.';
+            return;
+        }
+
+        try {
+            const detector = new BarcodeDetector({ formats: ['qr_code'] });
+            stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+            video.srcObject = stream;
+            video.hidden = false;
+            await video.play();
+            active = true;
+            startButton.hidden = true;
+            stopButton.hidden = false;
+            method.value = 'camera';
+            status.textContent = 'Scan each selected parcel label once.';
+
+            const scan = async () => {
+                if (!active) return;
+                try {
+                    const codes = await detector.detect(video);
+                    const scannedCode = codes[0]?.rawValue?.trim();
+                    if (scannedCode && !scannedCodes.has(scannedCode)) {
+                        scannedCodes.add(scannedCode);
+                        input.value = [...input.value.split(/\r?\n/).filter(Boolean), scannedCode].join('\n');
+                        status.textContent = `${scannedCodes.size} parcel label(s) captured.`;
+                    }
+                } catch (error) {
+                    status.textContent = 'Could not read the QR code. Try again or enter the code manually.';
+                }
+                window.requestAnimationFrame(scan);
+            };
+            window.requestAnimationFrame(scan);
+        } catch (error) {
+            stop();
+            status.textContent = 'Camera access is unavailable. Use a handheld scanner or enter each code on a separate line.';
+        }
+    });
+
+    form.addEventListener('submit', stop);
+});
