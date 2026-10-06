@@ -89,9 +89,7 @@
                                     <td>
                                         @if ($user->role === 'courier' && $user->active_pickups_count + $user->active_parcels_count > 0)
                                             @php($activeParcelCount = $user->active_pickups_count + $user->active_parcels_count)
-                                            <p class="text-muted-small">Suspending this rider will open
-                                                {{ $activeParcelCount }} logistics recovery
-                                                {{ $activeParcelCount === 1 ? 'case' : 'cases' }}.</p>
+                                            <p class="text-muted-small">Suspending this rider will open {{ $activeParcelCount }} logistics recovery {{ $activeParcelCount === 1 ? 'case' : 'cases' }}.</p>
                                         @endif
                                         @if ($user->status === 'suspended')
                                             <span class="status-pill status-badge-suspended">SUSPENDED</span>
@@ -114,14 +112,12 @@
                                                         class="dash-btn-sm dash-btn-success">Reactivate</button>
                                                 </form>
                                             @else
-                                                <p class="text-muted-small">Prior status is unknown. Review the account
-                                                    before restoring it.</p>
+                                                <p class="text-muted-small">Prior status is unknown. Review the account before restoring it.</p>
                                                 <form action="{{ route('admin.moderation.reactivate', $user->id) }}"
                                                     method="POST">
                                                     @csrf
                                                     <label class="form-label"
-                                                        for="restore-status-{{ $user->id }}">Restore status after
-                                                        review</label>
+                                                        for="restore-status-{{ $user->id }}">Restore status after review</label>
                                                     <select id="restore-status-{{ $user->id }}" class="controls-select"
                                                         name="restored_status" required>
                                                         <option value="" disabled selected>Choose status</option>
@@ -129,8 +125,7 @@
                                                         <option value="approved">Approved after review</option>
                                                         <option value="rejected">Rejected</option>
                                                     </select>
-                                                    <button type="submit" class="dash-btn-sm dash-btn-success">Restore
-                                                        account</button>
+                                                    <button type="submit" class="dash-btn-sm dash-btn-success">Restore account</button>
                                                 </form>
                                             @endif
                                         @elseif ($user->status === 'approved')

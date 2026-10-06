@@ -82,8 +82,7 @@
                             </div>
                         </label>
 
-                        <p class="payment-desc" role="status">Cash on delivery is the available payment method while
-                            payment verification for other methods is being configured.</p>
+                        <p class="payment-desc" role="status">Cash on delivery is the available payment method while payment verification for other methods is being configured.</p>
                     </div>
                 </div>
             </div>

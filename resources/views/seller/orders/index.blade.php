@@ -168,8 +168,7 @@
                                     <video data-qr-video playsinline hidden></video>
                                     <p data-qr-status role="status">Camera, handheld scanner, or manual code entry is
                                         supported.</p>
-                                    <button type="submit" class="dash-btn-sm dash-btn-primary">Confirm rider
-                                        handover</button>
+                                    <button type="submit" class="dash-btn-sm dash-btn-primary">Confirm rider handover</button>
                                 </form>
                             @elseif($order->status === 'RETURN_IN_TRANSIT')
                                 @if ($order->return_handed_to_seller_at)
@@ -184,8 +183,7 @@
                                             data-qr-stop hidden>Stop camera</button>
                                         <video data-qr-video playsinline hidden></video>
                                         <p data-qr-status role="status">Camera, handheld scanner, or manual entry.</p>
-                                        <button type="submit" class="dash-btn-sm dash-btn-primary">Confirm scanned return
-                                            received</button>
+                                        <button type="submit" class="dash-btn-sm dash-btn-primary">Confirm scanned return received</button>
                                     </form>
                                 @else
                                     <span class="text-muted-small">Awaiting courier handoff</span>
