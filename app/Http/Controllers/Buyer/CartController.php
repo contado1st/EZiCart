@@ -14,8 +14,13 @@ class CartController extends Controller
     public function index(): View
     {
         $cart = session()->get('cart', []);
+        $subtotal = 0;
 
-        return view('cart.index', compact('cart'));
+        foreach ($cart as $item) {
+            $subtotal += $item['price'] * $item['quantity'];
+        }
+
+        return view('cart.index', compact('cart', 'subtotal'));
     }
 
     public function add(Request $request, Product $product): RedirectResponse
