@@ -1,3 +1,5 @@
+@import "../shared/utilities.css";
+
 /* ========================================================
    EZiCart Shipping Waybill Stylesheet
    ======================================================== */
@@ -203,4 +205,3 @@
         box-shadow: none;
     }
 }
-@import "../shared/utilities.css";

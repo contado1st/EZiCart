@@ -9,7 +9,6 @@ export default defineConfig({
             input: [
                 "resources/css/app.css",
                 "resources/css/shared/app.css",
-                "resources/css/shared/utilities.css",
                 "resources/css/shared/dashboard.css",
                 "resources/css/shared/platform-controls.css",
                 "resources/css/shared/reports.css",

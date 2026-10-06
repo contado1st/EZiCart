@@ -6,7 +6,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Waybill - {{ $order->order_number }}</title>
     @vite('resources/css/seller/waybill.css')
-    @vite('resources/css/shared/utilities.css')
 </head>
 
 <body class="waybill-body">
