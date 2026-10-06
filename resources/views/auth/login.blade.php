@@ -29,7 +29,7 @@
                 <h2 class="auth-title">Log In</h2>
 
                 @if (session('success'))
-                    <div class="form-notice" style="border-left-color: #10b981; background-color: #ecfdf5; color: #065f46;">
+                    <div class="form-notice u-extracted-44287b992a">
                         {{ session('success') }}
                     </div>
                 @endif

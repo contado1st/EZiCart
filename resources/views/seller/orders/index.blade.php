@@ -102,8 +102,7 @@
                             <div class="order-item-row">
                                 <div>
                                     <strong>{{ $item->product_name }}</strong>
-                                    <span
-                                        style="color: var(--dash-text-muted); font-size: 0.75rem; margin-left: 0.5rem;">x{{ $item->quantity }}</span>
+                                    <span class="u-extracted-1c2d63da9b">x{{ $item->quantity }}</span>
                                 </div>
                                 <div>₱{{ number_format($item->item_total, 2) }}</div>
                             </div>
@@ -115,8 +114,8 @@
                         <div class="order-total-block">
                             Payment: <strong>{{ $order->payment_method }}</strong> &bull;
                             Net Earnings: <strong
-                                style="color: var(--dash-success);">₱{{ number_format($order->subtotal - $order->commission_fee, 2) }}</strong>
-                            <span style="font-size: 0.75rem; color: var(--dash-text-muted);">(10% platform fee
+                                class="u-extracted-f8f1327255">₱{{ number_format($order->subtotal - $order->commission_fee, 2) }}</strong>
+                            <span class="u-extracted-cf0c302441">(10% platform fee
                                 deducted)</span>
                         </div>
 
@@ -126,8 +125,11 @@
                                 🖨️ Waybill
                             </a>
 
-                            @if ($order->payment_method !== 'COD' && in_array($order->status, ['PLACED', 'CONFIRMED', 'PREPARING', 'READY_FOR_PICKUP'], true))
-                                <p role="status">Fulfillment on hold: payment verification is not configured for {{ $order->payment_method }}.</p>
+                            @if (
+                                $order->payment_method !== 'COD' &&
+                                    in_array($order->status, ['PLACED', 'CONFIRMED', 'PREPARING', 'READY_FOR_PICKUP'], true))
+                                <p role="status">Fulfillment on hold: payment verification is not configured for
+                                    {{ $order->payment_method }}.</p>
                             @elseif ($order->status === 'PLACED')
                                 <form action="{{ route('seller.orders.updateStatus', $order->id) }}" method="POST">
                                     @csrf
@@ -153,26 +155,37 @@
                                         Mark Ready for Pickup
                                     </button>
                                 </form>
-                            @elseif($order->status === 'READY_FOR_PICKUP' && $order->pickup_arrived_at && ! $order->seller_handover_at)
+                            @elseif($order->status === 'READY_FOR_PICKUP' && $order->pickup_arrived_at && !$order->seller_handover_at)
                                 <form action="{{ route('seller.orders.confirmHandover', $order) }}" method="POST">
                                     @csrf
-                                    <label for="handover-rider-badge-{{ $order->id }}">Scan assigned rider badge QR/code</label>
-                                    <input id="handover-rider-badge-{{ $order->id }}" name="rider_badge" data-qr-input required maxlength="100" placeholder="EZR:…" autocomplete="off">
+                                    <label for="handover-rider-badge-{{ $order->id }}">Scan assigned rider badge
+                                        QR/code</label>
+                                    <input id="handover-rider-badge-{{ $order->id }}" name="rider_badge" data-qr-input
+                                        required maxlength="100" placeholder="EZR:…" autocomplete="off">
                                     <input type="hidden" name="method" value="manual">
-                                    <button type="button" data-qr-start>Use camera</button><button type="button" data-qr-stop hidden>Stop camera</button>
-                                    <video data-qr-video playsinline hidden></video><p data-qr-status role="status">Camera, handheld scanner, or manual code entry is supported.</p>
-                                    <button type="submit" class="dash-btn-sm dash-btn-primary">Confirm rider handover</button>
+                                    <button type="button" data-qr-start>Use camera</button><button type="button"
+                                        data-qr-stop hidden>Stop camera</button>
+                                    <video data-qr-video playsinline hidden></video>
+                                    <p data-qr-status role="status">Camera, handheld scanner, or manual code entry is
+                                        supported.</p>
+                                    <button type="submit" class="dash-btn-sm dash-btn-primary">Confirm rider
+                                        handover</button>
                                 </form>
                             @elseif($order->status === 'RETURN_IN_TRANSIT')
                                 @if ($order->return_handed_to_seller_at)
                                     <form action="{{ route('seller.orders.confirmReturn', $order) }}" method="POST">
                                         @csrf
-                                        <label for="return-rider-badge-{{ $order->id }}">Scan return rider badge QR/code</label>
-                                        <input id="return-rider-badge-{{ $order->id }}" name="rider_badge" data-qr-input required maxlength="100" placeholder="EZR:…" autocomplete="off">
+                                        <label for="return-rider-badge-{{ $order->id }}">Scan return rider badge
+                                            QR/code</label>
+                                        <input id="return-rider-badge-{{ $order->id }}" name="rider_badge" data-qr-input
+                                            required maxlength="100" placeholder="EZR:…" autocomplete="off">
                                         <input type="hidden" name="method" value="manual">
-                                        <button type="button" data-qr-start>Use camera</button><button type="button" data-qr-stop hidden>Stop camera</button>
-                                        <video data-qr-video playsinline hidden></video><p data-qr-status role="status">Camera, handheld scanner, or manual entry.</p>
-                                        <button type="submit" class="dash-btn-sm dash-btn-primary">Confirm scanned return received</button>
+                                        <button type="button" data-qr-start>Use camera</button><button type="button"
+                                            data-qr-stop hidden>Stop camera</button>
+                                        <video data-qr-video playsinline hidden></video>
+                                        <p data-qr-status role="status">Camera, handheld scanner, or manual entry.</p>
+                                        <button type="submit" class="dash-btn-sm dash-btn-primary">Confirm scanned return
+                                            received</button>
                                     </form>
                                 @else
                                     <span class="text-muted-small">Awaiting courier handoff</span>
@@ -187,7 +200,7 @@
                 </div>
             @endforelse
 
-            <div style="margin-top: 1.5rem;">
+            <div class="u-extracted-d4f7536fd4">
                 {{ $orders->links() }}
             </div>
         </main>

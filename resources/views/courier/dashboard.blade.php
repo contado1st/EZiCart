@@ -17,10 +17,12 @@
     </header>
     <section class="ops-panel">
         <h2>Rider identification badge</h2>
-        <p class="ops-muted">Show this QR at the hub or seller handoff. It identifies your rider account; staff actions still require their authenticated account and server-side assignment checks.</p>
+        <p class="ops-muted">Show this QR at the hub or seller handoff. It identifies your rider account; staff actions still
+            require their authenticated account and server-side assignment checks.</p>
         <p class="ops-mono">EZR:{{ $badgeCode }}</p>
         <div aria-label="QR code for rider identification">{!! $badgeQr !!}</div>
-        <form method="POST" action="{{ route('courier.badge.rotate') }}" onsubmit="return confirm('Rotate this badge? Any printed copy of the old QR will stop identifying your badge.')">
+        <form method="POST" action="{{ route('courier.badge.rotate') }}"
+            onsubmit="return confirm('Rotate this badge? Any printed copy of the old QR will stop identifying your badge.')">
             @csrf
             <button class="ops-btn" type="submit">Rotate rider badge</button>
         </form>
@@ -60,9 +62,12 @@
                                 <form method="POST" action="{{ route('courier.orders.claim', $order) }}">@csrf<button
                                         class="ops-btn ops-btn--primary" type="submit" @disabled($courier->status !== 'approved')>Accept
                                         assigned pickup</button></form>
-                                <form method="POST" action="{{ route('courier.orders.declinePickup', $order) }}" style="margin-top:.5rem">@csrf
-                                    <input type="text" name="reason" maxlength="500" placeholder="Reason (optional)" aria-label="Reason for declining pickup">
-                                    <button class="ops-btn" type="submit" @disabled($courier->status !== 'approved')>Decline assignment</button>
+                                <form method="POST" action="{{ route('courier.orders.declinePickup', $order) }}"
+                                    class="u-extracted-b310ca1dcf">@csrf
+                                    <input type="text" name="reason" maxlength="500" placeholder="Reason (optional)"
+                                        aria-label="Reason for declining pickup">
+                                    <button class="ops-btn" type="submit" @disabled($courier->status !== 'approved')>Decline
+                                        assignment</button>
                                 </form>
                             </td>
                     </tr>@empty<tr>
@@ -100,12 +105,20 @@
                                 <form method="POST" action="{{ route('courier.orders.confirmPickup', $order) }}">
                                     @csrf
                                     @if ($order->pickup_arrived_at && $order->seller_handover_at)
-                                        <div class="ops-field"><label for="pickup-parcel-{{ $order->id }}">Scan parcel label QR/code</label><input id="pickup-parcel-{{ $order->id }}" name="parcel_reference" data-qr-input required maxlength="100" placeholder="EZP:…" autocomplete="off"></div>
+                                        <div class="ops-field"><label for="pickup-parcel-{{ $order->id }}">Scan parcel
+                                                label QR/code</label><input id="pickup-parcel-{{ $order->id }}"
+                                                name="parcel_reference" data-qr-input required maxlength="100"
+                                                placeholder="EZP:…" autocomplete="off"></div>
                                         <input type="hidden" name="method" value="manual">
-                                        <button type="button" data-qr-start>Use camera</button><button type="button" data-qr-stop hidden>Stop camera</button>
-                                        <video data-qr-video playsinline hidden></video><p data-qr-status role="status">Scan the parcel label, or enter its code manually.</p>
+                                        <button type="button" data-qr-start>Use camera</button><button type="button"
+                                            data-qr-stop hidden>Stop camera</button>
+                                        <video data-qr-video playsinline hidden></video>
+                                        <p data-qr-status role="status">Scan the parcel label, or enter its code manually.
+                                        </p>
                                     @endif
-                                    <button class="ops-btn ops-btn--primary" @disabled($courier->status !== 'approved')>{{ $order->pickup_arrived_at && $order->seller_handover_at ? 'Confirm scanned parcel possession' : ($order->pickup_arrived_at ? 'Waiting for seller handover' : 'Record arrival at seller') }}</button></form>
+                                    <button class="ops-btn ops-btn--primary"
+                                        @disabled($courier->status !== 'approved')>{{ $order->pickup_arrived_at && $order->seller_handover_at ? 'Confirm scanned parcel possession' : ($order->pickup_arrived_at ? 'Waiting for seller handover' : 'Record arrival at seller') }}</button>
+                                </form>
                             </td>
                     </tr>@empty<tr>
                             <td colspan="4">
@@ -150,21 +163,45 @@
         <h2>Return parcels to sellers</h2>
         <div class="ops-table-wrap">
             <table class="ops-table">
-                <thead><tr><th>Order</th><th>Seller return address</th><th>Next step</th></tr></thead>
+                <thead>
+                    <tr>
+                        <th>Order</th>
+                        <th>Seller return address</th>
+                        <th>Next step</th>
+                    </tr>
+                </thead>
                 <tbody>
                     @forelse ($myReturns as $order)
                         <tr>
                             <td class="ops-mono">{{ $order->order_number }}</td>
-                            <td>{{ $order->seller?->business_name ?? $order->seller?->first_name }}<div class="ops-muted">{{ $order->seller?->street_address }}, {{ $order->seller?->barangay }}, {{ $order->seller?->municipality }}</div></td>
-                            <td><form method="POST" action="{{ route('courier.orders.confirmReturnDelivery', $order) }}" onsubmit="return confirm('Confirm that you physically handed this return parcel to the seller?')">@csrf
-                                <div class="ops-field"><label for="return-parcel-{{ $order->id }}">Scan parcel label QR/code</label><input id="return-parcel-{{ $order->id }}" name="parcel_reference" data-qr-input required maxlength="100" placeholder="EZP:…" autocomplete="off"></div>
-                                <input type="hidden" name="method" value="manual">
-                                <button type="button" data-qr-start>Use camera</button><button type="button" data-qr-stop hidden>Stop camera</button>
-                                <video data-qr-video playsinline hidden></video><p data-qr-status role="status">Camera, handheld scanner, or manual entry.</p>
-                                <button class="ops-btn ops-btn--primary" @disabled($courier->status !== 'approved')>Record scanned seller handoff</button></form></td>
+                            <td>{{ $order->seller?->business_name ?? $order->seller?->first_name }}<div class="ops-muted">
+                                    {{ $order->seller?->street_address }}, {{ $order->seller?->barangay }},
+                                    {{ $order->seller?->municipality }}</div>
+                            </td>
+                            <td>
+                                <form method="POST" action="{{ route('courier.orders.confirmReturnDelivery', $order) }}"
+                                    onsubmit="return confirm('Confirm that you physically handed this return parcel to the seller?')">
+                                    @csrf
+                                    <div class="ops-field"><label for="return-parcel-{{ $order->id }}">Scan parcel label
+                                            QR/code</label><input id="return-parcel-{{ $order->id }}"
+                                            name="parcel_reference" data-qr-input required maxlength="100"
+                                            placeholder="EZP:…" autocomplete="off"></div>
+                                    <input type="hidden" name="method" value="manual">
+                                    <button type="button" data-qr-start>Use camera</button><button type="button"
+                                        data-qr-stop hidden>Stop camera</button>
+                                    <video data-qr-video playsinline hidden></video>
+                                    <p data-qr-status role="status">Camera, handheld scanner, or manual entry.</p>
+                                    <button class="ops-btn ops-btn--primary" @disabled($courier->status !== 'approved')>Record scanned
+                                        seller handoff</button>
+                                </form>
+                            </td>
                         </tr>
                     @empty
-                        <tr><td colspan="3"><div class="ops-empty">No return parcels are waiting for seller handoff.</div></td></tr>
+                        <tr>
+                            <td colspan="3">
+                                <div class="ops-empty">No return parcels are waiting for seller handoff.</div>
+                            </td>
+                        </tr>
                     @endforelse
                 </tbody>
             </table>
@@ -174,7 +211,14 @@
         <h2>Failed deliveries requiring logistics follow-up</h2>
         <div class="ops-table-wrap">
             <table class="ops-table">
-                <thead><tr><th>Order</th><th>Latest attempt</th><th>Recorded</th><th>Next step</th></tr></thead>
+                <thead>
+                    <tr>
+                        <th>Order</th>
+                        <th>Latest attempt</th>
+                        <th>Recorded</th>
+                        <th>Next step</th>
+                    </tr>
+                </thead>
                 <tbody>
                     @forelse ($myFailedDeliveries as $order)
                         <tr>
@@ -184,7 +228,11 @@
                             <td>Logistics will reassign the delivery or initiate a return.</td>
                         </tr>
                     @empty
-                        <tr><td colspan="4"><div class="ops-empty">No failed deliveries need follow-up.</div></td></tr>
+                        <tr>
+                            <td colspan="4">
+                                <div class="ops-empty">No failed deliveries need follow-up.</div>
+                            </td>
+                        </tr>
                     @endforelse
                 </tbody>
             </table>
@@ -211,7 +259,8 @@
                             </td>
                             <td>{{ $order->recipient_name }}<div class="ops-muted">{{ $order->street_address }},
                                     {{ $order->barangay }}, {{ $order->municipality }}</div>
-                                <div class="ops-muted">{{ $order->recipient_contact }} · {{ $order->delivery_area }}</div>
+                                <div class="ops-muted">{{ $order->recipient_contact }} · {{ $order->delivery_area }}
+                                </div>
                             </td>
                             <td>{{ $order->payment_method }}<div class="ops-muted">
                                     ₱{{ number_format($order->total_amount, 2) }}</div>
@@ -219,19 +268,32 @@
                             <td>
                                 @if ($order->status === 'ASSIGNED_TO_RIDER')
                                     @if ($order->hub_released_at)
-                                        <form method="POST" action="{{ route('courier.orders.startDelivery', $order) }}">
+                                        <form method="POST"
+                                            action="{{ route('courier.orders.startDelivery', $order) }}">
                                             @csrf
-                                            <div class="ops-field"><label for="start-parcel-reference-{{ $order->id }}">Parcel QR/code (optional)</label><input id="start-parcel-reference-{{ $order->id }}" name="parcel_reference" maxlength="100" placeholder="EZP:…" autocomplete="off"></div>
+                                            <div class="ops-field"><label
+                                                    for="start-parcel-reference-{{ $order->id }}">Parcel QR/code
+                                                    (optional)</label><input
+                                                    id="start-parcel-reference-{{ $order->id }}"
+                                                    name="parcel_reference" maxlength="100" placeholder="EZP:…"
+                                                    autocomplete="off"></div>
                                             <input type="hidden" name="method" value="manual">
-                                            <button class="ops-btn ops-btn--primary" @disabled($courier->status !== 'approved')>Start delivery</button></form>
+                                            <button class="ops-btn ops-btn--primary" @disabled($courier->status !== 'approved')>Start
+                                                delivery</button>
+                                        </form>
                                     @else
                                         <span class="ops-muted">Waiting for Logistics hub release</span>
-                                        <form class="ops-form" method="POST" action="{{ route('courier.orders.declineDeliveryAssignment', $order) }}"
+                                        <form class="ops-form" method="POST"
+                                            action="{{ route('courier.orders.declineDeliveryAssignment', $order) }}"
                                             onsubmit="return confirm('Decline this delivery assignment and return the parcel to dispatch?')">
                                             @csrf
-                                            <div class="ops-field"><label for="decline-reason-{{ $order->id }}">Reason (optional)</label>
-                                                <input id="decline-reason-{{ $order->id }}" name="reason" maxlength="500"></div>
-                                            <button class="ops-btn ops-btn--danger" type="submit" @disabled($courier->status !== 'approved')>Decline assignment</button>
+                                            <div class="ops-field"><label for="decline-reason-{{ $order->id }}">Reason
+                                                    (optional)</label>
+                                                <input id="decline-reason-{{ $order->id }}" name="reason"
+                                                    maxlength="500">
+                                            </div>
+                                            <button class="ops-btn ops-btn--danger" type="submit"
+                                                @disabled($courier->status !== 'approved')>Decline assignment</button>
                                         </form>
                                     @endif
                                 @else
@@ -242,9 +304,11 @@
                                             enctype="multipart/form-data"
                                             onsubmit="return confirm('Confirm this parcel was delivered to the named recipient?')">
                                             @csrf @method('PATCH')<div class="ops-field"><label>Recipient
-                                                    confirmation</label><input name="recipient_confirmation" maxlength="120"
-                                                    required></div>
-                                            <div class="ops-field"><label>Buyer delivery code</label><input name="delivery_code" inputmode="numeric" autocomplete="off" maxlength="32" required></div>
+                                                    confirmation</label><input name="recipient_confirmation"
+                                                    maxlength="120" required></div>
+                                            <div class="ops-field"><label>Buyer delivery code</label><input
+                                                    name="delivery_code" inputmode="numeric" autocomplete="off"
+                                                    maxlength="32" required></div>
                                             @if ($order->payment_method === 'COD')
                                                 <div class="ops-field"><label>Cash collected
                                                         (₱{{ number_format($order->total_amount, 2) }})
@@ -252,9 +316,12 @@
                                                         name="cod_collected_amount" required></div>
                                             @endif
                                             <div class="ops-field">
-                                                <label>Delivery notes</label><input name="delivery_notes" maxlength="1000">
+                                                <label>Delivery notes</label><input name="delivery_notes"
+                                                    maxlength="1000">
                                             </div>
-                                            <div class="ops-field"><label>Proof of delivery (photo or PDF)</label><input type="file" name="proof_file" accept=".jpg,.jpeg,.png,.pdf" required></div>
+                                            <div class="ops-field"><label>Proof of delivery (photo or PDF)</label><input
+                                                    type="file" name="proof_file" accept=".jpg,.jpeg,.png,.pdf"
+                                                    required></div>
                                             <button class="ops-btn ops-btn--primary">Confirm delivered</button>
                                         </form>
                                     </details>

@@ -15,14 +15,13 @@
         </div>
 
         @if (session('success'))
-            <div class="alert-success" style="margin-bottom: 1.5rem;">
+            <div class="alert-success u-extracted-f0b24eea08">
                 ✅ {{ session('success') }}
             </div>
         @endif
 
         @if (session('error'))
-            <div
-                style="background-color: var(--ezipink-50); color: var(--ezipink-600); border-left: 4px solid var(--ezipink-500); padding: 1rem; border-radius: 0.375rem; margin-bottom: 1.5rem; font-weight: 600;">
+            <div class="u-extracted-a243a89dcf">
                 ⚠️ {{ session('error') }}
             </div>
         @endif
@@ -32,7 +31,7 @@
                 <div class="cart-empty-icon">🛒</div>
                 <h2 class="cart-empty-title">Your cart is empty</h2>
                 <p class="cart-empty-desc">You haven't added any products to your shopping cart yet.</p>
-                <a href="{{ route('home') }}" class="btn-primary" style="padding: 0.625rem 1.5rem; text-decoration: none;">
+                <a href="{{ route('home') }}" class="btn-primary u-extracted-8bbe2fd3f8">
                     Explore Marketplace
                 </a>
             </div>

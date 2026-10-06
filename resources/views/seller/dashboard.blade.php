@@ -84,27 +84,26 @@
             <!-- Workflow Panels -->
             <div class="dash-workflow-grid">
                 <div class="dash-panel">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
-                        <h3 class="dash-panel-title" style="margin-bottom: 0;">Recent Orders & Dispatch</h3>
-                        <a href="{{ route('seller.orders.index') }}"
-                            style="font-size: 0.8125rem; font-weight: 700; color: var(--dash-primary); text-decoration: none;">View
+                    <div class="u-extracted-7bdbd5a954">
+                        <h3 class="dash-panel-title u-extracted-648149cea2">Recent Orders & Dispatch</h3>
+                        <a href="{{ route('seller.orders.index') }}" class="u-extracted-b0fe66c15d">View
                             All →</a>
                     </div>
 
                     @forelse($recentOrders as $order)
-                        <div class="order-card" style="margin-bottom: 0.75rem; padding: 1rem;">
-                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <div class="order-card u-extracted-a3d1500119">
+                            <div class="u-extracted-c2bcea0858">
                                 <div>
-                                    <span style="font-weight: 800; font-size: 0.875rem;">{{ $order->order_number }}</span>
-                                    <div style="font-size: 0.75rem; color: var(--dash-text-muted);">
+                                    <span class="u-extracted-a0a031578b">{{ $order->order_number }}</span>
+                                    <div class="u-extracted-cf0c302441">
                                         {{ $order->recipient_name }} &bull; {{ $order->items->count() }} item(s)</div>
                                 </div>
-                                <div style="text-align: right;">
+                                <div class="u-extracted-13cbe03b9a">
                                     <span
                                         class="status-pill status-{{ strtolower(str_replace('_', '-', $order->status)) }}">
                                         {{ str_replace('_', ' ', $order->status) }}
                                     </span>
-                                    <div style="font-weight: 800; font-size: 0.875rem; margin-top: 0.25rem;">
+                                    <div class="u-extracted-102e7d3885">
                                         ₱{{ number_format($order->total_amount, 2) }}</div>
                                 </div>
                             </div>

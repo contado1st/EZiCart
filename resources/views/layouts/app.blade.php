@@ -11,6 +11,7 @@
     @vite('resources/css/shared/platform-controls.css')
     <!-- Dynamic Page Stylesheets -->
     @stack('styles')
+    @vite('resources/css/shared/utilities.css')
     @vite('resources/js/app.js')
 </head>
 
@@ -90,10 +91,10 @@
     @endphp
 
     @if ($activeAnnouncements->isNotEmpty())
-        <div class="container" style="margin-top: 1rem;">
+        <div class="container u-extracted-dab43fb936">
             @foreach ($activeAnnouncements as $announcement)
                 <div class="announcement-banner banner-type-{{ $announcement->type }}">
-                    <span style="font-size: 1.15rem; line-height: 1;">
+                    <span class="u-extracted-888f29e5c3">
                         @if ($announcement->type === 'urgent')
                             🚨
                         @elseif($announcement->type === 'warning')

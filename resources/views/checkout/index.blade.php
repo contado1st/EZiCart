@@ -12,8 +12,7 @@
         </div>
 
         @if (session('error'))
-            <div
-                style="background-color: var(--ezipink-50); color: var(--ezipink-600); border-left: 4px solid var(--ezipink-500); padding: 1rem; border-radius: 0.375rem; margin-bottom: 1.5rem; font-weight: 600;">
+            <div class="u-extracted-a243a89dcf">
                 ⚠️ {{ session('error') }}
             </div>
         @endif
@@ -83,7 +82,8 @@
                             </div>
                         </label>
 
-                        <p class="payment-desc" role="status">Cash on delivery is the available payment method while payment verification for other methods is being configured.</p>
+                        <p class="payment-desc" role="status">Cash on delivery is the available payment method while
+                            payment verification for other methods is being configured.</p>
                     </div>
                 </div>
             </div>
@@ -105,7 +105,7 @@
                     </div>
                 @endforeach
 
-                <div class="checkout-summary-row" style="margin-top: 1rem;">
+                <div class="checkout-summary-row u-extracted-dab43fb936">
                     <span>Subtotal</span>
                     <span>₱{{ number_format($subtotal, 2) }}</span>
                 </div>

@@ -39,8 +39,7 @@
             @endif
 
             @if (session('error'))
-                <div class="dash-alert-success"
-                    style="border-left-color: var(--dash-danger); background-color: var(--dash-danger-bg); color: var(--dash-danger);">
+                <div class="dash-alert-success u-extracted-ee8231be38">
                     ⚠️ {{ session('error') }}
                 </div>
             @endif
@@ -49,7 +48,7 @@
                 <h2 class="courier-section-title">My Orders ({{ $orders->count() }})</h2>
 
                 @forelse($orders as $order)
-                    <div class="order-card" style="margin-top: 1rem;">
+                    <div class="order-card u-extracted-dab43fb936">
                         <div class="order-card-header">
                             <div>
                                 <a href="{{ route('buyer.orders.show', $order->id) }}"
@@ -62,18 +61,15 @@
                             </span>
                         </div>
 
-                        <div
-                            style="padding: 1rem 0; border-top: 1px solid var(--dash-border); border-bottom: 1px solid var(--dash-border);">
+                        <div class="u-extracted-0e37a331af">
                             @foreach ($order->items as $item)
-                                <div
-                                    style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                                <div class="u-extracted-8ad17e2bf5">
                                     <div>
                                         <strong>{{ $item->product_name }}</strong>
                                         @if ($item->variation_info)
-                                            <span
-                                                style="font-size: 0.75rem; color: var(--dash-primary); margin-left: 0.5rem;">({{ $item->variation_info }})</span>
+                                            <span class="u-extracted-36eaa30988">({{ $item->variation_info }})</span>
                                         @endif
-                                        <span style="color: var(--dash-text-muted); font-size: 0.8125rem;">&times;
+                                        <span class="u-extracted-71b8babba9">&times;
                                             {{ $item->quantity }}</span>
                                     </div>
                                     <div>₱{{ number_format($item->item_total, 2) }}</div>
@@ -88,7 +84,7 @@
                                     @endphp
 
                                     @if ($alreadyReviewed)
-                                        <div style="font-size: 0.75rem; color: #059669; margin-top: 0.25rem;">
+                                        <div class="u-extracted-930b6add1c">
                                             ★ Rated {{ $alreadyReviewed->rating }}/5:
                                             "{{ $alreadyReviewed->comment ?? 'No comment' }}"
                                         </div>
@@ -97,9 +93,9 @@
                                             <form action="{{ route('buyer.orders.review', $order->id) }}" method="POST">
                                                 @csrf
                                                 <input type="hidden" name="product_id" value="{{ $item->product_id }}">
-                                                <div style="display: flex; gap: 0.5rem; align-items: center;">
-                                                    <select name="rating" class="review-form-select"
-                                                        style="max-width: 140px;" required>
+                                                <div class="u-extracted-487b2c5804">
+                                                    <select name="rating" class="review-form-select u-extracted-6f50c17793"
+                                                        required>
                                                         <option value="5">★★★★★ (5)</option>
                                                         <option value="4">★★★★☆ (4)</option>
                                                         <option value="3">★★★☆☆ (3)</option>
@@ -108,9 +104,9 @@
                                                     </select>
                                                     <input type="text" name="comment"
                                                         placeholder="Write feedback (optional)..."
-                                                        class="review-form-select" style="margin-bottom: 0.5rem;">
-                                                    <button type="submit" class="dash-btn-sm dash-btn-primary"
-                                                        style="margin-bottom: 0.5rem;">
+                                                        class="review-form-select u-extracted-1c09f0c006">
+                                                    <button type="submit"
+                                                        class="dash-btn-sm dash-btn-primary u-extracted-1c09f0c006">
                                                         Rate
                                                     </button>
                                                 </div>
@@ -124,19 +120,18 @@
                         <div class="order-card-footer">
                             <div>
                                 Total Amount: <strong>₱{{ number_format($order->total_amount, 2) }}</strong>
-                                <span
-                                    style="font-size: 0.75rem; color: var(--dash-text-muted);">({{ $order->payment_method }})</span>
+                                <span class="u-extracted-cf0c302441">({{ $order->payment_method }})</span>
                             </div>
 
-                            <div style="display: flex; gap: 0.5rem; align-items: center;">
+                            <div class="u-extracted-487b2c5804">
                                 @if ($order->dispute)
                                     <span
                                         class="status-pill status-badge-{{ strtolower(str_replace('_', '-', $order->dispute->status)) }}">
                                         Dispute: {{ str_replace('_', ' ', $order->dispute->status) }}
                                     </span>
                                 @elseif(in_array($order->status, ['DELIVERED', 'COMPLETED']))
-                                    <a href="{{ route('buyer.orders.dispute.create', $order->id) }}" class="dash-btn-sm"
-                                        style="border: 1px solid var(--dash-danger); color: var(--dash-danger); text-decoration: none;">
+                                    <a href="{{ route('buyer.orders.dispute.create', $order->id) }}"
+                                        class="dash-btn-sm u-extracted-8dddb4a915">
                                         ⚠️ File Dispute
                                     </a>
                                 @endif
@@ -154,7 +149,8 @@
                                     <form action="{{ route('buyer.orders.cancel', $order) }}" method="POST">
                                         @csrf
                                         <button type="submit" class="dash-btn-sm"
-                                            onclick="return confirm('Cancel this order and restore its reserved stock?')">Cancel order</button>
+                                            onclick="return confirm('Cancel this order and restore its reserved stock?')">Cancel
+                                            order</button>
                                     </form>
                                 @endif
                             </div>

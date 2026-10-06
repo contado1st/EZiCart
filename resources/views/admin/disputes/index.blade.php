@@ -51,7 +51,7 @@
             <div class="dash-panel">
                 <h2 class="courier-section-title">Open Claims ({{ $disputes->total() }})</h2>
 
-                <div class="dash-table-wrapper" style="margin-top: 1rem;">
+                <div class="dash-table-wrapper u-extracted-dab43fb936">
                     <table class="dash-table">
                         <thead>
                             <tr>
@@ -94,7 +94,7 @@
                     </table>
                 </div>
 
-                <div style="margin-top: 1rem;">
+                <div class="u-extracted-dab43fb936">
                     {{ $disputes->links() }}
                 </div>
             </div>

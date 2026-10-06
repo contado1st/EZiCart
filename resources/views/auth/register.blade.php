@@ -2,7 +2,7 @@
 
 @section('content')
     <div class="auth-wrapper">
-        <div class="auth-card" style="max-width: 1050px;">
+        <div class="auth-card u-extracted-47f12e1e72">
 
             <!-- Branding Hero Panel -->
             <div class="auth-branding">
@@ -140,7 +140,7 @@
                         </div>
                     </div>
 
-                    <button type="submit" class="btn-submit" style="margin-top: 1rem;">Submit Registration</button>
+                    <button type="submit" class="btn-submit u-extracted-dab43fb936">Submit Registration</button>
                 </form>
 
                 <p class="auth-footer-text">

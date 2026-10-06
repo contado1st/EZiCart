@@ -85,8 +85,7 @@
                             <input type="date" name="expires_at" class="controls-input">
                         </div>
 
-                        <button type="submit" class="dash-btn-primary"
-                            style="width: 100%; justify-content: center; margin-top: 0.5rem;">
+                        <button type="submit" class="dash-btn-primary u-extracted-ec7de1f956">
                             Publish Announcement
                         </button>
                     </form>
@@ -96,7 +95,7 @@
                 <div class="dash-panel">
                     <h2 class="courier-section-title">Published Notices ({{ $announcements->total() }})</h2>
 
-                    <div class="dash-table-wrapper" style="margin-top: 1rem;">
+                    <div class="dash-table-wrapper u-extracted-dab43fb936">
                         <table class="dash-table">
                             <thead>
                                 <tr>
@@ -113,7 +112,7 @@
                                     <tr>
                                         <td>
                                             <strong>{{ $item->title }}</strong>
-                                            <div style="font-size: 0.75rem; color: var(--dash-text-muted);">
+                                            <div class="u-extracted-cf0c302441">
                                                 {{ \Illuminate\Support\Str::limit($item->content, 60) }}</div>
                                         </td>
                                         <td><span
@@ -132,13 +131,12 @@
                                         </td>
                                         <td>{{ $item->created_at->format('M d, Y') }}</td>
                                         <td>
-                                            <div style="display: flex; gap: 0.35rem;">
+                                            <div class="u-extracted-6d9d6fda77">
                                                 <form action="{{ route('admin.announcements.toggle', $item->id) }}"
                                                     method="POST">
                                                     @csrf
                                                     @method('PATCH')
-                                                    <button type="submit" class="dash-btn-sm"
-                                                        style="border: 1px solid var(--dash-border); background: #fff;">
+                                                    <button type="submit" class="dash-btn-sm u-extracted-e013d740bb">
                                                         {{ $item->is_active ? 'Archive' : 'Activate' }}
                                                     </button>
                                                 </form>
@@ -162,7 +160,7 @@
                         </table>
                     </div>
 
-                    <div style="margin-top: 1rem;">
+                    <div class="u-extracted-dab43fb936">
                         {{ $announcements->links() }}
                     </div>
                 </div>

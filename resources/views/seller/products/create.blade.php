@@ -5,17 +5,16 @@
 @endpush
 
 @section('content')
-    <div class="admin-container" style="max-width: 800px;">
+    <div class="admin-container u-extracted-6c0f8d518b">
         <div class="admin-header-row">
             <div>
                 <h1 class="admin-page-title">Add New Product</h1>
                 <p class="admin-page-desc">New listings remain hidden from buyers until Product Compliance approves them.</p>
             </div>
-            <a href="{{ route('seller.products.index') }}"
-                style="color: var(--slate-500); text-decoration: none; font-weight: 600;">← Back to Inventory</a>
+            <a href="{{ route('seller.products.index') }}" class="u-extracted-4839300e95">← Back to Inventory</a>
         </div>
 
-        <div class="admin-table-wrapper" style="padding: 2rem;">
+        <div class="admin-table-wrapper u-extracted-a4812596aa">
             <form action="{{ route('seller.products.store') }}" method="POST" enctype="multipart/form-data">
                 @csrf
 
@@ -58,7 +57,7 @@
                     <textarea name="description" class="form-control" rows="4"></textarea>
                 </div>
 
-                <button type="submit" class="btn-primary" style="margin-top: 1rem; width: 100%;">Save Product</button>
+                <button type="submit" class="btn-primary u-extracted-1c5da340eb">Save Product</button>
             </form>
         </div>
     </div>

@@ -1,20 +1,20 @@
 @extends('layouts.app')
 
 @section('content')
-    <main class="container" style="max-width: 900px; padding-block: 2rem;">
+    <main class="container u-extracted-d7ea292b2e">
         <h1>Notifications</h1>
         <p>Order and account updates for your EZiCart account.</p>
 
         @forelse ($notifications as $notification)
-            <article class="dash-panel" style="margin-block: 1rem;">
-                <div style="display:flex; justify-content:space-between; gap:1rem; align-items:flex-start;">
+            <article class="dash-panel u-extracted-9655da144d">
+                <div class="u-extracted-e74ab7275b">
                     <div>
-                        <strong>{{ $notification->data['order_number'] ?? $notification->data['product_name'] ?? 'EZiCart update' }}</strong>
+                        <strong>{{ $notification->data['order_number'] ?? ($notification->data['product_name'] ?? 'EZiCart update') }}</strong>
                         <p>{{ $notification->data['message'] ?? 'You have a new update.' }}</p>
                         <small>{{ $notification->created_at->format('M d, Y h:i A') }}</small>
                     </div>
-                    <div style="display:flex; gap:.5rem; align-items:center;">
-                        @if (! empty($notification->data['url']))
+                    <div class="u-extracted-f228196b24">
+                        @if (!empty($notification->data['url']))
                             <a class="dash-btn-sm dash-btn-outline" href="{{ $notification->data['url'] }}">View update</a>
                         @endif
                         @if ($notification->read_at === null)

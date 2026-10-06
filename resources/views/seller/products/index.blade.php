@@ -52,36 +52,34 @@
                             <th>Price</th>
                             <th>Stock</th>
                             <th>Status</th>
-                            <th style="text-align: right;">Actions</th>
+                            <th class="u-extracted-13cbe03b9a">Actions</th>
                         </tr>
                     </thead>
                     <tbody>
                         @forelse($products as $product)
                             <tr>
                                 <td>
-                                    <div style="display: flex; align-items: center; gap: 1rem;">
+                                    <div class="u-extracted-2f29807bdf">
                                         @if ($product->image_path)
                                             <img src="{{ asset('storage/' . $product->image_path) }}"
-                                                alt="{{ $product->name }}"
-                                                style="width: 44px; height: 44px; object-fit: cover; border-radius: 0.375rem;">
+                                                alt="{{ $product->name }}" class="u-extracted-aac99b4b41">
                                         @else
-                                            <div
-                                                style="width: 44px; height: 44px; background-color: var(--dash-bg); border-radius: 0.375rem; display: flex; align-items: center; justify-content: center; font-size: 1.25rem;">
+                                            <div class="u-extracted-c70ac6556c">
                                                 📦</div>
                                         @endif
                                         <div>
-                                            <div style="font-weight: 700; color: var(--dash-text-main);">
+                                            <div class="u-extracted-8fa6b099d3">
                                                 {{ $product->name }}</div>
-                                            <div style="font-size: 0.75rem; color: var(--dash-text-muted);">
+                                            <div class="u-extracted-cf0c302441">
                                                 SKU-{{ str_pad($product->id, 5, '0', STR_PAD_LEFT) }}</div>
                                         </div>
                                     </div>
                                 </td>
                                 <td><span class="dash-badge dash-badge-category">{{ $product->category }}</span></td>
-                                <td style="font-weight: 800;">₱{{ number_format($product->price, 2) }}</td>
+                                <td class="u-extracted-6b1af052d3">₱{{ number_format($product->price, 2) }}</td>
                                 <td>
                                     <span
-                                        style="font-weight: 700; color: {{ $product->stock < 10 ? 'var(--dash-danger)' : 'var(--dash-success)' }};">
+                                        class="seller-stock {{ $product->stock < 10 ? 'seller-stock--low' : 'seller-stock--ok' }}">
                                         {{ $product->stock }} units
                                     </span>
                                 </td>
@@ -89,14 +87,17 @@
                                     @if ($product->is_archived)
                                         <span class="dash-badge dash-badge-archived">Archived</span>
                                     @elseif($product->compliance_status !== 'approved')
-                                        <span class="dash-badge dash-badge-archived">{{ str_replace('_', ' ', ucfirst($product->compliance_status)) }}</span>
-                                        @if ($product->compliance_note)<div class="text-muted-small">{{ $product->compliance_note }}</div>@endif
+                                        <span
+                                            class="dash-badge dash-badge-archived">{{ str_replace('_', ' ', ucfirst($product->compliance_status)) }}</span>
+                                        @if ($product->compliance_note)
+                                            <div class="text-muted-small">{{ $product->compliance_note }}</div>
+                                        @endif
                                     @else
                                         <span class="dash-badge dash-badge-active">Active</span>
                                     @endif
                                 </td>
-                                <td style="text-align: right;">
-                                    <div style="display: flex; justify-content: flex-end; gap: 0.5rem;">
+                                <td class="u-extracted-13cbe03b9a">
+                                    <div class="u-extracted-af0aae5706">
                                         <a href="{{ route('seller.products.edit', $product->id) }}"
                                             class="dash-btn-sm dash-btn-outline">Edit</a>
                                         <form action="{{ route('seller.products.destroy', $product->id) }}" method="POST"
@@ -110,8 +111,7 @@
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="6"
-                                    style="padding: 3rem; text-align: center; color: var(--dash-text-muted);">
+                                <td colspan="6" class="u-extracted-a3521f1d48">
                                     No products found. Start adding inventory to your store!
                                 </td>
                             </tr>

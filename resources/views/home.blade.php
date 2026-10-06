@@ -15,7 +15,7 @@
 
     <!-- Hero Section -->
     <section class="hero-section">
-        <div class="landing-container hero-grid" style="position: relative;">
+        <div class="landing-container hero-grid u-extracted-50666a574d">
 
             <!-- Left: Copy & CTAs -->
             <div class="hero-content animate-fade-in-up">
@@ -33,13 +33,13 @@
                 <!-- Trust Badges -->
                 <div class="trust-badges">
                     <div class="trust-badge-item">
-                        <span style="color: var(--brand-primary); font-size: 1.25rem;">✓</span> Verified Permits
+                        <span class="u-extracted-da92d5303b">✓</span> Verified Permits
                     </div>
                     <div class="trust-badge-item">
-                        <span style="color: var(--brand-primary); font-size: 1.25rem;">✓</span> Secure Logistics
+                        <span class="u-extracted-da92d5303b">✓</span> Secure Logistics
                     </div>
                     <div class="trust-badge-item">
-                        <span style="color: var(--brand-primary); font-size: 1.25rem;">✓</span> Buyer Protection
+                        <span class="u-extracted-da92d5303b">✓</span> Buyer Protection
                     </div>
                 </div>
             </div>
@@ -113,8 +113,8 @@
                     </p>
                 </div>
                 @if (request('category') || request('search'))
-                    <a href="{{ route('home') }}#browse-products" class="btn-hero-secondary"
-                        style="font-size: 0.875rem; padding: 0.5rem 1rem;">✕ Clear Filters</a>
+                    <a href="{{ route('home') }}#browse-products" class="btn-hero-secondary u-extracted-cd46c199af">✕ Clear
+                        Filters</a>
                 @endif
             </div>
 
@@ -132,12 +132,12 @@
 
             <!-- Products Logic -->
             @if ($products->isEmpty())
-                <div class="empty-state timeline-view animate-blurred-fade-in [class~='animate-range-[entry_10%_contain_30%]']"
-                    style="background: rgba(255,255,255,0.7); backdrop-filter: blur(12px); border-radius: 1rem; padding: 4rem; text-align: center; border: 1px solid rgba(255,255,255,0.9);">
-                    <div style="font-size: 3rem; margin-bottom: 1rem;">🔍</div>
-                    <h3 style="font-size: 1.5rem; font-weight: 800; color: var(--text-dark); margin-bottom: 0.5rem;">No
+                <div
+                    class="empty-state timeline-view animate-blurred-fade-in [class~='animate-range-[entry_10%_contain_30%]'] u-extracted-6e3380726a">
+                    <div class="u-extracted-779aaf5ac2">🔍</div>
+                    <h3 class="u-extracted-77c628239d">No
                         products found</h3>
-                    <p style="color: var(--text-body); margin-bottom: 1.5rem;">Try searching with another keyword or explore
+                    <p class="u-extracted-80b3f7fa91">Try searching with another keyword or explore
                         a different category.</p>
                     <a href="{{ route('home') }}#browse-products" class="btn-hero-primary">View All Products</a>
                 </div>
@@ -151,7 +151,7 @@
                                     <img src="{{ asset('storage/' . $product->image_path) }}" alt="{{ $product->name }}"
                                         class="product-image">
                                 @else
-                                    <span style="font-size: 3rem; opacity: 0.5;">📦</span>
+                                    <span class="u-extracted-17d832c8fd">📦</span>
                                 @endif
                                 <span class="product-badge-overlay">{{ $product->category }}</span>
                             </div>
@@ -173,7 +173,7 @@
                     @endforeach
                 </div>
 
-                <div style="margin-top: 3rem;">
+                <div class="u-extracted-7d64d4e6a9">
                     {{ $products->appends(request()->query())->fragment('browse-products')->links() }}
                 </div>
             @endif
@@ -183,16 +183,14 @@
 
     <!-- Join CTA -->
     <section class="cta-section timeline-view animate-blurred-fade-in [class~='animate-range-[entry_10%_contain_30%]']">
-        <div class="bg-grid-pattern"
-            style="mask-image: linear-gradient(to bottom, transparent 0%, black 50%, transparent 100%); -webkit-mask-image: linear-gradient(to bottom, transparent 0%, black 50%, transparent 100%);">
+        <div class="bg-grid-pattern u-extracted-01e802c113">
         </div>
-        <div class="landing-container" style="max-width: 600px; padding: 2rem 0;">
-            <h2 style="font-size: 2.5rem; font-weight: 800; margin-bottom: 1rem; letter-spacing: -0.02em;">Ready to scale
+        <div class="landing-container u-extracted-8e911b8c59">
+            <h2 class="u-extracted-9d0e418a72">Ready to scale
                 your local business?</h2>
-            <p style="font-size: 1.125rem; margin-bottom: 2.5rem; opacity: 0.95;">Join our verified merchant network and
+            <p class="u-extracted-835d8ed888">Join our verified merchant network and
                 gain access to thousands of local buyers and a dedicated fulfillment fleet.</p>
-            <a href="{{ route('register.seller') }}" class="btn-hero-secondary"
-                style="border: none; color: var(--brand-primary); font-weight: 800;">
+            <a href="{{ route('register.seller') }}" class="btn-hero-secondary u-extracted-a3b3c46d68">
                 Apply as a Merchant
             </a>
         </div>

@@ -29,16 +29,16 @@
                     <h1 class="product-detail-title">{{ $product->name }}</h1>
 
                     <!-- Rating Quick Peek -->
-                    <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 1rem;">
+                    <div class="u-extracted-a6cebd5458">
                         <span class="star-rating-stars">
                             @for ($i = 1; $i <= 5; $i++)
                                 {{ $i <= round($product->average_rating) ? '★' : '☆' }}
                             @endfor
                         </span>
-                        <span style="font-size: 0.875rem; font-weight: 700; color: var(--slate-700);">
+                        <span class="u-extracted-06e25e83fe">
                             {{ $product->average_rating > 0 ? $product->average_rating : 'New' }}
                         </span>
-                        <span style="font-size: 0.8125rem; color: var(--slate-400);">
+                        <span class="u-extracted-91a8a8ba10">
                             ({{ $product->review_count }} reviews)
                         </span>
                     </div>
@@ -72,13 +72,12 @@
                             @csrf
 
                             @if ($product->variations->count() > 0)
-                                <div style="margin-bottom: 1.25rem;">
-                                    <label
-                                        style="display: block; font-size: 0.75rem; font-weight: 800; text-transform: uppercase; margin-bottom: 0.5rem; color: var(--slate-700);">
+                                <div class="u-extracted-1bd4b9f576">
+                                    <label class="u-extracted-8ae6619ca2">
                                         Select Variation (Color / Size / Option)
                                     </label>
-                                    <select name="variation_id" id="variationSelect" class="search-input"
-                                        style="width: 100%; border: 1px solid var(--slate-300);" required>
+                                    <select name="variation_id" id="variationSelect" class="search-input u-extracted-76a6870449"
+                                        required>
                                         <option value="">-- Choose an option --</option>
                                         @foreach ($product->variations as $variation)
                                             <option value="{{ $variation->id }}"
@@ -128,9 +127,8 @@
                         <div>
                             <div class="role-restriction-title">Buyer Sign-in Required</div>
                             <div class="role-restriction-text">
-                                Please <a href="{{ route('login') }}"
-                                    style="color: var(--ezipink-500); font-weight: 700;">login</a> or <a
-                                    href="{{ route('register') }}" style="color: var(--ezipink-500); font-weight: 700;">create
+                                Please <a href="{{ route('login') }}" class="u-extracted-b40098ff4c">login</a> or <a
+                                    href="{{ route('register') }}" class="u-extracted-b40098ff4c">create
                                     a buyer account</a> to purchase this item.
                             </div>
                         </div>
@@ -156,9 +154,9 @@
                     </div>
                 </div>
                 <div>
-                    <strong style="font-size: 0.9375rem; color: var(--slate-800);">Based on {{ $product->review_count }}
+                    <strong class="u-extracted-0857a1d44e">Based on {{ $product->review_count }}
                         verified reviews</strong>
-                    <p style="margin: 0; font-size: 0.8125rem; color: var(--slate-500);">Ratings submitted by verified
+                    <p class="u-extracted-81b36598ce">Ratings submitted by verified
                         buyers upon completed delivery.</p>
                 </div>
             </div>
@@ -169,7 +167,7 @@
                         <div>
                             <span class="reviewer-name">{{ $review->buyer->first_name }}
                                 {{ substr($review->buyer->last_name, 0, 1) }}.</span>
-                            <span class="star-rating-stars" style="margin-left: 0.5rem;">
+                            <span class="star-rating-stars u-extracted-ec61366f4a">
                                 @for ($i = 1; $i <= 5; $i++)
                                     {{ $i <= $review->rating ? '★' : '☆' }}
                                 @endfor
@@ -182,7 +180,7 @@
                     </div>
                 </div>
             @empty
-                <div style="text-align: center; padding: 2rem; color: var(--slate-400); font-size: 0.875rem;">
+                <div class="u-extracted-3a61d5cdbb">
                     No reviews yet for this product. Be the first to purchase and review!
                 </div>
             @endforelse

@@ -46,7 +46,8 @@
                     <a href="{{ route('admin.registrations.index') }}" class="dash-btn-primary">
                         Verify Users ({{ $stats['pending_users'] }})
                     </a>
-                    <a href="{{ route('admin.compliance.products.index') }}" class="dash-btn-primary" style="margin-left:.5rem;">
+                    <a href="{{ route('admin.compliance.products.index') }}"
+                        class="dash-btn-primary u-extracted-71c7258ecd">
                         Review Products ({{ $stats['pending_product_reviews'] }})
                     </a>
                 </div>
@@ -111,7 +112,10 @@
                             <tbody>
                                 @forelse($recentOrders as $order)
                                     <tr>
-                                        <td class="dash-text-bold">{{ $order->order_number }}<div><a href="{{ route('admin.orders.messages.show', $order) }}">Open order conversation</a></div></td>
+                                        <td class="dash-text-bold">{{ $order->order_number }}<div><a
+                                                    href="{{ route('admin.orders.messages.show', $order) }}">Open order
+                                                    conversation</a></div>
+                                        </td>
                                         <td>{{ $order->seller->business_name ?? 'Store' }}</td>
                                         <td>{{ $order->recipient_name }}</td>
                                         <td class="dash-text-bold">₱{{ number_format($order->total_amount, 2) }}</td>
@@ -124,12 +128,18 @@
                                             </span>
                                         </td>
                                         <td>
-                                            @if (in_array($order->status, ['PLACED', 'CONFIRMED', 'PREPARING', 'READY_FOR_PICKUP'], true) && $order->picked_up_at === null && $order->seller_handover_at === null)
+                                            @if (in_array($order->status, ['PLACED', 'CONFIRMED', 'PREPARING', 'READY_FOR_PICKUP'], true) &&
+                                                    $order->picked_up_at === null &&
+                                                    $order->seller_handover_at === null)
                                                 <form action="{{ route('admin.orders.cancel', $order) }}" method="POST">
                                                     @csrf
-                                                    <label class="sr-only" for="admin-cancel-reason-{{ $order->id }}">Cancellation reason for {{ $order->order_number }}</label>
-                                                    <input id="admin-cancel-reason-{{ $order->id }}" name="reason" maxlength="500" required placeholder="Reason for cancellation">
-                                                    <button type="submit" class="dash-btn-sm dash-btn-outline">Cancel</button>
+                                                    <label class="sr-only"
+                                                        for="admin-cancel-reason-{{ $order->id }}">Cancellation reason
+                                                        for {{ $order->order_number }}</label>
+                                                    <input id="admin-cancel-reason-{{ $order->id }}" name="reason"
+                                                        maxlength="500" required placeholder="Reason for cancellation">
+                                                    <button type="submit"
+                                                        class="dash-btn-sm dash-btn-outline">Cancel</button>
                                                 </form>
                                             @else
                                                 <span>—</span>
