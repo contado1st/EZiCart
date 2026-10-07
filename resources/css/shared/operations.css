@@ -1,19 +1,20 @@
 :root {
-    --ops-ink: #24212b;
-    --ops-muted: #625d6b;
-    --ops-line: #e2dfe7;
-    --ops-canvas: #f5f4f7;
+    --ops-ink: #19182f;
+    --ops-muted: #6d7288;
+    --ops-line: #e8e4ea;
+    --ops-canvas: #f3e8ed;
     --ops-surface: #ffffff;
-    --ops-accent: #75416f;
-    --ops-accent-strong: #60325b;
-    --ops-accent-soft: #f5edf5;
+    --ops-accent: #ed2c65;
+    --ops-accent-strong: #d91e56;
+    --ops-accent-soft: #fff0f4;
     --ops-success: #236343;
     --ops-success-soft: #edf6f0;
     --ops-warning: #79540d;
     --ops-warning-soft: #fbf4e5;
     --ops-danger: #9b3541;
     --ops-danger-soft: #fbf0f1;
-    --ops-radius: 8px;
+    --ops-radius: 12px;
+    --ops-shadow: 0 8px 24px rgb(65 35 49 / 6%);
 }
 
 .main-content:has(.ops-shell) {
@@ -23,19 +24,25 @@
     padding: 0;
 }
 
-body:has(.ops-shell) .navbar .search-wrapper,
-body:has(.ops-shell) .navbar .cart-link {
+body.role-workspace {
+    background: var(--ops-canvas);
+    color: var(--ops-ink);
+}
+
+body.role-workspace > .footer {
     display: none;
 }
 
-body:has(.ops-shell) .navbar-container {
-    height: 4.25rem;
+.ops-announcements {
+    width: 100%;
+    padding: 12px clamp(16px, 3vw, 44px) 0;
+    background: var(--ops-canvas);
 }
 
 .ops-shell {
     display: grid;
-    grid-template-columns: 248px minmax(0, 1fr);
-    min-height: calc(100vh - 4.25rem);
+    grid-template-columns: clamp(240px, 17vw, 320px) minmax(0, 1fr);
+    min-height: 100vh;
     background: var(--ops-canvas);
     color: var(--ops-ink);
     font-family: "Instrument Sans", ui-sans-serif, system-ui, sans-serif;
@@ -45,30 +52,30 @@ body:has(.ops-shell) .navbar-container {
 
 .ops-sidebar {
     position: sticky;
-    top: 4.25rem;
+    top: 0;
     display: flex;
     flex-direction: column;
     justify-content: space-between;
     gap: 24px;
-    height: calc(100vh - 4.25rem);
-    min-height: 520px;
+    height: 100vh;
+    min-height: 480px;
     overflow-y: auto;
-    padding: 22px 14px 16px;
+    padding: 24px clamp(16px, 2vw, 30px) 18px;
     border-right: 1px solid var(--ops-line);
     background: var(--ops-surface);
 }
 
 .ops-brand {
     display: grid;
-    gap: 3px;
-    margin: 0 4px 18px;
-    padding: 0 10px 17px;
+    gap: 14px;
+    margin: 0 4px 22px;
+    padding: 0 6px 18px;
     border-bottom: 1px solid var(--ops-line);
 }
 
 .ops-brand strong {
     color: var(--ops-ink);
-    font-size: 15px;
+    font-size: 23px;
     font-weight: 700;
     letter-spacing: -0.02em;
 }
@@ -78,9 +85,51 @@ body:has(.ops-shell) .navbar-container {
     font-size: 12px;
 }
 
+.ops-profile-card {
+    display: grid;
+    gap: 3px;
+    padding: 14px;
+    border: 1px solid #f0dfe5;
+    border-radius: 10px;
+    background: #fffafb;
+}
+
+.ops-profile-card .ops-role-tag {
+    width: fit-content;
+    margin-bottom: 3px;
+    padding: 3px 7px;
+    border-radius: 4px;
+    background: #e9fbf5;
+    color: #13846a;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.07em;
+}
+
+.ops-profile-card .ops-profile-name {
+    overflow-wrap: anywhere;
+    color: var(--ops-ink);
+    font-size: 14px;
+    font-weight: 700;
+}
+
+.ops-profile-card .ops-profile-detail {
+    color: var(--ops-muted);
+    font-size: 12px;
+}
+
 .ops-nav {
     display: grid;
     gap: 3px;
+}
+
+.ops-nav-section {
+    margin: 14px 10px 4px;
+    color: #858ca2;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
 }
 
 .ops-nav a,
@@ -88,9 +137,9 @@ body:has(.ops-shell) .navbar-container {
     display: flex;
     align-items: center;
     min-height: 44px;
-    padding: 9px 11px;
+    padding: 9px 12px;
     border: 1px solid transparent;
-    border-radius: 6px;
+    border-radius: 8px;
     color: var(--ops-muted);
     font: inherit;
     font-size: 13px;
@@ -105,21 +154,42 @@ body:has(.ops-shell) .navbar-container {
 
 .ops-nav a:hover,
 .ops-logout:hover {
-    background: #f7f6f8;
+    background: #fff5f7;
     color: var(--ops-ink);
 }
 
 .ops-nav a.active,
 .ops-nav a[aria-current="page"] {
-    border-color: #eadfea;
-    background: var(--ops-accent-soft);
+    border-color: var(--ops-accent);
+    background: var(--ops-accent);
+    color: #fff;
+}
+
+.ops-nav a.active:hover,
+.ops-nav a[aria-current="page"]:hover {
+    background: var(--ops-accent-strong);
+    color: #fff;
+}
+
+.ops-nav-count {
+    display: inline-grid;
+    min-width: 21px;
+    height: 21px;
+    margin-left: auto;
+    padding-inline: 5px;
+    place-items: center;
+    border-radius: 999px;
+    background: #fff;
     color: var(--ops-accent-strong);
+    font-size: 11px;
+    font-weight: 700;
 }
 
 .ops-logout {
     width: 100%;
-    border-color: var(--ops-line);
-    background: var(--ops-surface);
+    border-color: #ffcbd7;
+    background: #fff4f6;
+    color: var(--ops-danger);
     cursor: pointer;
 }
 
@@ -128,7 +198,7 @@ body:has(.ops-shell) .navbar-container {
     max-width: 1600px;
     min-width: 0;
     margin: 0 auto;
-    padding: 28px clamp(18px, 3vw, 44px) 40px;
+    padding: 36px clamp(22px, 3vw, 54px) 48px;
 }
 
 .ops-heading {
@@ -142,7 +212,7 @@ body:has(.ops-shell) .navbar-container {
 .ops-heading h1 {
     margin: 0;
     color: var(--ops-ink);
-    font-size: 26px;
+    font-size: 30px;
     font-weight: 700;
     letter-spacing: -0.025em;
     line-height: 1.2;
@@ -176,6 +246,7 @@ body:has(.ops-shell) .navbar-container {
     border: 1px solid var(--ops-line);
     border-radius: var(--ops-radius);
     background: var(--ops-surface);
+    box-shadow: var(--ops-shadow);
 }
 
 .ops-panel--urgent {
@@ -372,7 +443,7 @@ body:has(.ops-shell) .navbar-container {
     min-height: 44px;
     padding: 9px 13px;
     border: 1px solid #d8d4de;
-    border-radius: 6px;
+    border-radius: 999px;
     background: #fff;
     color: #403a47;
     font:
@@ -390,8 +461,8 @@ body:has(.ops-shell) .navbar-container {
 }
 
 .ops-btn:hover {
-    border-color: #bdb5c5;
-    background: #f8f6f9;
+    border-color: #eaa0b4;
+    background: #fff5f7;
     color: var(--ops-ink);
 }
 
@@ -443,8 +514,8 @@ body:has(.ops-shell) .navbar-container {
 }
 
 .ops-shell button:not(.ops-btn):hover {
-    border-color: #bdb5c5;
-    background: #f8f6f9;
+    border-color: #eaa0b4;
+    background: #fff5f7;
 }
 
 .ops-shell button:not(.ops-btn):disabled {
@@ -511,7 +582,7 @@ body:has(.ops-shell) .navbar-container {
 .ops-shell summary:focus-visible,
 .ops-sidebar a:focus-visible,
 .ops-logout:focus-visible {
-    outline: 3px solid #aa79a3;
+    outline: 3px solid #ec6f91;
     outline-offset: 2px;
 }
 
@@ -529,8 +600,8 @@ body:has(.ops-shell) .navbar-container {
 
 .ops-empty {
     padding: 20px 14px;
-    border: 1px dashed #cfcad5;
-    border-radius: 6px;
+    border: 1px dashed #e7bcc9;
+    border-radius: 10px;
     color: var(--ops-muted);
     text-align: center;
 }
@@ -560,8 +631,8 @@ body:has(.ops-shell) .navbar-container {
     min-width: 0;
     padding: 11px 10px;
     border: 1px solid var(--ops-line);
-    border-radius: 6px;
-    background: #faf9fb;
+    border-radius: 9px;
+    background: #fffafb;
 }
 
 .ops-flow-step strong {
@@ -660,7 +731,7 @@ body:has(.ops-shell) .navbar-container {
 }
 
 .ops-intake-scan {
-    border-color: #d8c6d7;
+    border-color: #f0b9c9;
 }
 
 .ops-intake-scan > p {
@@ -715,7 +786,7 @@ body:has(.ops-shell) .navbar-container {
     align-items: center;
     justify-content: space-between;
     gap: 18px;
-    border-color: #d9cbd9;
+    border-color: #f1c7d2;
 }
 
 .ops-next-action p {
@@ -819,7 +890,7 @@ body:has(.ops-shell) .navbar-container {
     border-color: var(--ops-accent);
     background: var(--ops-accent-soft);
     color: var(--ops-accent-strong);
-    box-shadow: 0 0 0 3px rgba(117, 65, 111, 0.2);
+    box-shadow: 0 0 0 3px rgb(237 44 101 / 20%);
 }
 
 .ops-step.is-failed .ops-step__indicator {
@@ -953,7 +1024,7 @@ body:has(.ops-shell) .navbar-container {
 }
 
 .ops-scanner__feedback--ready {
-    border-color: #d8c6d7;
+    border-color: #f0b9c9;
     background: var(--ops-accent-soft);
     color: var(--ops-accent-strong);
 }
@@ -1083,18 +1154,18 @@ body:has(.ops-shell) .navbar-container {
 }
 
 .ops-btn--secondary:hover {
-    border-color: #bdb5c5;
-    background: #eae8ed;
+    border-color: #eaa0b4;
+    background: #fff5f7;
 }
 
 .courier-pickup,
 .courier-delivery {
-    border-top: 3px solid #c4a6c2;
+    border-top: 3px solid #f2a5b9;
     padding-top: 14px;
 }
 
 .courier-delivery {
-    border-top-color: #9a7aaf;
+    border-top-color: var(--ops-accent);
 }
 
 .courier-actions {
@@ -1106,7 +1177,7 @@ body:has(.ops-shell) .navbar-container {
 
 @media (max-width: 1100px) {
     .ops-shell {
-        grid-template-columns: 220px minmax(0, 1fr);
+        grid-template-columns: 240px minmax(0, 1fr);
     }
 
     .ops-flow {
@@ -1137,6 +1208,10 @@ body:has(.ops-shell) .navbar-container {
     .ops-nav {
         grid-template-columns: repeat(3, minmax(0, 1fr));
         gap: 4px;
+    }
+
+    .ops-nav-section {
+        grid-column: 1 / -1;
     }
 
     .ops-nav a {
@@ -1320,27 +1395,12 @@ body:has(.ops-shell) .navbar-container {
 }
 
 @media (max-width: 430px) {
-    body:has(.ops-shell) .navbar-container {
-        height: auto;
-        min-height: 3.75rem;
-        padding-block: 8px;
-        flex-wrap: wrap;
-    }
-
-    body:has(.ops-shell) .navbar .auth-nav {
-        flex: 1 1 100%;
-        justify-content: space-between;
-        flex-wrap: wrap;
-        gap: 8px;
-        font-size: 12px;
-    }
-
-    body:has(.ops-shell) .navbar .nav-btn-compact {
-        padding: 8px 10px;
-    }
-
     .ops-nav {
         grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .ops-nav-section {
+        grid-column: 1 / -1;
     }
 
     .ops-main {

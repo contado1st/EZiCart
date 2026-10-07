@@ -1,11 +1,11 @@
 @import "../shared/operations.css";
 
 .courier-pickup {
-    border-top-color: #c4a6c2;
+    border-top-color: #f2a5b9;
 }
 
 .courier-delivery {
-    border-top-color: #9a7aaf;
+    border-top-color: var(--ops-accent);
 }
 
 .courier-failed {
@@ -33,7 +33,7 @@
 }
 
 .courier-next-action {
-    border-color: #d8c6d7;
+    border-color: #f0b9c9;
 }
 
 .courier-next-action .ops-btn--primary {
@@ -46,7 +46,7 @@
 
 /* Mobile-First Courier Hero Next Action */
 .courier-hero-card {
-    border: 2px solid var(--ops-accent);
+    border: 1px solid #f0d8e0;
     border-radius: var(--ops-radius);
     background: #fff;
     padding: 20px;
@@ -56,7 +56,7 @@
     justify-content: space-between;
     gap: 18px;
     flex-wrap: wrap;
-    box-shadow: 0 2px 8px rgba(96, 50, 91, 0.06);
+    box-shadow: var(--ops-shadow);
 }
 
 .courier-hero-card__badge {

@@ -9,8 +9,12 @@
         <aside class="ops-sidebar" aria-label="Logistics workspace">
             <div>
                 <div class="ops-brand">
-                    <strong>EZiCart operations</strong>
-                    <span>{{ auth()->user()->business_name ?? 'Sorting center' }}</span>
+                    <strong>EZiCart</strong>
+                    <div class="ops-profile-card">
+                        <span class="ops-role-tag">LOGISTICS</span>
+                        <span class="ops-profile-name">{{ auth()->user()->business_name ?? 'Sorting center' }}</span>
+                        <span class="ops-profile-detail">Operations workspace</span>
+                    </div>
                 </div>
                 <nav class="ops-nav" aria-label="Logistics navigation">
                     <a class="{{ request()->routeIs('logistics.dashboard') ? 'active' : '' }}"
@@ -46,6 +50,18 @@
                     <a class="{{ request()->routeIs('logistics.reports') ? 'active' : '' }}"
                         aria-current="{{ request()->routeIs('logistics.reports') ? 'page' : 'false' }}"
                         href="{{ route('logistics.reports') }}">Reports</a>
+                    <span class="ops-nav-section">Account settings</span>
+                    <a class="{{ request()->routeIs('notifications.*') ? 'active' : '' }}"
+                        aria-current="{{ request()->routeIs('notifications.*') ? 'page' : 'false' }}"
+                        href="{{ route('notifications.index') }}">
+                        Notifications
+                        @if (auth()->user()->unreadNotifications()->exists())
+                            <span class="ops-nav-count">{{ auth()->user()->unreadNotifications()->count() }}</span>
+                        @endif
+                    </a>
+                    <a class="{{ request()->routeIs('account.profile.*') ? 'active' : '' }}"
+                        aria-current="{{ request()->routeIs('account.profile.*') ? 'page' : 'false' }}"
+                        href="{{ route('account.profile.edit') }}">Account &amp; profile</a>
                 </nav>
             </div>
             <form action="{{ route('logout') }}" method="POST">
