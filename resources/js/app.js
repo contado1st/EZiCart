@@ -229,7 +229,7 @@ if (editorialLanding) {
 
                 wordRun.className = "word-run";
                 wordRun.setAttribute("aria-hidden", "true");
-                accessibleCopy.className = "visually-hidden";
+                accessibleCopy.className = "sr-only";
                 accessibleCopy.textContent = copy;
 
                 copy.split(" ").forEach((word, index) => {

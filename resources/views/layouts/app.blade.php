@@ -1,3 +1,12 @@
+@php
+    $roleDashboardRoute = match (auth()->user()?->role) {
+        'admin' => 'admin.dashboard',
+        'courier' => 'courier.dashboard',
+        'sorting_center' => 'logistics.dashboard',
+        default => null,
+    };
+@endphp
+
 <!DOCTYPE html>
 <html lang="en">
 
@@ -22,20 +31,22 @@
         <div class="container navbar-container">
 
             <!-- Brand Logo -->
-            <a href="{{ route('home') }}" class="brand-logo">
+            <a href="{{ $roleDashboardRoute ? route($roleDashboardRoute) : route('home') }}" class="brand-logo">
                 <img src="{{ asset('images/ezicart-logo.png') }}" alt="EZiCart Logo" class="brand-logo-img">
             </a>
 
             <!-- Search Bar -->
-            <div class="search-wrapper">
-                <form action="{{ route('home') }}" method="GET" class="search-form">
-                    <input type="text" name="search" value="{{ request('search') }}"
-                        placeholder="Search for products, shops and more" class="search-input">
-                    <button type="submit" class="search-button">
-                        Search
-                    </button>
-                </form>
-            </div>
+            @unless ($roleDashboardRoute)
+                <div class="search-wrapper">
+                    <form action="{{ route('home') }}" method="GET" class="search-form">
+                        <input type="text" name="search" value="{{ request('search') }}"
+                            placeholder="Search for products, shops and more" class="search-input">
+                        <button type="submit" class="search-button">
+                            Search
+                        </button>
+                    </form>
+                </div>
+            @endunless
 
             <!-- Cart & Auth Navigation -->
             <div class="auth-nav">
