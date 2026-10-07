@@ -41,9 +41,9 @@ class CourierController extends Controller
 
         $stats = [
             'available_pickups' => $availablePickups->count(),
-            'in_transit_hub'    => $myActivePickups->count(),
+            'in_transit_hub' => $myActivePickups->count(),
             'assigned_delivery' => $myDeliveryAssignments->count(),
-            'completed'         => $completedDeliveries->whereIn('status', ['DELIVERED', 'COMPLETED'])->count(),
+            'completed' => $completedDeliveries->whereIn('status', ['DELIVERED', 'COMPLETED'])->count(),
         ];
 
         return view('courier.dashboard', compact(
@@ -63,7 +63,7 @@ class CourierController extends Controller
 
         $order->update([
             'pickup_courier_id' => auth()->id(),
-            'status'            => 'PICKED_UP',
+            'status' => 'PICKED_UP',
         ]);
 
         return back()->with('success', "Order #{$order->order_number} claimed. Deliver package to Sorting Center.");
@@ -89,6 +89,6 @@ class CourierController extends Controller
 
         $order->update(['status' => $validated['status']]);
 
-        return back()->with('success', "Order #{$order->order_number} marked as " . str_replace('_', ' ', $validated['status']) . ".");
+        return back()->with('success', "Order #{$order->order_number} marked as ".str_replace('_', ' ', $validated['status']).'.');
     }
 }

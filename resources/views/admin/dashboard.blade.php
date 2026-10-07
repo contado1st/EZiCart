@@ -22,6 +22,9 @@
                 <a href="{{ route('admin.registrations.index') }}" class="dash-nav-item">
                     🛡️ User Approvals
                 </a>
+                <a href="{{ route('admin.products.index') }}" class="dash-nav-item">
+                    📦 Product Approvals @if(($stats['pending_products'] ?? 0) > 0)<span style="background: var(--ez-primary); color: white; padding: 2px 7px; border-radius: 999px; font-size: 0.75rem; margin-left: 0.5rem;">{{ $stats['pending_products'] }}</span>@endif
+                </a>
             </nav>
         </div>
 
@@ -40,7 +43,10 @@
                 <h1 class="dash-title">Platform Operations & Financials</h1>
                 <p class="dash-subtitle">System-wide monitoring of marketplace transactions, commission revenue, and verifications.</p>
             </div>
-            <div>
+            <div style="display: flex; gap: 0.75rem;">
+                <a href="{{ route('admin.products.index') }}" class="dash-btn-primary" style="background: var(--slate-800); border-color: var(--slate-800);">
+                    Review Products ({{ $stats['pending_products'] ?? 0 }})
+                </a>
                 <a href="{{ route('admin.registrations.index') }}" class="dash-btn-primary">
                     Verify Users ({{ $stats['pending_users'] }})
                 </a>
@@ -69,6 +75,12 @@
                 <div class="dash-stat-label">Pending Verifications</div>
                 <div class="dash-stat-value warning">{{ $stats['pending_users'] }}</div>
                 <div class="dash-stat-subtext">Sellers and couriers awaiting review</div>
+            </div>
+
+            <div class="dash-stat-card">
+                <div class="dash-stat-label">Pending Products</div>
+                <div class="dash-stat-value" style="color: var(--ez-primary);">{{ $stats['pending_products'] ?? 0 }}</div>
+                <div class="dash-stat-subtext">Product listings awaiting approval</div>
             </div>
 
             <div class="dash-stat-card">

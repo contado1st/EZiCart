@@ -81,7 +81,15 @@
                             </div>
 
                             <div class="market-card-action-row">
-                                <span class="product-price">₱{{ number_format($product->price, 2) }}</span>
+                                @if($product->has_discount)
+                                    <div>
+                                        <span class="product-price">₱{{ number_format($product->discounted_price, 2) }}</span>
+                                        <span style="text-decoration: line-through; font-size: 0.75rem; color: var(--slate-400); margin-left: 0.25rem;">₱{{ number_format($product->price, 2) }}</span>
+                                        <span style="background: #fef2f2; color: #dc2626; font-size: 0.65rem; font-weight: 800; padding: 1px 4px; border-radius: 3px; display: inline-block;">{{ $product->discount_percent }}% OFF</span>
+                                    </div>
+                                @else
+                                    <span class="product-price">₱{{ number_format($product->price, 2) }}</span>
+                                @endif
                                 <a href="{{ route('product.show', $product->id) }}" class="btn-primary market-btn-inspect">
                                     View Item
                                 </a>

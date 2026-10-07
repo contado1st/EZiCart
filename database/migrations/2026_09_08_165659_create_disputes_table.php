@@ -22,7 +22,7 @@ return new class extends Migration
                 'REFUND_APPROVED',
                 'REPLACEMENT_APPROVED',
                 'REJECTED',
-                'RESOLVED'
+                'RESOLVED',
             ])->default('PENDING');
             $table->text('admin_notes')->nullable();
             $table->timestamp('resolved_at')->nullable();

@@ -20,9 +20,11 @@ class HomeController extends Controller
             ['name' => 'Sports and Outdoors', 'icon' => '⚽'],
         ];
 
+        // Restrict to approved, non-archived products with inventory
         $query = Product::where('is_archived', false)
+            ->where('status', 'approved')
             ->where('stock', '>', 0)
-            ->with('seller');
+            ->with(['seller', 'images']);
 
         // Filter by category
         if ($request->filled('category')) {
@@ -32,8 +34,8 @@ class HomeController extends Controller
         // Search by keyword
         if ($request->filled('search')) {
             $query->where(function ($q) use ($request) {
-                $q->where('name', 'like', '%' . $request->query('search') . '%')
-                  ->orWhere('description', 'like', '%' . $request->query('search') . '%');
+                $q->where('name', 'like', '%'.$request->query('search').'%')
+                    ->orWhere('description', 'like', '%'.$request->query('search').'%');
             });
         }
 
@@ -44,9 +46,13 @@ class HomeController extends Controller
 
     public function showProduct(Product $product)
     {
-        abort_if($product->is_archived || $product->stock <= 0, 404);
+        // Only approved products are publicly visible, unless previewed by the product owner or admin
+        $isOwnerOrAdmin = auth()->check() && (auth()->id() === $product->user_id || auth()->user()->role === 'admin');
+        $isPubliclyAvailable = ($product->status === 'approved' && ! $product->is_archived && $product->stock > 0);
 
-        $product->load('seller');
+        abort_if(! $isPubliclyAvailable && ! $isOwnerOrAdmin, 404);
+
+        $product->load(['seller', 'images', 'variations', 'activeVoucher', 'reviews.buyer']);
 
         return view('products.show', compact('product'));
     }

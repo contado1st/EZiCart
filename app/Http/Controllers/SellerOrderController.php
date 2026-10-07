@@ -22,10 +22,10 @@ class SellerOrderController extends Controller
         $orders = $query->paginate(10)->withQueryString();
 
         $counts = [
-            'all'       => auth()->user()->sellerOrders()->count(),
-            'placed'    => auth()->user()->sellerOrders()->where('status', 'PLACED')->count(),
+            'all' => auth()->user()->sellerOrders()->count(),
+            'placed' => auth()->user()->sellerOrders()->where('status', 'PLACED')->count(),
             'preparing' => auth()->user()->sellerOrders()->whereIn('status', ['CONFIRMED', 'PREPARING'])->count(),
-            'ready'     => auth()->user()->sellerOrders()->where('status', 'READY_FOR_PICKUP')->count(),
+            'ready' => auth()->user()->sellerOrders()->where('status', 'READY_FOR_PICKUP')->count(),
             'completed' => auth()->user()->sellerOrders()->where('status', 'COMPLETED')->count(),
         ];
 
@@ -51,7 +51,7 @@ class SellerOrderController extends Controller
 
         $order->update(['status' => $validated['status']]);
 
-        return back()->with('success', 'Order status updated to ' . str_replace('_', ' ', $validated['status']) . '.');
+        return back()->with('success', 'Order status updated to '.str_replace('_', ' ', $validated['status']).'.');
     }
 
     public function waybill(Order $order)

@@ -72,17 +72,40 @@
                                 </div>
                             </td>
                             <td><span class="dash-badge dash-badge-category">{{ $product->category }}</span></td>
-                            <td style="font-weight: 800;">₱{{ number_format($product->price, 2) }}</td>
+                            <td>
+                                @if($product->has_discount)
+                                    <div>
+                                        <span style="font-weight: 800; color: var(--ez-primary);">₱{{ number_format($product->discounted_price, 2) }}</span>
+                                        <span style="text-decoration: line-through; font-size: 0.75rem; color: var(--dash-text-muted); margin-left: 0.25rem;">₱{{ number_format($product->price, 2) }}</span>
+                                    </div>
+                                    <span style="background: #fef2f2; color: #dc2626; padding: 1px 5px; border-radius: 3px; font-size: 0.68rem; font-weight: 700;">
+                                        {{ $product->discount_type === 'percent' ? $product->discount_value . '% OFF' : '₱' . number_format($product->discount_value, 2) . ' OFF' }}
+                                    </span>
+                                @else
+                                    <span style="font-weight: 800;">₱{{ number_format($product->price, 2) }}</span>
+                                @endif
+                            </td>
                             <td>
                                 <span style="font-weight: 700; color: {{ $product->stock < 10 ? 'var(--dash-danger)' : 'var(--dash-success)' }};">
                                     {{ $product->stock }} units
                                 </span>
                             </td>
                             <td>
-                                @if($product->is_archived)
-                                    <span class="dash-badge dash-badge-archived">Archived</span>
+                                @if($product->status === 'approved')
+                                    <span class="dash-badge dash-badge-active" style="background: #dcfce7; color: #15803d;">Approved</span>
+                                    @if($product->is_archived)
+                                        <span class="dash-badge dash-badge-archived" style="margin-top: 0.25rem; display: inline-block;">Archived</span>
+                                    @endif
+                                @elseif($product->status === 'rejected')
+                                    <span class="dash-badge" style="background: #fee2e2; color: #b91c1c;">Rejected</span>
+                                    @if($product->rejection_reason)
+                                        <div style="font-size: 0.75rem; color: #b91c1c; margin-top: 0.35rem; background: #fff5f5; padding: 0.3rem 0.5rem; border-radius: 4px; border-left: 2px solid #ef4444; max-width: 220px; line-height: 1.3;">
+                                            <strong>Reason:</strong> {{ $product->rejection_reason }}
+                                        </div>
+                                    @endif
                                 @else
-                                    <span class="dash-badge dash-badge-active">Active</span>
+                                    <span class="dash-badge" style="background: #fef3c7; color: #b45309;">Pending</span>
+                                    <div style="font-size: 0.7rem; color: #b45309; margin-top: 0.2rem;">Under Admin Review</div>
                                 @endif
                             </td>
                             <td style="text-align: right;">

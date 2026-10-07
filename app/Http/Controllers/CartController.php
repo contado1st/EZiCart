@@ -23,8 +23,13 @@ class CartController extends Controller
 
     public function add(Request $request, Product $product)
     {
+        // Enforce product approval and availability
+        if ($product->status !== 'approved' || $product->is_archived || $product->stock <= 0) {
+            return back()->with('error', 'This item is not currently available for purchase.');
+        }
+
         $request->validate([
-            'quantity'     => 'required|integer|min:1',
+            'quantity' => 'required|integer|min:1',
             'variation_id' => 'nullable|exists:product_variations,id',
         ]);
 
@@ -32,8 +37,9 @@ class CartController extends Controller
         $variationId = $request->input('variation_id');
 
         $variation = null;
-        $price = $product->price;
+        $price = $product->discounted_price; // Use effective discounted price
         $variationText = null;
+        $itemImage = $product->image_path;
 
         if ($variationId) {
             $variation = ProductVariation::where('id', $variationId)
@@ -41,30 +47,34 @@ class CartController extends Controller
                 ->first();
 
             if ($variation) {
-                $price = $product->price + $variation->price_adjustment;
+                $price = $variation->discounted_price;
                 $variationText = "{$variation->type}: {$variation->value}";
+
+                if ($variation->image_path) {
+                    $itemImage = $variation->image_path;
+                }
             }
         }
 
         $cart = session()->get('cart', []);
-        $cartKey = $product->id . ($variationId ? '_' . $variationId : '');
+        $cartKey = $product->id.($variationId ? '_'.$variationId : '');
 
         if (isset($cart[$cartKey])) {
             $cart[$cartKey]['quantity'] += $quantity;
         } else {
             $cart[$cartKey] = [
-                'cart_key'       => $cartKey,
-                'product_id'     => $product->id,
-                'id'             => $product->id,
-                'variation_id'   => $variationId,
+                'cart_key' => $cartKey,
+                'product_id' => $product->id,
+                'id' => $product->id,
+                'variation_id' => $variationId,
                 'variation_info' => $variationText,
-                'name'           => $product->name,
-                'price'          => $price,
-                'quantity'       => $quantity,
-                'stock'          => $variation ? $variation->stock : ($product->stock ?? 99),
-                'image_path'     => $product->image_path,
-                'seller_id'      => $product->user_id,
-                'business_name'  => $product->seller->business_name ?? 'Merchant',
+                'name' => $product->name,
+                'price' => $price,
+                'quantity' => $quantity,
+                'stock' => $variation ? $variation->stock : ($product->stock ?? 99),
+                'image_path' => $itemImage,
+                'seller_id' => $product->user_id,
+                'business_name' => $product->seller->business_name ?? 'Merchant',
             ];
         }
 
@@ -84,6 +94,7 @@ class CartController extends Controller
         if (isset($cart[$cartKey])) {
             $cart[$cartKey]['quantity'] = (int) $request->quantity;
             session()->put('cart', $cart);
+
             return back()->with('success', 'Cart updated.');
         }
 
@@ -97,6 +108,7 @@ class CartController extends Controller
         if (isset($cart[$cartKey])) {
             unset($cart[$cartKey]);
             session()->put('cart', $cart);
+
             return back()->with('success', 'Item removed from cart.');
         }
 

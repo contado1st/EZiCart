@@ -21,7 +21,7 @@ class Announcement extends Model
     ];
 
     protected $casts = [
-        'is_active'  => 'boolean',
+        'is_active' => 'boolean',
         'expires_at' => 'datetime',
     ];
 
@@ -37,11 +37,11 @@ class Announcement extends Model
         return $query->where('is_active', true)
             ->where(function ($q) use ($role) {
                 $q->where('target_role', 'all')
-                  ->orWhere('target_role', $role);
+                    ->orWhere('target_role', $role);
             })
             ->where(function ($q) {
                 $q->whereNull('expires_at')
-                  ->orWhere('expires_at', '>', now());
+                    ->orWhere('expires_at', '>', now());
             });
     }
 }

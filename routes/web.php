@@ -1,25 +1,25 @@
 <?php
 
-use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\HomeController;
-use App\Http\Controllers\AuthController;
+use App\Http\Controllers\AdminAnnouncementController;
 use App\Http\Controllers\AdminController;
-use App\Http\Controllers\SellerController;
-use App\Http\Controllers\ProductController;
+use App\Http\Controllers\AdminDisputeController;
+use App\Http\Controllers\AdminModerationController;
+use App\Http\Controllers\AdminReportController;
+use App\Http\Controllers\AuthController;
+use App\Http\Controllers\BuyerController;
 use App\Http\Controllers\CartController;
 use App\Http\Controllers\CheckoutController;
-use App\Http\Controllers\BuyerController;
-use App\Http\Controllers\SellerOrderController;
 use App\Http\Controllers\CourierController;
-use App\Http\Controllers\LogisticsController;
-use App\Http\Controllers\SellerVoucherController;
-use App\Http\Controllers\ReviewController;
-use App\Http\Controllers\SellerReportController;
-use App\Http\Controllers\AdminReportController;
 use App\Http\Controllers\DisputeController;
-use App\Http\Controllers\AdminDisputeController;
-use App\Http\Controllers\AdminAnnouncementController;
-use App\Http\Controllers\AdminModerationController;
+use App\Http\Controllers\HomeController;
+use App\Http\Controllers\LogisticsController;
+use App\Http\Controllers\ProductController;
+use App\Http\Controllers\ReviewController;
+use App\Http\Controllers\SellerController;
+use App\Http\Controllers\SellerOrderController;
+use App\Http\Controllers\SellerReportController;
+use App\Http\Controllers\SellerVoucherController;
+use Illuminate\Support\Facades\Route;
 
 // 1. Public Marketplace & Browsing Routes
 Route::get('/', function () {
@@ -134,6 +134,12 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/moderation', [AdminModerationController::class, 'index'])->name('moderation.index');
         Route::post('/moderation/{user}/suspend', [AdminModerationController::class, 'suspend'])->name('moderation.suspend');
         Route::post('/moderation/{user}/reactivate', [AdminModerationController::class, 'reactivate'])->name('moderation.reactivate');
+
+        // Product Catalog Moderation & Approvals
+        Route::get('/products', [AdminController::class, 'products'])->name('products.index');
+        Route::get('/products/{product}', [AdminController::class, 'showProduct'])->name('products.show');
+        Route::post('/products/{product}/approve', [AdminController::class, 'approveProduct'])->name('products.approve');
+        Route::post('/products/{product}/reject', [AdminController::class, 'rejectProduct'])->name('products.reject');
     });
 
 });

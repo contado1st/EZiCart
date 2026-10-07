@@ -13,7 +13,7 @@ class AdminModerationController extends Controller
         $search = $request->query('search');
 
         $users = User::whereNotIn('role', ['admin'])
-            ->when($role, fn($q) => $q->where('role', $role))
+            ->when($role, fn ($q) => $q->where('role', $role))
             ->when($search, function ($q) use ($search) {
                 $q->where(function ($sub) use ($search) {
                     $sub->where('first_name', 'like', "%{$search}%")
@@ -37,9 +37,9 @@ class AdminModerationController extends Controller
         ]);
 
         $user->update([
-            'status'            => 'suspended',
+            'status' => 'suspended',
             'suspension_reason' => $validated['suspension_reason'],
-            'suspended_at'      => now(),
+            'suspended_at' => now(),
         ]);
 
         return back()->with('success', "Account {$user->email} has been suspended.");
@@ -50,9 +50,9 @@ class AdminModerationController extends Controller
         abort_if($user->role === 'admin', 403);
 
         $user->update([
-            'status'            => 'approved',
+            'status' => 'approved',
             'suspension_reason' => null,
-            'suspended_at'      => null,
+            'suspended_at' => null,
         ]);
 
         return back()->with('success', "Account {$user->email} has been restored to active standing.");

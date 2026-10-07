@@ -13,7 +13,7 @@ return new class extends Migration
             $table->string('order_number')->unique();
             $table->foreignId('buyer_id')->constrained('users')->cascadeOnDelete();
             $table->foreignId('seller_id')->constrained('users')->cascadeOnDelete();
-            
+
             // Delivery Details
             $table->string('recipient_name');
             $table->string('recipient_contact');
@@ -43,7 +43,7 @@ return new class extends Migration
                 'DELIVERED',
                 'COMPLETED',
                 'DELIVERY_FAILED',
-                'RETURNED'
+                'RETURNED',
             ])->default('PLACED');
 
             $table->text('notes')->nullable();

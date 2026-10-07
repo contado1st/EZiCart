@@ -10,12 +10,12 @@ class AdminReportController extends Controller
 {
     public function index(Request $request)
     {
-        $fromDate = $request->input('from_date') 
-            ? Carbon::parse($request->input('from_date'))->startOfDay() 
+        $fromDate = $request->input('from_date')
+            ? Carbon::parse($request->input('from_date'))->startOfDay()
             : Carbon::now()->startOfMonth();
 
-        $toDate = $request->input('to_date') 
-            ? Carbon::parse($request->input('to_date'))->endOfDay() 
+        $toDate = $request->input('to_date')
+            ? Carbon::parse($request->input('to_date'))->endOfDay()
             : Carbon::now()->endOfDay();
 
         $baseQuery = Order::whereBetween('created_at', [$fromDate, $toDate]);
@@ -29,12 +29,12 @@ class AdminReportController extends Controller
         $totalDiscounts = $completedOrders->sum('discount_amount');
 
         $stats = [
-            'total_gmv'         => $totalGmv,
-            'product_sales'     => $totalProductSales,
-            'total_commission'  => $totalCommission,
-            'total_discounts'   => $totalDiscounts,
-            'completed_count'   => $completedOrders->count(),
-            'total_orders'      => $allOrders->count(),
+            'total_gmv' => $totalGmv,
+            'product_sales' => $totalProductSales,
+            'total_commission' => $totalCommission,
+            'total_discounts' => $totalDiscounts,
+            'completed_count' => $completedOrders->count(),
+            'total_orders' => $allOrders->count(),
         ];
 
         return view('admin.reports.index', compact(

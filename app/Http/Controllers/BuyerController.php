@@ -22,10 +22,10 @@ class BuyerController extends Controller
         $orders = $query->paginate(10)->withQueryString();
 
         $counts = [
-            'all'        => auth()->user()->buyerOrders()->count(),
-            'to_ship'    => auth()->user()->buyerOrders()->whereIn('status', ['PLACED', 'CONFIRMED', 'PREPARING'])->count(),
+            'all' => auth()->user()->buyerOrders()->count(),
+            'to_ship' => auth()->user()->buyerOrders()->whereIn('status', ['PLACED', 'CONFIRMED', 'PREPARING'])->count(),
             'to_receive' => auth()->user()->buyerOrders()->whereIn('status', ['READY_FOR_PICKUP', 'PICKED_UP', 'AT_SORTING_CENTER', 'SORTED', 'ASSIGNED_TO_RIDER', 'OUT_FOR_DELIVERY'])->count(),
-            'completed'  => auth()->user()->buyerOrders()->where('status', 'COMPLETED')->count(),
+            'completed' => auth()->user()->buyerOrders()->where('status', 'COMPLETED')->count(),
         ];
 
         return view('buyer.dashboard', compact('orders', 'counts'));
