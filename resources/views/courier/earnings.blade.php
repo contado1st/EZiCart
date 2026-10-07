@@ -1,11 +1,7 @@
-<div>
-    <!-- Order your soul. Reduce your wants. - Augustine -->
-</div>
 @extends('layouts.courier')
 @section('workspace')
     <header class="ops-heading">
         <div>
-            <div class="ops-eyebrow">Courier compensation</div>
             <h1>Earnings</h1>
             <p>View courier compensation information.</p>
         </div>

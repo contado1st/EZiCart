@@ -43,11 +43,10 @@
 
             <div class="dash-panel">
                 <div class="filter-bar-flex">
-                    <form action="{{ route('admin.moderation.index') }}" method="GET"
-                        style="display: flex; gap: 0.5rem; flex: 1; max-width: 500px;">
+                    <form action="{{ route('admin.moderation.index') }}" method="GET" class="u-extracted-d8393f3793">
                         <input type="text" name="search" value="{{ $search }}"
                             placeholder="Search name, email, store..." class="controls-input">
-                        <select name="role" class="controls-select" style="max-width: 160px;">
+                        <select name="role" class="controls-select u-extracted-de2395bfe6">
                             <option value="">All Roles</option>
                             <option value="seller" {{ $role === 'seller' ? 'selected' : '' }}>Sellers</option>
                             <option value="courier" {{ $role === 'courier' ? 'selected' : '' }}>Couriers</option>
@@ -75,7 +74,7 @@
                                     <td>
                                         <strong>{{ $user->first_name }} {{ $user->last_name }}</strong>
                                         @if ($user->business_name)
-                                            <div style="font-size: 0.75rem; color: var(--dash-primary);">
+                                            <div class="u-extracted-696134c27b">
                                                 {{ $user->business_name }}</div>
                                         @endif
                                     </td>
@@ -84,18 +83,17 @@
                                     </td>
                                     <td>
                                         {{ $user->email }}
-                                        <div style="font-size: 0.75rem; color: var(--dash-text-muted);">
+                                        <div class="u-extracted-cf0c302441">
                                             {{ $user->contact_no }}</div>
                                     </td>
                                     <td>
-                                        @if ($user->role === 'courier' && ($user->active_pickups_count + $user->active_parcels_count) > 0)
+                                        @if ($user->role === 'courier' && $user->active_pickups_count + $user->active_parcels_count > 0)
                                             @php($activeParcelCount = $user->active_pickups_count + $user->active_parcels_count)
                                             <p class="text-muted-small">Suspending this rider will open {{ $activeParcelCount }} logistics recovery {{ $activeParcelCount === 1 ? 'case' : 'cases' }}.</p>
                                         @endif
                                         @if ($user->status === 'suspended')
                                             <span class="status-pill status-badge-suspended">SUSPENDED</span>
-                                            <div
-                                                style="font-size: 0.75rem; color: var(--dash-danger); margin-top: 0.25rem;">
+                                            <div class="u-extracted-da01588a85">
                                                 {{ $user->suspension_reason }}
                                             </div>
                                         @else
@@ -107,16 +105,21 @@
                                     <td>
                                         @if ($user->status === 'suspended')
                                             @if ($user->suspension_previous_status === 'approved')
-                                                <form action="{{ route('admin.moderation.reactivate', $user->id) }}" method="POST">
+                                                <form action="{{ route('admin.moderation.reactivate', $user->id) }}"
+                                                    method="POST">
                                                     @csrf
-                                                    <button type="submit" class="dash-btn-sm dash-btn-success">Reactivate</button>
+                                                    <button type="submit"
+                                                        class="dash-btn-sm dash-btn-success">Reactivate</button>
                                                 </form>
                                             @else
                                                 <p class="text-muted-small">Prior status is unknown. Review the account before restoring it.</p>
-                                                <form action="{{ route('admin.moderation.reactivate', $user->id) }}" method="POST">
+                                                <form action="{{ route('admin.moderation.reactivate', $user->id) }}"
+                                                    method="POST">
                                                     @csrf
-                                                    <label class="form-label" for="restore-status-{{ $user->id }}">Restore status after review</label>
-                                                    <select id="restore-status-{{ $user->id }}" class="controls-select" name="restored_status" required>
+                                                    <label class="form-label"
+                                                        for="restore-status-{{ $user->id }}">Restore status after review</label>
+                                                    <select id="restore-status-{{ $user->id }}" class="controls-select"
+                                                        name="restored_status" required>
                                                         <option value="" disabled selected>Choose status</option>
                                                         <option value="pending">Pending review</option>
                                                         <option value="approved">Approved after review</option>
@@ -126,13 +129,18 @@
                                                 </form>
                                             @endif
                                         @elseif ($user->status === 'approved')
-                                            <form action="{{ route('admin.moderation.suspend', $user->id) }}" method="POST" style="display: flex; gap: 0.35rem;">
+                                            <form action="{{ route('admin.moderation.suspend', $user->id) }}"
+                                                method="POST" class="u-extracted-6d9d6fda77">
                                                 @csrf
-                                                <input type="text" name="suspension_reason" placeholder="Violation reason..." class="controls-input" style="padding: 0.3rem 0.5rem; font-size: 0.75rem; max-width: 180px;" required>
-                                                <button type="submit" class="dash-btn-sm dash-btn-danger" onclick="return confirm('Suspend this user from platform access?');">Suspend</button>
+                                                <input type="text" name="suspension_reason"
+                                                    placeholder="Violation reason..."
+                                                    class="controls-input u-extracted-637ac4c504" required>
+                                                <button type="submit" class="dash-btn-sm dash-btn-danger"
+                                                    onclick="return confirm('Suspend this user from platform access?');">Suspend</button>
                                             </form>
                                         @else
-                                            <span class="text-muted-small">Registration review handles pending and rejected accounts.</span>
+                                            <span class="text-muted-small">Registration review handles pending and rejected
+                                                accounts.</span>
                                         @endif
                                     </td>
                                 </tr>
@@ -146,7 +154,7 @@
                     </table>
                 </div>
 
-                <div style="margin-top: 1rem;">
+                <div class="u-extracted-dab43fb936">
                     {{ $users->links() }}
                 </div>
             </div>

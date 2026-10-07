@@ -27,12 +27,11 @@
         </aside>
 
         <main class="dash-main">
-            <a href="{{ route('admin.disputes.index') }}"
-                style="color: var(--dash-text-muted); font-size: 0.8125rem; font-weight: 700; text-decoration: none;">
+            <a href="{{ route('admin.disputes.index') }}" class="u-extracted-7fc4d6b00a">
                 ← Back to Disputes
             </a>
 
-            <div class="dash-header" style="margin-top: 0.5rem;">
+            <div class="dash-header u-extracted-0dc8cc6234">
                 <div>
                     <h1 class="dash-title">Case #DIS-{{ str_pad($dispute->id, 4, '0', STR_PAD_LEFT) }}</h1>
                     <p class="dash-subtitle">Order Reference: {{ $dispute->order->order_number }} &bull; Reason:
@@ -53,21 +52,21 @@
                 <div class="dash-panel">
                     <h2 class="courier-section-title">Buyer Complaint & Statements</h2>
 
-                    <div style="margin-top: 1rem; font-size: 0.875rem; color: var(--dash-text-main); line-height: 1.6;">
+                    <div class="u-extracted-d9bf56ffb1">
                         {{ $dispute->description }}
                     </div>
 
                     @if ($dispute->evidence_path)
                         <div class="dispute-evidence-box">
-                            <strong style="font-size: 0.8125rem;">Attached Evidence:</strong>
-                            <div style="margin-top: 0.5rem;">
+                            <strong class="u-extracted-b9174c0407">Attached Evidence:</strong>
+                            <div class="u-extracted-0dc8cc6234">
                                 <a href="{{ route('admin.disputes.evidence', $dispute) }}">Download private evidence</a>
                             </div>
                         </div>
                     @endif
 
-                    <h2 class="courier-section-title" style="margin-top: 2rem;">Order Items in Dispute</h2>
-                    <div class="dash-table-wrapper" style="margin-top: 0.75rem;">
+                    <h2 class="courier-section-title u-extracted-cee5c5825a">Order Items in Dispute</h2>
+                    <div class="dash-table-wrapper u-extracted-342d988c44">
                         <table class="dash-table">
                             <thead>
                                 <tr>
@@ -83,8 +82,7 @@
                                         <td>
                                             {{ $item->product_name }}
                                             @if ($item->variation_info)
-                                                <span
-                                                    style="font-size: 0.75rem; color: var(--dash-primary);">({{ $item->variation_info }})</span>
+                                                <span class="u-extracted-696134c27b">({{ $item->variation_info }})</span>
                                             @endif
                                         </td>
                                         <td>₱{{ number_format($item->unit_price ?? $item->price, 2) }}</td>
@@ -102,17 +100,15 @@
                     <h2 class="courier-section-title">Admin Decision</h2>
 
                     <form action="{{ route('admin.disputes.resolve', $dispute->id) }}" method="POST"
-                        style="margin-top: 1rem;">
+                        class="u-extracted-dab43fb936">
                         @csrf
                         @method('PATCH')
 
-                        <div style="margin-bottom: 1rem;">
-                            <label
-                                style="display: block; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; margin-bottom: 0.35rem; color: var(--dash-text-muted);">
+                        <div class="u-extracted-f267e3ca68">
+                            <label class="u-extracted-fec9eb9496">
                                 Arbitration Verdict *
                             </label>
-                            <select name="status" class="search-input"
-                                style="width: 100%; border: 1px solid var(--dash-border);" required>
+                            <select name="status" class="search-input u-extracted-70322f707f" required>
                                 <option value="UNDER_REVIEW" {{ $dispute->status === 'UNDER_REVIEW' ? 'selected' : '' }}>
                                     Mark as Under Investigation</option>
                                 <option value="REFUND_APPROVED"
@@ -126,20 +122,19 @@
                                 <option value="RESOLVED" {{ $dispute->status === 'RESOLVED' ? 'selected' : '' }}>Mark
                                     Completely Resolved</option>
                             </select>
-                            <p class="ops-muted">This records the dispute decision. It does not issue or confirm a payment refund.</p>
+                            <p class="ops-muted">This records the dispute decision. It does not issue or confirm a payment
+                                refund.</p>
                         </div>
 
-                        <div style="margin-bottom: 1rem;">
-                            <label
-                                style="display: block; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; margin-bottom: 0.35rem; color: var(--dash-text-muted);">
+                        <div class="u-extracted-f267e3ca68">
+                            <label class="u-extracted-fec9eb9496">
                                 Arbitration Notes & Ruling *
                             </label>
-                            <textarea name="admin_notes" rows="6" class="search-input"
-                                style="width: 100%; border: 1px solid var(--dash-border); resize: vertical;"
+                            <textarea name="admin_notes" rows="6" class="search-input u-extracted-ef2dd8c267"
                                 placeholder="Document legal grounds and arbitration instructions..." required>{{ old('admin_notes', $dispute->admin_notes) }}</textarea>
                         </div>
 
-                        <button type="submit" class="dash-btn-primary" style="width: 100%; justify-content: center;">
+                        <button type="submit" class="dash-btn-primary u-extracted-b52608060a">
                             Save Arbitration Ruling
                         </button>
                     </form>

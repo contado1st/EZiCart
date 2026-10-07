@@ -1,38 +1,296 @@
 @import "../shared/operations.css";
+
 .logistics-accent {
-    color: #854b7f;
+    color: var(--ops-accent-strong);
 }
+
 .logistics-area {
-    display: inline-block;
-    color: #75416f;
-    background: #f7edf6;
-    padding: 2px 6px;
-    border-radius: 3px;
-}
-.ops-area-mapping {
-    display: grid;
-    gap: 6px;
-    padding: 8px 0;
-    border-bottom: 1px solid #e8e5ed;
-}
-.ops-area-mapping:last-child {
-    border-bottom: 0;
-}
-.ops-area-mapping .ops-form {
+    display: inline-flex;
     align-items: center;
+    min-height: 28px;
+    padding: 3px 8px;
+    border: 1px solid #eadfea;
+    border-radius: 5px;
+    background: var(--ops-accent-soft);
+    color: var(--ops-accent-strong);
+    font-size: 12px;
+    font-weight: 650;
 }
-.ops-area-mapping .ops-form label {
-    color: #736d7b;
-    font-size: 11px;
-}
-.ops-area-mapping .ops-form select {
-    min-height: 40px;
-    max-width: 220px;
-    padding: 7px 9px;
-    border: 1px solid #ded9e5;
+
+.logistics-badge-qr {
+    width: min(112px, 100%);
+    margin-top: 8px;
+    padding: 5px;
+    border: 1px solid var(--ops-line);
     border-radius: 5px;
     background: #fff;
 }
-.ops-area-mapping .ops-form .ops-btn {
-    min-height: 40px;
+
+.logistics-badge-qr svg {
+    display: block;
+    width: 100%;
+    height: auto;
+}
+
+.ops-area-mapping {
+    display: grid;
+    gap: 8px;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--ops-line);
+}
+
+.ops-area-mapping:last-child {
+    border-bottom: 0;
+}
+
+.ops-area-mapping .ops-form {
+    align-items: flex-end;
+}
+
+.ops-area-mapping .ops-form label {
+    color: var(--ops-muted);
+    font-size: 12px;
+}
+
+.ops-area-mapping .ops-form select {
+    max-width: 320px;
+}
+
+/* Operational Dashboard Triage */
+.logistics-triage-banner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 14px 18px;
+    border-radius: var(--ops-radius);
+    border: 1px solid #efd5d8;
+    background: var(--ops-danger-soft);
+    color: var(--ops-danger);
+    margin-bottom: 18px;
+}
+
+.logistics-triage-banner strong {
+    font-size: 14px;
+    display: block;
+}
+
+.logistics-triage-banner p {
+    margin: 2px 0 0;
+    font-size: 13px;
+    color: #63232c;
+}
+
+/* High-Volume Scan Console */
+.logistics-scan-console {
+    display: grid;
+    gap: 16px;
+    border-color: #d8c6d7;
+}
+
+.logistics-scan-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.logistics-scan-station-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    border-radius: 999px;
+    background: var(--ops-accent-soft);
+    color: var(--ops-accent-strong);
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+}
+
+.logistics-scan-input-lg {
+    min-height: 52px !important;
+    font-size: 16px !important;
+    font-weight: 600;
+    font-family: ui-monospace, "Cascadia Code", "Segoe UI Mono", monospace;
+    letter-spacing: 0.03em;
+    padding-inline: 14px !important;
+}
+
+.logistics-scan-btn-lg {
+    min-height: 52px !important;
+    padding-inline: 22px !important;
+    font-size: 14px !important;
+    font-weight: 700;
+}
+
+.logistics-scan-viewport-container {
+    position: relative;
+    width: 100%;
+    max-width: 520px;
+    aspect-ratio: 16 / 9;
+    border-radius: 8px;
+    overflow: hidden;
+    background: #131117;
+    border: 1px solid var(--ops-line);
+    margin: 10px 0;
+}
+
+.logistics-scan-video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+.logistics-scan-reticle {
+    position: absolute;
+    inset: 16%;
+    border: 2px dashed rgba(255, 255, 255, 0.75);
+    border-radius: 10px;
+    pointer-events: none;
+    box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.45);
+}
+
+.logistics-scan-reticle::after {
+    content: "";
+    position: absolute;
+    left: 6%;
+    right: 6%;
+    top: 50%;
+    height: 2px;
+    background: #e23b49;
+    box-shadow: 0 0 8px rgba(226, 59, 73, 0.9);
+}
+
+.logistics-scan-result-card {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 16px;
+    border-radius: 6px;
+    border: 1px solid var(--ops-line);
+    background: var(--ops-canvas);
+    font-size: 13px;
+    line-height: 1.4;
+}
+
+.logistics-scan-result-card--success {
+    border-color: #d1e6d8;
+    background: var(--ops-success-soft);
+    color: var(--ops-success);
+}
+
+.logistics-scan-result-card--error {
+    border-color: #efd5d8;
+    background: var(--ops-danger-soft);
+    color: var(--ops-danger);
+}
+
+/* Sorting Visual Journey */
+.logistics-sort-flow {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.logistics-sort-destination {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.logistics-sort-destination strong {
+    font-size: 14px;
+    color: var(--ops-ink);
+}
+
+.logistics-sort-destination span {
+    font-size: 12px;
+    color: var(--ops-muted);
+}
+
+/* Dispatch & Capacity Indicators */
+.logistics-workload-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 7px;
+    border-radius: 4px;
+    border: 1px solid #d4cfdc;
+    background: #f7f6f9;
+    font-size: 12px;
+    font-weight: 600;
+    color: #494450;
+}
+
+.logistics-workload-tag--full {
+    border-color: #efd5d8;
+    background: var(--ops-danger-soft);
+    color: var(--ops-danger);
+}
+
+.logistics-workload-tag--light {
+    border-color: #d1e6d8;
+    background: var(--ops-success-soft);
+    color: var(--ops-success);
+}
+
+/* Occupancy Bar for Hub Storage */
+.logistics-occupancy-bar {
+    width: 100%;
+    height: 8px;
+    border-radius: 999px;
+    background: #eeecf1;
+    overflow: hidden;
+    margin-top: 4px;
+}
+
+.logistics-occupancy-fill {
+    height: 100%;
+    border-radius: 999px;
+    background: var(--ops-accent);
+    transition: width 200ms ease;
+}
+
+.logistics-occupancy-fill--high {
+    background: var(--ops-danger);
+}
+
+.logistics-occupancy-fill--moderate {
+    background: var(--ops-warning);
+}
+
+/* Rider Roster Documents */
+.logistics-doc-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 8px;
+    border-radius: 4px;
+    border: 1px solid var(--ops-line);
+    background: #fff;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--ops-accent-strong);
+    text-decoration: none;
+    transition: border-color 150ms ease;
+}
+
+.logistics-doc-chip:hover {
+    border-color: var(--ops-accent);
+}
+
+.logistics-doc-pending {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 8px;
+    border-radius: 4px;
+    border: 1px dashed #dcd8e2;
+    background: var(--ops-canvas);
+    font-size: 12px;
+    color: var(--ops-muted);
 }

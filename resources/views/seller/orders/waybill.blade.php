@@ -21,9 +21,12 @@
             </button>
         </div>
 
-        @if (in_array($order->status, ['PLACED', 'CONFIRMED', 'PREPARING', 'READY_FOR_PICKUP'], true) && $order->pickup_claimed_at === null && $order->seller_handover_at === null)
+        @if (in_array($order->status, ['PLACED', 'CONFIRMED', 'PREPARING', 'READY_FOR_PICKUP'], true) &&
+                $order->pickup_claimed_at === null &&
+                $order->seller_handover_at === null)
             <section class="waybill-actions-bar" aria-label="Replace parcel label">
-                <p>Current parcel label version: {{ $order->parcel_code_version }}. Replacing the code invalidates any previously printed label.</p>
+                <p>Current parcel label version: {{ $order->parcel_code_version }}. Replacing the code invalidates any
+                    previously printed label.</p>
                 <form method="POST" action="{{ route('seller.orders.waybill.reprint', $order) }}">
                     @csrf
                     <label for="reprint-reason">Reason for replacement</label>
@@ -42,7 +45,7 @@
             <div class="waybill-brand-row">
                 <div>
                     <h1 class="waybill-title">EZiCart Express</h1>
-                    <div style="font-size: 0.8125rem; color: #475569; margin-top: 0.25rem;">Standard Courier Parcel
+                    <div class="u-extracted-88437780af">Standard Courier Parcel
                         Dispatch</div>
                 </div>
                 <div class="waybill-tracking-block">
@@ -58,7 +61,8 @@
                     <div class="waybill-section-tag">Sender (Merchant)</div>
                     <div class="waybill-party-name">{{ $order->seller->business_name ?? 'EZiCart Seller' }}</div>
                     <div class="waybill-party-text">{{ $order->seller->contact_no }}</div>
-                    <div class="waybill-party-text">{{ $order->seller->street_address }}, {{ $order->seller->barangay }}
+                    <div class="waybill-party-text">{{ $order->seller->street_address }},
+                        {{ $order->seller->barangay }}
                     </div>
                     <div class="waybill-party-text">{{ $order->seller->municipality }}, {{ $order->seller->province }}
                     </div>
@@ -78,16 +82,16 @@
                 <thead>
                     <tr>
                         <th>Item Description</th>
-                        <th style="width: 80px; text-align: center;">Qty</th>
-                        <th style="width: 120px; text-align: right;">Price</th>
+                        <th class="u-extracted-188b5f39d0">Qty</th>
+                        <th class="u-extracted-f337f3c9a6">Price</th>
                     </tr>
                 </thead>
                 <tbody>
                     @foreach ($order->items as $item)
                         <tr>
                             <td>{{ $item->product_name }}</td>
-                            <td style="text-align: center;">{{ $item->quantity }}</td>
-                            <td style="text-align: right;">₱{{ number_format($item->item_total, 2) }}</td>
+                            <td class="u-extracted-72a68ac344">{{ $item->quantity }}</td>
+                            <td class="u-extracted-13cbe03b9a">₱{{ number_format($item->item_total, 2) }}</td>
                         </tr>
                     @endforeach
                 </tbody>

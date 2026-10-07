@@ -31,7 +31,7 @@
                         <th>Contact & Address</th>
                         <th>Role Details</th>
                         <th>Verification Files</th>
-                        <th style="text-align: right;">Actions</th>
+                        <th class="u-extracted-13cbe03b9a">Actions</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -74,7 +74,7 @@
                                     <div><strong>Vehicle:</strong> {{ $user->vehicle_type }}</div>
                                     <div class="text-muted-small">Plate: {{ $user->plate_number }}</div>
                                 @else
-                                    <span style="color: #94a3b8;">Standard Buyer Account</span>
+                                    <span class="u-extracted-4cd15eb1e0">Standard Buyer Account</span>
                                 @endif
                             </td>
 

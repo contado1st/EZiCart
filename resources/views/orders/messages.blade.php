@@ -5,11 +5,12 @@
 @endpush
 
 @section('content')
-    <main class="container" style="max-width: 900px; padding-block: 2rem;">
+    <main class="container u-extracted-d7ea292b2e">
         <div class="dash-header">
             <div>
                 <h1 class="dash-title">Messages for {{ $order->order_number }}</h1>
-                <p class="dash-subtitle">Private coordination thread for the buyer, seller, assigned riders, and Logistics staff involved with this order.</p>
+                <p class="dash-subtitle">Private coordination thread for the buyer, seller, assigned riders, and Logistics
+                    staff involved with this order.</p>
             </div>
             @php
                 [$backRoute, $messageRoute] = match (auth()->user()->role) {
@@ -35,25 +36,27 @@
             <div class="form-notice">{{ session('success') }}</div>
         @endif
 
-        <section class="dash-panel" style="margin-block:1rem; padding:1.5rem;">
+        <section class="dash-panel u-extracted-ebdbcd4a73">
             <div aria-live="polite">
                 @forelse ($conversation?->messages ?? [] as $message)
-                    <article style="padding:1rem 0; border-bottom:1px solid #e5e7eb;">
+                    <article class="u-extracted-a5249f670c">
                         <strong>{{ $message->sender->first_name }} {{ $message->sender->last_name }}</strong>
                         <small>{{ $message->created_at->format('M d, Y h:i A') }}</small>
-                        <p style="white-space:pre-wrap; overflow-wrap:anywhere;">{{ $message->body }}</p>
+                        <p class="u-extracted-a94916ebb1">{{ $message->body }}</p>
                     </article>
                 @empty
                     <p>No messages yet. Use this conversation to coordinate this order with its assigned participants.</p>
                 @endforelse
             </div>
 
-            <form method="POST" action="{{ route($messageRoute, $order) }}" style="margin-top:1.5rem;">
+            <form method="POST" action="{{ route($messageRoute, $order) }}" class="u-extracted-2a01802927">
                 @csrf
                 <div class="form-group">
                     <label class="form-label" for="message-body">Message</label>
                     <textarea id="message-body" class="form-control" name="body" maxlength="2000" rows="4" required>{{ old('body') }}</textarea>
-                    @error('body')<p>{{ $message }}</p>@enderror
+                    @error('body')
+                        <p>{{ $message }}</p>
+                    @enderror
                 </div>
                 <button class="btn-submit" type="submit">Send message</button>
             </form>

@@ -736,3 +736,15 @@
     font-weight: 800;
     color: #334155;
 }
+
+.seller-stock {
+    font-weight: 700;
+}
+
+.seller-stock--low {
+    color: var(--dash-danger);
+}
+
+.seller-stock--ok {
+    color: var(--dash-success);
+}

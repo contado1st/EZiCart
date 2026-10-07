@@ -44,8 +44,7 @@
             @endif
 
             @if (session('error'))
-                <div class="dash-alert-success"
-                    style="border-left-color: var(--dash-danger); background-color: var(--dash-danger-bg); color: var(--dash-danger);">
+                <div class="dash-alert-success u-extracted-ee8231be38">
                     ⚠️ {{ session('error') }}
                 </div>
             @endif
@@ -97,8 +96,7 @@
                             <input type="date" name="expires_at" value="{{ old('expires_at') }}" class="voucher-input">
                         </div>
 
-                        <button type="submit" class="dash-btn-primary"
-                            style="width: 100%; margin-top: 0.5rem; justify-content: center;">
+                        <button type="submit" class="dash-btn-primary u-extracted-92762f464d">
                             ➕ Create Voucher
                         </button>
                     </form>
@@ -108,7 +106,7 @@
                 <div class="dash-panel">
                     <h2 class="courier-section-title">My Store Vouchers ({{ $vouchers->total() }})</h2>
 
-                    <div class="dash-table-wrapper" style="margin-top: 1rem;">
+                    <div class="dash-table-wrapper u-extracted-dab43fb936">
                         <table class="dash-table">
                             <thead>
                                 <tr>
@@ -145,8 +143,7 @@
                                                     method="POST">
                                                     @csrf
                                                     @method('PATCH')
-                                                    <button type="submit" class="dash-btn-sm"
-                                                        style="border: 1px solid var(--dash-border); background: #fff;">
+                                                    <button type="submit" class="dash-btn-sm u-extracted-e013d740bb">
                                                         {{ $voucher->is_active ? 'Disable' : 'Enable' }}
                                                     </button>
                                                 </form>
@@ -171,7 +168,7 @@
                         </table>
                     </div>
 
-                    <div style="margin-top: 1rem;">
+                    <div class="u-extracted-dab43fb936">
                         {{ $vouchers->links() }}
                     </div>
                 </div>

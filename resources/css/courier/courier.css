@@ -1,12 +1,249 @@
 @import "../shared/operations.css";
+
 .courier-pickup {
-    border-left: 3px solid #d6b1d2;
+    border-top-color: #c4a6c2;
 }
+
 .courier-delivery {
-    border-left: 3px solid #9a7aaf;
+    border-top-color: #9a7aaf;
 }
-.courier-actions {
+
+.courier-failed {
+    border-color: #e7cfd2;
+}
+
+.courier-failed .ops-status {
+    border-color: #efd5d8;
+    background: var(--ops-danger-soft);
+    color: var(--ops-danger);
+}
+
+.courier-badge-qr {
+    width: min(180px, 100%);
+    padding: 8px;
+    border: 1px solid var(--ops-line);
+    border-radius: 6px;
+    background: #fff;
+}
+
+.courier-badge-qr svg {
+    display: block;
+    width: 100%;
+    height: auto;
+}
+
+.courier-next-action {
+    border-color: #d8c6d7;
+}
+
+.courier-next-action .ops-btn--primary {
+    min-width: 160px;
+}
+
+.courier-status-copy {
+    max-width: 62ch;
+}
+
+/* Mobile-First Courier Hero Next Action */
+.courier-hero-card {
+    border: 2px solid var(--ops-accent);
+    border-radius: var(--ops-radius);
+    background: #fff;
+    padding: 20px;
+    margin-bottom: 18px;
     display: flex;
-    gap: 6px;
+    align-items: center;
+    justify-content: space-between;
+    gap: 18px;
     flex-wrap: wrap;
+    box-shadow: 0 2px 8px rgba(96, 50, 91, 0.06);
+}
+
+.courier-hero-card__badge {
+    display: inline-block;
+    padding: 3px 8px;
+    border-radius: 4px;
+    background: var(--ops-accent-soft);
+    color: var(--ops-accent-strong);
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 6px;
+}
+
+.courier-hero-card h2 {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--ops-ink);
+}
+
+.courier-hero-card p {
+    margin: 4px 0 0;
+    color: var(--ops-muted);
+    font-size: 14px;
+}
+
+.courier-hero-card .ops-btn {
+    min-height: 48px;
+    padding: 12px 24px;
+    font-size: 15px;
+    font-weight: 700;
+}
+
+/* Courier Jump Navigation */
+.courier-jump-nav {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 2px 14px;
+    overflow-x: auto;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+}
+
+.courier-jump-nav::-webkit-scrollbar {
+    display: none;
+}
+
+.courier-jump-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 38px;
+    padding: 6px 14px;
+    border: 1px solid var(--ops-line);
+    border-radius: 999px;
+    background: #fff;
+    color: var(--ops-ink);
+    font-size: 13px;
+    font-weight: 600;
+    text-decoration: none;
+    white-space: nowrap;
+    transition: all 150ms ease;
+}
+
+.courier-jump-pill:hover,
+.courier-jump-pill:focus-visible {
+    border-color: var(--ops-accent);
+    background: var(--ops-accent-soft);
+    color: var(--ops-accent-strong);
+}
+
+.courier-jump-pill span {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 20px;
+    height: 20px;
+    padding: 0 5px;
+    border-radius: 999px;
+    background: var(--ops-canvas);
+    font-size: 11px;
+    font-weight: 700;
+}
+
+/* Failed Delivery Prominent State */
+.courier-failed-alert-card {
+    border: 1px solid #efd5d8;
+    border-radius: var(--ops-radius);
+    background: #fff;
+    padding: 18px;
+    margin-bottom: 14px;
+    display: grid;
+    gap: 12px;
+}
+
+.courier-failed-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.courier-failed-reason-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 3px 9px;
+    border-radius: 4px;
+    background: var(--ops-danger-soft);
+    color: var(--ops-danger);
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.courier-failed-guidance {
+    padding: 12px 14px;
+    border-radius: 6px;
+    background: #fdf8f8;
+    border: 1px solid #fae8ea;
+    font-size: 13px;
+    line-height: 1.45;
+    color: #4e2227;
+}
+
+.courier-failed-guidance strong {
+    display: block;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--ops-danger);
+    margin-bottom: 4px;
+}
+
+/* Phone Contact Dial Link */
+.courier-tel-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 38px;
+    padding: 6px 12px;
+    border: 1px solid var(--ops-line);
+    border-radius: 6px;
+    background: #fff;
+    color: var(--ops-accent-strong);
+    font-size: 13px;
+    font-weight: 700;
+    text-decoration: none;
+    margin-top: 4px;
+}
+
+.courier-tel-link:hover {
+    border-color: var(--ops-accent);
+    background: var(--ops-accent-soft);
+}
+
+/* Verification Code Input */
+.courier-code-input {
+    font-size: 20px !important;
+    font-weight: 700 !important;
+    letter-spacing: 0.25em !important;
+    text-align: center !important;
+    font-family: ui-monospace, "Cascadia Code", monospace !important;
+    min-height: 52px !important;
+}
+
+/* COD Amount Display */
+.courier-cod-badge {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 4px;
+    padding: 6px 12px;
+    border-radius: 6px;
+    background: #fbf6ec;
+    border: 1px solid #ebd9b5;
+    color: #6d4b0a;
+    font-size: 14px;
+    font-weight: 700;
+    margin-bottom: 8px;
+}
+
+/* Proof of Delivery Dropzone */
+.courier-file-card {
+    border: 1px dashed #cfcad6;
+    border-radius: 6px;
+    padding: 14px;
+    background: #faf9fb;
 }
