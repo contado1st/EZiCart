@@ -8,9 +8,10 @@
         <div class="auth-branding">
             <span class="section-tag">EZiCart Marketplace</span>
             <h1 class="auth-brand-title">Shop easier.<br>Sell faster.</h1>
+            <p class="hero-text">Welcome back! Please sign in to manage your account and continuous marketplace activity.</p>
             <ul class="auth-feature-list">
                 <li class="auth-feature-item">
-                    <span class="auth-feature-icon">🛍️</span>
+                    <span class="auth-feature-icon">🛒</span>
                     Leading marketplace platform for local finds
                 </li>
                 <li class="auth-feature-item">

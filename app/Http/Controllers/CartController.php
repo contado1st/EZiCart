@@ -11,7 +11,14 @@ class CartController extends Controller
     public function index()
     {
         $cart = session()->get('cart', []);
-        return view('cart.index', compact('cart'));
+
+        // Calculate initial subtotal for order summary
+        $subtotal = 0;
+        foreach ($cart as $item) {
+            $subtotal += $item['price'] * $item['quantity'];
+        }
+
+        return view('cart.index', compact('cart', 'subtotal'));
     }
 
     public function add(Request $request, Product $product)
@@ -46,15 +53,18 @@ class CartController extends Controller
             $cart[$cartKey]['quantity'] += $quantity;
         } else {
             $cart[$cartKey] = [
+                'cart_key'       => $cartKey,
                 'product_id'     => $product->id,
+                'id'             => $product->id,
                 'variation_id'   => $variationId,
                 'variation_info' => $variationText,
                 'name'           => $product->name,
                 'price'          => $price,
                 'quantity'       => $quantity,
+                'stock'          => $variation ? $variation->stock : ($product->stock ?? 99),
                 'image_path'     => $product->image_path,
                 'seller_id'      => $product->user_id,
-                'seller_name'    => $product->seller->business_name ?? 'Merchant',
+                'business_name'  => $product->seller->business_name ?? 'Merchant',
             ];
         }
 

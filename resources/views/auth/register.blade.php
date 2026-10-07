@@ -25,9 +25,9 @@
         <div class="auth-form-container">
 
             <div class="role-selector">
-                <a href="{{ route('register') }}" class="role-tab active">🛍️ Buyer</a>
-                <a href="{{ route('register.seller') }}" class="role-tab">🏪 Seller</a>
-                <a href="{{ route('register.courier') }}" class="role-tab">🚚 Courier</a>
+                <a href="{{ route('register') }}" class="role-tab active">Buyer</a>
+                <a href="{{ route('register.seller') }}" class="role-tab">Seller</a>
+                <a href="{{ route('register.courier') }}" class="role-tab">Courier</a>
             </div>
 
             <h2 class="auth-title">Sign Up as Buyer</h2>
@@ -37,7 +37,7 @@
             </div>
 
             @if ($errors->any())
-                <div class="alert alert-danger" style="background-color: #fee2e2; border: 1px solid #ef4444; color: #991b1b; padding: 0.75rem 1rem; border-radius: 6px; margin-bottom: 1rem;">
+                <div class="alert alert-danger" style="background-color: #fff0f4; border: 1px solid #e62e63; color: #c91e50; padding: 0.75rem 1rem; border-radius: 8px; margin-bottom: 1rem; font-size: 0.85rem;">
                     <ul style="margin: 0; padding-left: 1.25rem;">
                         @foreach ($errors->all() as $error)
                             <li>{{ $error }}</li>

@@ -26,12 +26,10 @@
 
             <div class="form-grid">
                 <div class="form-group">
-                    <label class="form-label">Category *</label>
-                    <select name="category" class="form-control" required>
-                        @foreach(['Electronics', 'Fashion', 'Home & Living', 'Beauty', 'Groceries'] as $cat)
-                            <option value="{{ $cat }}" {{ $product->category === $cat ? 'selected' : '' }}>{{ $cat }}</option>
-                        @endforeach
-                    </select>
+                    <label class="form-label">Category (Assigned to Your Store)</label>
+                    <!-- Locked input displaying registered business category -->
+                    <input type="text" class="form-control" value="{{ $sellerCategory }}" readonly style="background-color: var(--slate-100); cursor: not-allowed; font-weight: 700;">
+                    <input type="hidden" name="category" value="{{ $sellerCategory }}">
                 </div>
                 <div class="form-group">
                     <label class="form-label">Update Product Image</label>

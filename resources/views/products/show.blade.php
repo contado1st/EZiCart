@@ -6,149 +6,174 @@
 @endpush
 
 @section('content')
-<div class="container product-show-container">
-    <a href="{{ route('home') }}" class="product-back-link">
-        ← Back to Marketplace
-    </a>
+<div class="ez-container-fluid product-show-container">
+    
+    <!-- Breadcrumb / Back Navigation -->
+    <div class="product-breadcrumb">
+        <a href="{{ route('home') }}" class="product-back-link">Home</a>
+        <span class="breadcrumb-separator">›</span>
+        <span>{{ $product->category }}</span>
+        <span class="breadcrumb-separator">›</span>
+        <span class="breadcrumb-current">{{ $product->name }}</span>
+    </div>
 
-    <div class="product-show-layout">
-        <!-- Product Image Preview -->
-        <div class="product-gallery-box">
-            @if($product->image_path)
-                <img src="{{ asset('storage/' . $product->image_path) }}" 
-                     alt="{{ $product->name }}" 
-                     class="product-gallery-img">
-            @else
-                <div class="product-gallery-placeholder">📦</div>
-            @endif
-        </div>
-
-        <!-- Product Purchase Information -->
-        <div class="product-info-column">
-            <div>
-                <span class="product-badge">{{ $product->category }}</span>
-                <h1 class="product-detail-title">{{ $product->name }}</h1>
-
-                <!-- Rating Quick Peek -->
-                <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 1rem;">
-                    <span class="star-rating-stars">
-                        @for($i = 1; $i <= 5; $i++)
-                            {{ $i <= round($product->average_rating) ? '★' : '☆' }}
-                        @endfor
-                    </span>
-                    <span style="font-size: 0.875rem; font-weight: 700; color: var(--slate-700);">
-                        {{ $product->average_rating > 0 ? $product->average_rating : 'New' }}
-                    </span>
-                    <span style="font-size: 0.8125rem; color: var(--slate-400);">
-                        ({{ $product->review_count }} reviews)
-                    </span>
-                </div>
-
-                <!-- Seller Details -->
-                <div class="product-seller-card">
-                    <div class="product-seller-label">Sold By</div>
-                    <div class="product-seller-name">{{ $product->seller->business_name ?? 'EZiCart Verified Merchant' }}</div>
-                    <div class="product-seller-location">
-                        Location: {{ $product->seller->municipality ?? 'Majayjay' }}, {{ $product->seller->province ?? 'Laguna' }}
-                    </div>
-                </div>
-
-                <!-- Price Block -->
-                <div class="product-detail-price" id="basePriceDisplay">
-                    ₱{{ number_format($product->price, 2) }}
-                </div>
-
-                <!-- Description -->
-                <div class="product-detail-desc">
-                    {{ $product->description ?? 'No description provided by the seller for this item.' }}
+    <!-- Main Shopee-Style Product Card -->
+    <div class="shopee-product-card">
+        <div class="shopee-product-main">
+            
+            <!-- Left Column: Fixed-Size Clickable Image Gallery -->
+            <div class="shopee-gallery-col">
+                <div class="shopee-image-wrapper" onclick="openImageModal()">
+                    @if($product->image_path)
+                        <img id="mainProductImage" 
+                             src="{{ asset('storage/' . $product->image_path) }}" 
+                             alt="{{ $product->name }}" 
+                             class="shopee-main-img">
+                        <div class="image-zoom-hint">🔍 Click to enlarge</div>
+                    @else
+                        <div class="shopee-image-placeholder">📦</div>
+                    @endif
                 </div>
             </div>
 
-            <!-- Role Guarded Cart Submission -->
-            @auth
-                @if(auth()->user()->role === 'buyer')
-                    <form action="{{ route('cart.add', $product->id) }}" method="POST" class="product-cart-form">
-                        @csrf
+            <!-- Right Column: Product Specs & Purchase Options -->
+            <div class="shopee-info-col">
+                <h1 class="shopee-product-title">{{ $product->name }}</h1>
 
-                        @if($product->variations->count() > 0)
-                            <div style="margin-bottom: 1.25rem;">
-                                <label style="display: block; font-size: 0.75rem; font-weight: 800; text-transform: uppercase; margin-bottom: 0.5rem; color: var(--slate-700);">
-                                    Select Variation (Color / Size / Option)
-                                </label>
-                                <select name="variation_id" id="variationSelect" class="search-input" style="width: 100%; border: 1px solid var(--slate-300);" required>
-                                    <option value="">-- Choose an option --</option>
-                                    @foreach($product->variations as $variation)
-                                        <option value="{{ $variation->id }}" 
-                                                data-adjustment="{{ $variation->price_adjustment }}"
-                                                data-stock="{{ $variation->stock }}">
-                                            {{ $variation->type }}: {{ $variation->value }} 
-                                            @if($variation->price_adjustment != 0)
-                                                ({{ $variation->price_adjustment > 0 ? '+' : '' }}₱{{ number_format($variation->price_adjustment, 2) }})
-                                            @endif
-                                            &bull; Stock: {{ $variation->stock }}
-                                        </option>
-                                    @endforeach
-                                </select>
-                            </div>
-                        @endif
-
-                        <div class="product-qty-row">
-                            <label class="product-qty-label">Quantity:</label>
-                            <input type="number" name="quantity" id="qtyInput" value="1" min="1" max="{{ $product->stock }}" class="product-qty-input">
-                            <span class="product-stock-available" id="stockDisplay">
-                                {{ $product->stock }} pieces available
-                            </span>
-                        </div>
-
-                        <div class="product-actions-row">
-                            <button type="submit" class="btn-primary product-btn-add-cart">
-                                🛒 Add to Cart
-                            </button>
-                        </div>
-                    </form>
-                @else
-                    <div class="role-restriction-box">
-                        <span class="role-restriction-icon">🔒</span>
-                        <div>
-                            <div class="role-restriction-title">Role Restriction Active</div>
-                            <div class="role-restriction-text">
-                                You are signed in as a <strong>{{ ucfirst(auth()->user()->role) }}</strong>. Only Buyer accounts can purchase items and use the cart.
-                            </div>
+                <!-- Shopee Rating Bar (Star | Ratings | Sold) -->
+                <div class="shopee-metrics-bar">
+                    <div class="shopee-metric-item">
+                        <span class="shopee-score-text">{{ $product->average_rating > 0 ? number_format($product->average_rating, 1) : '5.0' }}</span>
+                        <div class="star-rating-stars">
+                            @for($i = 1; $i <= 5; $i++)
+                                {{ $i <= round($product->average_rating ?: 5) ? '★' : '☆' }}
+                            @endfor
                         </div>
                     </div>
-                @endif
-            @else
-                <div class="role-restriction-box">
-                    <span class="role-restriction-icon">💡</span>
-                    <div>
-                        <div class="role-restriction-title">Buyer Sign-in Required</div>
-                        <div class="role-restriction-text">
-                            Please <a href="{{ route('login') }}" style="color: var(--ezipink-500); font-weight: 700;">login</a> or <a href="{{ route('register') }}" style="color: var(--ezipink-500); font-weight: 700;">create a buyer account</a> to purchase this item.
-                        </div>
+                    <div class="shopee-metric-divider"></div>
+                    <div class="shopee-metric-item">
+                        <span class="shopee-metric-value">{{ $product->review_count ?? 0 }}</span>
+                        <span class="shopee-metric-label">Ratings</span>
+                    </div>
+                    <div class="shopee-metric-divider"></div>
+                    <div class="shopee-metric-item">
+                        <span class="shopee-metric-value">{{ $product->sold_count ?? 0 }}</span>
+                        <span class="shopee-metric-label">Sold</span>
                     </div>
                 </div>
-            @endauth
+
+                <!-- Price Display Banner -->
+                <div class="shopee-price-banner">
+                    <span class="shopee-currency">₱</span>
+                    <span class="shopee-price-amount" id="basePriceDisplay">{{ number_format($product->price, 2) }}</span>
+                </div>
+
+                <!-- Role Guarded Cart Form -->
+                @auth
+                    @if(auth()->user()->role === 'buyer')
+                        <form action="{{ route('cart.add', $product->id) }}" method="POST" class="shopee-cart-form">
+                            @csrf
+
+                            @if($product->variations->count() > 0)
+                                <div class="shopee-option-row">
+                                    <label class="shopee-row-label">Option</label>
+                                    <div class="shopee-variations-grid">
+                                        <select name="variation_id" id="variationSelect" class="shopee-select-control" required>
+                                            <option value="">-- Choose Option --</option>
+                                            @foreach($product->variations as $variation)
+                                                <option value="{{ $variation->id }}" 
+                                                        data-adjustment="{{ $variation->price_adjustment }}"
+                                                        data-stock="{{ $variation->stock }}">
+                                                    {{ $variation->type }}: {{ $variation->value }} 
+                                                    @if($variation->price_adjustment != 0)
+                                                        ({{ $variation->price_adjustment > 0 ? '+' : '' }}₱{{ number_format($variation->price_adjustment, 2) }})
+                                                    @endif
+                                                    &bull; Stock: {{ $variation->stock }}
+                                                </option>
+                                            @endforeach
+                                        </select>
+                                    </div>
+                                </div>
+                            @endif
+
+                            <div class="shopee-option-row">
+                                <label class="shopee-row-label">Quantity</label>
+                                <div class="shopee-qty-controls">
+                                    <button type="button" class="qty-btn" onclick="adjustQty(-1)">-</button>
+                                    <input type="number" name="quantity" id="qtyInput" value="1" min="1" max="{{ $product->stock }}" class="shopee-qty-input">
+                                    <button type="button" class="qty-btn" onclick="adjustQty(1)">+</button>
+                                    <span class="shopee-stock-label" id="stockDisplay">{{ $product->stock }} pieces available</span>
+                                </div>
+                            </div>
+
+                            <div class="shopee-actions-row">
+                                <button type="submit" class="shopee-btn-add-cart">
+                                    🛒 Add To Cart
+                                </button>
+                            </div>
+                        </form>
+                    @else
+                        <div class="role-restriction-box" style="margin-top: 1.5rem;">
+                            <span class="role-restriction-icon">🔒</span>
+                            <div>
+                                <div class="role-restriction-title">Role Restriction Active</div>
+                                <div class="role-restriction-text">
+                                    Signed in as <strong>{{ ucfirst(auth()->user()->role) }}</strong>. Only Buyer accounts can add items to cart.
+                                </div>
+                            </div>
+                        </div>
+                    @endif
+                @else
+                    <div class="role-restriction-box" style="margin-top: 1.5rem;">
+                        <span class="role-restriction-icon">💡</span>
+                        <div>
+                            <div class="role-restriction-title">Buyer Sign-in Required</div>
+                            <div class="role-restriction-text">
+                                Please <a href="{{ route('login') }}" style="color: var(--ez-primary); font-weight: 700;">login</a> or <a href="{{ route('register') }}" style="color: var(--ez-primary); font-weight: 700;">sign up</a> to purchase this item.
+                            </div>
+                        </div>
+                    </div>
+                @endauth
+            </div>
         </div>
     </div>
 
-    <!-- Customer Reviews & Feedback Section -->
-    <div class="reviews-section">
-        <div class="reviews-header">
-            <h2 class="reviews-title">Customer Reviews & Ratings</h2>
+    <!-- Store / Merchant Info Banner (Positioned Below) -->
+    <div class="shopee-store-card">
+        <div class="shopee-store-avatar">🏪</div>
+        <div class="shopee-store-details">
+            <h3 class="shopee-store-name">{{ $product->seller->business_name ?? 'EZiCart Verified Merchant' }}</h3>
+            <p class="shopee-store-location">📍 {{ $product->seller->municipality ?? 'Majayjay' }}, {{ $product->seller->province ?? 'Laguna' }}</p>
         </div>
+        <div class="shopee-store-actions">
+            <a href="#" class="ez-btn ez-btn-outline" style="font-size: 0.8rem; padding: 0.5rem 1rem;">View Shop</a>
+        </div>
+    </div>
+
+    <!-- Product Description Card (Preserving Shift+Enter Formatting) -->
+    <div class="shopee-section-card">
+        <h3 class="shopee-card-heading">Product Specifications & Description</h3>
+        <div class="shopee-description-content">
+            {{ $product->description ?? "No detailed description provided for this item." }}
+        </div>
+    </div>
+
+    <!-- Customer Reviews & Ratings -->
+    <div class="shopee-section-card">
+        <h3 class="shopee-card-heading">Product Ratings & Reviews</h3>
 
         <div class="rating-overview-card">
             <div>
-                <div class="rating-score-num">{{ $product->average_rating > 0 ? $product->average_rating : '0.0' }}</div>
+                <div class="rating-score-num">{{ $product->average_rating > 0 ? number_format($product->average_rating, 1) : '5.0' }}</div>
                 <div class="star-rating-stars">
                     @for($i = 1; $i <= 5; $i++)
-                        {{ $i <= round($product->average_rating) ? '★' : '☆' }}
+                        {{ $i <= round($product->average_rating ?: 5) ? '★' : '☆' }}
                     @endfor
                 </div>
             </div>
             <div>
-                <strong style="font-size: 0.9375rem; color: var(--slate-800);">Based on {{ $product->review_count }} verified reviews</strong>
-                <p style="margin: 0; font-size: 0.8125rem; color: var(--slate-500);">Ratings submitted by verified buyers upon completed delivery.</p>
+                <strong style="font-size: 0.9375rem; color: var(--ez-dark);">Based on {{ $product->review_count ?? 0 }} verified reviews</strong>
+                <p style="margin: 0; font-size: 0.8125rem; color: var(--ez-text-gray);">Ratings submitted by verified buyers upon completed delivery.</p>
             </div>
         </div>
 
@@ -166,16 +191,24 @@
                     <span class="review-date">{{ $review->created_at->format('M d, Y') }}</span>
                 </div>
                 <div class="review-comment-body">
-                    {{ $review->comment ?? 'Customer provided a rating without written commentary.' }}
+                    {!! nl2br(e($review->comment ?? 'Customer provided a rating without written commentary.')) !!}
                 </div>
             </div>
         @empty
-            <div style="text-align: center; padding: 2rem; color: var(--slate-400); font-size: 0.875rem;">
+            <div style="text-align: center; padding: 2.5rem; color: var(--ez-text-gray); font-size: 0.875rem;">
                 No reviews yet for this product. Be the first to purchase and review!
             </div>
         @endforelse
     </div>
 </div>
+
+<!-- Lightbox Image Modal -->
+@if($product->image_path)
+    <div id="imageModal" class="image-modal-backdrop" onclick="closeImageModal()">
+        <span class="image-modal-close">&times;</span>
+        <img class="image-modal-content" id="modalImage" src="{{ asset('storage/' . $product->image_path) }}" alt="{{ $product->name }}">
+    </div>
+@endif
 
 <script>
     const basePrice = {{ $product->price }};
@@ -192,15 +225,35 @@
                 const newPrice = basePrice + adjustment;
                 const varStock = parseInt(selected.dataset.stock) || 0;
 
-                priceDisplay.textContent = '₱' + newPrice.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                priceDisplay.textContent = newPrice.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
                 stockDisplay.textContent = varStock + ' variation pieces available';
                 qtyInput.max = varStock > 0 ? varStock : 1;
             } else {
-                priceDisplay.textContent = '₱' + basePrice.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                priceDisplay.textContent = basePrice.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
                 stockDisplay.textContent = '{{ $product->stock }} pieces available';
                 qtyInput.max = {{ $product->stock }};
             }
         });
+    }
+
+    function adjustQty(amount) {
+        if (!qtyInput) return;
+        let current = parseInt(qtyInput.value) || 1;
+        let maxStock = parseInt(qtyInput.max) || 999;
+        let nextVal = current + amount;
+        if (nextVal >= 1 && nextVal <= maxStock) {
+            qtyInput.value = nextVal;
+        }
+    }
+
+    function openImageModal() {
+        const modal = document.getElementById('imageModal');
+        if (modal) modal.style.display = 'flex';
+    }
+
+    function closeImageModal() {
+        const modal = document.getElementById('imageModal');
+        if (modal) modal.style.display = 'none';
     }
 </script>
 @endsection

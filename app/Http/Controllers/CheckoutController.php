@@ -13,7 +13,7 @@ use Illuminate\Support\Str;
 
 class CheckoutController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
         $cart = session()->get('cart', []);
 
@@ -21,8 +21,23 @@ class CheckoutController extends Controller
             return redirect()->route('cart.index')->with('error', 'Your cart is empty.');
         }
 
+        // Handle item selection checkboxes passed from cart view
+        $selectedKeys = $request->input('selected_items');
+
+        if ($selectedKeys && is_array($selectedKeys)) {
+            $checkoutItems = array_intersect_key($cart, array_flip($selectedKeys));
+            session()->put('checkout_items', $checkoutItems);
+        } else {
+            // Fallback to active session items or full cart if none specified
+            $checkoutItems = session()->get('checkout_items', $cart);
+        }
+
+        if (empty($checkoutItems)) {
+            return redirect()->route('cart.index')->with('error', 'Please select at least one item to proceed to checkout.');
+        }
+
         $subtotal = 0;
-        foreach ($cart as $item) {
+        foreach ($checkoutItems as $item) {
             $subtotal += $item['price'] * $item['quantity'];
         }
 
@@ -43,7 +58,15 @@ class CheckoutController extends Controller
         $total = max(0, $subtotal - $discount) + $shippingFee;
         $user = auth()->user();
 
-        return view('checkout.index', compact('cart', 'subtotal', 'discount', 'appliedVoucher', 'shippingFee', 'total', 'user'));
+        return view('checkout.index', [
+            'cart'           => $checkoutItems,
+            'subtotal'       => $subtotal,
+            'discount'       => $discount,
+            'appliedVoucher' => $appliedVoucher,
+            'shippingFee'    => $shippingFee,
+            'total'          => $total,
+            'user'           => $user,
+        ]);
     }
 
     public function applyVoucher(Request $request)
@@ -59,7 +82,7 @@ class CheckoutController extends Controller
             return back()->with('error', 'Voucher code not found.');
         }
 
-        $cart = session()->get('cart', []);
+        $cart = session()->get('checkout_items', session()->get('cart', []));
         $subtotal = 0;
         foreach ($cart as $item) {
             $subtotal += $item['price'] * $item['quantity'];
@@ -87,10 +110,11 @@ class CheckoutController extends Controller
 
     public function process(Request $request)
     {
-        $cart = session()->get('cart', []);
+        // Only process items that were checked for checkout
+        $checkoutItems = session()->get('checkout_items', session()->get('cart', []));
 
-        if (empty($cart)) {
-            return redirect()->route('cart.index')->with('error', 'Your cart is empty.');
+        if (empty($checkoutItems)) {
+            return redirect()->route('cart.index')->with('error', 'Your checkout session is empty or expired.');
         }
 
         $validated = $request->validate([
@@ -116,7 +140,7 @@ class CheckoutController extends Controller
             $groupedCart = [];
             $cartTotalSubtotal = 0;
 
-            foreach ($cart as $item) {
+            foreach ($checkoutItems as $cartKey => $item) {
                 $productId = $item['product_id'] ?? $item['id'];
                 $product = Product::lockForUpdate()->find($productId);
 
@@ -137,6 +161,7 @@ class CheckoutController extends Controller
                 $cartTotalSubtotal += $itemSubtotal;
 
                 $groupedCart[$product->user_id][] = [
+                    'cart_key'       => $cartKey,
                     'product'        => $product,
                     'variation_id'   => $item['variation_id'] ?? null,
                     'variation_info' => $item['variation_info'] ?? null,
@@ -211,7 +236,15 @@ class CheckoutController extends Controller
 
             DB::commit();
 
-            session()->forget(['cart', 'applied_voucher']);
+            // Remove only the purchased items from the main cart session
+            $mainCart = session()->get('cart', []);
+            foreach (array_keys($checkoutItems) as $purchasedKey) {
+                unset($mainCart[$purchasedKey]);
+            }
+            session()->put('cart', $mainCart);
+
+            // Clean up checkout-specific session data
+            session()->forget(['checkout_items', 'applied_voucher']);
 
             return redirect()->route('buyer.dashboard')->with('success', 'Order placed successfully! Waiting for seller preparation.');
         } catch (\Exception $e) {

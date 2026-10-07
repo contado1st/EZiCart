@@ -25,9 +25,9 @@
         <div class="auth-form-container">
             <!-- Role Switcher -->
             <div class="role-selector">
-                <a href="{{ route('register') }}" class="role-tab">🛍️ Buyer</a>
-                <a href="{{ route('register.seller') }}" class="role-tab active">🏪 Seller</a>
-                <a href="{{ route('register.courier') }}" class="role-tab">🚚 Courier</a>
+                <a href="{{ route('register') }}" class="role-tab">Buyer</a>
+                <a href="{{ route('register.seller') }}" class="role-tab active">Seller</a>
+                <a href="{{ route('register.courier') }}" class="role-tab">Courier</a>
             </div>
 
             <h2 class="auth-title">Sign Up as Seller</h2>
@@ -103,7 +103,6 @@
                             <option value="Home and Garden">Home and Garden</option>
                             <option value="Health and Beauty">Health and Beauty</option>
                             <option value="Sports and Outdoors">Sports and Outdoors</option>
-
                         </select>
                     </div>
 

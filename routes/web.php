@@ -22,7 +22,11 @@ use App\Http\Controllers\AdminAnnouncementController;
 use App\Http\Controllers\AdminModerationController;
 
 // 1. Public Marketplace & Browsing Routes
-Route::get('/', [HomeController::class, 'index'])->name('home');
+Route::get('/', function () {
+    return view('landing');
+})->name('landing');
+
+Route::get('/marketplace', [HomeController::class, 'index'])->name('home');
 Route::get('/product/{product}', [HomeController::class, 'showProduct'])->name('product.show');
 
 // 2. Guest Authentication & Registration Routes

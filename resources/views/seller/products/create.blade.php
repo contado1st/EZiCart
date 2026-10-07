@@ -25,15 +25,13 @@
 
             <div class="form-grid">
                 <div class="form-group">
-                    <label class="form-label">Category *</label>
-                    <select name="category" class="form-control" required>
-                        <option value="">Select Category</option>
-                        <option value="Electronics">Electronics</option>
-                        <option value="Fashion">Fashion</option>
-                        <option value="Home & Living">Home & Living</option>
-                        <option value="Beauty">Beauty</option>
-                        <option value="Groceries">Groceries</option>
-                    </select>
+                    <label class="form-label">Category (Assigned to Your Store)</label>
+                    <!-- Locked input displaying registered business category -->
+                    <input type="text" class="form-control" value="{{ $sellerCategory }}" readonly style="background-color: var(--slate-100); cursor: not-allowed; font-weight: 700;">
+                    <input type="hidden" name="category" value="{{ $sellerCategory }}">
+                    <span class="text-muted-small" style="margin-top: 0.25rem; display: block;">
+                        🔒 Products are fixed to your registered business category.
+                    </span>
                 </div>
                 <div class="form-group">
                     <label class="form-label">Product Image (Optional)</label>

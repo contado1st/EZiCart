@@ -10,11 +10,14 @@ class HomeController extends Controller
     public function index(Request $request)
     {
         $categories = [
-            ['name' => 'Beauty', 'icon' => '💄'],
-            ['name' => 'Home & Living', 'icon' => '🏠'],
-            ['name' => 'Fashion', 'icon' => '👗'],
-            ['name' => 'Electronics', 'icon' => '🎧'],
-            ['name' => 'Groceries', 'icon' => '🛒'],
+            ['name' => "Men's Apparel", 'icon' => '👕'],
+            ['name' => "Women's Apparel", 'icon' => '👚'],
+            ['name' => 'Kids and Baby', 'icon' => '🧸'],
+            ['name' => 'Pet Supplies', 'icon' => '🐕'],
+            ['name' => 'Electronics', 'icon' => '📱'],
+            ['name' => 'Home and Garden', 'icon' => '🏡'],
+            ['name' => 'Health and Beauty', 'icon' => '✨'],
+            ['name' => 'Sports and Outdoors', 'icon' => '⚽'],
         ];
 
         $query = Product::where('is_archived', false)

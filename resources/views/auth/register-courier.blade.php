@@ -25,9 +25,9 @@
         <div class="auth-form-container">
             <!-- Role Switcher -->
             <div class="role-selector">
-                <a href="{{ route('register') }}" class="role-tab">🛍️ Buyer</a>
-                <a href="{{ route('register.seller') }}" class="role-tab">🏪 Seller</a>
-                <a href="{{ route('register.courier') }}" class="role-tab active">🚚 Courier</a>
+                <a href="{{ route('register') }}" class="role-tab">Buyer</a>
+                <a href="{{ route('register.seller') }}" class="role-tab">Seller</a>
+                <a href="{{ route('register.courier') }}" class="role-tab active">Courier</a>
             </div>
 
             <h2 class="auth-title">Sign Up as Courier</h2>
