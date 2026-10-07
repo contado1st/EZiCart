@@ -16,10 +16,8 @@ class OrderItem extends Model
         'variation_info',
         'product_name',
         'unit_price',
-        'price',
         'quantity',
         'item_total',
-        'subtotal',
     ];
 
     public function order(): BelongsTo
@@ -30,5 +28,15 @@ class OrderItem extends Model
     public function product(): BelongsTo
     {
         return $this->belongsTo(Product::class);
+    }
+
+    public function getPriceAttribute(): float
+    {
+        return (float) ($this->attributes['unit_price'] ?? 0);
+    }
+
+    public function getSubtotalAttribute(): float
+    {
+        return (float) ($this->attributes['item_total'] ?? 0);
     }
 }

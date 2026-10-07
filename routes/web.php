@@ -57,10 +57,23 @@ Route::middleware(['auth'])->group(function () {
     Route::middleware(['role:buyer'])->group(function () {
         Route::prefix('buyer')->name('buyer.')->group(function () {
             Route::get('/dashboard', [BuyerController::class, 'dashboard'])->name('dashboard');
+            Route::get('/orders', [BuyerController::class, 'dashboard'])->name('orders.index');
+            Route::get('/orders/{order}', [BuyerController::class, 'showOrder'])->name('orders.show');
             Route::post('/orders/{order}/confirm', [BuyerController::class, 'confirmReceived'])->name('orders.confirm');
             Route::post('/orders/{order}/review', [ReviewController::class, 'store'])->name('orders.review');
             Route::get('/orders/{order}/dispute', [DisputeController::class, 'create'])->name('orders.dispute.create');
             Route::post('/orders/{order}/dispute', [DisputeController::class, 'store'])->name('orders.dispute.store');
+
+            // Account Management
+            Route::get('/profile', [BuyerController::class, 'profile'])->name('profile');
+            Route::put('/profile', [BuyerController::class, 'updateProfile'])->name('profile.update');
+            Route::get('/addresses', [BuyerController::class, 'addresses'])->name('addresses.index');
+            Route::post('/addresses', [BuyerController::class, 'storeAddress'])->name('addresses.store');
+            Route::put('/addresses/{address}', [BuyerController::class, 'updateAddress'])->name('addresses.update');
+            Route::delete('/addresses/{address}', [BuyerController::class, 'destroyAddress'])->name('addresses.destroy');
+            Route::patch('/addresses/{address}/default', [BuyerController::class, 'setDefaultAddress'])->name('addresses.default');
+            Route::get('/password', [BuyerController::class, 'password'])->name('password');
+            Route::put('/password', [BuyerController::class, 'updatePassword'])->name('password.update');
         });
 
         // Cart Actions
@@ -95,6 +108,20 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/vouchers', [SellerVoucherController::class, 'store'])->name('vouchers.store');
         Route::patch('/vouchers/{voucher}/toggle', [SellerVoucherController::class, 'toggle'])->name('vouchers.toggle');
         Route::delete('/vouchers/{voucher}', [SellerVoucherController::class, 'destroy'])->name('vouchers.destroy');
+
+        // Customer Feedback
+        Route::get('/feedback', [SellerController::class, 'feedback'])->name('feedback');
+
+        // Store & Account Settings
+        Route::get('/profile', [SellerController::class, 'profile'])->name('profile');
+        Route::put('/profile', [SellerController::class, 'updateProfile'])->name('profile.update');
+        Route::get('/addresses', [SellerController::class, 'addresses'])->name('addresses.index');
+        Route::post('/addresses', [SellerController::class, 'storeAddress'])->name('addresses.store');
+        Route::put('/addresses/{address}', [SellerController::class, 'updateAddress'])->name('addresses.update');
+        Route::delete('/addresses/{address}', [SellerController::class, 'destroyAddress'])->name('addresses.destroy');
+        Route::patch('/addresses/{address}/default', [SellerController::class, 'setDefaultAddress'])->name('addresses.default');
+        Route::get('/password', [SellerController::class, 'password'])->name('password');
+        Route::put('/password', [SellerController::class, 'updatePassword'])->name('password.update');
     });
 
     // Courier-Only Routes (Fulfillment & Delivery Workspace)
@@ -140,6 +167,10 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/products/{product}', [AdminController::class, 'showProduct'])->name('products.show');
         Route::post('/products/{product}/approve', [AdminController::class, 'approveProduct'])->name('products.approve');
         Route::post('/products/{product}/reject', [AdminController::class, 'rejectProduct'])->name('products.reject');
+
+        // Platform Policies
+        Route::get('/policies', [AdminController::class, 'policies'])->name('policies');
+        Route::post('/policies', [AdminController::class, 'updatePolicies'])->name('policies.update');
     });
 
 });

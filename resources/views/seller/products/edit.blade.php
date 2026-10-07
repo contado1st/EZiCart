@@ -1,8 +1,6 @@
-@extends('layouts.app')
+@extends('layouts.seller')
 
-@push('styles')
-    <link rel="stylesheet" href="{{ asset('css/app.css') }}">
-@endpush
+@section('title', 'Edit Product - EZiCart Seller')
 
 @section('content')
 <div class="admin-container" style="max-width: 900px; margin: 2rem auto; padding: 0 1rem;">

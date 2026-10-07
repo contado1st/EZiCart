@@ -1,45 +1,14 @@
-@extends('layouts.app')
+@extends('layouts.seller')
 
-@push('styles')
-    <link rel="stylesheet" href="{{ asset('css/dashboard.css') }}">
-@endpush
+@section('title', 'Order Management - EZiCart Seller')
 
 @section('content')
-<div class="dash-wrapper">
-    <!-- Sidebar Navigation -->
-    <aside class="dash-sidebar">
-        <div>
-            <div class="dash-profile-badge">
-                <span class="dash-role-tag">Seller Portal</span>
-                <h2 class="dash-profile-title">{{ auth()->user()->business_name ?? 'My Store' }}</h2>
-            </div>
-            <nav class="dash-nav">
-                <a href="{{ route('seller.dashboard') }}" class="dash-nav-item">
-                    📊 Dashboard Overview
-                </a>
-                <a href="{{ route('seller.products.index') }}" class="dash-nav-item">
-                    📦 Inventory Management
-                </a>
-                <a href="{{ route('seller.orders.index') }}" class="dash-nav-item active">
-                    🛍️ Order Management
-                </a>
-            </nav>
-        </div>
-
-        <form action="{{ route('logout') }}" method="POST">
-            @csrf
-            <button type="submit" class="dash-logout-btn">🚪 Logout</button>
-        </form>
-    </aside>
-
-    <!-- Main Workspace -->
-    <main class="dash-main">
-        <div class="dash-header">
-            <div>
-                <h1 class="dash-title">Order Fulfillment & Dispatch</h1>
-                <p class="dash-subtitle">Accept incoming buyer orders, pack packages, and generate waybills.</p>
-            </div>
-        </div>
+<div class="dash-header">
+    <div>
+        <h1 class="dash-title">Order Fulfillment & Dispatch</h1>
+        <p class="dash-subtitle">Accept incoming buyer orders, pack packages, and generate waybills.</p>
+    </div>
+</div>
 
         @if(session('success'))
             <div class="dash-alert-success">✅ {{ session('success') }}</div>
@@ -144,6 +113,4 @@
         <div style="margin-top: 1.5rem;">
             {{ $orders->links() }}
         </div>
-    </main>
-</div>
 @endsection

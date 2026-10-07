@@ -35,6 +35,7 @@ class User extends Authenticatable
         'barangay',
         'street_address',
         'id_upload_path',
+        'profile_photo_path',
         'business_name',
         'line_of_business',
         'business_permit_path',
@@ -130,6 +131,26 @@ class User extends Authenticatable
     public function announcements(): HasMany
     {
         return $this->hasMany(Announcement::class, 'created_by');
+    }
+
+    public function addresses(): HasMany
+    {
+        return $this->hasMany(UserAddress::class);
+    }
+
+    public function defaultAddress(): ?UserAddress
+    {
+        return $this->addresses()->where('is_default', true)->first()
+            ?? $this->addresses()->first();
+    }
+
+    public function getProfilePhotoUrlAttribute(): string
+    {
+        if ($this->profile_photo_path) {
+            return asset('storage/'.$this->profile_photo_path);
+        }
+
+        return 'https://ui-avatars.com/api/?name='.urlencode($this->first_name.' '.$this->last_name).'&background=e62e63&color=ffffff&bold=true';
     }
 
     public function isSuspended(): bool

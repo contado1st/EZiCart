@@ -76,6 +76,22 @@ class CheckoutController extends Controller
         $total = max(0, $subtotal - $discount) + $shippingFee;
         $user = auth()->user();
 
+        if ($user->addresses()->count() === 0 && ! empty($user->province)) {
+            $user->addresses()->create([
+                'label' => 'Home',
+                'recipient_name' => $user->first_name.' '.$user->last_name,
+                'phone_number' => $user->contact_no ?? '09000000000',
+                'province' => $user->province,
+                'municipality' => $user->municipality,
+                'barangay' => $user->barangay,
+                'street_address' => $user->street_address,
+                'is_default' => true,
+            ]);
+        }
+
+        $addresses = $user->addresses()->orderByDesc('is_default')->get();
+        $defaultAddress = $user->defaultAddress();
+
         return view('checkout.index', [
             'cart' => $checkoutItems,
             'subtotal' => $subtotal,
@@ -84,6 +100,8 @@ class CheckoutController extends Controller
             'shippingFee' => $shippingFee,
             'total' => $total,
             'user' => $user,
+            'addresses' => $addresses,
+            'defaultAddress' => $defaultAddress,
         ]);
     }
 
@@ -289,10 +307,8 @@ class CheckoutController extends Controller
                         'variation_info' => $itm['variation_info'] ?? null,
                         'product_name' => $itm['product']->name,
                         'unit_price' => $itm['price'],
-                        'price' => $itm['price'],
                         'quantity' => $itm['quantity'],
                         'item_total' => $itm['price'] * $itm['quantity'],
-                        'subtotal' => $itm['price'] * $itm['quantity'],
                     ]);
 
                     $itm['product']->decrement('stock', $itm['quantity']);

@@ -18,7 +18,7 @@ return new class extends Migration
             $table->string('email')->unique();
             $table->string('password');
             $table->enum('role', ['buyer', 'seller', 'courier', 'admin', 'logistics'])->default('buyer');
-            $table->enum('status', ['pending', 'approved', 'rejected'])->default('pending');
+            $table->enum('status', ['pending', 'approved', 'rejected', 'suspended'])->default('pending');
 
             // Personal Details
             $table->string('first_name', 100);

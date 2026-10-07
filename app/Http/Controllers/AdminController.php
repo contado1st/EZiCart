@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Announcement;
+use App\Models\Dispute;
 use App\Models\Order;
 use App\Models\Product;
 use App\Models\User;
@@ -21,13 +23,16 @@ class AdminController extends Controller
 
         // 3. System Metrics
         $stats = [
-            'total_commission' => $platformEarnings,
-            'gmv' => $grossMerchandiseValue,
+            'total_buyers' => User::where('role', 'buyer')->count(),
+            'total_sellers' => User::where('role', 'seller')->count(),
+            'total_products' => Product::where('is_archived', false)->count(),
             'pending_users' => User::where('status', 'pending')->count(),
             'pending_products' => Product::where('status', 'pending')->count(),
-            'active_parcels' => Order::whereIn('status', [
-                'READY_FOR_PICKUP', 'PICKED_UP', 'AT_SORTING_CENTER', 'SORTED', 'ASSIGNED_TO_RIDER', 'OUT_FOR_DELIVERY',
-            ])->count(),
+            'total_orders' => Order::count(),
+            'platform_sales' => $grossMerchandiseValue,
+            'total_commission' => $platformEarnings,
+            'pending_disputes' => Dispute::where('status', 'PENDING')->count(),
+            'gmv' => $grossMerchandiseValue,
         ];
 
         // 4. Pending Registrations Queue (Sellers & Couriers requiring verification)
@@ -135,5 +140,39 @@ class AdminController extends Controller
 
         return redirect()->route('admin.products.index')
             ->with('success', "Product '{$product->name}' has been rejected with feedback reason.");
+    }
+
+    /**
+     * Display platform policies and governance rules.
+     */
+    public function policies()
+    {
+        $policyAnnouncements = Announcement::where('target_role', 'all')
+            ->latest()
+            ->take(6)
+            ->get();
+
+        return view('admin.policies', compact('policyAnnouncements'));
+    }
+
+    /**
+     * Publish or update platform policy notices.
+     */
+    public function updatePolicies(Request $request)
+    {
+        $validated = $request->validate([
+            'title' => 'required|string|max:255',
+            'content' => 'required|string|max:5000',
+        ]);
+
+        auth()->user()->announcements()->create([
+            'title' => $validated['title'],
+            'content' => $validated['content'],
+            'type' => 'info',
+            'target_role' => 'all',
+            'is_active' => true,
+        ]);
+
+        return back()->with('success', 'Policy update announcement published across the platform.');
     }
 }
