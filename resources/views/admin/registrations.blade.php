@@ -40,7 +40,7 @@
                             <!-- Applicant -->
                             <td>
                                 <div class="text-dark-bold">
-                                    {{ $user->first_name }} {{ $user->middle_initial }} {{ $user->last_name }}
+                                    {{ collect([$user->first_name, $user->middle_name ?: $user->middle_initial, $user->last_name, $user->suffix])->filter()->join(' ') }}
                                 </div>
                                 <div class="text-muted-small">
                                     Age: {{ $user->age }} | Sex: {{ $user->sex }}

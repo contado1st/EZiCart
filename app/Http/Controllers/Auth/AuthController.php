@@ -409,7 +409,9 @@ class AuthController extends Controller
         DB::transaction(function () use ($applicant, $validated, $details, $newPaths): void {
             $applicant->forceFill(array_merge([
                 'first_name' => trim($validated['first_name']),
+                'middle_name' => filled($validated['middle_name'] ?? null) ? trim($validated['middle_name']) : null,
                 'last_name' => trim($validated['last_name']),
+                'suffix' => filled($validated['suffix'] ?? null) ? trim($validated['suffix']) : null,
                 'email' => $validated['email'],
                 'canonical_email' => $validated['email'],
                 'contact_no' => $validated['contact_no'],
@@ -508,8 +510,10 @@ class AuthController extends Controller
     private function identityRules(?User $account = null): array
     {
         return [
-            'first_name' => ['required', 'string', 'min:2', 'max:50', 'regex:/^[\p{L}\p{M} .\'-]+$/u'],
-            'last_name' => ['required', 'string', 'min:2', 'max:50', 'regex:/^[\p{L}\p{M} .\'-]+$/u'],
+            'first_name' => ['required', 'string', 'min:2', 'max:50', 'regex:/\A[\p{L}\p{M}]+(?:[ ]+[\p{L}\p{M}]+)*\z/u'],
+            'middle_name' => ['nullable', 'string', 'min:1', 'max:50', 'regex:/\A[\p{L}\p{M}]+(?:[ ]+[\p{L}\p{M}]+)*\z/u'],
+            'last_name' => ['required', 'string', 'min:2', 'max:50', 'regex:/\A[\p{L}\p{M}]+(?:[ ]+[\p{L}\p{M}]+)*\z/u'],
+            'suffix' => ['nullable', 'string', 'max:20', 'regex:/\A[\p{L}\p{M}\p{N} .-]*\z/u'],
             'email' => ['required', 'email', 'max:255', Rule::unique('users', 'email')->ignore($account?->id), Rule::unique('users', 'canonical_email')->ignore($account?->id)],
             'contact_no' => ['required', 'regex:/^09\d{9}$/', Rule::unique('users', 'canonical_mobile')->ignore($account?->id)],
         ];
@@ -517,6 +521,12 @@ class AuthController extends Controller
 
     private function normalizeIdentity(Request $request): void
     {
+        foreach (['first_name', 'middle_name', 'last_name', 'suffix'] as $field) {
+            if ($request->filled($field)) {
+                $request->merge([$field => trim((string) $request->input($field))]);
+            }
+        }
+
         $email = Str::lower(trim((string) $request->input('email')));
         $phone = preg_replace('/[\s()-]/', '', (string) $request->input('contact_no')) ?? '';
         if (preg_match('/^\+639\d{9}$/', $phone)) {
@@ -545,7 +555,9 @@ class AuthController extends Controller
 
                 $user = User::query()->forceCreate(array_merge([
                     'first_name' => trim($validated['first_name']),
+                    'middle_name' => filled($validated['middle_name'] ?? null) ? trim($validated['middle_name']) : null,
                     'last_name' => trim($validated['last_name']),
+                    'suffix' => filled($validated['suffix'] ?? null) ? trim($validated['suffix']) : null,
                     'email' => $validated['email'],
                     'canonical_email' => $validated['email'],
                     'contact_no' => $validated['contact_no'],

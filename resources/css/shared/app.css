@@ -13,15 +13,17 @@
 
 /* EZiart Logo */
 .brand-logo-img {
-    height: 45px;
-    width: auto;
+    width: 7rem;
+    height: 3.75rem;
     object-fit: contain;
+    object-position: left center;
     display: block;
-    border-radius: 6px;
+    border-radius: 0;
 }
 
 /* Color Variables & Base Reset */
 :root {
+    --navbar-height: 5.3rem;
     --ezipink-50: #fff1f2;
     --ezipink-100: #ffe4e6;
     --ezipink-500: #f43f5e;
@@ -70,19 +72,28 @@ body {
 
 /* Header & Navbar */
 .navbar {
-    background-color: #ffffff;
-    border-bottom: 1px solid var(--slate-200);
+    --navbar-height: 5.3rem;
+
+    color: #070707;
+    background-color: #f7f7f4;
+    border-top: 1px solid rgb(7 7 7 / 24%);
+    border-bottom: 1px solid rgb(7 7 7 / 24%);
     position: sticky;
     top: 0;
     z-index: 50;
+    font-family: "Bodoni Moda", Georgia, serif;
 }
 
 .navbar-container {
-    height: 5rem;
+    width: min(100% - 12vw, 94rem);
+    max-width: none;
+    min-height: var(--navbar-height);
+    height: auto;
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 1rem;
+    gap: clamp(1rem, 2.4vw, 3rem);
+    padding-inline: 0;
 }
 
 .brand-logo {
@@ -99,71 +110,249 @@ body {
 
 /* Search Bar */
 .search-wrapper {
-    flex: 1;
-    max-width: 42rem;
-    margin-left: 1rem;
-    margin-right: 1rem;
+    flex: 1 1 28rem;
+    max-width: 34rem;
+    margin-inline: auto;
 }
 
 .search-form {
     display: flex;
     align-items: center;
+    border-bottom: 1px solid #070707;
 }
 
 .search-input {
     width: 100%;
-    background-color: var(--slate-100);
-    border: 1px solid var(--slate-300);
-    border-top-left-radius: 0.5rem;
-    border-bottom-left-radius: 0.5rem;
-    padding: 0.625rem 1rem;
-    font-size: 0.875rem;
-    color: var(--slate-800);
+    min-width: 0;
+    height: 2.6rem;
+    padding: 0.4rem 0.2rem;
+    color: #070707;
+    background: transparent;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+    font-family: inherit;
+    font-size: 0.9rem;
     outline: none;
-    transition: all 0.2s ease;
+}
+
+.search-input::placeholder {
+    color: #575753;
+    opacity: 1;
 }
 
 .search-input:focus {
-    background-color: #ffffff;
-    border-color: var(--ezipink-500);
+    background: transparent;
+    border: 0;
+    box-shadow: none;
+}
+
+.search-form:focus-within {
+    outline: 2px solid #071521;
+    outline-offset: 4px;
 }
 
 .search-button {
-    background-color: var(--ezipink-500);
-    color: #ffffff;
-    font-weight: 700;
-    font-size: 0.75rem;
+    min-height: 2.4rem;
+    padding: 0.3rem 0.9rem;
+    color: #070707;
+    background: transparent;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+    font-family: inherit;
+    font-weight: 600;
+    font-size: 0.8rem;
     text-transform: uppercase;
-    letter-spacing: 0.05em;
-    padding: 0.75rem 1.5rem;
-    border: none;
-    border-top-right-radius: 0.5rem;
-    border-bottom-right-radius: 0.5rem;
+    letter-spacing: 0.08em;
     cursor: pointer;
-    transition: background-color 0.2s ease;
+    transition: color 180ms ease-out;
 }
 
 .search-button:hover {
-    background-color: var(--ezipink-600);
+    color: #a84350;
 }
 
 /* Navigation Auth Links */
 .auth-nav {
     display: flex;
     align-items: center;
-    gap: 1rem;
-    font-size: 0.875rem;
+    gap: clamp(0.55rem, 1.4vw, 1.4rem);
+    font-size: 0.7rem;
     font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
 }
 
 .nav-link {
-    color: var(--slate-600);
+    position: relative;
+    color: #070707;
     text-decoration: none;
-    transition: color 0.2s ease;
+    transition: color 180ms ease-out;
 }
 
 .nav-link:hover {
-    color: var(--ezipink-500);
+    color: #a84350;
+}
+
+.auth-nav .nav-link::after,
+.auth-nav .btn-primary::after {
+    position: absolute;
+    right: 0;
+    bottom: -0.3rem;
+    left: 0;
+    height: 1px;
+    background: currentColor;
+    content: "";
+    transform: scaleX(0);
+    transform-origin: right;
+    transition: transform 220ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.auth-nav .nav-link:hover::after,
+.auth-nav .btn-primary:hover::after {
+    transform: scaleX(1);
+    transform-origin: left;
+}
+
+.auth-nav .btn-primary {
+    position: relative;
+    padding: 0;
+    color: #070707;
+    background: transparent;
+    border-radius: 0;
+    box-shadow: none;
+    font-family: inherit;
+    font-size: inherit;
+    font-weight: inherit;
+    letter-spacing: inherit;
+    text-transform: inherit;
+}
+
+.auth-nav .btn-primary:hover {
+    color: #a84350;
+    background: transparent;
+}
+
+.credential-password-wrap {
+    position: relative;
+}
+
+.credential-password-wrap input {
+    padding-inline-end: 4.2rem;
+}
+
+.credential-password-toggle {
+    position: absolute;
+    top: 50%;
+    inset-inline-end: 0.4rem;
+    min-height: 2rem;
+    padding: 0.35rem 0.5rem;
+    color: #4b365f;
+    background: transparent;
+    border: 0;
+    border-radius: 0.35rem;
+    font: inherit;
+    font-size: 0.8rem;
+    font-weight: 700;
+    cursor: pointer;
+    transform: translateY(-50%);
+}
+
+.credential-password-toggle:hover {
+    background: #f5f0f8;
+}
+
+.credential-password-toggle:focus-visible {
+    outline: 3px solid #bd9dd1;
+    outline-offset: 2px;
+}
+
+.navbar-workspace-label {
+    margin: 0 auto;
+    color: #575753;
+    font-family: "Bodoni Moda", Georgia, serif;
+    font-size: 0.82rem;
+    letter-spacing: 0.1em;
+    text-align: center;
+    text-transform: uppercase;
+}
+
+.navbar--workspace .navbar-container {
+    width: min(100% - 3rem, 94rem);
+}
+
+.navbar--workspace .navbar-workspace-label {
+    flex: 1;
+}
+
+@media (max-width: 900px) {
+    :root {
+        --navbar-height: 4.5rem;
+    }
+
+    .navbar-container {
+        width: min(100% - 3rem, 50rem);
+        min-height: 4.5rem;
+        flex-wrap: wrap;
+        padding-block: 0.45rem;
+    }
+
+    .brand-logo-img {
+        width: 5.7rem;
+        height: 3rem;
+    }
+
+    .search-wrapper {
+        order: 3;
+        flex: 1 0 100%;
+        max-width: none;
+    }
+
+    .search-input {
+        height: 2.4rem;
+    }
+
+    .auth-nav {
+        margin-left: auto;
+    }
+}
+
+@media (max-width: 700px) {
+    .navbar-container {
+        width: calc(100% - 2rem);
+        gap: 0.6rem 1rem;
+    }
+
+    .auth-nav {
+        max-width: 65vw;
+        gap: 0.8rem;
+        overflow-x: auto;
+        scrollbar-width: none;
+        white-space: nowrap;
+    }
+
+    .auth-nav::-webkit-scrollbar {
+        display: none;
+    }
+
+    .auth-nav .logout-form-inline {
+        flex: 0 0 auto;
+        margin: 0;
+    }
+
+    .auth-nav .btn-primary {
+        min-height: 2.4rem;
+        padding: 0.65rem 0.1rem;
+    }
+
+    .navbar--workspace .navbar-container {
+        width: calc(100% - 2rem);
+    }
+
+    .navbar-workspace-label {
+        font-size: 0.66rem;
+    }
 }
 
 .btn-primary {

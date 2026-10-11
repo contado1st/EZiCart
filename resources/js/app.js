@@ -1,3 +1,6 @@
+import "./password-visibility.js";
+import "./registration-name-inputs.js";
+
 document.querySelectorAll(".ops-shell .ops-table").forEach((table) => {
     const headers = Array.from(table.querySelectorAll("thead th")).map(
         (header) => header.textContent.trim().replace(/\s+/g, " "),
@@ -9,20 +12,6 @@ document.querySelectorAll(".ops-shell .ops-table").forEach((table) => {
                 cell.dataset.label = headers[index];
             }
         });
-    });
-});
-
-document.querySelectorAll("[data-password-toggle]").forEach((button) => {
-    const input = document.getElementById(button.dataset.passwordToggle);
-
-    if (!input) return;
-
-    button.addEventListener("click", () => {
-        const visible = input.type === "password";
-        input.type = visible ? "text" : "password";
-        button.textContent = visible ? "Hide" : "Show";
-        button.setAttribute("aria-label", `${visible ? "Hide" : "Show"} password`);
-        button.setAttribute("aria-pressed", String(visible));
     });
 });
 

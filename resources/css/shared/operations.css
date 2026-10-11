@@ -2272,3 +2272,25 @@ body.role-workspace,
         transition: none;
     }
 }
+
+/* Keep the role workspace navigation above its operational shell. */
+.role-workspace .ops-shell {
+    min-height: calc(100vh - var(--navbar-height, 5.3rem));
+}
+
+.role-workspace .ops-sidebar {
+    top: var(--navbar-height, 5.3rem);
+    height: calc(100vh - var(--navbar-height, 5.3rem));
+}
+
+@media (max-width: 767px) {
+    .role-workspace .ops-shell button.ops-menu-toggle {
+        inset-block-start: calc(var(--navbar-height, 5.3rem) + 0.75rem);
+    }
+
+    .role-workspace .ops-sidebar {
+        inset-block: var(--navbar-height, 5.3rem) 0;
+        height: calc(100vh - var(--navbar-height, 5.3rem));
+        height: calc(100dvh - var(--navbar-height, 5.3rem));
+    }
+}

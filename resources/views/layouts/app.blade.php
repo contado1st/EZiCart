@@ -6,6 +6,7 @@
         default => null,
     };
     $isRoleWorkspaceRoute = request()->routeIs('courier.*', 'logistics.*');
+    $workspaceLabel = auth()->user()?->role === 'courier' ? 'Courier workspace' : 'Logistics workspace';
 @endphp
 
 <!DOCTYPE html>
@@ -20,9 +21,14 @@
     @vite('resources/css/shared/app.css')
     <!-- Platform Bulletins & Banners Stylesheet -->
     @vite('resources/css/shared/platform-controls.css')
+    <!-- Shared navigation style for projects running against an older Vite manifest -->
+    <link rel="stylesheet"
+        href="{{ asset('css/navigation-fallback.css') }}?v={{ filemtime(public_path('css/navigation-fallback.css')) }}">
     <!-- Dynamic Page Stylesheets -->
     @stack('styles')
     @vite('resources/js/app.js')
+    <script src="{{ asset('js/password-visibility.js') }}?v={{ filemtime(public_path('js/password-visibility.js')) }}" defer></script>
+    <script src="{{ asset('js/registration-name-inputs.js') }}?v={{ filemtime(public_path('js/registration-name-inputs.js')) }}" defer></script>
 </head>
 
 <body @class([
@@ -31,8 +37,7 @@
 ])>
 
     <!-- Header / Navbar -->
-    @unless ($isRoleWorkspaceRoute)
-        <header class="navbar">
+    <header class="navbar{{ $isRoleWorkspaceRoute ? ' navbar--workspace' : '' }}">
             <div class="container navbar-container">
 
                 <!-- Brand Logo -->
@@ -40,8 +45,9 @@
                     <img src="{{ asset('images/ezicart-logo.png') }}" alt="EZiCart Logo" class="brand-logo-img">
                 </a>
 
-                <!-- Search Bar -->
-                @unless ($roleDashboardRoute)
+                @if ($isRoleWorkspaceRoute)
+                    <p class="navbar-workspace-label">{{ $workspaceLabel }}</p>
+                @elseif (!$roleDashboardRoute)
                     <div class="search-wrapper">
                         <form action="{{ route('home') }}" method="GET" class="search-form">
                             <input type="text" name="search" value="{{ request('search') }}"
@@ -51,9 +57,16 @@
                             </button>
                         </form>
                     </div>
-                @endunless
+                @endif
 
                 <!-- Cart & Auth Navigation -->
+                @if ($isRoleWorkspaceRoute)
+                    <div class="auth-nav">
+                        <a href="{{ route($roleDashboardRoute) }}" class="nav-link">
+                            {{ auth()->user()->role === 'courier' ? 'Work board' : 'Overview' }}
+                        </a>
+                    </div>
+                @else
                 <div class="auth-nav">
                     <!-- Cart Link Visible Only to Guests and Buyers -->
                     @if (!auth()->check() || auth()->user()->role === 'buyer')
@@ -95,9 +108,9 @@
                         <a href="{{ route('register') }}" class="btn-primary">Register</a>
                     @endauth
                 </div>
+                @endif
             </div>
         </header>
-    @endunless
 
     <!-- Global Platform Announcements -->
     @php
