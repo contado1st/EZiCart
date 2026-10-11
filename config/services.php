@@ -22,16 +22,12 @@ return [
         'key' => env('RESEND_API_KEY'),
     ],
 
-    'numverify' => [
-        'key' => env('NUMVERIFY_API_KEY'),
-        'endpoint' => 'https://apilayer.net/api/validate',
-    ],
-
-    'twilio' => [
-        'account_sid' => env('TWILIO_ACCOUNT_SID'),
-        'auth_token' => env('TWILIO_AUTH_TOKEN'),
-        'from' => env('TWILIO_FROM'),
-        'messaging_service_sid' => env('TWILIO_MESSAGING_SERVICE_SID'),
+    'gmail_api' => [
+        'client_id' => env('GMAIL_API_CLIENT_ID'),
+        'client_secret' => env('GMAIL_API_CLIENT_SECRET'),
+        'refresh_token' => env('GMAIL_API_REFRESH_TOKEN'),
+        'sender' => env('GMAIL_API_SENDER'),
+        'from_name' => env('GMAIL_API_FROM_NAME') ?: env('APP_NAME', 'EZiCart'),
     ],
 
     'ses' => [

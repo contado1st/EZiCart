@@ -3,6 +3,23 @@ const registrationNameInputsReady = "data-registration-name-inputs-ready";
 if (!document.documentElement.hasAttribute(registrationNameInputsReady)) {
     document.documentElement.setAttribute(registrationNameInputsReady, "");
 
+    const registrationTextInputSelector =
+        'input[type="text"], input:not([type]), textarea';
+
+    const isRegistrationTextInput = (input) =>
+        input.matches(registrationTextInputSelector) &&
+        input.closest("form[data-registration-wizard]") &&
+        !input.closest(".auth-password-wrap") &&
+        !input.matches('[inputmode="numeric"], [inputmode="decimal"], [data-no-auto-capitalize]');
+
+    document
+        .querySelectorAll(`form[data-registration-wizard] ${registrationTextInputSelector}`)
+        .forEach((input) => {
+            if (!input.matches('[inputmode="numeric"], [inputmode="decimal"], [data-no-auto-capitalize]')) {
+                input.setAttribute("autocapitalize", "sentences");
+            }
+        });
+
     const sanitizePhoneInput = (value) => {
         const sanitized = value.replace(/[^0-9+ ]/g, "");
         const hasLeadingPlus = sanitized.startsWith("+");
@@ -39,6 +56,35 @@ if (!document.documentElement.hasAttribute(registrationNameInputsReady)) {
 
     document.addEventListener("input", (event) => {
         const input = event.target;
+
+        if (!(input instanceof HTMLInputElement || input instanceof HTMLTextAreaElement)) return;
+
+        if (isRegistrationTextInput(input) && !event.isComposing) {
+            const firstLetter = input.value.match(/^(\s*[^\p{L}]*)(\p{L})/u);
+
+            if (firstLetter) {
+                const prefixLength = firstLetter[1].length;
+                const letterEnd = prefixLength + firstLetter[2].length;
+                const capitalizedLetter = firstLetter[2].toLocaleUpperCase();
+
+                if (capitalizedLetter !== firstLetter[2]) {
+                    const selectionStart = input.selectionStart;
+                    const selectionEnd = input.selectionEnd;
+                    const originalLength = input.value.length;
+
+                    input.value =
+                        input.value.slice(0, prefixLength) +
+                        capitalizedLetter +
+                        input.value.slice(letterEnd);
+
+                    const lengthChange = input.value.length - originalLength;
+                    input.setSelectionRange(
+                        selectionStart > prefixLength ? selectionStart + lengthChange : selectionStart,
+                        selectionEnd > prefixLength ? selectionEnd + lengthChange : selectionEnd,
+                    );
+                }
+            }
+        }
 
         if (!(input instanceof HTMLInputElement)) return;
 

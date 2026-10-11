@@ -27,12 +27,7 @@ class AccountController extends Controller
             'last_name' => ['required', 'string', 'max:255'],
             'middle_initial' => ['nullable', 'string', 'max:2'],
             'contact_no' => ['required', 'string', 'max:20'],
-            'region_code' => ['required', 'regex:/^\d{10}$/'],
-            'province_code' => ['required', 'regex:/^(?:\d{10}|NCR)$/'],
-            'municipality_code' => ['required', 'regex:/^\d{10}$/'],
-            'barangay_code' => ['required', 'regex:/^\d{10}$/'],
-            'house_number' => ['required', 'string', 'max:100'],
-            'street_address' => ['required', 'string', 'max:255'],
+            ...$psgcAddressService->validationRules(),
         ];
 
         if ($user->role === 'seller') {
@@ -47,7 +42,17 @@ class AccountController extends Controller
 
         $validated = $request->validate($rules);
         $address = $psgcAddressService->resolve($validated);
-        unset($validated['region_code'], $validated['province_code'], $validated['municipality_code'], $validated['barangay_code']);
+        unset(
+            $validated['address_mode'],
+            $validated['region_code'],
+            $validated['province_code'],
+            $validated['municipality_code'],
+            $validated['barangay_code'],
+            $validated['manual_region'],
+            $validated['manual_province'],
+            $validated['manual_municipality'],
+            $validated['manual_barangay'],
+        );
         $user->update(array_merge($validated, $address));
 
         return back()->with('success', 'Your account details have been updated.');
