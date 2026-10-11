@@ -22,6 +22,18 @@ return [
         'key' => env('RESEND_API_KEY'),
     ],
 
+    'numverify' => [
+        'key' => env('NUMVERIFY_API_KEY'),
+        'endpoint' => 'https://apilayer.net/api/validate',
+    ],
+
+    'twilio' => [
+        'account_sid' => env('TWILIO_ACCOUNT_SID'),
+        'auth_token' => env('TWILIO_AUTH_TOKEN'),
+        'from' => env('TWILIO_FROM'),
+        'messaging_service_sid' => env('TWILIO_MESSAGING_SERVICE_SID'),
+    ],
+
     'ses' => [
         'key' => env('AWS_ACCESS_KEY_ID'),
         'secret' => env('AWS_SECRET_ACCESS_KEY'),

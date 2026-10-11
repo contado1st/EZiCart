@@ -89,6 +89,11 @@
 .auth-label-row a, .auth-consent a, .auth-switch a, .auth-resend button { color: #63427b; font-weight: 650; text-underline-offset: 0.18em; }
 .auth-label-row a { font-size: 0.82rem; }
 .auth-help { color: #625b70; font-size: 0.78rem; line-height: 1.45; }
+.auth-form--registration .auth-help { color: #246b45; visibility: hidden; }
+.auth-form--registration .auth-field:has(input:hover, select:hover, .auth-help:hover) > .auth-help { visibility: visible; }
+.auth-form--registration .auth-section:has(.auth-field input:hover, .auth-field select:hover, > .auth-help:hover) > .auth-help { visibility: visible; }
+.auth-form--registration .auth-field:focus-within > .auth-help,
+.auth-form--registration .auth-section:focus-within > .auth-help { visibility: visible; }
 .auth-field-error { color: #a91d48; font-size: 0.8rem; line-height: 1.4; }
 .auth-check { display: flex; align-items: flex-start; gap: 0.6rem; color: #50495e; font-size: 0.85rem; line-height: 1.5; }
 .auth-check input { flex: 0 0 auto; width: 1rem; height: 1rem; margin: 0.12rem 0 0; accent-color: #704c89; }
@@ -125,3 +130,20 @@
 @media (prefers-reduced-motion: reduce) {
     .auth-submit { transition: none; }
 }
+.auth-content > .registration-progress { margin: -0.75rem 0 0.7rem; }
+.registration-progress { display: grid; gap: 0.5rem; }
+.registration-progress-copy { display: flex; align-items: baseline; justify-content: space-between; gap: 0.75rem; color: #625b70; font-size: 0.8rem; }
+.registration-progress-copy strong { color: #393347; font-size: 0.84rem; }
+.registration-progress-track { height: 0.42rem; overflow: hidden; background: #eee8f1; border-radius: 999px; }
+.registration-progress-track span { display: block; width: var(--registration-progress, 20%); height: 100%; background: #4f8b62; border-radius: inherit; transition: width 180ms ease; }
+.registration-step { display: grid; gap: 1rem; min-width: 0; }
+.registration-step-tabs { display: flex; flex-wrap: wrap; gap: 0.4rem; margin: 0 0 0.25rem; }
+.registration-step-tab { min-height: 2.3rem; padding: 0.45rem 0.65rem; color: #5b5369; background: #faf9fb; border: 1px solid #e4deea; border-radius: 0.45rem; font: inherit; font-size: 0.78rem; font-weight: 650; cursor: pointer; }
+.registration-step-tab:hover, .registration-step-tab.is-current { color: #3f704f; background: #edf6ef; border-color: #b9d6c0; }
+.registration-step-tab.is-complete::after { content: " ✓"; color: #34754a; }
+.registration-step[hidden], .registration-actions [hidden], .registration-step-tab[hidden] { display: none !important; }
+.registration-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 0.7rem; }
+.registration-actions .registration-next { grid-column: 2; }
+.registration-back { min-height: 3rem; padding: 0.7rem 1rem; color: #4b365f; background: #fff; border: 1px solid #d8d1e0; border-radius: 0.55rem; font: inherit; font-size: 0.95rem; font-weight: 700; cursor: pointer; }
+.registration-back:hover { background: #f5f0f8; }
+.registration-back:focus-visible, .registration-step-tab:focus-visible { outline: 3px solid #bd9dd1; outline-offset: 2px; }
