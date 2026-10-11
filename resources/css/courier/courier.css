@@ -1,7 +1,7 @@
 @import "../shared/operations.css";
 
 .courier-pickup {
-    border-top-color: #f2a5b9;
+    border-top-color: var(--ops-sage-dark);
 }
 
 .courier-delivery {
@@ -9,11 +9,11 @@
 }
 
 .courier-failed {
-    border-color: #e7cfd2;
+    border-color: #d7aab2;
 }
 
 .courier-failed .ops-status {
-    border-color: #efd5d8;
+    border-color: #d7aab2;
     background: var(--ops-danger-soft);
     color: var(--ops-danger);
 }
@@ -22,8 +22,8 @@
     width: min(180px, 100%);
     padding: 8px;
     border: 1px solid var(--ops-line);
-    border-radius: 6px;
-    background: #fff;
+    border-radius: 2px;
+    background: var(--ops-plaster);
 }
 
 .courier-badge-qr svg {
@@ -33,7 +33,7 @@
 }
 
 .courier-next-action {
-    border-color: #f0b9c9;
+    border-color: #bdc1bb;
 }
 
 .courier-next-action .ops-btn--primary {
@@ -46,9 +46,10 @@
 
 /* Mobile-First Courier Hero Next Action */
 .courier-hero-card {
-    border: 1px solid #f0d8e0;
-    border-radius: var(--ops-radius);
-    background: #fff;
+    position: relative;
+    border: 0;
+    border-radius: 2px;
+    background: var(--ops-navy);
     padding: 20px;
     margin-bottom: 18px;
     display: flex;
@@ -56,15 +57,24 @@
     justify-content: space-between;
     gap: 18px;
     flex-wrap: wrap;
-    box-shadow: var(--ops-shadow);
+    box-shadow: none;
+    color: var(--ops-plaster);
+}
+
+.courier-hero-card::before {
+    position: absolute;
+    inset-block: 20px;
+    inset-inline-start: 0;
+    width: 1px;
+    background: var(--ops-pink);
+    content: "";
 }
 
 .courier-hero-card__badge {
     display: inline-block;
-    padding: 3px 8px;
-    border-radius: 4px;
-    background: var(--ops-accent-soft);
-    color: var(--ops-accent-strong);
+    padding: 0;
+    background: transparent;
+    color: #f4a0a6;
     font-size: 11px;
     font-weight: 700;
     text-transform: uppercase;
@@ -74,21 +84,22 @@
 
 .courier-hero-card h2 {
     margin: 0;
-    font-size: 18px;
-    font-weight: 700;
-    color: var(--ops-ink);
+    color: var(--ops-plaster);
+    font-family: "Bodoni Moda", Georgia, serif;
+    font-size: 26px;
+    font-weight: 500;
 }
 
 .courier-hero-card p {
     margin: 4px 0 0;
-    color: var(--ops-muted);
+    color: #e1e5e4;
     font-size: 14px;
 }
 
 .courier-hero-card .ops-btn {
-    min-height: 48px;
-    padding: 12px 24px;
-    font-size: 15px;
+    min-height: 44px;
+    padding: 10px 16px;
+    font-size: 14px;
     font-weight: 700;
 }
 
@@ -114,9 +125,9 @@
     min-height: 38px;
     padding: 6px 14px;
     border: 1px solid var(--ops-line);
-    border-radius: 999px;
-    background: #fff;
-    color: var(--ops-ink);
+    border-radius: 3px;
+    background: var(--ops-paper-1);
+    color: var(--ops-navy);
     font-size: 13px;
     font-weight: 600;
     text-decoration: none;
@@ -138,7 +149,7 @@
     min-width: 20px;
     height: 20px;
     padding: 0 5px;
-    border-radius: 999px;
+    border-radius: 3px;
     background: var(--ops-canvas);
     font-size: 11px;
     font-weight: 700;
@@ -146,9 +157,9 @@
 
 /* Failed Delivery Prominent State */
 .courier-failed-alert-card {
-    border: 1px solid #efd5d8;
-    border-radius: var(--ops-radius);
-    background: #fff;
+    border: 1px solid #d7aab2;
+    border-radius: 2px;
+    background: var(--ops-blush-2);
     padding: 18px;
     margin-bottom: 14px;
     display: grid;
@@ -176,12 +187,12 @@
 
 .courier-failed-guidance {
     padding: 12px 14px;
-    border-radius: 6px;
-    background: #fdf8f8;
-    border: 1px solid #fae8ea;
+    border-radius: 2px;
+    background: var(--ops-blush-2);
+    border: 1px solid #d7aab2;
     font-size: 13px;
     line-height: 1.45;
-    color: #4e2227;
+    color: #4d292f;
 }
 
 .courier-failed-guidance strong {
@@ -201,9 +212,9 @@
     min-height: 38px;
     padding: 6px 12px;
     border: 1px solid var(--ops-line);
-    border-radius: 6px;
-    background: #fff;
-    color: var(--ops-accent-strong);
+    border-radius: 3px;
+    background: var(--ops-plaster);
+    color: var(--ops-navy);
     font-size: 13px;
     font-weight: 700;
     text-decoration: none;
@@ -231,10 +242,10 @@
     align-items: baseline;
     gap: 4px;
     padding: 6px 12px;
-    border-radius: 6px;
-    background: #fbf6ec;
-    border: 1px solid #ebd9b5;
-    color: #6d4b0a;
+    border-radius: 3px;
+    background: var(--ops-paper-2);
+    border: 1px solid #bfc2bc;
+    color: var(--ops-navy);
     font-size: 14px;
     font-weight: 700;
     margin-bottom: 8px;
@@ -242,8 +253,8 @@
 
 /* Proof of Delivery Dropzone */
 .courier-file-card {
-    border: 1px dashed #cfcad6;
-    border-radius: 6px;
+    border: 1px dashed #bfc2bc;
+    border-radius: 2px;
     padding: 14px;
-    background: #faf9fb;
+    background: var(--ops-paper-1);
 }

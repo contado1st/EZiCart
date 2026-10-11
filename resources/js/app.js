@@ -12,11 +12,96 @@ document.querySelectorAll(".ops-shell .ops-table").forEach((table) => {
     });
 });
 
+document.querySelectorAll("[data-ops-shell]").forEach((shell) => {
+    const sidebar = shell.querySelector(".ops-sidebar");
+    const toggle = shell.querySelector("[data-ops-menu-toggle]");
+    const closeButton = shell.querySelector("[data-ops-menu-close]");
+    const overlay = shell.querySelector("[data-ops-menu-overlay]");
+    const mobileViewport = window.matchMedia("(max-width: 767px)");
+
+    if (!sidebar || !toggle || !closeButton || !overlay) {
+        return;
+    }
+
+    const focusableItems = () =>
+        sidebar.querySelectorAll(
+            'a[href]:not([tabindex="-1"]), button:not([disabled]), [tabindex]:not([tabindex="-1"])',
+        );
+
+    const setMenuOpen = (isOpen, returnFocus = false) => {
+        const open = isOpen && mobileViewport.matches;
+
+        sidebar.classList.toggle("is-open", open);
+        overlay.classList.toggle("is-visible", open);
+        sidebar.inert = mobileViewport.matches && !open;
+        toggle.setAttribute("aria-expanded", String(open));
+        toggle.setAttribute(
+            "aria-label",
+            open ? "Close operations navigation" : "Open operations navigation",
+        );
+        document.body.classList.toggle("ops-menu-open", open);
+
+        if (open) {
+            closeButton.focus();
+        } else if (returnFocus) {
+            toggle.focus();
+        }
+    };
+
+    toggle.addEventListener("click", () => {
+        setMenuOpen(toggle.getAttribute("aria-expanded") !== "true");
+    });
+    closeButton.addEventListener("click", () => setMenuOpen(false, true));
+    overlay.addEventListener("click", () => setMenuOpen(false, true));
+
+    sidebar.addEventListener("click", (event) => {
+        if (event.target.closest("a[href]")) {
+            setMenuOpen(false);
+        }
+    });
+
+    shell.addEventListener("keydown", (event) => {
+        if (!mobileViewport.matches || toggle.getAttribute("aria-expanded") !== "true") {
+            return;
+        }
+
+        if (event.key === "Escape") {
+            event.preventDefault();
+            setMenuOpen(false, true);
+            return;
+        }
+
+        if (event.key !== "Tab") {
+            return;
+        }
+
+        const items = Array.from(focusableItems());
+        const firstItem = items[0];
+        const lastItem = items.at(-1);
+
+        if (event.shiftKey && document.activeElement === firstItem) {
+            event.preventDefault();
+            lastItem?.focus();
+        } else if (!event.shiftKey && document.activeElement === lastItem) {
+            event.preventDefault();
+            firstItem?.focus();
+        }
+    });
+
+    mobileViewport.addEventListener("change", () => {
+        setMenuOpen(false);
+        sidebar.inert = mobileViewport.matches;
+    });
+
+    sidebar.inert = mobileViewport.matches;
+});
+
 document.querySelectorAll("[data-qr-input]").forEach((input) => {
     const form = input.closest("form");
     const startButton = form?.querySelector("[data-qr-start]");
     const stopButton = form?.querySelector("[data-qr-stop]");
     const video = form?.querySelector("[data-qr-video]");
+    const videoContainer = form?.querySelector("[data-qr-video-container]");
     const status = form?.querySelector("[data-qr-status]");
     const method = form?.querySelector('[name="method"]');
     const modeTabs = form?.querySelectorAll("[data-scan-mode]");
@@ -34,18 +119,29 @@ document.querySelectorAll("[data-qr-input]").forEach((input) => {
         stream = null;
         video.srcObject = null;
         video.hidden = true;
+        if (videoContainer) videoContainer.hidden = true;
         startButton.hidden = false;
         stopButton.hidden = true;
     };
 
-    stopButton.addEventListener("click", stop);
+    stopButton.addEventListener("click", () => {
+        stop();
+        method.value = "manual";
+        status.textContent = "Camera closed. Start QR camera again or choose another scan method.";
+    });
     startButton.addEventListener("click", async () => {
+        if (!window.isSecureContext) {
+            status.textContent =
+                "Camera access requires HTTPS or localhost. Use a scanner gun or manual entry here.";
+            return;
+        }
+
         if (
             !("BarcodeDetector" in window) ||
             !navigator.mediaDevices?.getUserMedia
         ) {
             status.textContent =
-                "Camera scanning is unavailable. Use a handheld scanner or enter the code manually.";
+                "QR camera scanning is not supported in this browser. Use a scanner gun or enter the parcel reference manually.";
             return;
         }
 
@@ -56,13 +152,14 @@ document.querySelectorAll("[data-qr-input]").forEach((input) => {
             });
             video.srcObject = stream;
             video.hidden = false;
+            if (videoContainer) videoContainer.hidden = false;
             await video.play();
             active = true;
             startButton.hidden = true;
             stopButton.hidden = false;
             method.value = "camera";
             status.textContent =
-                "Point the camera at the parcel QR code or barcode.";
+                "Camera is on. Center the parcel QR code in the frame.";
 
             const scan = async () => {
                 if (!active) return;
@@ -71,7 +168,7 @@ document.querySelectorAll("[data-qr-input]").forEach((input) => {
                     if (codes.length > 0 && codes[0].rawValue) {
                         input.value = codes[0].rawValue;
                         status.textContent =
-                            "Code captured! Submitting verification…";
+                            "QR code captured. Sending it for parcel verification…";
                         if (navigator.vibrate) {
                             navigator.vibrate([40, 30, 40]);
                         }
@@ -81,7 +178,7 @@ document.querySelectorAll("[data-qr-input]").forEach((input) => {
                     }
                 } catch (error) {
                     status.textContent =
-                        "Could not read the code. Adjust lighting or enter the reference manually.";
+                        "Could not read that QR code. Improve the lighting or use a scanner gun or manual entry.";
                 }
                 window.requestAnimationFrame(scan);
             };
@@ -89,16 +186,21 @@ document.querySelectorAll("[data-qr-input]").forEach((input) => {
         } catch (error) {
             stop();
             status.textContent =
-                "Camera access is unavailable. Use a handheld scanner or enter the code manually.";
+                "Camera access was denied or unavailable. Allow camera access, then retry, or use a scanner gun or manual entry.";
         }
     });
 
     modeTabs?.forEach((tab) => {
         tab.addEventListener("click", () => {
-            modeTabs.forEach((t) => t.classList.remove("is-active"));
+            modeTabs.forEach((t) => {
+                t.classList.remove("is-active");
+                t.setAttribute("aria-pressed", "false");
+            });
             tab.classList.add("is-active");
+            tab.setAttribute("aria-pressed", "true");
             const mode = tab.dataset.scanMode;
             if (mode === "camera") {
+                method.value = "manual";
                 startButton.click();
             } else {
                 stop();
@@ -106,8 +208,8 @@ document.querySelectorAll("[data-qr-input]").forEach((input) => {
                 input.focus();
                 status.textContent =
                     mode === "handheld"
-                        ? "Scanner gun ready. Scan the barcode to auto-submit."
-                        : "Enter the code or order number manually.";
+                        ? "Scanner gun ready. Scan the parcel label to verify it."
+                        : "Enter the parcel QR value or order number, then select Verify parcel.";
             }
         });
     });

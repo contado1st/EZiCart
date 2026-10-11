@@ -186,9 +186,9 @@ class LogisticsController extends Controller
             'location_reference' => ['nullable', 'string', 'max:100'],
             'method' => ['nullable', 'in:camera,handheld,manual'],
         ]);
-        $reference = $validated['reference'];
-        if (str_starts_with($reference, 'EZP:')) {
-            $reference = substr($reference, 4);
+        $reference = trim($validated['reference']);
+        if (strncasecmp($reference, 'EZP:', 4) === 0) {
+            $reference = trim(substr($reference, 4));
         }
         $order = Order::query()->where('parcel_code', $reference)->orWhere('order_number', $reference)->first();
 
@@ -276,13 +276,13 @@ class LogisticsController extends Controller
                 'actor_id' => $this->authenticatedUser()->id,
                 'station' => 'intake',
                 'result' => 'rejected',
-                'failure_reason' => 'Parcel intake transition was rejected.',
+                'failure_reason' => Str::limit($exception->getMessage(), 250),
                 'method' => $validated['method'] ?? 'manual',
                 'ip' => $request->ip(),
                 'created_at' => now(),
             ]);
 
-            return back()->withErrors(['reference' => 'The parcel reference could not be processed.']);
+            return back()->withErrors(['reference' => $exception->getMessage()]);
         }
     }
 
