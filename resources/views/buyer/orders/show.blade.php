@@ -85,7 +85,7 @@
 
                 <h2 class="courier-section-title">Delivery</h2>
                 <p><strong>{{ $order->recipient_name }}</strong> · {{ $order->recipient_contact }}</p>
-                <p>{{ $order->street_address }}, {{ $order->barangay }}, {{ $order->municipality }},
+                <p>{{ trim(($order->house_number ? $order->house_number.' ' : '').$order->street_address) }}, {{ $order->barangay }}, {{ $order->municipality }},
                     {{ $order->province }}</p>
                 @if ($order->notes)
                     <p>Delivery notes: {{ $order->notes }}</p>

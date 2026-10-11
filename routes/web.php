@@ -18,6 +18,7 @@ use App\Http\Controllers\Courier\CourierController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\Logistics\LogisticsController;
 use App\Http\Controllers\NotificationController;
+use App\Http\Controllers\PsgcAddressController;
 use App\Http\Controllers\OrderMessageController;
 use App\Http\Controllers\SecureDocumentController;
 use App\Http\Controllers\Seller\ProductController;
@@ -30,6 +31,7 @@ use Illuminate\Support\Facades\Route;
 // 1. Public Marketplace & Browsing Routes
 Route::get('/', [HomeController::class, 'index'])->name('home');
 Route::get('/product/{product}', [HomeController::class, 'showProduct'])->name('product.show');
+Route::get('/psgc-addresses', PsgcAddressController::class)->middleware('throttle:120,1')->name('psgc.addresses');
 
 // 2. Guest Authentication & Registration Routes
 Route::middleware('guest')->group(function () {

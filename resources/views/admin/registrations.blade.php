@@ -60,7 +60,7 @@
                                 <div class="contact-info">{{ $user->email }}</div>
                                 <div class="text-muted-small">{{ $user->contact_no }}</div>
                                 <div class="text-muted-small">
-                                    {{ $user->street_address }}, {{ $user->barangay }}, {{ $user->municipality }},
+                                    {{ trim(($user->house_number ? $user->house_number.' ' : '').$user->street_address) }}, {{ $user->barangay }}, {{ $user->municipality }},
                                     {{ $user->province }}
                                 </div>
                             </td>

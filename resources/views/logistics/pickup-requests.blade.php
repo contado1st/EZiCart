@@ -47,7 +47,7 @@
                             <td>
                                 <strong>{{ $order->seller?->business_name ?? $order->seller?->first_name }}</strong>
                                 <div class="ops-muted">
-                                    {{ $order->seller?->street_address }}, {{ $order->seller?->municipality }}
+                                    {{ trim(($order->seller?->house_number ? $order->seller->house_number.' ' : '').($order->seller?->street_address ?? '')) }}, {{ $order->seller?->municipality }}
                                 </div>
                                 <div class="ops-muted">{{ $order->seller?->contact_no }}</div>
                             </td>

@@ -61,7 +61,7 @@
                     <div class="waybill-section-tag">Sender (Merchant)</div>
                     <div class="waybill-party-name">{{ $order->seller->business_name ?? 'EZiCart Seller' }}</div>
                     <div class="waybill-party-text">{{ $order->seller->contact_no }}</div>
-                    <div class="waybill-party-text">{{ $order->seller->street_address }},
+                    <div class="waybill-party-text">{{ trim(($order->seller->house_number ? $order->seller->house_number.' ' : '').$order->seller->street_address) }},
                         {{ $order->seller->barangay }}
                     </div>
                     <div class="waybill-party-text">{{ $order->seller->municipality }}, {{ $order->seller->province }}
@@ -72,7 +72,7 @@
                     <div class="waybill-section-tag">Recipient (Buyer)</div>
                     <div class="waybill-party-name">{{ $order->recipient_name }}</div>
                     <div class="waybill-party-text">{{ $order->recipient_contact }}</div>
-                    <div class="waybill-party-text">{{ $order->street_address }}, {{ $order->barangay }}</div>
+                    <div class="waybill-party-text">{{ trim(($order->house_number ? $order->house_number.' ' : '').$order->street_address) }}, {{ $order->barangay }}</div>
                     <div class="waybill-party-text">{{ $order->municipality }}, {{ $order->province }}</div>
                 </div>
             </div>

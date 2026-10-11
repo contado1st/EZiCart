@@ -7,6 +7,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Str;
+use App\Services\PsgcAddressService;
 use Illuminate\Validation\Rules\Password;
 
 class AccountController extends Controller
@@ -18,7 +19,7 @@ class AccountController extends Controller
         return view('account.edit', compact('user'));
     }
 
-    public function update(Request $request): RedirectResponse
+    public function update(Request $request, PsgcAddressService $psgcAddressService): RedirectResponse
     {
         $user = $this->authenticatedUser();
         $rules = [
@@ -26,9 +27,11 @@ class AccountController extends Controller
             'last_name' => ['required', 'string', 'max:255'],
             'middle_initial' => ['nullable', 'string', 'max:2'],
             'contact_no' => ['required', 'string', 'max:20'],
-            'province' => ['required', 'string', 'max:255'],
-            'municipality' => ['required', 'string', 'max:255'],
-            'barangay' => ['required', 'string', 'max:255'],
+            'region_code' => ['required', 'regex:/^\d{10}$/'],
+            'province_code' => ['required', 'regex:/^(?:\d{10}|NCR)$/'],
+            'municipality_code' => ['required', 'regex:/^\d{10}$/'],
+            'barangay_code' => ['required', 'regex:/^\d{10}$/'],
+            'house_number' => ['required', 'string', 'max:100'],
             'street_address' => ['required', 'string', 'max:255'],
         ];
 
@@ -42,7 +45,10 @@ class AccountController extends Controller
             $rules['plate_number'] = ['nullable', 'string', 'max:20'];
         }
 
-        $user->update($request->validate($rules));
+        $validated = $request->validate($rules);
+        $address = $psgcAddressService->resolve($validated);
+        unset($validated['region_code'], $validated['province_code'], $validated['municipality_code'], $validated['barangay_code']);
+        $user->update(array_merge($validated, $address));
 
         return back()->with('success', 'Your account details have been updated.');
     }

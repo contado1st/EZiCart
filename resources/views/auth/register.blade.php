@@ -16,7 +16,7 @@
                     <h1>Keep your finds close.</h1>
                     <p>Track orders and save the details you need for your next purchase.</p>
                 </div>
-                <p class="auth-aside-foot">Add delivery details at checkout.</p>
+                <p class="auth-aside-foot">Add your delivery address now, and update it later in account settings.</p>
             </aside>
             <div class="auth-content">
                 <div class="auth-mobile-brand"><a class="auth-brand" href="{{ route('home') }}">EZiCart<span>.</span></a></div>
@@ -29,7 +29,7 @@
                 </nav>
                 <div class="registration-progress" data-registration-progress aria-live="polite">
                     <div class="registration-progress-copy"><span data-step-count>Step 1</span><strong data-step-title></strong></div>
-                    <div class="registration-progress-track" role="progressbar" aria-label="Registration progress" aria-valuemin="1" aria-valuemax="2" aria-valuenow="1"><span data-progress-fill></span></div>
+                    <div class="registration-progress-track" role="progressbar" aria-label="Registration progress" aria-valuemin="1" aria-valuemax="3" aria-valuenow="1"><span data-progress-fill></span></div>
                 </div>
 
                 @if ($errors->any())
@@ -46,8 +46,10 @@
                         <div class="auth-field"><label for="email">Email address</label><input id="email" type="email" name="email" value="{{ old('email') }}" autocomplete="email" required>@error('email')<span class="auth-field-error">{{ $message }}</span>@enderror</div>
                         <div class="auth-field"><label for="contact_no">Contact number</label><input id="contact_no" type="tel" name="contact_no" value="{{ old('contact_no', '+63 ') }}" placeholder="+63 9XX XXX XXXX" autocomplete="tel" inputmode="tel" maxlength="16" pattern="(?:09\d{2} ?\d{3} ?\d{4}|\+63 ?9\d{2} ?\d{3} ?\d{4})" data-philippine-phone required><small class="auth-help">PH mobile: +63 9XX XXX XXXX or 09XX XXX XXXX; verified.</small>@error('contact_no')<span class="auth-field-error">{{ $message }}</span>@enderror</div>
                         <div class="auth-field"><label for="birthday">Date of birth</label><input id="birthday" type="date" name="birthday" value="{{ old('birthday') }}" autocomplete="bday" required>@error('birthday')<span class="auth-field-error">{{ $message }}</span>@enderror</div>
-                    </div></section><section class="registration-step" data-registration-step data-step-label="Password & terms">
-                    <div class="auth-field"><label for="password">Password</label><div class="auth-password-wrap"><input id="password" type="password" name="password" autocomplete="new-password" aria-describedby="password-hint" required><button class="auth-password-toggle" type="button" data-password-toggle="password" aria-label="Show password" aria-pressed="false">Show</button></div><small id="password-hint" class="auth-help">8+ characters; uppercase, lowercase, number, and symbol.</small>@error('password')<span class="auth-field-error">{{ $message }}</span>@enderror</div>
+                    </div></section>
+                    <section class="registration-step" data-registration-step data-step-label="Delivery address"><fieldset class="auth-section"><legend>Delivery address</legend>@include('components.psgc-address-fields', ['prefix' => 'buyer-address', 'address' => null, 'postalRequired' => false])</fieldset></section>
+                    <section class="registration-step" data-registration-step data-step-label="Password & terms">
+                        <div class="auth-field"><label for="password">Password</label><div class="auth-password-wrap"><input id="password" type="password" name="password" autocomplete="new-password" aria-describedby="password-hint" required><button class="auth-password-toggle" type="button" data-password-toggle="password" aria-label="Show password" aria-pressed="false">Show</button></div><small id="password-hint" class="auth-help">8+ characters; uppercase, lowercase, number, and symbol.</small>@error('password')<span class="auth-field-error">{{ $message }}</span>@enderror</div>
                     <div class="auth-field"><label for="password_confirmation">Confirm password</label><div class="auth-password-wrap"><input id="password_confirmation" type="password" name="password_confirmation" autocomplete="new-password" required><button class="auth-password-toggle" type="button" data-password-toggle="password_confirmation" aria-label="Show password" aria-pressed="false">Show</button></div></div>
                     <div class="auth-consent"><label class="auth-check"><input type="checkbox" name="terms" value="1" @checked(old('terms')) required><span>I agree to EZiCart’s Terms of Service and Privacy Policy.</span></label>@error('terms')<span class="auth-field-error">{{ $message }}</span>@enderror</div>
                     <button class="auth-submit" type="submit">Create account</button></section>

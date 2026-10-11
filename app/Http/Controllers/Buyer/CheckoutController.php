@@ -11,6 +11,7 @@ use App\Models\ProductVariation;
 use App\Models\Voucher;
 use App\Notifications\OrderWorkflowNotification;
 use App\Services\OrderAreaService;
+use App\Services\PsgcAddressService;
 use App\Services\TransactionAwareNotificationSender;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -93,7 +94,7 @@ class CheckoutController extends Controller
         return back()->with('success', 'Voucher removed.');
     }
 
-    public function process(Request $request, TransactionAwareNotificationSender $notifications, OrderAreaService $areas): RedirectResponse
+    public function process(Request $request, TransactionAwareNotificationSender $notifications, OrderAreaService $areas, PsgcAddressService $psgc): RedirectResponse
     {
         $cart = session()->get('cart', []);
 
@@ -104,14 +105,17 @@ class CheckoutController extends Controller
         $validated = $request->validate([
             'recipient_name' => 'required|string|max:255',
             'recipient_contact' => 'required|string|max:20',
-            'province' => 'required|string',
-            'municipality' => 'required|string',
-            'barangay' => 'required|string',
-            'street_address' => 'required|string',
+            'region_code' => ['required', 'regex:/^\d{10}$/'],
+            'province_code' => ['required', 'regex:/^(?:\d{10}|NCR)$/'],
+            'municipality_code' => ['required', 'regex:/^\d{10}$/'],
+            'barangay_code' => ['required', 'regex:/^\d{10}$/'],
+            'house_number' => ['required', 'string', 'max:100'],
+            'street_address' => ['required', 'string', 'max:255'],
             'payment_method' => 'required|string|in:COD',
             'notes' => 'nullable|string|max:500',
         ]);
-        $destinationArea = $areas->findForAddress($validated['province'], $validated['municipality']);
+        $location = $psgc->resolve($validated);
+        $destinationArea = $areas->findForAddress($location['province'], $location['municipality']);
 
         $appliedVoucherData = session()->get('applied_voucher');
         $voucher = null;
@@ -185,10 +189,12 @@ class CheckoutController extends Controller
                     'seller_id' => $sellerId,
                     'recipient_name' => $validated['recipient_name'],
                     'recipient_contact' => $validated['recipient_contact'],
-                    'province' => $validated['province'],
-                    'municipality' => $validated['municipality'],
+                    'region' => $location['region'],
+                    'province' => $location['province'],
+                    'municipality' => $location['municipality'],
                     'destination_area_id' => $destinationArea?->id,
-                    'barangay' => $validated['barangay'],
+                    'barangay' => $location['barangay'],
+                    'house_number' => $validated['house_number'],
                     'street_address' => $validated['street_address'],
                     'subtotal' => $sellerSubtotal,
                     'voucher_code' => $voucher ? $voucher->code : null,
