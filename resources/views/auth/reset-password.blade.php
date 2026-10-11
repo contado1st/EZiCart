@@ -1,38 +1,44 @@
 @extends('layouts.app')
 
-@section('content')
-    <div class="auth-wrapper">
-        <div class="auth-card u-extracted-eb1967695a">
-            <section class="auth-form-container">
-                <h1 class="auth-title">Choose a new password</h1>
+@push('styles')
+    <link rel="stylesheet" href="{{ asset('css/auth-fallback.css') }}">
+@endpush
 
-                <form action="{{ route('password.update') }}" method="POST">
+@section('title', 'Choose a new password | EZiCart')
+
+@section('content')
+    <main class="auth-page">
+        <section class="auth-shell auth-shell--verify" aria-labelledby="auth-title">
+            <aside class="auth-aside"><a class="auth-brand" href="{{ route('home') }}">EZiCart<span>.</span></a><div class="auth-aside-copy"><h1>Choose a fresh password.</h1><p>Use a password you have not used on EZiCart before.</p></div></aside>
+            <div class="auth-content">
+                <div class="auth-mobile-brand"><a class="auth-brand" href="{{ route('home') }}">EZiCart<span>.</span></a></div>
+                <h2 id="auth-title">Choose a new password</h2>
+
+                <form action="{{ route('password.update') }}" method="POST" class="auth-form">
                     @csrf
                     <input type="hidden" name="token" value="{{ $token }}">
-                    <div class="form-group">
-                        <label class="form-label" for="email">Email address</label>
-                        <input id="email" type="email" name="email" class="form-control"
-                            value="{{ old('email', $email) }}" required autocomplete="email">
+                    <div class="auth-field">
+                        <label for="email">Email address</label>
+                        <input id="email" type="email" name="email" value="{{ old('email', $email) }}" required autocomplete="email">
                         @error('email')
-                            <p class="form-error">{{ $message }}</p>
+                            <span class="auth-field-error">{{ $message }}</span>
                         @enderror
                     </div>
-                    <div class="form-group">
-                        <label class="form-label" for="password">New password</label>
-                        <input id="password" type="password" name="password" class="form-control" required
-                            autocomplete="new-password">
+                    <div class="auth-field">
+                        <label for="password">New password</label>
+                        <div class="auth-password-wrap"><input id="password" type="password" name="password" required autocomplete="new-password"><button class="auth-password-toggle" type="button" data-password-toggle="password" aria-label="Show password" aria-pressed="false">Show</button></div>
+                        <small class="auth-help">At least 8 characters, with uppercase and lowercase letters, a number, and a symbol.</small>
                         @error('password')
-                            <p class="form-error">{{ $message }}</p>
+                            <span class="auth-field-error">{{ $message }}</span>
                         @enderror
                     </div>
-                    <div class="form-group">
-                        <label class="form-label" for="password-confirmation">Confirm new password</label>
-                        <input id="password-confirmation" type="password" name="password_confirmation" class="form-control"
-                            required autocomplete="new-password">
+                    <div class="auth-field">
+                        <label for="password-confirmation">Confirm new password</label>
+                        <div class="auth-password-wrap"><input id="password-confirmation" type="password" name="password_confirmation" required autocomplete="new-password"><button class="auth-password-toggle" type="button" data-password-toggle="password-confirmation" aria-label="Show password" aria-pressed="false">Show</button></div>
                     </div>
-                    <button type="submit" class="btn-submit">Reset password</button>
+                    <button type="submit" class="auth-submit">Reset password</button>
                 </form>
-            </section>
-        </div>
-    </div>
+            </div>
+        </section>
+    </main>
 @endsection

@@ -3,13 +3,16 @@
 namespace App\Models;
 
 use Database\Factories\UserFactory;
+use Illuminate\Contracts\Auth\Authenticatable as AuthenticatableContract;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 
-class User extends Authenticatable
+class User extends Authenticatable implements AuthenticatableContract
 {
     /** @use HasFactory<UserFactory> */
     use HasFactory, Notifiable;
@@ -23,8 +26,10 @@ class User extends Authenticatable
         'email',
         'password',
         'first_name',
+        'middle_name',
         'last_name',
         'middle_initial',
+        'suffix',
         'sex',
         'contact_no',
         'birthday',
@@ -65,8 +70,14 @@ class User extends Authenticatable
     {
         return [
             'email_verified_at' => 'datetime',
+            'phone_verified_at' => 'datetime',
             'password' => 'hashed',
             'birthday' => 'date',
+            'license_expires_at' => 'date',
+            'service_areas' => 'array',
+            'terms_accepted_at' => 'datetime',
+            'privacy_accepted_at' => 'datetime',
+            'approved_at' => 'datetime',
         ];
     }
 
@@ -135,6 +146,16 @@ class User extends Authenticatable
             ->withTimestamps()
             ->wherePivot('is_active', true)
             ->where('areas.is_active', true);
+    }
+
+    public function logisticsOwner(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'logistics_owner_id');
+    }
+
+    public function emailVerificationCode(): HasOne
+    {
+        return $this->hasOne(EmailVerificationCode::class);
     }
 
     // announcements relationship and suspension check

@@ -12,6 +12,7 @@ use App\Models\ParcelTrackingEvent;
 use App\Models\User;
 use App\Notifications\AccountStatusNotification;
 use App\Notifications\OrderWorkflowNotification;
+use App\Notifications\RiderActivationNotification;
 use App\Services\LogisticsExceptionService;
 use App\Services\OrderAreaService;
 use App\Services\OrderTransitionService;
@@ -27,14 +28,116 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
+use Illuminate\Validation\Rules\Password as PasswordRule;
 use Illuminate\View\View;
 use Symfony\Component\HttpKernel\Exception\HttpException;
 use Throwable;
 
 class LogisticsController extends Controller
 {
+    public function storeRider(Request $request): RedirectResponse
+    {
+        $operator = $this->authenticatedUser();
+        abort_unless($operator->role === 'sorting_center' && $operator->status === 'approved', 403);
+
+        $email = Str::lower(trim((string) $request->input('email')));
+        $phone = preg_replace('/[\s()-]/', '', (string) $request->input('contact_no')) ?? '';
+        if (preg_match('/^\+639\d{9}$/', $phone)) {
+            $phone = '0'.substr($phone, 3);
+        }
+        $request->merge([
+            'email' => $email,
+            'contact_no' => $phone,
+            'license_number' => Str::upper(trim((string) $request->input('license_number'))),
+            'plate_number' => Str::upper(preg_replace('/\s+/', '', (string) $request->input('plate_number')) ?? ''),
+        ]);
+
+        $validated = $request->validate([
+            'first_name' => ['required', 'string', 'min:2', 'max:50', 'regex:/^[\p{L}\p{M} .\'-]+$/u'],
+            'last_name' => ['required', 'string', 'min:2', 'max:50', 'regex:/^[\p{L}\p{M} .\'-]+$/u'],
+            'birthday' => ['required', 'date', 'before_or_equal:today', 'before:-18 years'],
+            'email' => ['required', 'email', 'max:255', 'unique:users,email', 'unique:users,canonical_email'],
+            'contact_no' => ['required', 'regex:/^09\d{9}$/', 'unique:users,canonical_mobile'],
+            'license_number' => ['required', 'regex:/^[A-Z]\d{2}-\d{2}-\d{6}$/', 'unique:users,license_number'],
+            'license_expires_at' => ['required', 'date', 'after_or_equal:today'],
+            'vehicle_type' => ['required', 'in:Motorcycle,Car,Van'],
+            'plate_number' => ['required', 'string', 'min:2', 'max:20', 'unique:users,plate_number', 'unique:users,canonical_plate'],
+            'license_document' => ['required', 'file', 'mimes:jpg,jpeg,png,pdf', 'max:5120'],
+            'or_cr_document' => ['required', 'file', 'mimes:jpg,jpeg,png,pdf', 'max:5120'],
+        ]);
+
+        $duplicateEmail = User::query()->whereRaw('LOWER(TRIM(email)) = ?', [$email])->exists();
+        $duplicateMobile = User::query()->where('canonical_mobile', $phone)->orWhereIn('contact_no', [$phone, '+63'.substr($phone, 1)])->exists();
+        abort_if($duplicateEmail, 422, 'This email address is already linked to an account.');
+        if ($duplicateMobile) {
+            throw ValidationException::withMessages(['contact_no' => 'This mobile number is already linked to an account.']);
+        }
+
+        $rider = DB::transaction(function () use ($validated, $operator, $request): User {
+            $rider = User::query()->forceCreate([
+                'first_name' => trim($validated['first_name']),
+                'last_name' => trim($validated['last_name']),
+                'email' => $validated['email'],
+                'canonical_email' => $validated['email'],
+                'password' => Hash::make(Str::random(64)),
+                'contact_no' => $validated['contact_no'],
+                'canonical_mobile' => $validated['contact_no'],
+                'birthday' => $validated['birthday'],
+                'age' => Carbon::parse($validated['birthday'])->age,
+                'vehicle_type' => $validated['vehicle_type'],
+                'plate_number' => $validated['plate_number'],
+                'canonical_plate' => $validated['plate_number'],
+                'license_number' => $validated['license_number'],
+                'license_expires_at' => $validated['license_expires_at'],
+                'license_path' => $request->file('license_document')->store('documents/licenses', 'private'),
+                'or_cr_path' => $request->file('or_cr_document')->store('documents/or_cr', 'private'),
+                'role' => 'courier',
+                'status' => 'pending_activation',
+                'logistics_owner_id' => $operator->id,
+                'province' => $operator->province,
+                'municipality' => $operator->municipality,
+                'barangay' => $operator->barangay,
+                'street_address' => $operator->street_address,
+            ]);
+
+            return $rider;
+        });
+
+        $this->sendRiderActivation($rider);
+
+        return back()->with('success', "{$rider->first_name} {$rider->last_name} was added. An activation link was sent to {$rider->email}.");
+    }
+
+    public function resendRiderActivation(User $user): RedirectResponse
+    {
+        $operator = $this->authenticatedUser();
+        abort_unless($user->role === 'courier' && (int) $user->logistics_owner_id === (int) $operator->id, 404);
+        abort_unless($user->status === 'pending_activation', 422, 'Only riders who have not activated their account can receive a new activation link.');
+
+        $this->sendRiderActivation($user);
+
+        return back()->with('success', 'A new activation link has been sent. Previous links are no longer valid.');
+    }
+
+    private function sendRiderActivation(User $rider): void
+    {
+        $token = Str::random(64);
+        DB::table('rider_activation_tokens')->updateOrInsert(
+            ['user_id' => $rider->id],
+            ['token_hash' => hash('sha256', $token), 'expires_at' => now()->addHours(24), 'updated_at' => now(), 'created_at' => now()],
+        );
+
+        try {
+            $rider->notify(new RiderActivationNotification($token));
+        } catch (Throwable $exception) {
+            Log::warning('Rider activation email could not be dispatched.', ['rider_id' => $rider->id]);
+        }
+    }
+
     public function dashboard(): View
     {
         $operator = $this->authenticatedUser();
@@ -186,9 +289,9 @@ class LogisticsController extends Controller
             'location_reference' => ['nullable', 'string', 'max:100'],
             'method' => ['nullable', 'in:camera,handheld,manual'],
         ]);
-        $reference = $validated['reference'];
-        if (str_starts_with($reference, 'EZP:')) {
-            $reference = substr($reference, 4);
+        $reference = trim($validated['reference']);
+        if (strncasecmp($reference, 'EZP:', 4) === 0) {
+            $reference = trim(substr($reference, 4));
         }
         $order = Order::query()->where('parcel_code', $reference)->orWhere('order_number', $reference)->first();
 
@@ -276,13 +379,13 @@ class LogisticsController extends Controller
                 'actor_id' => $this->authenticatedUser()->id,
                 'station' => 'intake',
                 'result' => 'rejected',
-                'failure_reason' => 'Parcel intake transition was rejected.',
+                'failure_reason' => Str::limit($exception->getMessage(), 250),
                 'method' => $validated['method'] ?? 'manual',
                 'ip' => $request->ip(),
                 'created_at' => now(),
             ]);
 
-            return back()->withErrors(['reference' => 'The parcel reference could not be processed.']);
+            return back()->withErrors(['reference' => $exception->getMessage()]);
         }
     }
 
@@ -1069,7 +1172,8 @@ class LogisticsController extends Controller
             ->pluck('area_user.user_id')
             ->map(fn (int|string $id): int => (int) $id)
             ->all();
-        $ridersQuery = User::query()->where('role', 'courier');
+        $ridersQuery = User::query()->where('role', 'courier')
+            ->where(fn (Builder $query) => $query->whereNull('logistics_owner_id')->orWhere('logistics_owner_id', $operator->id));
         if (! $singleHub) {
             $ridersWithOtherHub = DB::table('area_user')
                 ->join('areas', 'areas.id', '=', 'area_user.area_id')
@@ -1087,8 +1191,13 @@ class LogisticsController extends Controller
             'finalDeliveries as completed_deliveries_count' => fn (Builder $query) => $query->whereIn('status', ['DELIVERED', 'COMPLETED']),
             'finalDeliveries as failed_deliveries_count' => fn (Builder $query) => $query->where('status', 'DELIVERY_FAILED'),
         ])->orderByRaw("CASE status WHEN 'pending' THEN 0 WHEN 'approved' THEN 1 WHEN 'suspended' THEN 2 ELSE 3 END")->paginate(20);
-        $riders->getCollection()->each(function (User $rider) use ($badges, $qrCodes, $assignedHubRiderIds, $singleHub): void {
-            $rider->setAttribute('assigned_to_hub', $singleHub || in_array($rider->id, $assignedHubRiderIds, true));
+        $riders->getCollection()->each(function (User $rider) use ($badges, $qrCodes, $assignedHubRiderIds, $singleHub, $operator): void {
+            $rider->setAttribute(
+                'assigned_to_hub',
+                (int) $rider->logistics_owner_id === (int) $operator->id
+                    || $singleHub
+                    || in_array($rider->id, $assignedHubRiderIds, true),
+            );
             if (! $rider->assigned_to_hub) {
                 return;
             }
@@ -1469,6 +1578,10 @@ class LogisticsController extends Controller
 
     private function riderBelongsToHub(User $rider, User $operator): bool
     {
+        if ($rider->logistics_owner_id !== null) {
+            return (int) $rider->logistics_owner_id === (int) $operator->id;
+        }
+
         $hasCurrentHubArea = DB::table('area_user')
             ->join('areas', 'areas.id', '=', 'area_user.area_id')
             ->where('area_user.user_id', $rider->id)

@@ -82,23 +82,38 @@
             <form action="{{ route('account.password.update') }}" method="POST">
                 @csrf
                 @method('PATCH')
-                <div class="form-group"><label class="form-label" for="current-password">Current password</label><input
-                        id="current-password" type="password" class="form-control" name="current_password" required
-                        autocomplete="current-password">
+                <div class="form-group"><label class="form-label" for="current-password">Current password</label>
+                    <div class="credential-password-wrap">
+                        <input id="current-password" type="password" class="form-control" name="current_password"
+                            required autocomplete="current-password">
+                        <button class="credential-password-toggle" type="button" data-password-toggle="current-password"
+                            aria-label="Show password" aria-pressed="false">Show</button>
+                    </div>
                     @error('current_password')
                         <p>{{ $message }}</p>
                     @enderror
                 </div>
-                <div class="form-group"><label class="form-label" for="new-password">New password</label><input
-                        id="new-password" type="password" class="form-control" name="password" required
-                        autocomplete="new-password">
+                <div class="form-group"><label class="form-label" for="new-password">New password</label>
+                    <div class="credential-password-wrap">
+                        <input id="new-password" type="password" class="form-control" name="password" required
+                            autocomplete="new-password">
+                        <button class="credential-password-toggle" type="button" data-password-toggle="new-password"
+                            aria-label="Show password" aria-pressed="false">Show</button>
+                    </div>
                     @error('password')
                         <p>{{ $message }}</p>
                     @enderror
                 </div>
                 <div class="form-group"><label class="form-label" for="new-password-confirmation">Confirm new
-                        password</label><input id="new-password-confirmation" type="password" class="form-control"
-                        name="password_confirmation" required autocomplete="new-password"></div>
+                        password</label>
+                    <div class="credential-password-wrap">
+                        <input id="new-password-confirmation" type="password" class="form-control"
+                            name="password_confirmation" required autocomplete="new-password">
+                        <button class="credential-password-toggle" type="button"
+                            data-password-toggle="new-password-confirmation" aria-label="Show password"
+                            aria-pressed="false">Show</button>
+                    </div>
+                </div>
                 <button class="btn-submit" type="submit">Change password</button>
             </form>
         </section>

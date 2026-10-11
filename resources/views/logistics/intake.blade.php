@@ -31,29 +31,30 @@
         <div class="logistics-scan-header">
             <div>
                 <h2 id="intake-scan-title">Scan parcel</h2>
-                <p class="ops-muted">Use a handheld barcode gun, camera scanner, or enter the parcel reference manually.</p>
+                <p class="ops-muted">Scan the EZP QR printed on the waybill with this station’s camera. A scanner gun and manual reference entry are also available.</p>
             </div>
-            <div class="ops-scanner__tabs" role="tablist" aria-label="Scanner input mode">
-                <button type="button" class="ops-scanner__tab-btn is-active" data-scan-mode="handheld">Scanner gun</button>
-                <button type="button" class="ops-scanner__tab-btn" data-scan-mode="camera">Camera</button>
-                <button type="button" class="ops-scanner__tab-btn" data-scan-mode="manual">Manual</button>
+            <div class="ops-scanner__tabs" role="group" aria-label="Parcel scanning method">
+                <button type="button" class="ops-scanner__tab-btn is-active" data-scan-mode="camera" aria-pressed="true">QR camera</button>
+                <button type="button" class="ops-scanner__tab-btn" data-scan-mode="handheld" aria-pressed="false">Scanner gun</button>
+                <button type="button" class="ops-scanner__tab-btn" data-scan-mode="manual" aria-pressed="false">Manual entry</button>
             </div>
         </div>
 
-        <form class="ops-form ops-intake-form" action="{{ route('logistics.scan') }}" method="POST">
+        <form class="ops-form ops-intake-form logistics-qr-intake-form" action="{{ route('logistics.scan') }}" method="POST">
             @csrf
             <div class="ops-field">
-                <label for="reference">Parcel code, barcode, or order number</label>
+                <label for="reference">Parcel QR code or reference</label>
                 <input id="reference"
                     name="reference"
                     data-qr-input
                     class="logistics-scan-input-lg"
                     value="{{ old('reference', request('search')) }}"
                     required
-                    autocomplete="off"
                     autofocus
-                    placeholder="Scan barcode or enter EZP:…"
+                    autocomplete="off"
+                    placeholder="Scan a parcel QR code or enter EZP:…"
                     aria-describedby="intake-reference-help">
+                <p class="ops-muted" id="intake-reference-help">The camera reads the EZP parcel QR printed on the waybill. A handheld scanner or order number also works.</p>
             </div>
 
             <div class="ops-field">
@@ -64,19 +65,19 @@
                     placeholder="EZL:… (optional)">
             </div>
 
-            <input type="hidden" name="method" value="handheld">
+            <input type="hidden" name="method" value="manual">
 
             <button class="ops-btn ops-btn--primary logistics-scan-btn-lg" type="submit">Verify parcel</button>
 
-            <div class="ops-scanner__viewport-wrap" data-qr-video-container>
+            <div class="ops-scanner__viewport-wrap" data-qr-video-container hidden>
                 <video class="ops-scanner__video" data-qr-video playsinline muted hidden></video>
                 <div class="ops-scanner__reticle" aria-hidden="true"></div>
             </div>
 
             <div class="ops-scan-controls">
-                <button class="ops-btn" type="button" data-qr-start>Open camera scanner</button>
+                <button class="ops-btn ops-btn--primary" type="button" data-qr-start>Start QR camera</button>
                 <button class="ops-btn ops-btn--danger" type="button" data-qr-stop hidden>Close camera</button>
-                <p class="ops-muted" data-qr-status role="status" aria-live="polite">Scanner gun ready. Scan parcel barcode to verify immediately.</p>
+                <p class="ops-muted" data-qr-status role="status" aria-live="polite">QR scanner ready. Start the camera to scan a parcel label.</p>
             </div>
         </form>
     </section>

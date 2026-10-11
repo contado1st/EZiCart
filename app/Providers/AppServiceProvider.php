@@ -54,6 +54,18 @@ class AppServiceProvider extends ServiceProvider
             return Limit::perMinute(5)->by($routeName.'|'.$request->ip());
         });
 
+        RateLimiter::for('email-verification', function (Request $request): Limit {
+            return Limit::perMinute(10)->by('verification:'.$request->ip().'|'.Str::lower(trim((string) $request->input('email'))));
+        });
+
+        RateLimiter::for('email-verification-resend', function (Request $request): Limit {
+            return Limit::perMinute(3)->by('verification-resend:'.$request->ip().'|'.Str::lower(trim((string) $request->input('email'))));
+        });
+
+        RateLimiter::for('rider-activation', function (Request $request): Limit {
+            return Limit::perMinute(10)->by('rider-activation:'.$request->ip());
+        });
+
         RateLimiter::for('operational-action', function (Request $request): Limit {
             $identity = $request->user()?->getAuthIdentifier() ?? $request->ip();
             $routeName = $request->route()?->getName() ?? $request->path();

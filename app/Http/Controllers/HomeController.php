@@ -9,6 +9,17 @@ class HomeController extends Controller
 {
     public function index(Request $request)
     {
+        $roleDashboardRoute = match ($request->user()?->role) {
+            'admin' => 'admin.dashboard',
+            'courier' => 'courier.dashboard',
+            'sorting_center' => 'logistics.dashboard',
+            default => null,
+        };
+
+        if ($roleDashboardRoute !== null) {
+            return redirect()->route($roleDashboardRoute);
+        }
+
         $categories = [
             ['name' => 'Beauty', 'icon' => '💄'],
             ['name' => 'Home & Living', 'icon' => '🏠'],

@@ -11,6 +11,33 @@
         </div>
     </header>
 
+    @if (session('success'))
+        <div class="ops-alert ops-alert--success" role="status">{{ session('success') }}</div>
+    @endif
+    @if ($errors->any())
+        <div class="ops-alert ops-alert--error" role="alert">{{ $errors->first() }}</div>
+    @endif
+
+    <details class="ops-panel">
+        <summary><strong>Add a rider</strong><span class="ops-muted">Create a roster entry and email a one-use activation link.</span></summary>
+        <form method="POST" action="{{ route('logistics.riders.store') }}" enctype="multipart/form-data" class="ops-rider-form">
+            @csrf
+            <div><label for="rider-first-name">First name</label><input id="rider-first-name" name="first_name" value="{{ old('first_name') }}" required maxlength="50"></div>
+            <div><label for="rider-last-name">Last name</label><input id="rider-last-name" name="last_name" value="{{ old('last_name') }}" required maxlength="50"></div>
+            <div><label for="rider-birthday">Date of birth</label><input id="rider-birthday" type="date" name="birthday" value="{{ old('birthday') }}" required></div>
+            <div><label for="rider-email">Email</label><input id="rider-email" type="email" name="email" value="{{ old('email') }}" required autocomplete="email"></div>
+            <div><label for="rider-mobile">Mobile number</label><input id="rider-mobile" type="tel" name="contact_no" value="{{ old('contact_no') }}" placeholder="09XXXXXXXXX or +639XXXXXXXXX" required></div>
+            <div><label for="rider-license-number">Driver’s license number</label><input id="rider-license-number" name="license_number" value="{{ old('license_number') }}" placeholder="N01-23-456789" required></div>
+            <div><label for="rider-license-expiry">License expiry date</label><input id="rider-license-expiry" type="date" name="license_expires_at" value="{{ old('license_expires_at') }}" required></div>
+            <div><label for="rider-vehicle">Vehicle type</label><select id="rider-vehicle" name="vehicle_type" required><option value="">Choose vehicle</option>@foreach (['Motorcycle', 'Car', 'Van'] as $vehicle)<option value="{{ $vehicle }}" @selected(old('vehicle_type') === $vehicle)>{{ $vehicle }}</option>@endforeach</select></div>
+            <div><label for="rider-plate">Plate number</label><input id="rider-plate" name="plate_number" value="{{ old('plate_number') }}" required maxlength="20"></div>
+            <div><label for="rider-license-file">Driver’s license document</label><input id="rider-license-file" type="file" name="license_document" accept=".jpg,.jpeg,.png,.pdf" required></div>
+            <div><label for="rider-orcr-file">Vehicle OR/CR</label><input id="rider-orcr-file" type="file" name="or_cr_document" accept=".jpg,.jpeg,.png,.pdf" required></div>
+            <p class="ops-muted">Documents must be JPG, PNG, or PDF and no larger than 5 MB. The rider will set their own password from the activation email.</p>
+            <button class="ops-btn ops-btn--primary" type="submit">Add rider and send activation</button>
+        </form>
+    </details>
+
     <section class="ops-panel">
         <div class="ops-heading">
             <div>
@@ -84,7 +111,7 @@
                             </td>
                             <td>
                                 <span class="ops-status {{ $rider->status === 'approved' ? 'ops-status--green' : ($rider->status === 'pending' ? 'ops-status--amber' : 'ops-status--danger') }}">
-                                    {{ ucfirst($rider->status) }}
+                                    {{ $rider->status === 'pending_activation' ? 'Pending Activation' : ucfirst($rider->status) }}
                                 </span>
                             </td>
                             <td>
@@ -110,6 +137,11 @@
                             <td>
                                 @if (!$rider->assigned_to_hub)
                                     <span class="ops-muted">Assign one or more service areas to claim this rider for your hub.</span>
+                                @elseif ($rider->status === 'pending_activation' && (int) $rider->logistics_owner_id === (int) auth()->id())
+                                    <form method="POST" action="{{ route('logistics.riders.activation.resend', $rider) }}">
+                                        @csrf
+                                        <button class="ops-btn" type="submit">Resend activation</button>
+                                    </form>
                                 @elseif ($rider->status === 'pending')
                                     <div class="courier-actions">
                                         <form method="POST" action="{{ route('logistics.riders.approve', $rider) }}">

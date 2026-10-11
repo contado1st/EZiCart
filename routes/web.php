@@ -8,6 +8,7 @@ use App\Http\Controllers\Admin\AdminDisputeController;
 use App\Http\Controllers\Admin\AdminModerationController;
 use App\Http\Controllers\Admin\AdminReportController;
 use App\Http\Controllers\Auth\AuthController;
+use App\Http\Controllers\Auth\RiderActivationController;
 use App\Http\Controllers\Buyer\BuyerController;
 use App\Http\Controllers\Buyer\CartController;
 use App\Http\Controllers\Buyer\CheckoutController;
@@ -45,13 +46,25 @@ Route::middleware('guest')->group(function () {
     Route::get('/register/seller', [AuthController::class, 'showSellerRegisterForm'])->name('register.seller');
     Route::post('/register/seller', [AuthController::class, 'sellerRegister'])->middleware('throttle:registration')->name('register.seller.post');
 
-    Route::get('/register/courier', [AuthController::class, 'showCourierRegisterForm'])->name('register.courier');
-    Route::post('/register/courier', [AuthController::class, 'courierRegister'])->middleware('throttle:registration')->name('register.courier.post');
+    Route::get('/verify-email', [AuthController::class, 'showEmailVerification'])->name('verification.notice');
+    Route::post('/verify-email', [AuthController::class, 'verifyEmail'])->middleware('throttle:email-verification')->name('verification.verify');
+    Route::post('/verify-email/resend', [AuthController::class, 'resendVerificationCode'])->middleware('throttle:email-verification-resend')->name('verification.resend');
 
-    // Sorting Center Public Application
+    // Logistics company application (operational role: sorting_center)
     Route::get('/register/sorting-center', [AuthController::class, 'showSortingCenterRegisterForm'])->name('register.sorting');
     Route::post('/register/sorting-center', [AuthController::class, 'sortingCenterRegister'])->middleware('throttle:registration')->name('register.sorting.post');
 });
+
+Route::middleware('auth')->group(function (): void {
+    Route::get('/application/resubmit', [AuthController::class, 'showApplicationResubmission'])->name('application.resubmit');
+    Route::post('/application/resubmit', [AuthController::class, 'resubmitApplication'])
+        ->middleware('throttle:registration')
+        ->name('application.resubmit.post');
+});
+
+// Token-protected rider activation remains available even if this browser has another signed-in account.
+Route::get('/activate-rider/{token}', [RiderActivationController::class, 'show'])->name('rider.activation.show');
+Route::post('/activate-rider', [RiderActivationController::class, 'activate'])->middleware('throttle:rider-activation')->name('rider.activation.store');
 
 Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
 
@@ -174,6 +187,8 @@ Route::middleware(['auth', 'account.active', 'auth.session'])->group(function ()
         Route::post('/orders/{order}/return', [LogisticsController::class, 'returnParcel'])->middleware('throttle:operational-action')->name('orders.return');
 
         Route::get('/riders', [LogisticsController::class, 'riders'])->name('riders');
+        Route::post('/riders', [LogisticsController::class, 'storeRider'])->middleware('throttle:operational-action')->name('riders.store');
+        Route::post('/riders/{user}/resend-activation', [LogisticsController::class, 'resendRiderActivation'])->middleware('throttle:operational-action')->name('riders.activation.resend');
         Route::post('/riders/{user}/approve', [LogisticsController::class, 'approveRider'])->middleware('throttle:operational-action')->name('riders.approve');
         Route::post('/riders/{user}/reject', [LogisticsController::class, 'rejectRider'])->middleware('throttle:operational-action')->name('riders.reject');
         Route::post('/riders/{user}/suspend', [LogisticsController::class, 'suspendRider'])->middleware('throttle:operational-action')->name('riders.suspend');

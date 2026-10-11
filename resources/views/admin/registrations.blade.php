@@ -40,7 +40,7 @@
                             <!-- Applicant -->
                             <td>
                                 <div class="text-dark-bold">
-                                    {{ $user->first_name }} {{ $user->middle_initial }} {{ $user->last_name }}
+                                    {{ collect([$user->first_name, $user->middle_name ?: $user->middle_initial, $user->last_name, $user->suffix])->filter()->join(' ') }}
                                 </div>
                                 <div class="text-muted-small">
                                     Age: {{ $user->age }} | Sex: {{ $user->sex }}
@@ -69,7 +69,13 @@
                             <td>
                                 @if ($user->role === 'seller')
                                     <div><strong>Store:</strong> {{ $user->business_name }}</div>
-                                    <div class="text-muted-small">Category: {{ $user->line_of_business }}</div>
+                                    <div class="text-muted-small">Category: {{ $user->line_of_business }} | Type: {{ $user->seller_type }}</div>
+                                    <div class="text-muted-small">TIN: {{ $user->tin }}</div>
+                                @elseif($user->role === 'sorting_center')
+                                    <div><strong>Company:</strong> {{ $user->business_name }}</div>
+                                    <div class="text-muted-small">SEC: {{ $user->sec_registration_no }} | TIN: {{ $user->tin }}</div>
+                                    <div class="text-muted-small">Position: {{ $user->contact_position }}</div>
+                                    <div class="text-muted-small">Service areas: {{ implode(', ', $user->service_areas ?? []) }}</div>
                                 @elseif($user->role === 'courier')
                                     <div><strong>Vehicle:</strong> {{ $user->vehicle_type }}</div>
                                     <div class="text-muted-small">Plate: {{ $user->plate_number }}</div>
@@ -90,6 +96,16 @@
                                         class="doc-link">📋 View Business Permit</a>
                                 @endif
 
+                                @if ($user->sec_certificate_path)
+                                    <a href="{{ route('admin.users.documents.show', [$user, 'sec']) }}" class="doc-link">View SEC Certificate</a>
+                                @endif
+                                @if ($user->bir_certificate_path)
+                                    <a href="{{ route('admin.users.documents.show', [$user, 'bir']) }}" class="doc-link">View BIR Form 2303</a>
+                                @endif
+                                @if ($user->representative_id_path)
+                                    <a href="{{ route('admin.users.documents.show', [$user, 'representative']) }}" class="doc-link">View Representative ID</a>
+                                @endif
+
                                 @if ($user->or_cr_path)
                                     <a href="{{ route('admin.users.documents.show', [$user, 'vehicle']) }}"
                                         class="doc-link">🛵 View Vehicle OR/CR</a>
@@ -107,6 +123,8 @@
 
                                     <form action="{{ route('admin.registrations.reject', $user->id) }}" method="POST">
                                         @csrf
+                                        <label class="sr-only" for="rejection-reason-{{ $user->id }}">Reason for rejecting {{ $user->first_name }} {{ $user->last_name }}</label>
+                                        <input id="rejection-reason-{{ $user->id }}" type="text" name="reason" maxlength="1000" minlength="5" placeholder="Reason required" required>
                                         <button type="submit" onclick="return confirm('Reject this account?')"
                                             class="btn-reject">Reject</button>
                                     </form>

@@ -1,32 +1,38 @@
 @extends('layouts.app')
 
+@push('styles')
+    <link rel="stylesheet" href="{{ asset('css/auth-fallback.css') }}">
+@endpush
+
+@section('title', 'Reset your password | EZiCart')
+
 @section('content')
-    <div class="auth-wrapper">
-        <div class="auth-card u-extracted-eb1967695a">
-            <section class="auth-form-container">
-                <h1 class="auth-title">Reset your password</h1>
-                <p>Enter the email address associated with your EZiCart account. If it matches an account, we’ll email a
-                    reset link.</p>
+    <main class="auth-page">
+        <section class="auth-shell auth-shell--verify" aria-labelledby="auth-title">
+            <aside class="auth-aside"><a class="auth-brand" href="{{ route('home') }}">EZiCart<span>.</span></a><div class="auth-aside-copy"><h1>Get back in safely.</h1><p>We’ll email a password reset link if an account matches the address you provide.</p></div></aside>
+            <div class="auth-content">
+                <div class="auth-mobile-brand"><a class="auth-brand" href="{{ route('home') }}">EZiCart<span>.</span></a></div>
+                <h2 id="auth-title">Reset your password</h2>
+                <p class="auth-intro">Enter the email address associated with your EZiCart account.</p>
 
                 @if (session('status'))
-                    <div class="form-notice">{{ session('status') }}</div>
+                    <div class="auth-message auth-message--success" role="status">{{ session('status') }}</div>
                 @endif
 
-                <form action="{{ route('password.email') }}" method="POST">
+                <form action="{{ route('password.email') }}" method="POST" class="auth-form">
                     @csrf
-                    <div class="form-group">
-                        <label class="form-label" for="email">Email address</label>
-                        <input id="email" type="email" name="email" class="form-control" value="{{ old('email') }}"
-                            required autocomplete="email">
+                    <div class="auth-field">
+                        <label for="email">Email address</label>
+                        <input id="email" type="email" name="email" value="{{ old('email') }}" required autocomplete="email">
                         @error('email')
-                            <p class="form-error">{{ $message }}</p>
+                            <span class="auth-field-error">{{ $message }}</span>
                         @enderror
                     </div>
-                    <button type="submit" class="btn-submit">Send reset link</button>
+                    <button type="submit" class="auth-submit">Send reset link</button>
                 </form>
 
-                <p class="auth-footer-text"><a href="{{ route('login') }}">Back to login</a></p>
-            </section>
-        </div>
-    </div>
+                <p class="auth-switch"><a href="{{ route('login') }}">Back to sign in</a></p>
+            </div>
+        </section>
+    </main>
 @endsection

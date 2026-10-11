@@ -65,20 +65,32 @@ class AdminController extends Controller
             $lockedUser = User::query()->whereKey($user->id)->lockForUpdate()->firstOrFail();
             abort_unless($lockedUser->role !== 'admin' && $lockedUser->status === 'pending', 422, 'Only pending accounts can be approved.');
 
-            $lockedUser->forceFill(['status' => 'approved'])->save();
+            $lockedUser->forceFill([
+                'status' => 'approved',
+                'approved_at' => now(),
+                'approved_by' => $this->authenticatedUser()->id,
+                'rejection_reason' => null,
+            ])->save();
             $notifications->send($lockedUser, new AccountStatusNotification('approved'));
         });
 
         return back()->with('success', "Account for {$user->first_name} {$user->last_name} ({$user->role}) has been approved.");
     }
 
-    public function reject(User $user, TransactionAwareNotificationSender $notifications): RedirectResponse
+    public function reject(Request $request, User $user, TransactionAwareNotificationSender $notifications): RedirectResponse
     {
-        DB::transaction(function () use ($user, $notifications): void {
+        $validated = $request->validate(['reason' => ['required', 'string', 'min:5', 'max:1000']]);
+
+        DB::transaction(function () use ($user, $notifications, $validated): void {
             $lockedUser = User::query()->whereKey($user->id)->lockForUpdate()->firstOrFail();
             abort_unless($lockedUser->role !== 'admin' && $lockedUser->status === 'pending', 422, 'Only pending accounts can be rejected.');
 
-            $lockedUser->forceFill(['status' => 'rejected'])->save();
+            $lockedUser->forceFill([
+                'status' => 'rejected',
+                'approved_at' => null,
+                'approved_by' => null,
+                'rejection_reason' => trim($validated['reason']),
+            ])->save();
             $notifications->send($lockedUser, new AccountStatusNotification('rejected'));
         });
 

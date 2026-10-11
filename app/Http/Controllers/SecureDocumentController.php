@@ -15,6 +15,10 @@ class SecureDocumentController extends Controller
     private const USER_DOCUMENTS = [
         'identity' => ['id_path', 'id_upload_path'],
         'permit' => ['permit_path', 'business_permit_path'],
+        'dti' => 'permit_path',
+        'bir' => 'bir_certificate_path',
+        'sec' => 'sec_certificate_path',
+        'representative' => 'representative_id_path',
         'license' => 'license_path',
         'vehicle' => ['or_cr_path', 'or_cr_upload_path'],
     ];
@@ -24,6 +28,9 @@ class SecureDocumentController extends Controller
         $actor = $this->authenticatedUser();
         $authorized = $actor->role === 'admin';
         if ($actor->role === 'sorting_center' && $user->role === 'courier') {
+            if ($user->logistics_owner_id !== null) {
+                $authorized = (int) $user->logistics_owner_id === (int) $actor->id;
+            }
             $hasMultipleHubs = User::query()->where('role', 'sorting_center')->where('status', 'approved')->limit(2)->count() > 1;
             $assignedToHub = DB::table('area_user')
                 ->join('areas', 'areas.id', '=', 'area_user.area_id')
@@ -37,7 +44,9 @@ class SecureDocumentController extends Controller
                     }
                 })
                 ->exists();
-            $authorized = $assignedToHub || ! $hasMultipleHubs;
+            $authorized = $user->logistics_owner_id !== null
+                ? (int) $user->logistics_owner_id === (int) $actor->id
+                : ($assignedToHub || ! $hasMultipleHubs);
         }
         abort_unless($authorized, 403);
 
