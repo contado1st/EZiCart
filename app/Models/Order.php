@@ -22,9 +22,11 @@ class Order extends Model
         'recipient_name',
         'recipient_contact',
         'province',
+        'region',
         'municipality',
         'barangay',
         'street_address',
+        'house_number',
         'notes',
     ];
 

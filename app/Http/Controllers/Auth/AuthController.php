@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\EmailVerificationCode;
 use App\Models\User;
 use App\Notifications\EmailVerificationCodeNotification;
+use App\Services\PsgcAddressService;
 use Carbon\Carbon;
 use Illuminate\Auth\Events\PasswordReset;
 use Illuminate\Database\QueryException;
@@ -23,6 +24,8 @@ use Illuminate\Validation\ValidationException;
 
 class AuthController extends Controller
 {
+    public function __construct(private readonly PsgcAddressService $psgcAddressService) {}
+
     private const PHILIPPINE_REGIONS = [
         'National Capital Region (NCR)',
         'Cordillera Administrative Region (CAR)',
@@ -156,15 +159,17 @@ class AuthController extends Controller
     public function register(Request $request): RedirectResponse
     {
         $this->normalizeIdentity($request);
-        $validated = $request->validate($this->identityRules() + [
+        $validated = $request->validate($this->identityRules() + $this->psgcAddressRules() + [
             'birthday' => ['required', 'date', 'before_or_equal:today', 'before:-18 years'],
             'password' => ['required', 'string', PasswordRule::min(8)->mixedCase()->numbers()->symbols(), 'confirmed'],
             'terms' => ['accepted'],
         ]);
 
-        $user = $this->createVerifiedAccount($validated, [
+        $user = $this->createVerifiedAccount($validated, $this->resolveAddress($validated) + [
             'birthday' => $validated['birthday'],
             'age' => Carbon::parse($validated['birthday'])->age,
+            'house_number' => $validated['house_number'],
+            'street_address' => $validated['street_address'],
         ], 'buyer');
 
         return $this->beginVerification($user);
@@ -178,16 +183,11 @@ class AuthController extends Controller
     public function sellerRegister(Request $request): RedirectResponse
     {
         $this->normalizeIdentity($request);
-        $validated = $request->validate($this->identityRules() + [
+        $validated = $request->validate($this->identityRules() + $this->psgcAddressRules() + [
             'shop_name' => ['required', 'string', 'min:3', 'max:30', 'unique:users,shop_name'],
             'line_of_business' => ['required', 'string', 'max:100'],
             'seller_type' => ['required', 'in:Individual,Sole Proprietorship,Corporation'],
             'tin' => ['required', 'regex:/^\d{3}-\d{3}-\d{3}-\d{3}$/', 'unique:users,tin'],
-            'region' => ['required', 'string', Rule::in(self::PHILIPPINE_REGIONS)],
-            'province' => ['required', 'string', 'max:100'],
-            'municipality' => ['required', 'string', 'max:100'],
-            'barangay' => ['required', 'string', 'max:100'],
-            'street_address' => ['required', 'string', 'max:255'],
             'postal_code' => ['required', 'digits:4'],
             'id_document' => ['required', 'file', 'mimes:jpg,jpeg,png,pdf', 'max:5120'],
             'dti_certificate' => ['required_if:seller_type,Sole Proprietorship', 'nullable', 'file', 'mimes:jpg,jpeg,png,pdf', 'max:5120'],
@@ -196,6 +196,7 @@ class AuthController extends Controller
             'password' => ['required', 'string', PasswordRule::min(8)->mixedCase()->numbers()->symbols(), 'confirmed'],
             'terms' => ['accepted'],
         ]);
+        $address = $this->resolveAddress($validated);
 
         $paths = [
             'id_path' => $request->file('id_document')->store('documents/ids', 'private'),
@@ -210,10 +211,8 @@ class AuthController extends Controller
             'line_of_business' => $validated['line_of_business'],
             'seller_type' => $validated['seller_type'],
             'tin' => $validated['tin'],
-            'region' => $validated['region'],
-            'province' => $validated['province'],
-            'municipality' => $validated['municipality'],
-            'barangay' => $validated['barangay'],
+            ...$address,
+            'house_number' => $validated['house_number'],
             'street_address' => $validated['street_address'],
             'postal_code' => $validated['postal_code'],
         ], 'seller');
@@ -233,16 +232,11 @@ class AuthController extends Controller
             'canonical_company_name' => Str::lower(trim((string) $request->input('business_name'))),
             'sec_registration_no' => Str::upper(trim((string) $request->input('sec_registration_no'))),
         ]);
-        $validated = $request->validate($this->identityRules() + [
+        $validated = $request->validate($this->identityRules() + $this->psgcAddressRules() + [
             'business_name' => ['required', 'string', 'min:3', 'max:150'],
             'canonical_company_name' => ['required', 'string', 'max:150', Rule::unique('users', 'canonical_company_name')],
             'sec_registration_no' => ['required', 'regex:/^[A-Za-z]{2}\d{9}$/', 'unique:users,sec_registration_no'],
             'tin' => ['required', 'regex:/^\d{3}-\d{3}-\d{3}-\d{3}$/', 'unique:users,tin'],
-            'region' => ['required', 'string', Rule::in(self::PHILIPPINE_REGIONS)],
-            'province' => ['required', 'string', 'max:100'],
-            'municipality' => ['required', 'string', 'max:100'],
-            'barangay' => ['required', 'string', 'max:100'],
-            'street_address' => ['required', 'string', 'max:255'],
             'postal_code' => ['required', 'digits:4'],
             'contact_position' => ['required', 'string', 'max:100'],
             'service_areas' => ['required', 'array', 'min:1'],
@@ -254,6 +248,7 @@ class AuthController extends Controller
             'password' => ['required', 'string', PasswordRule::min(8)->mixedCase()->numbers()->symbols(), 'confirmed'],
             'terms' => ['accepted'],
         ]);
+        $address = $this->resolveAddress($validated);
 
         $paths = [
             'id_path' => $request->file('representative_id')->store('documents/ids', 'private'),
@@ -265,10 +260,8 @@ class AuthController extends Controller
             'canonical_company_name' => $validated['canonical_company_name'],
             'sec_registration_no' => Str::upper($validated['sec_registration_no']),
             'tin' => $validated['tin'],
-            'region' => $validated['region'],
-            'province' => $validated['province'],
-            'municipality' => $validated['municipality'],
-            'barangay' => $validated['barangay'],
+            ...$address,
+            'house_number' => $validated['house_number'],
             'street_address' => $validated['street_address'],
             'postal_code' => $validated['postal_code'],
         ];
@@ -318,16 +311,11 @@ class AuthController extends Controller
         }
 
         if ($applicant->role === 'seller') {
-            $validated = $request->validate($commonRules + [
+            $validated = $request->validate($commonRules + $this->psgcAddressRules() + [
                 'shop_name' => ['required', 'string', 'min:3', 'max:30', Rule::unique('users', 'shop_name')->ignore($applicant->id)],
                 'line_of_business' => ['required', 'string', 'max:100'],
                 'seller_type' => ['required', 'in:Individual,Sole Proprietorship,Corporation'],
                 'tin' => ['required', 'regex:/^\d{3}-\d{3}-\d{3}-\d{3}$/', Rule::unique('users', 'tin')->ignore($applicant->id)],
-                'region' => ['required', 'string', Rule::in(self::PHILIPPINE_REGIONS)],
-                'province' => ['required', 'string', 'max:100'],
-                'municipality' => ['required', 'string', 'max:100'],
-                'barangay' => ['required', 'string', 'max:100'],
-                'street_address' => ['required', 'string', 'max:255'],
                 'postal_code' => ['required', 'digits:4'],
                 'id_document' => ['required', 'file', 'mimes:jpg,jpeg,png,pdf', 'max:5120'],
                 'dti_certificate' => ['required_if:seller_type,Sole Proprietorship', 'nullable', 'file', 'mimes:jpg,jpeg,png,pdf', 'max:5120'],
@@ -335,6 +323,7 @@ class AuthController extends Controller
                 'sec_certificate' => ['required_if:seller_type,Corporation', 'nullable', 'file', 'mimes:jpg,jpeg,png,pdf', 'max:5120'],
                 'terms' => ['accepted'],
             ]);
+            $address = $this->resolveAddress($validated);
 
             $newPaths = [
                 'id_path' => $request->file('id_document')->store('documents/ids', 'private'),
@@ -348,24 +337,17 @@ class AuthController extends Controller
                 'line_of_business' => $validated['line_of_business'],
                 'seller_type' => $validated['seller_type'],
                 'tin' => $validated['tin'],
-                'region' => $validated['region'],
-                'province' => $validated['province'],
-                'municipality' => $validated['municipality'],
-                'barangay' => $validated['barangay'],
+                ...$address,
+                'house_number' => $validated['house_number'],
                 'street_address' => $validated['street_address'],
                 'postal_code' => $validated['postal_code'],
             ];
         } else {
-            $validated = $request->validate($commonRules + [
+            $validated = $request->validate($commonRules + $this->psgcAddressRules() + [
                 'business_name' => ['required', 'string', 'min:3', 'max:150'],
                 'canonical_company_name' => ['required', 'string', 'max:150', Rule::unique('users', 'canonical_company_name')->ignore($applicant->id)],
                 'sec_registration_no' => ['required', 'regex:/^[A-Za-z]{2}\d{9}$/', Rule::unique('users', 'sec_registration_no')->ignore($applicant->id)],
                 'tin' => ['required', 'regex:/^\d{3}-\d{3}-\d{3}-\d{3}$/', Rule::unique('users', 'tin')->ignore($applicant->id)],
-                'region' => ['required', 'string', Rule::in(self::PHILIPPINE_REGIONS)],
-                'province' => ['required', 'string', 'max:100'],
-                'municipality' => ['required', 'string', 'max:100'],
-                'barangay' => ['required', 'string', 'max:100'],
-                'street_address' => ['required', 'string', 'max:255'],
                 'postal_code' => ['required', 'digits:4'],
                 'contact_position' => ['required', 'string', 'max:100'],
                 'service_areas' => ['required', 'array', 'min:1'],
@@ -376,6 +358,7 @@ class AuthController extends Controller
                 'representative_id' => ['required', 'file', 'mimes:jpg,jpeg,png,pdf', 'max:5120'],
                 'terms' => ['accepted'],
             ]);
+            $address = $this->resolveAddress($validated);
 
             $newPaths = [
                 'id_path' => $request->file('representative_id')->store('documents/ids', 'private'),
@@ -390,10 +373,8 @@ class AuthController extends Controller
                 'tin' => $validated['tin'],
                 'contact_position' => $validated['contact_position'],
                 'service_areas' => array_values($validated['service_areas']),
-                'region' => $validated['region'],
-                'province' => $validated['province'],
-                'municipality' => $validated['municipality'],
-                'barangay' => $validated['barangay'],
+                ...$address,
+                'house_number' => $validated['house_number'],
                 'street_address' => $validated['street_address'],
                 'postal_code' => $validated['postal_code'],
             ];
@@ -517,6 +498,23 @@ class AuthController extends Controller
             'email' => ['required', 'email', 'max:255', Rule::unique('users', 'email')->ignore($account?->id), Rule::unique('users', 'canonical_email')->ignore($account?->id)],
             'contact_no' => ['required', 'regex:/^09\d{9}$/', Rule::unique('users', 'canonical_mobile')->ignore($account?->id)],
         ];
+    }
+
+    private function psgcAddressRules(): array
+    {
+        return [
+            'region_code' => ['required', 'regex:/^\d{10}$/'],
+            'province_code' => ['required', 'regex:/^(?:\d{10}|NCR)$/'],
+            'municipality_code' => ['required', 'regex:/^\d{10}$/'],
+            'barangay_code' => ['required', 'regex:/^\d{10}$/'],
+            'house_number' => ['required', 'string', 'max:100'],
+            'street_address' => ['required', 'string', 'max:255'],
+        ];
+    }
+
+    private function resolveAddress(array $validated): array
+    {
+        return $this->psgcAddressService->resolve($validated);
     }
 
     private function normalizeIdentity(Request $request): void

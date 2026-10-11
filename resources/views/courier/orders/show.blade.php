@@ -47,7 +47,7 @@
         <div class="ops-panel">
             <h2>Drop-off destination</h2>
             <p><strong>{{ $order->recipient_name }}</strong></p>
-            <p>{{ $order->street_address }}, {{ $order->barangay }}, {{ $order->municipality }}, {{ $order->province }}</p>
+            <p>{{ trim(($order->house_number ? $order->house_number.' ' : '').$order->street_address) }}, {{ $order->barangay }}, {{ $order->municipality }}, {{ $order->province }}</p>
             <div>
                 <a href="tel:{{ $order->recipient_contact }}" class="courier-tel-link">
                     📞 Call {{ $order->recipient_contact }}

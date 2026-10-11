@@ -38,28 +38,8 @@
                                 value="{{ old('recipient_contact', $user->contact_no) }}" required>
                         </div>
 
-                        <div class="checkout-form-group">
-                            <label class="checkout-label">Province *</label>
-                            <input type="text" name="province" class="checkout-input"
-                                value="{{ old('province', $user->province) }}" required>
-                        </div>
-
-                        <div class="checkout-form-group">
-                            <label class="checkout-label">Municipality / City *</label>
-                            <input type="text" name="municipality" class="checkout-input"
-                                value="{{ old('municipality', $user->municipality) }}" required>
-                        </div>
-
-                        <div class="checkout-form-group">
-                            <label class="checkout-label">Barangay *</label>
-                            <input type="text" name="barangay" class="checkout-input"
-                                value="{{ old('barangay', $user->barangay) }}" required>
-                        </div>
-
-                        <div class="checkout-form-group">
-                            <label class="checkout-label">Street / House No. *</label>
-                            <input type="text" name="street_address" class="checkout-input"
-                                value="{{ old('street_address', $user->street_address) }}" required>
+                        <div class="checkout-form-full">
+                            @include('components.psgc-address-fields', ['prefix' => 'checkout-address', 'address' => $user, 'postalRequired' => false])
                         </div>
 
                         <div class="checkout-form-group checkout-form-full">

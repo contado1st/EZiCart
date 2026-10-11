@@ -63,16 +63,7 @@
                         @endforelse
                     </ul>
                 @endif
-                <div class="form-group"><label class="form-label" for="province">Province</label><input id="province"
-                        class="form-control" name="province" value="{{ old('province', $user->province) }}" required></div>
-                <div class="form-group"><label class="form-label" for="municipality">Municipality</label><input
-                        id="municipality" class="form-control" name="municipality"
-                        value="{{ old('municipality', $user->municipality) }}" required></div>
-                <div class="form-group"><label class="form-label" for="barangay">Barangay</label><input id="barangay"
-                        class="form-control" name="barangay" value="{{ old('barangay', $user->barangay) }}" required></div>
-                <div class="form-group"><label class="form-label" for="street-address">Street address</label><input
-                        id="street-address" class="form-control" name="street_address"
-                        value="{{ old('street_address', $user->street_address) }}" required></div>
+                @include('components.psgc-address-fields', ['prefix' => 'account-address', 'address' => $user, 'postalRequired' => false])
                 <button class="btn-submit" type="submit">Save profile</button>
             </form>
         </section>

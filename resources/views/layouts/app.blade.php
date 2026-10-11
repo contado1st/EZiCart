@@ -24,11 +24,13 @@
     <!-- Shared navigation style for projects running against an older Vite manifest -->
     <link rel="stylesheet"
         href="{{ asset('css/navigation-fallback.css') }}?v={{ filemtime(public_path('css/navigation-fallback.css')) }}">
+    <link rel="stylesheet" href="{{ asset('css/psgc-address.css') }}?v={{ filemtime(public_path('css/psgc-address.css')) }}">
     <!-- Dynamic Page Stylesheets -->
     @stack('styles')
     @vite('resources/js/app.js')
     <script src="{{ asset('js/password-visibility.js') }}?v={{ filemtime(public_path('js/password-visibility.js')) }}" defer></script>
     <script src="{{ asset('js/registration-name-inputs.js') }}?v={{ filemtime(public_path('js/registration-name-inputs.js')) }}" defer></script>
+    <script src="{{ asset('js/psgc-address.js') }}?v={{ filemtime(public_path('js/psgc-address.js')) }}" defer></script>
 </head>
 
 <body @class([

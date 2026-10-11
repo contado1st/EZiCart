@@ -145,7 +145,7 @@
                             <td class="ops-mono" data-label="Order">{{ $order->order_number }}</td>
                             <td data-label="Seller">
                                 <strong>{{ $order->seller?->business_name ?? $order->seller?->first_name }}</strong>
-                                <div class="ops-muted">{{ $order->seller?->street_address }}, {{ $order->seller?->municipality }}</div>
+                                <div class="ops-muted">{{ trim(($order->seller?->house_number ? $order->seller->house_number.' ' : '').($order->seller?->street_address ?? '')) }}, {{ $order->seller?->municipality }}</div>
                                 @if ($order->seller?->contact_no)
                                     <div>
                                         <a href="tel:{{ $order->seller->contact_no }}" class="courier-tel-link">
@@ -206,7 +206,7 @@
                             <td class="ops-mono" data-label="Order">{{ $order->order_number }}</td>
                             <td data-label="Seller">
                                 <strong>{{ $order->seller?->business_name ?? $order->seller?->first_name }}</strong>
-                                <div class="ops-muted">{{ $order->seller?->street_address }}, {{ $order->seller?->municipality }}</div>
+                                <div class="ops-muted">{{ trim(($order->seller?->house_number ? $order->seller->house_number.' ' : '').($order->seller?->street_address ?? '')) }}, {{ $order->seller?->municipality }}</div>
                                 @if ($order->seller?->contact_no)
                                     <div>
                                         <a href="tel:{{ $order->seller->contact_no }}" class="courier-tel-link">
@@ -303,7 +303,7 @@
                             <td class="ops-mono" data-label="Order">{{ $order->order_number }}</td>
                             <td data-label="Return address">
                                 <strong>{{ $order->seller?->business_name ?? $order->seller?->first_name }}</strong>
-                                <div class="ops-muted">{{ $order->seller?->street_address }}, {{ $order->seller?->barangay }}, {{ $order->seller?->municipality }}</div>
+                                <div class="ops-muted">{{ trim(($order->seller?->house_number ? $order->seller->house_number.' ' : '').($order->seller?->street_address ?? '')) }}, {{ $order->seller?->barangay }}, {{ $order->seller?->municipality }}</div>
                                 @if ($order->seller?->contact_no)
                                     <div>
                                         <a href="tel:{{ $order->seller->contact_no }}" class="courier-tel-link">
@@ -401,7 +401,7 @@
                             </td>
                             <td data-label="Recipient">
                                 <strong>{{ $order->recipient_name }}</strong>
-                                <div class="ops-muted">{{ $order->street_address }}, {{ $order->barangay }}, {{ $order->municipality }}</div>
+                                <div class="ops-muted">{{ trim(($order->house_number ? $order->house_number.' ' : '').$order->street_address) }}, {{ $order->barangay }}, {{ $order->municipality }}</div>
                                 <div class="ops-muted">{{ $order->delivery_area }}</div>
                                 <div>
                                     <a href="tel:{{ $order->recipient_contact }}" class="courier-tel-link">
