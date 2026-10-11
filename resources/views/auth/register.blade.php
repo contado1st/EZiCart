@@ -1,167 +1,53 @@
 @extends('layouts.app')
 
+@push('styles')
+    <link rel="stylesheet" href="{{ asset('css/auth-fallback.css') }}">
+@endpush
+
+@section('title', 'Create an account | EZiCart')
+
 @section('content')
-    <div class="auth-wrapper">
-        <div class="auth-card u-extracted-47f12e1e72">
-
-            <!-- Branding Hero Panel -->
-            <div class="auth-branding">
-                <span class="section-tag">Buyer Registration</span>
-                <h1 class="auth-brand-title">Join EZiCart Today</h1>
-                <p class="hero-text">Create your buyer account to explore deals, manage orders, and enjoy tailored shopping
-                    recommendations.</p>
-                <ul class="auth-feature-list">
-                    <li class="auth-feature-item">
-                        <span class="auth-feature-icon">🛡️</span>
-                        Admin-verified accounts for transaction safety
-                    </li>
-                    <li class="auth-feature-item">
-                        <span class="auth-feature-icon">🏷️</span>
-                        Access to exclusive marketplace vouchers
-                    </li>
-                </ul>
-            </div>
-
-            <!-- Register Form Panel -->
-            <div class="auth-form-container">
-
-                <div class="role-selector">
-                    <a href="{{ route('register') }}" class="role-tab active">🛍️ Buyer</a>
-                    <a href="{{ route('register.seller') }}" class="role-tab">🏪 Seller</a>
-                    <a href="{{ route('register.courier') }}" class="role-tab">🚚 Courier</a>
+    <main class="auth-page">
+        <section class="auth-shell auth-shell--form" aria-labelledby="auth-title">
+            <aside class="auth-aside">
+                <a class="auth-brand" href="{{ route('home') }}" aria-label="EZiCart home">EZiCart<span>.</span></a>
+                <div class="auth-aside-copy">
+                    <p class="auth-kicker">Shopping starts with a simple account</p>
+                    <h1>Keep your finds close.</h1>
+                    <p>Track orders and save the details you need for your next purchase.</p>
                 </div>
+                <p class="auth-aside-foot">You can add delivery details when you place an order.</p>
+            </aside>
+            <div class="auth-content">
+                <div class="auth-mobile-brand"><a class="auth-brand" href="{{ route('home') }}">EZiCart<span>.</span></a></div>
+                <h2 id="auth-title">Create your buyer account</h2>
+                <p class="auth-intro">A few details are all you need to get started.</p>
+                <nav class="auth-role-nav" aria-label="Choose account type">
+                    <a class="is-active" aria-current="page" href="{{ route('register') }}">Buyer</a>
+                    <a href="{{ route('register.seller') }}">Seller</a>
+                    <a href="{{ route('register.sorting') }}">Logistics company</a>
+                </nav>
 
-                <h2 class="auth-title">Sign Up as Buyer</h2>
+                @if ($errors->any())
+                    <div class="auth-message auth-message--error" role="alert"><strong>Review the highlighted fields.</strong><span>{{ $errors->first() }}</span></div>
+                @endif
 
-                <div class="form-notice">
-                    ℹ️ After submitting your registration, please wait for administrator approval sent to your email.
-                </div>
-
-                <form action="{{ route('register.post') }}" method="POST" enctype="multipart/form-data">
+                <form action="{{ route('register.post') }}" method="POST" class="auth-form" data-auth-submit>
                     @csrf
-
-                    <div class="form-grid">
-                        <!-- Personal Details -->
-                        <div class="form-group">
-                            <label class="form-label">First Name *</label>
-                            <input type="text" name="first_name" class="form-control" required
-                                value="{{ old('first_name') }}">
-                        </div>
-
-                        <div class="form-group">
-                            <label class="form-label">Last Name *</label>
-                            <input type="text" name="last_name" class="form-control" required
-                                value="{{ old('last_name') }}">
-                        </div>
-
-                        <div class="form-group">
-                            <label class="form-label">Middle Initial</label>
-                            <input type="text" name="middle_initial" maxlength="2" class="form-control"
-                                value="{{ old('middle_initial') }}">
-                        </div>
-
-                        <div class="form-group">
-                            <label class="form-label">Sex *</label>
-                            <select name="sex" class="form-control" required>
-                                <option value="">Select Sex</option>
-                                <option value="Male">Male</option>
-                                <option value="Female">Female</option>
-                            </select>
-                        </div>
-
-                        <div class="form-group">
-                            <label class="form-label">E-mail *</label>
-                            <input type="email" name="email" class="form-control" required value="{{ old('email') }}">
-                        </div>
-
-                        <div class="form-group">
-                            <label class="form-label">Contact No. *</label>
-                            <input type="text" name="contact_no" class="form-control" placeholder="09123456789" required
-                                value="{{ old('contact_no') }}">
-                        </div>
-
-                        <div class="form-group">
-                            <label class="form-label">Birthday *</label>
-                            <input type="date" id="birthday" name="birthday" class="form-control" required
-                                onchange="calculateAge(this.value)">
-                        </div>
-
-                        <div class="form-group">
-                            <label class="form-label">Age (Auto-generated) *</label>
-                            <input type="number" id="age" name="age" class="form-control" readonly required
-                                placeholder="Auto-calculated">
-                        </div>
-
-                        <!-- Address Section -->
-                        <div class="form-group">
-                            <label class="form-label">Province *</label>
-                            <select name="province" class="form-control" required>
-                                <option value="Laguna">Laguna</option>
-                                <option value="Metro Manila">Metro Manila</option>
-                            </select>
-                        </div>
-
-                        <div class="form-group">
-                            <label class="form-label">Municipality *</label>
-                            <select name="municipality" class="form-control" required>
-                                <option value="Majayjay">Majayjay</option>
-                                <option value="Santa Cruz">Santa Cruz</option>
-                            </select>
-                        </div>
-
-                        <div class="form-group">
-                            <label class="form-label">Barangay *</label>
-                            <select name="barangay" class="form-control" required>
-                                <option value="Poblacion">Poblacion</option>
-                                <option value="San Roque">San Roque</option>
-                            </select>
-                        </div>
-
-                        <div class="form-group">
-                            <label class="form-label">Street Address / House No. *</label>
-                            <input type="text" name="street_address" class="form-control" placeholder="123 Main St"
-                                required value="{{ old('street_address') }}">
-                        </div>
-
-                        <!-- Uploads & Password -->
-                        <div class="form-group full-width">
-                            <label class="form-label">Upload Valid ID (Image/PDF) *</label>
-                            <input type="file" name="id_upload" class="form-control" accept="image/*,.pdf" required>
-                        </div>
-
-                        <div class="form-group">
-                            <label class="form-label">Password *</label>
-                            <input type="password" name="password" class="form-control" required>
-                        </div>
-
-                        <div class="form-group">
-                            <label class="form-label">Confirm Password *</label>
-                            <input type="password" name="password_confirmation" class="form-control" required>
-                        </div>
+                    <div class="auth-grid">
+                        <div class="auth-field"><label for="first_name">First name</label><input id="first_name" name="first_name" value="{{ old('first_name') }}" autocomplete="given-name" maxlength="50" required>@error('first_name')<span class="auth-field-error">{{ $message }}</span>@enderror</div>
+                        <div class="auth-field"><label for="last_name">Last name</label><input id="last_name" name="last_name" value="{{ old('last_name') }}" autocomplete="family-name" maxlength="50" required>@error('last_name')<span class="auth-field-error">{{ $message }}</span>@enderror</div>
+                        <div class="auth-field"><label for="email">Email address</label><input id="email" type="email" name="email" value="{{ old('email') }}" autocomplete="email" required>@error('email')<span class="auth-field-error">{{ $message }}</span>@enderror</div>
+                        <div class="auth-field"><label for="contact_no">Mobile number</label><input id="contact_no" type="tel" name="contact_no" value="{{ old('contact_no') }}" placeholder="09XXXXXXXXX or +639XXXXXXXXX" autocomplete="tel" inputmode="tel" required>@error('contact_no')<span class="auth-field-error">{{ $message }}</span>@enderror</div>
+                        <div class="auth-field"><label for="birthday">Date of birth</label><input id="birthday" type="date" name="birthday" value="{{ old('birthday') }}" autocomplete="bday" required>@error('birthday')<span class="auth-field-error">{{ $message }}</span>@enderror</div>
                     </div>
-
-                    <button type="submit" class="btn-submit u-extracted-dab43fb936">Submit Registration</button>
+                    <div class="auth-field"><label for="password">Password</label><div class="auth-password-wrap"><input id="password" type="password" name="password" autocomplete="new-password" aria-describedby="password-hint" required><button class="auth-password-toggle" type="button" data-password-toggle="password" aria-label="Show password" aria-pressed="false">Show</button></div><small id="password-hint" class="auth-help">At least 8 characters, with uppercase and lowercase letters, a number, and a symbol.</small>@error('password')<span class="auth-field-error">{{ $message }}</span>@enderror</div>
+                    <div class="auth-field"><label for="password_confirmation">Confirm password</label><div class="auth-password-wrap"><input id="password_confirmation" type="password" name="password_confirmation" autocomplete="new-password" required><button class="auth-password-toggle" type="button" data-password-toggle="password_confirmation" aria-label="Show password" aria-pressed="false">Show</button></div></div>
+                    <div class="auth-consent"><label class="auth-check"><input type="checkbox" name="terms" value="1" @checked(old('terms')) required><span>I agree to EZiCart’s Terms of Service and Privacy Policy.</span></label>@error('terms')<span class="auth-field-error">{{ $message }}</span>@enderror</div>
+                    <button class="auth-submit" type="submit">Create account</button>
                 </form>
-
-                <p class="auth-footer-text">
-                    Have an account? <a href="{{ route('login') }}">Log In</a>
-                </p>
+                <p class="auth-switch">Already have an account? <a href="{{ route('login') }}">Sign in</a></p>
             </div>
-
-        </div>
-    </div>
-
-    <script>
-        function calculateAge(birthDate) {
-            if (!birthDate) return;
-            const today = new Date();
-            const dob = new Date(birthDate);
-            let age = today.getFullYear() - dob.getFullYear();
-            const monthDiff = today.getMonth() - dob.getMonth();
-            if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < dob.getDate())) {
-                age--;
-            }
-            document.getElementById('age').value = age;
-        }
-    </script>
+        </section>
+    </main>
 @endsection

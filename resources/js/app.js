@@ -12,6 +12,47 @@ document.querySelectorAll(".ops-shell .ops-table").forEach((table) => {
     });
 });
 
+document.querySelectorAll("[data-password-toggle]").forEach((button) => {
+    const input = document.getElementById(button.dataset.passwordToggle);
+
+    if (!input) return;
+
+    button.addEventListener("click", () => {
+        const visible = input.type === "password";
+        input.type = visible ? "text" : "password";
+        button.textContent = visible ? "Hide" : "Show";
+        button.setAttribute("aria-label", `${visible ? "Hide" : "Show"} password`);
+        button.setAttribute("aria-pressed", String(visible));
+    });
+});
+
+document.querySelectorAll("[data-seller-type]").forEach((select) => {
+    const updateDocuments = () => {
+        document.querySelectorAll("[data-seller-document]").forEach((field) => {
+            const input = field.querySelector('input[type="file"]');
+            const applicableTypes = field.dataset.sellerDocument.split(",");
+            const visible = applicableTypes.includes(select.value);
+
+            field.hidden = !visible;
+            if (input) input.required = visible;
+        });
+    };
+
+    select.addEventListener("change", updateDocuments);
+    updateDocuments();
+});
+
+document.querySelectorAll("form[data-auth-submit]").forEach((form) => {
+    form.addEventListener("submit", () => {
+        const submit = form.querySelector('button[type="submit"]');
+        if (!submit) return;
+        submit.disabled = true;
+        submit.setAttribute("aria-busy", "true");
+        submit.dataset.originalText = submit.textContent;
+        submit.textContent = "Sending…";
+    });
+});
+
 document.querySelectorAll("[data-ops-shell]").forEach((shell) => {
     const sidebar = shell.querySelector(".ops-sidebar");
     const toggle = shell.querySelector("[data-ops-menu-toggle]");

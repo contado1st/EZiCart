@@ -7,13 +7,13 @@ use App\Models\Area;
 use App\Models\AreaMunicipality;
 use App\Models\DeliveryAssignment;
 use App\Models\Dispute;
+use App\Models\EmailVerificationCode;
 use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\ParcelTrackingEvent;
 use App\Models\Product;
 use App\Models\User;
 use App\Notifications\AccountStatusNotification;
-use App\Notifications\CourierApplicationSubmittedNotification;
 use App\Notifications\OrderMessageNotification;
 use App\Notifications\OrderStatusNotification;
 use App\Notifications\OrderWorkflowNotification;
@@ -520,54 +520,10 @@ class LogisticsWorkflowTest extends TestCase
         });
     }
 
-    public function test_courier_registration_notifies_admin_and_logistics_to_review_the_application(): void
+    public function test_riders_cannot_register_through_a_public_courier_form(): void
     {
-        Storage::fake('private');
-        Notification::fake();
-        $admin = $this->user('admin', 'approved');
-        $logistics = $this->user('sorting_center', 'approved');
-        $buyer = $this->user('buyer', 'approved');
-
-        $this->post(route('register.courier.post'), [
-            'first_name' => 'Rider',
-            'last_name' => 'Applicant',
-            'sex' => 'Other',
-            'email' => 'courier-review@example.test',
-            'contact_no' => '09123456789',
-            'birthday' => '1990-01-01',
-            'province' => 'Laguna',
-            'municipality' => 'Majayjay',
-            'barangay' => 'Poblacion',
-            'street_address' => '1 Test Street',
-            'vehicle_type' => 'Motorcycle',
-            'plate_number' => 'ABC1234',
-            'id_document' => UploadedFile::fake()->image('license.png'),
-            'or_cr_document' => UploadedFile::fake()->image('or-cr.png'),
-            'password' => 'password123',
-            'password_confirmation' => 'password123',
-            'role' => 'admin',
-            'status' => 'approved',
-        ])->assertRedirect(route('login'));
-
-        $applicant = User::query()->where('email', 'courier-review@example.test')->firstOrFail();
-        $this->assertSame('courier', $applicant->role);
-        $this->assertSame('pending', $applicant->status);
-        $notificationMatchesReviewPage = function (CourierApplicationSubmittedNotification $notification, array $channels, User $notifiable) use ($applicant): bool {
-            $reviewUrl = $notifiable->role === 'admin'
-                ? route('admin.registrations.index')
-                : route('logistics.riders');
-
-            return $notification->applicant->is($applicant)
-                && $notification->toMail($notifiable)->actionUrl === $reviewUrl
-                && $notification->toDatabase($notifiable)['url'] === $reviewUrl;
-        };
-
-        foreach ([$admin, $logistics] as $reviewer) {
-            Notification::assertSentTo($reviewer, CourierApplicationSubmittedNotification::class, fn (CourierApplicationSubmittedNotification $notification, array $channels, User $notifiable): bool => $channels === ['database'] && $notificationMatchesReviewPage($notification, $channels, $notifiable));
-            Notification::assertSentTo($reviewer, CourierApplicationSubmittedNotification::class, fn (CourierApplicationSubmittedNotification $notification, array $channels, User $notifiable): bool => $channels === ['mail'] && $notificationMatchesReviewPage($notification, $channels, $notifiable));
-        }
-
-        Notification::assertNotSentTo($buyer, CourierApplicationSubmittedNotification::class);
+        $this->get('/register/courier')->assertNotFound();
+        $this->post('/register/courier')->assertNotFound();
     }
 
     public function test_order_status_notifications_send_email_and_in_app_links_to_the_buyer(): void
@@ -1040,24 +996,23 @@ class LogisticsWorkflowTest extends TestCase
     {
         Storage::fake('private');
         $this->post(route('register.post'), [
-            'first_name' => 'Professor', 'last_name' => 'Flow', 'sex' => 'Other',
+            'first_name' => 'Professor', 'last_name' => 'Flow',
             'email' => 'professor-flow@example.test', 'contact_no' => '09123456789',
-            'birthday' => '1990-01-01', 'province' => 'Laguna', 'municipality' => 'Majayjay',
-            'barangay' => 'Poblacion', 'street_address' => 'Test street',
-            'id_document' => UploadedFile::fake()->image('buyer-id.png'),
-            'password' => 'password123', 'password_confirmation' => 'password123',
-            'role' => 'admin', 'status' => 'approved',
-        ])->assertRedirect(route('login'));
+            'birthday' => '1990-01-01', 'password' => 'Buyer-Pass@2026',
+            'password_confirmation' => 'Buyer-Pass@2026', 'terms' => '1',
+        ])->assertRedirect();
         $buyer = User::query()->where('email', 'professor-flow@example.test')->firstOrFail();
-        $this->assertSame('pending', $buyer->status);
+        $this->assertSame('unverified', $buyer->status);
         $this->assertSame('buyer', $buyer->role);
-
-        $admin = $this->user('admin', 'approved');
-        $this->actingAsUser($admin)->post(route('admin.registrations.approve', $buyer))->assertRedirect();
+        EmailVerificationCode::query()->where('user_id', $buyer->id)->update([
+            'code_hash' => Hash::make('482916'),
+            'expires_at' => now()->addMinutes(5),
+        ]);
+        $this->post(route('verification.verify'), ['email' => $buyer->email, 'code' => '482916'])->assertRedirect(route('login'));
         $buyer->refresh();
-        $this->post(route('logout'))->assertRedirect();
-        $this->post(route('login.post'), ['email' => $buyer->email, 'password' => 'password123'])
+        $this->post(route('login.post'), ['email' => $buyer->email, 'password' => 'Buyer-Pass@2026'])
             ->assertRedirect(route('buyer.dashboard'));
+        $admin = $this->user('admin', 'approved');
 
         $seller = $this->user('seller', 'approved');
         $product = Product::query()->create([
@@ -1189,25 +1144,20 @@ class LogisticsWorkflowTest extends TestCase
         $this->assertDatabaseHas('parcel_tracking_events', ['order_id' => $order->id, 'event_type' => 'order_completed']);
     }
 
-    public function test_buyer_registration_rejects_address_and_name_values_longer_than_database_columns(): void
+    public function test_buyer_registration_rejects_names_longer_than_the_supported_limit(): void
     {
         Storage::fake('private');
 
         $this->post(route('register.post'), [
-            'first_name' => str_repeat('A', 101),
+            'first_name' => str_repeat('A', 51),
             'last_name' => 'Bounded',
-            'sex' => 'Other',
             'email' => 'bounded-registration@example.test',
             'contact_no' => '09123456789',
             'birthday' => '1990-01-01',
-            'province' => str_repeat('P', 256),
-            'municipality' => str_repeat('M', 256),
-            'barangay' => str_repeat('B', 256),
-            'street_address' => str_repeat('S', 256),
-            'id_document' => UploadedFile::fake()->image('buyer-id.png'),
-            'password' => 'password123',
-            'password_confirmation' => 'password123',
-        ])->assertSessionHasErrors(['first_name', 'province', 'municipality', 'barangay', 'street_address']);
+            'password' => 'Buyer-Pass@2026',
+            'password_confirmation' => 'Buyer-Pass@2026',
+            'terms' => '1',
+        ])->assertSessionHasErrors(['first_name']);
 
         $this->assertDatabaseMissing('users', ['email' => 'bounded-registration@example.test']);
     }
@@ -2058,35 +2008,31 @@ class LogisticsWorkflowTest extends TestCase
         $this->assertNull($order->fresh()->inventory_restored_at);
     }
 
-    public function test_buyer_registration_stays_blocked_until_admin_approval_and_documents_are_private(): void
+    public function test_buyer_registration_activates_after_email_verification_without_admin_review(): void
     {
-        Storage::fake('private');
-
+        Notification::fake();
         $this->post(route('register.post'), [
-            'first_name' => 'New', 'last_name' => 'Buyer', 'sex' => 'Other',
+            'first_name' => 'New', 'last_name' => 'Buyer',
             'email' => 'new-buyer@example.test', 'contact_no' => '09123456789',
-            'birthday' => '1990-01-01', 'province' => 'Laguna', 'municipality' => 'Majayjay',
-            'barangay' => 'Poblacion', 'street_address' => 'Test street',
-            'id_document' => UploadedFile::fake()->image('id.png'),
-            'password' => 'password123', 'password_confirmation' => 'password123',
-        ])->assertRedirect(route('login'));
+            'birthday' => '1990-01-01', 'terms' => '1',
+            'password' => 'Buyer-Pass@2026', 'password_confirmation' => 'Buyer-Pass@2026',
+        ])->assertRedirect(route('verification.notice', ['email' => 'new-buyer@example.test']));
 
         $buyer = User::where('email', 'new-buyer@example.test')->firstOrFail();
-        $this->assertSame('pending', $buyer->status);
-        Storage::disk('private')->assertExists($buyer->id_path);
-        $this->assertFileDoesNotExist(storage_path('app/public/'.$buyer->id_path));
+        $this->assertSame('unverified', $buyer->status);
+        $this->assertDatabaseHas('email_verification_codes', ['user_id' => $buyer->id]);
 
-        $this->post(route('login.post'), ['email' => $buyer->email, 'password' => 'password123'])
-            ->assertSessionHas('error');
+        $this->post(route('login.post'), ['email' => $buyer->email, 'password' => 'Buyer-Pass@2026'])
+            ->assertRedirect(route('verification.notice', ['email' => $buyer->email]));
         $this->assertGuest();
 
-        $admin = $this->user('admin', 'approved');
-        $this->actingAsUser($admin)->post(route('admin.registrations.approve', $buyer))->assertRedirect();
+        EmailVerificationCode::query()->where('user_id', $buyer->id)->update([
+            'code_hash' => Hash::make('482916'),
+            'expires_at' => now()->addMinutes(5),
+        ]);
+        $this->post(route('verification.verify'), ['email' => $buyer->email, 'code' => '482916'])
+            ->assertRedirect(route('login'));
         $this->assertDatabaseHas('users', ['id' => $buyer->id, 'status' => 'approved']);
-        $this->post(route('logout'))->assertRedirect();
-        $this->post(route('login.post'), ['email' => $buyer->email, 'password' => 'password123'])
-            ->assertRedirect(route('buyer.dashboard'));
-        $this->assertAuthenticatedAs($buyer->fresh());
     }
 
     public function test_inactive_sessions_are_logged_out_and_rejected_users_cannot_be_reactivated(): void
@@ -2361,8 +2307,8 @@ class LogisticsWorkflowTest extends TestCase
         $rejectedRider = $this->user('courier', 'pending');
 
         $this->actingAsUser($admin)->post(route('admin.registrations.approve', $approvedUser))->assertRedirect();
-        $this->post(route('admin.registrations.reject', $approvedUser))->assertUnprocessable();
-        $this->post(route('admin.registrations.reject', $rejectedUser))->assertRedirect();
+        $this->post(route('admin.registrations.reject', $approvedUser))->assertSessionHasErrors('reason');
+        $this->post(route('admin.registrations.reject', $rejectedUser), ['reason' => 'Documents need correction.'])->assertRedirect();
         $this->post(route('admin.registrations.approve', $rejectedUser))->assertUnprocessable();
         $this->actingAsUser($center)->post(route('logistics.riders.approve', $approvedRider))->assertRedirect();
         $this->post(route('logistics.riders.reject', $approvedRider))->assertNotFound();
@@ -2556,16 +2502,16 @@ class LogisticsWorkflowTest extends TestCase
         $this->post(route('password.update'), [
             'token' => $token,
             'email' => $user->email,
-            'password' => 'new-password-123',
-            'password_confirmation' => 'new-password-123',
+            'password' => 'New-Password@123',
+            'password_confirmation' => 'New-Password@123',
         ])->assertRedirect(route('login'));
-        $this->assertTrue(Hash::check('new-password-123', $user->fresh()->password));
+        $this->assertTrue(Hash::check('New-Password@123', $user->fresh()->password));
         $this->assertNotSame('old-remember-token', $user->fresh()->remember_token);
         $this->post(route('password.update'), [
             'token' => $token,
             'email' => $user->email,
-            'password' => 'another-password-123',
-            'password_confirmation' => 'another-password-123',
+            'password' => 'Another-Password@123',
+            'password_confirmation' => 'Another-Password@123',
         ])->assertSessionHasErrors('email');
 
         $this->post(route('password.email'), ['email' => 'unknown@example.test'])

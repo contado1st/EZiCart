@@ -17,6 +17,7 @@ export default defineConfig({
                 "resources/css/storefront/landing.css",
                 "resources/css/storefront/marketplace.css",
                 "resources/css/auth/register-sorting.css",
+                "resources/css/auth/auth.css",
                 "resources/css/buyer/cart.css",
                 "resources/css/buyer/checkout.css",
                 "resources/css/buyer/reviews.css",

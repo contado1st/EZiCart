@@ -50,6 +50,7 @@
                     class="logistics-scan-input-lg"
                     value="{{ old('reference', request('search')) }}"
                     required
+                    autofocus
                     autocomplete="off"
                     placeholder="Scan a parcel QR code or enter EZP:…"
                     aria-describedby="intake-reference-help">

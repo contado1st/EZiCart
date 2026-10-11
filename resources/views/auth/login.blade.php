@@ -1,74 +1,62 @@
 @extends('layouts.app')
 
+@push('styles')
+    <link rel="stylesheet" href="{{ asset('css/auth-fallback.css') }}">
+@endpush
+
+@section('title', 'Sign in | EZiCart')
+
 @section('content')
-    <div class="auth-wrapper">
-        <div class="auth-card">
+    <main class="auth-page">
+        <section class="auth-shell" aria-labelledby="auth-title">
+            <aside class="auth-aside">
+                <a class="auth-brand" href="{{ route('home') }}" aria-label="EZiCart home">EZiCart<span>.</span></a>
+                <div class="auth-aside-copy">
+                    <p class="auth-kicker">Your marketplace, in one place</p>
+                    <h1>Good finds start here.</h1>
+                    <p>Sign in to continue shopping, manage your store, or pick up where you left off.</p>
+                </div>
+                <p class="auth-aside-foot">Made for local shopping in the Philippines.</p>
+            </aside>
 
-            <!-- Branding Hero Panel -->
-            <div class="auth-branding">
-                <span class="section-tag">EZiCart Marketplace</span>
-                <h1 class="auth-brand-title">Shop easier.<br>Sell faster.</h1>
-                <ul class="auth-feature-list">
-                    <li class="auth-feature-item">
-                        <span class="auth-feature-icon">🛍️</span>
-                        Leading marketplace platform for local finds
-                    </li>
-                    <li class="auth-feature-item">
-                        <span class="auth-feature-icon">⚡</span>
-                        Fast checkout & secure buyer protection
-                    </li>
-                    <li class="auth-feature-item">
-                        <span class="auth-feature-icon">📦</span>
-                        Seamless delivery tracking and updates
-                    </li>
-                </ul>
-            </div>
-
-            <!-- Login Form Panel -->
-            <div class="auth-form-container">
-                <h2 class="auth-title">Log In</h2>
+            <div class="auth-content">
+                <div class="auth-mobile-brand"><a class="auth-brand" href="{{ route('home') }}">EZiCart<span>.</span></a></div>
+                <h2 id="auth-title">Sign in to EZiCart</h2>
+                <p class="auth-intro">Use the email address and password for your account.</p>
 
                 @if (session('success'))
-                    <div class="form-notice u-extracted-44287b992a">
-                        {{ session('success') }}
-                    </div>
+                    <div class="auth-message auth-message--success" role="status">{{ session('success') }}</div>
                 @endif
                 @if (session('status'))
-                    <div class="form-notice">{{ session('status') }}</div>
+                    <div class="auth-message" role="status">{{ session('status') }}</div>
+                @endif
+                @if (session('error'))
+                    <div class="auth-message auth-message--error" role="alert">{{ session('error') }}</div>
+                @endif
+                @if ($errors->any())
+                    <div class="auth-message auth-message--error" role="alert">{{ $errors->first() }}</div>
                 @endif
 
-                <form action="{{ route('login.post') }}" method="POST">
+                <form action="{{ route('login.post') }}" method="POST" class="auth-form">
                     @csrf
-                    <div class="form-group">
-                        <label class="form-label">Email Address</label>
-                        <input type="email" name="email" class="form-control" placeholder="name@example.com"
-                            value="{{ old('email') }}" required>
+                    <div class="auth-field">
+                        <label for="email">Email address</label>
+                        <input id="email" type="email" name="email" value="{{ old('email') }}" autocomplete="email" required autofocus>
+                        @error('email')<span class="auth-field-error">{{ $message }}</span>@enderror
                     </div>
-
-                    <p class="auth-footer-text"><a href="{{ route('password.request') }}">Forgot your password?</a></p>
-
-                    <div class="form-group">
-                        <label class="form-label">Password</label>
-                        <input type="password" name="password" class="form-control" placeholder="••••••••" required>
+                    <div class="auth-field">
+                        <div class="auth-label-row"><label for="password">Password</label><a href="{{ route('password.request') }}">Forgot password?</a></div>
+                        <div class="auth-password-wrap">
+                            <input id="password" type="password" name="password" autocomplete="current-password" required>
+                            <button class="auth-password-toggle" type="button" data-password-toggle="password" aria-label="Show password" aria-pressed="false">Show</button>
+                        </div>
+                        @error('password')<span class="auth-field-error">{{ $message }}</span>@enderror
                     </div>
-
-                    <button type="submit" class="btn-submit">Log In</button>
+                    <label class="auth-check"><input type="checkbox" name="remember" value="1" @checked(old('remember'))><span>Keep me signed in on this device</span></label>
+                    <button class="auth-submit" type="submit">Sign in</button>
                 </form>
-
-                <div class="auth-divider">
-                    <span>OR</span>
-                </div>
-
-                <div class="social-auth">
-                    <a href="#" class="btn-social"><span>📘</span> Facebook</a>
-                    <a href="#" class="btn-social"><span>🔍</span> Google</a>
-                </div>
-
-                <p class="auth-footer-text">
-                    New to EZiCart? <a href="{{ route('register') }}">Sign Up</a>
-                </p>
+                <p class="auth-switch">New to EZiCart? <a href="{{ route('register') }}">Create a buyer account</a></p>
             </div>
-
-        </div>
-    </div>
+        </section>
+    </main>
 @endsection

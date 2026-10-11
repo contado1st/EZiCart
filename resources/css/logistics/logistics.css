@@ -325,3 +325,33 @@
     font-size: 12px;
     color: var(--ops-muted);
 }
+.ops-panel > summary {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.5rem 1rem;
+    cursor: pointer;
+}
+
+.ops-rider-form {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.85rem 1rem;
+    margin-top: 1rem;
+}
+
+.ops-rider-form > div {
+    display: grid;
+    gap: 0.35rem;
+}
+
+.ops-rider-form > p,
+.ops-rider-form > button {
+    grid-column: 1 / -1;
+}
+
+@media (max-width: 600px) {
+    .ops-rider-form { grid-template-columns: 1fr; }
+    .ops-rider-form > p,
+    .ops-rider-form > button { grid-column: auto; }
+}
