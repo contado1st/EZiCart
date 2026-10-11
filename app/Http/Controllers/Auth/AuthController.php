@@ -7,6 +7,8 @@ use App\Models\EmailVerificationCode;
 use App\Models\User;
 use App\Notifications\EmailVerificationCodeNotification;
 use App\Services\PsgcAddressService;
+use App\Services\NumverifyPhoneValidator;
+use App\Services\SmsOtpSender;
 use Carbon\Carbon;
 use Illuminate\Auth\Events\PasswordReset;
 use Illuminate\Database\QueryException;
@@ -24,7 +26,11 @@ use Illuminate\Validation\ValidationException;
 
 class AuthController extends Controller
 {
-    public function __construct(private readonly PsgcAddressService $psgcAddressService) {}
+    public function __construct(
+        private readonly PsgcAddressService $psgcAddressService,
+        private readonly NumverifyPhoneValidator $phoneValidator,
+        private readonly SmsOtpSender $smsOtpSender,
+    ) {}
 
     private const PHILIPPINE_REGIONS = [
         'National Capital Region (NCR)',
@@ -164,6 +170,7 @@ class AuthController extends Controller
             'password' => ['required', 'string', PasswordRule::min(8)->mixedCase()->numbers()->symbols(), 'confirmed'],
             'terms' => ['accepted'],
         ]);
+        $this->ensureNumverifyAccepts($validated['contact_no']);
 
         $user = $this->createVerifiedAccount($validated, $this->resolveAddress($validated) + [
             'birthday' => $validated['birthday'],
@@ -197,6 +204,7 @@ class AuthController extends Controller
             'terms' => ['accepted'],
         ]);
         $address = $this->resolveAddress($validated);
+        $this->ensureNumverifyAccepts($validated['contact_no']);
 
         $paths = [
             'id_path' => $request->file('id_document')->store('documents/ids', 'private'),
@@ -249,6 +257,7 @@ class AuthController extends Controller
             'terms' => ['accepted'],
         ]);
         $address = $this->resolveAddress($validated);
+        $this->ensureNumverifyAccepts($validated['contact_no']);
 
         $paths = [
             'id_path' => $request->file('representative_id')->store('documents/ids', 'private'),
@@ -324,6 +333,7 @@ class AuthController extends Controller
                 'terms' => ['accepted'],
             ]);
             $address = $this->resolveAddress($validated);
+            $this->ensureNumverifyAccepts($validated['contact_no']);
 
             $newPaths = [
                 'id_path' => $request->file('id_document')->store('documents/ids', 'private'),
@@ -359,6 +369,7 @@ class AuthController extends Controller
                 'terms' => ['accepted'],
             ]);
             $address = $this->resolveAddress($validated);
+            $this->ensureNumverifyAccepts($validated['contact_no']);
 
             $newPaths = [
                 'id_path' => $request->file('representative_id')->store('documents/ids', 'private'),
@@ -455,7 +466,7 @@ class AuthController extends Controller
 
             $user->forceFill([
                 'status' => $user->role === 'buyer' ? 'approved' : 'pending',
-                'email_verified_at' => now(),
+                ...($record->channel === 'phone' ? ['phone_verified_at' => now()] : ['email_verified_at' => now()]),
             ])->save();
             $record->delete();
 
@@ -463,29 +474,42 @@ class AuthController extends Controller
         });
 
         if (! $verified) {
-            throw ValidationException::withMessages(['code' => 'That code does not match. Check the email and try again.']);
+            throw ValidationException::withMessages(['code' => 'That code does not match. Check your selected delivery method and try again.']);
         }
 
         return redirect()->route('login')->with('success', $user->role === 'buyer'
-            ? 'Your email is verified. You can now sign in.'
-            : 'Your email is verified. Your application is now waiting for admin review.');
+            ? 'Your account is verified. You can now sign in.'
+            : 'Your account is verified. Your application is now waiting for admin review.');
     }
 
     public function resendVerificationCode(Request $request): RedirectResponse
     {
-        $validated = $request->validate(['email' => ['required', 'email', 'max:255']]);
+        $validated = $request->validate([
+            'email' => ['required', 'email', 'max:255'],
+            'channel' => ['required', Rule::in(['email', 'phone'])],
+        ]);
         $email = Str::lower(trim($validated['email']));
         $user = User::query()->whereRaw('LOWER(TRIM(email)) = ?', [$email])->where('status', 'unverified')->first();
 
         if ($user) {
             $record = EmailVerificationCode::query()->firstOrNew(['user_id' => $user->id]);
-            if ($record->exists && $record->last_sent_at?->gt(now()->subSeconds(60))) {
-                return back()->withErrors(['email' => 'Wait one minute before requesting another code.'])->withInput(['email' => $email]);
+            if ($validated['channel'] === 'phone' && ! $this->smsOtpSender->isConfigured()) {
+                return back()->withErrors(['channel' => 'Phone code delivery is not configured yet. Choose email or try again later.'])->withInput(['email' => $email, 'channel' => 'phone']);
             }
-            $this->issueVerificationCode($user, $record);
+            if ($record->exists && $record->channel === $validated['channel'] && $record->last_sent_at?->gt(now()->subSeconds(60))) {
+                return back()->withErrors(['channel' => 'Wait one minute before requesting another code with this method.'])->withInput(['email' => $email, 'channel' => $validated['channel']]);
+            }
+            try {
+                $this->issueVerificationCode($user, $record, $validated['channel']);
+            } catch (\Throwable $exception) {
+                report($exception);
+
+                return back()->withErrors(['channel' => 'We could not send a code. Check delivery settings or choose another method.'])
+                    ->withInput(['email' => $email, 'channel' => $validated['channel']]);
+            }
         }
 
-        return back()->with('status', 'If the address has an unverified EZiCart account, a new code has been sent.');
+        return back()->with('status', 'If an unverified EZiCart account matches, a new code has been sent using the selected method.');
     }
 
     private function identityRules(?User $account = null): array
@@ -496,7 +520,7 @@ class AuthController extends Controller
             'last_name' => ['required', 'string', 'min:2', 'max:50', 'regex:/\A[\p{L}\p{M}]+(?:[ ]+[\p{L}\p{M}]+)*\z/u'],
             'suffix' => ['nullable', 'string', 'max:20', 'regex:/\A[\p{L}\p{M}\p{N} .-]*\z/u'],
             'email' => ['required', 'email', 'max:255', Rule::unique('users', 'email')->ignore($account?->id), Rule::unique('users', 'canonical_email')->ignore($account?->id)],
-            'contact_no' => ['required', 'regex:/^09\d{9}$/', Rule::unique('users', 'canonical_mobile')->ignore($account?->id)],
+            'contact_no' => ['required', 'string', 'regex:/^09\d{9}$/', Rule::unique('users', 'canonical_mobile')->ignore($account?->id)],
         ];
     }
 
@@ -526,19 +550,51 @@ class AuthController extends Controller
         }
 
         $email = Str::lower(trim((string) $request->input('email')));
-        $phone = preg_replace('/[\s()-]/', '', (string) $request->input('contact_no')) ?? '';
-        if (preg_match('/^\+639\d{9}$/', $phone)) {
-            $phone = '0'.substr($phone, 3);
+        $phoneInput = trim((string) $request->input('contact_no'));
+        $phone = $phoneInput;
+
+        if (preg_match('/^\+?[0-9\s]+$/u', $phoneInput)) {
+            $digits = preg_replace('/\s+/', '', $phoneInput) ?? '';
+            $digits = str_starts_with($digits, '+') ? substr($digits, 1) : $digits;
+
+            if (str_starts_with($digits, '63')) {
+                $nationalNumber = substr($digits, 2);
+                $nationalNumber = str_starts_with($nationalNumber, '0') ? substr($nationalNumber, 1) : $nationalNumber;
+
+                if (preg_match('/^9\d{9}$/', $nationalNumber)) {
+                    $phone = '0'.$nationalNumber;
+                }
+            } elseif (preg_match('/^09\d{9}$/', $digits)) {
+                $phone = $digits;
+            } elseif (preg_match('/^9\d{9}$/', $digits)) {
+                $phone = '0'.$digits;
+            }
         }
+
         $request->merge(['email' => $email, 'contact_no' => $phone]);
+    }
+
+    private function ensureNumverifyAccepts(string $phoneNumber): void
+    {
+        $result = $this->phoneValidator->validatePhilippineMobile($phoneNumber);
+
+        if ($result === null) {
+            throw ValidationException::withMessages([
+                'contact_no' => 'Phone number verification is temporarily unavailable. Please try again later.',
+            ]);
+        }
+
+        if (! $result) {
+            throw ValidationException::withMessages([
+                'contact_no' => 'Enter a valid Philippine mobile number.',
+            ]);
+        }
     }
 
     private function createVerifiedAccount(array $validated, array $details, string $role): User
     {
-        $code = (string) random_int(100000, 999999);
-
         try {
-            $user = DB::transaction(function () use ($validated, $details, $role, $code): User {
+            $user = DB::transaction(function () use ($validated, $details, $role): User {
                 $duplicateEmail = User::query()->whereRaw('LOWER(TRIM(email)) = ?', [$validated['email']])->exists();
                 if ($duplicateEmail) {
                     throw ValidationException::withMessages(['email' => 'This email address is already linked to an account.']);
@@ -569,8 +625,6 @@ class AuthController extends Controller
                     'privacy_version' => '2026-10',
                 ], $details));
 
-                $this->saveVerificationCode($user, $code);
-
                 return $user;
             });
         } catch (QueryException $exception) {
@@ -591,12 +645,6 @@ class AuthController extends Controller
             throw $exception;
         }
 
-        try {
-            $user->notify(new EmailVerificationCodeNotification($code));
-        } catch (\Throwable $exception) {
-            report($exception);
-        }
-
         return $user;
     }
 
@@ -604,37 +652,32 @@ class AuthController extends Controller
     {
         return redirect()->route('verification.notice', ['email' => $user->email])
             ->with('verification_email', $user->email)
-            ->with('success', 'Your account has been created. Enter the six-digit code sent to your email.');
+            ->with('success', 'Your account has been created. Choose where to receive your six-digit code.');
     }
 
-    private function saveVerificationCode(User $user, string $code): void
-    {
-        EmailVerificationCode::query()->updateOrCreate(
-            ['user_id' => $user->id],
-            ['code_hash' => Hash::make($code), 'expires_at' => now()->addMinutes(5), 'attempts' => 0, 'last_sent_at' => now()],
-        );
-    }
-
-    private function issueVerificationCode(User $user, EmailVerificationCode $record): void
+    private function issueVerificationCode(User $user, EmailVerificationCode $record, string $channel): void
     {
         $code = (string) random_int(100000, 999999);
         $record->fill([
+            'channel' => $channel,
             'code_hash' => Hash::make($code),
             'expires_at' => now()->addMinutes(5),
             'attempts' => 0,
             'last_sent_at' => now(),
         ])->save();
-        try {
-            $user->notify(new EmailVerificationCodeNotification($code));
-        } catch (\Throwable $exception) {
-            report($exception);
+        if ($channel === 'phone') {
+            $this->smsOtpSender->send($user->contact_no, $code);
+
+            return;
         }
+
+        $user->notify(new EmailVerificationCodeNotification($code));
     }
 
     private function accountStateMessage(User $user): string
     {
         return match ($user->status) {
-            'unverified' => 'Verify your email before signing in. You can request a new verification code from the registration page.',
+            'unverified' => 'Verify your account before signing in. Request a new code from the verification page.',
             'pending', 'pending_approval' => 'Your application is under review. EZiCart will notify you after the decision.',
             'pending_activation' => 'Activate your rider account using the latest link sent to your email before signing in.',
             'rejected' => 'Your application was not approved. '.($user->rejection_reason ?: 'Contact support for next steps.'),

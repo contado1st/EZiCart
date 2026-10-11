@@ -1,5 +1,6 @@
 import "./password-visibility.js";
 import "./registration-name-inputs.js";
+import "./registration-wizard.js";
 
 document.querySelectorAll(".ops-shell .ops-table").forEach((table) => {
     const headers = Array.from(table.querySelectorAll("thead th")).map(
@@ -32,7 +33,8 @@ document.querySelectorAll("[data-seller-type]").forEach((select) => {
 });
 
 document.querySelectorAll("form[data-auth-submit]").forEach((form) => {
-    form.addEventListener("submit", () => {
+    form.addEventListener("submit", (event) => {
+        if (event.defaultPrevented) return;
         const submit = form.querySelector('button[type="submit"]');
         if (!submit) return;
         submit.disabled = true;
