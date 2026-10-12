@@ -4,29 +4,14 @@
     @vite('resources/css/shared/dashboard.css')
     @vite('resources/css/buyer/reviews.css')
     @vite('resources/css/shared/disputes.css')
+    <link rel="stylesheet" href="{{ asset('css/buyer-account.css') }}?v={{ filemtime(public_path('css/buyer-account.css')) }}">
 @endpush
 
 @section('content')
-    <div class="dash-wrapper">
-        <aside class="dash-sidebar">
-            <div>
-                <div class="dash-profile-badge">
-                    <span class="dash-role-tag">Buyer Portal</span>
-                    <h2 class="dash-profile-title">{{ auth()->user()->first_name }} {{ auth()->user()->last_name }}</h2>
-                    <p class="dash-profile-subtitle">Member since {{ auth()->user()->created_at->format('M Y') }}</p>
-                </div>
-                <nav class="dash-nav">
-                    <a href="{{ route('buyer.dashboard') }}" class="dash-nav-item active">📦 My Orders</a>
-                    <a href="{{ route('cart.index') }}" class="dash-nav-item">🛒 View Cart</a>
-                </nav>
-            </div>
-            <form action="{{ route('logout') }}" method="POST">
-                @csrf
-                <button type="submit" class="dash-logout-btn">🚪 Logout</button>
-            </form>
-        </aside>
+    <div class="buyer-account-page buyer-orders-layout">
+        @include('components.buyer-account-sidebar', ['activeSection' => 'purchases'])
 
-        <main class="dash-main">
+        <main class="dash-main buyer-account-content buyer-orders-content">
             <div class="dash-header">
                 <div>
                     <h1 class="dash-title">Order History & Activity</h1>

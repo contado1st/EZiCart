@@ -6,11 +6,33 @@ use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\RequestException;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 
 class PsgcAddressService
 {
     private const BASE_URL = 'https://psgc.cloud/api/v2';
+
+    /** @return array<string, array<int, mixed>> */
+    public function validationRules(): array
+    {
+        $manualLocationRules = ['required_if:address_mode,manual', 'nullable', 'string', 'max:120'];
+
+        return [
+            'address_mode' => ['required', Rule::in(['psgc', 'manual'])],
+            'region_code' => ['required_if:address_mode,psgc', 'nullable', 'regex:/^\d{10}$/'],
+            'province_code' => ['required_if:address_mode,psgc', 'nullable', 'regex:/^(?:\d{10}|NCR)$/'],
+            'municipality_code' => ['required_if:address_mode,psgc', 'nullable', 'regex:/^\d{10}$/'],
+            'barangay_code' => ['required_if:address_mode,psgc', 'nullable', 'regex:/^\d{10}$/'],
+            'manual_region' => $manualLocationRules,
+            'manual_province' => $manualLocationRules,
+            'manual_municipality' => $manualLocationRules,
+            'manual_barangay' => $manualLocationRules,
+            'house_number' => ['nullable', 'string', 'max:100'],
+            'street_address' => ['nullable', 'string', 'max:255'],
+            'postal_code' => ['nullable', 'digits:4'],
+        ];
+    }
 
     /** @return array<int, array{code: string, name: string}> */
     public function options(string $level, ?string $parentCode = null, ?string $parentLevel = null): array
@@ -57,6 +79,15 @@ class PsgcAddressService
     /** @return array{region: string, province: string, municipality: string, barangay: string} */
     public function resolve(array $input): array
     {
+        if (($input['address_mode'] ?? 'psgc') === 'manual') {
+            return [
+                'region' => trim($input['manual_region']),
+                'province' => trim($input['manual_province']),
+                'municipality' => trim($input['manual_municipality']),
+                'barangay' => trim($input['manual_barangay']),
+            ];
+        }
+
         $region = $this->findOption('regions', null, null, (string) $input['region_code']);
         $provinces = $this->options('provinces', $region['code'], 'region');
 

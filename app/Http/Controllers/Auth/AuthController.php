@@ -7,8 +7,6 @@ use App\Models\EmailVerificationCode;
 use App\Models\User;
 use App\Notifications\EmailVerificationCodeNotification;
 use App\Services\PsgcAddressService;
-use App\Services\NumverifyPhoneValidator;
-use App\Services\SmsOtpSender;
 use Carbon\Carbon;
 use Illuminate\Auth\Events\PasswordReset;
 use Illuminate\Database\QueryException;
@@ -28,8 +26,6 @@ class AuthController extends Controller
 {
     public function __construct(
         private readonly PsgcAddressService $psgcAddressService,
-        private readonly NumverifyPhoneValidator $phoneValidator,
-        private readonly SmsOtpSender $smsOtpSender,
     ) {}
 
     private const PHILIPPINE_REGIONS = [
@@ -130,6 +126,11 @@ class AuthController extends Controller
             $request->session()->regenerateToken();
 
             if ($user->status === 'unverified') {
+                $request->session()->put([
+                    'verification_user_id' => $user->id,
+                    'verification_email' => Str::lower(trim($user->email)),
+                ]);
+
                 return redirect()->route('verification.notice', ['email' => $user->email])
                     ->with('error', $this->accountStateMessage($user));
             }
@@ -170,13 +171,12 @@ class AuthController extends Controller
             'password' => ['required', 'string', PasswordRule::min(8)->mixedCase()->numbers()->symbols(), 'confirmed'],
             'terms' => ['accepted'],
         ]);
-        $this->ensureNumverifyAccepts($validated['contact_no']);
-
         $user = $this->createVerifiedAccount($validated, $this->resolveAddress($validated) + [
             'birthday' => $validated['birthday'],
             'age' => Carbon::parse($validated['birthday'])->age,
-            'house_number' => $validated['house_number'],
-            'street_address' => $validated['street_address'],
+            'house_number' => $validated['house_number'] ?? null,
+            'street_address' => $validated['street_address'] ?? null,
+            'postal_code' => $validated['postal_code'] ?? null,
         ], 'buyer');
 
         return $this->beginVerification($user);
@@ -190,7 +190,7 @@ class AuthController extends Controller
     public function sellerRegister(Request $request): RedirectResponse
     {
         $this->normalizeIdentity($request);
-        $validated = $request->validate($this->identityRules() + $this->psgcAddressRules() + [
+        $validated = $request->validate($this->identityRules() + $this->psgcAddressRules(true) + [
             'shop_name' => ['required', 'string', 'min:3', 'max:30', 'unique:users,shop_name'],
             'line_of_business' => ['required', 'string', 'max:100'],
             'seller_type' => ['required', 'in:Individual,Sole Proprietorship,Corporation'],
@@ -204,8 +204,6 @@ class AuthController extends Controller
             'terms' => ['accepted'],
         ]);
         $address = $this->resolveAddress($validated);
-        $this->ensureNumverifyAccepts($validated['contact_no']);
-
         $paths = [
             'id_path' => $request->file('id_document')->store('documents/ids', 'private'),
             'permit_path' => $request->file('dti_certificate')?->store('documents/permits', 'private'),
@@ -220,9 +218,9 @@ class AuthController extends Controller
             'seller_type' => $validated['seller_type'],
             'tin' => $validated['tin'],
             ...$address,
-            'house_number' => $validated['house_number'],
-            'street_address' => $validated['street_address'],
-            'postal_code' => $validated['postal_code'],
+            'house_number' => $validated['house_number'] ?? null,
+            'street_address' => $validated['street_address'] ?? null,
+            'postal_code' => $validated['postal_code'] ?? null,
         ], 'seller');
 
         return $this->beginVerification($user);
@@ -240,7 +238,7 @@ class AuthController extends Controller
             'canonical_company_name' => Str::lower(trim((string) $request->input('business_name'))),
             'sec_registration_no' => Str::upper(trim((string) $request->input('sec_registration_no'))),
         ]);
-        $validated = $request->validate($this->identityRules() + $this->psgcAddressRules() + [
+        $validated = $request->validate($this->identityRules() + $this->psgcAddressRules(true) + [
             'business_name' => ['required', 'string', 'min:3', 'max:150'],
             'canonical_company_name' => ['required', 'string', 'max:150', Rule::unique('users', 'canonical_company_name')],
             'sec_registration_no' => ['required', 'regex:/^[A-Za-z]{2}\d{9}$/', 'unique:users,sec_registration_no'],
@@ -257,8 +255,6 @@ class AuthController extends Controller
             'terms' => ['accepted'],
         ]);
         $address = $this->resolveAddress($validated);
-        $this->ensureNumverifyAccepts($validated['contact_no']);
-
         $paths = [
             'id_path' => $request->file('representative_id')->store('documents/ids', 'private'),
             'sec_certificate_path' => $request->file('sec_certificate')->store('documents/sec', 'private'),
@@ -270,9 +266,9 @@ class AuthController extends Controller
             'sec_registration_no' => Str::upper($validated['sec_registration_no']),
             'tin' => $validated['tin'],
             ...$address,
-            'house_number' => $validated['house_number'],
-            'street_address' => $validated['street_address'],
-            'postal_code' => $validated['postal_code'],
+            'house_number' => $validated['house_number'] ?? null,
+            'street_address' => $validated['street_address'] ?? null,
+            'postal_code' => $validated['postal_code'] ?? null,
         ];
 
         $user = $this->createVerifiedAccount($validated, $paths, 'sorting_center');
@@ -320,7 +316,7 @@ class AuthController extends Controller
         }
 
         if ($applicant->role === 'seller') {
-            $validated = $request->validate($commonRules + $this->psgcAddressRules() + [
+            $validated = $request->validate($commonRules + $this->psgcAddressRules(true) + [
                 'shop_name' => ['required', 'string', 'min:3', 'max:30', Rule::unique('users', 'shop_name')->ignore($applicant->id)],
                 'line_of_business' => ['required', 'string', 'max:100'],
                 'seller_type' => ['required', 'in:Individual,Sole Proprietorship,Corporation'],
@@ -333,8 +329,6 @@ class AuthController extends Controller
                 'terms' => ['accepted'],
             ]);
             $address = $this->resolveAddress($validated);
-            $this->ensureNumverifyAccepts($validated['contact_no']);
-
             $newPaths = [
                 'id_path' => $request->file('id_document')->store('documents/ids', 'private'),
                 'permit_path' => $request->file('dti_certificate')?->store('documents/permits', 'private'),
@@ -348,12 +342,12 @@ class AuthController extends Controller
                 'seller_type' => $validated['seller_type'],
                 'tin' => $validated['tin'],
                 ...$address,
-                'house_number' => $validated['house_number'],
-                'street_address' => $validated['street_address'],
-                'postal_code' => $validated['postal_code'],
+                'house_number' => $validated['house_number'] ?? null,
+                'street_address' => $validated['street_address'] ?? null,
+                'postal_code' => $validated['postal_code'] ?? null,
             ];
         } else {
-            $validated = $request->validate($commonRules + $this->psgcAddressRules() + [
+            $validated = $request->validate($commonRules + $this->psgcAddressRules(true) + [
                 'business_name' => ['required', 'string', 'min:3', 'max:150'],
                 'canonical_company_name' => ['required', 'string', 'max:150', Rule::unique('users', 'canonical_company_name')->ignore($applicant->id)],
                 'sec_registration_no' => ['required', 'regex:/^[A-Za-z]{2}\d{9}$/', Rule::unique('users', 'sec_registration_no')->ignore($applicant->id)],
@@ -369,8 +363,6 @@ class AuthController extends Controller
                 'terms' => ['accepted'],
             ]);
             $address = $this->resolveAddress($validated);
-            $this->ensureNumverifyAccepts($validated['contact_no']);
-
             $newPaths = [
                 'id_path' => $request->file('representative_id')->store('documents/ids', 'private'),
                 'sec_certificate_path' => $request->file('sec_certificate')->store('documents/sec', 'private'),
@@ -385,9 +377,9 @@ class AuthController extends Controller
                 'contact_position' => $validated['contact_position'],
                 'service_areas' => array_values($validated['service_areas']),
                 ...$address,
-                'house_number' => $validated['house_number'],
-                'street_address' => $validated['street_address'],
-                'postal_code' => $validated['postal_code'],
+                'house_number' => $validated['house_number'] ?? null,
+                'street_address' => $validated['street_address'] ?? null,
+                'postal_code' => $validated['postal_code'] ?? null,
             ];
         }
 
@@ -434,7 +426,48 @@ class AuthController extends Controller
 
     public function showEmailVerification(Request $request)
     {
-        return view('auth.verify-email', ['email' => $request->query('email', session('verification_email'))]);
+        $email = $request->session()->get('verification_email', $request->query('email'));
+
+        return view('auth.verify-email', [
+            'email' => $email,
+            'canSkip' => $request->session()->has('verification_user_id') && filled($email),
+        ]);
+    }
+
+    public function skipEmailVerification(Request $request): RedirectResponse
+    {
+        $userId = $request->session()->get('verification_user_id');
+        $email = $request->session()->get('verification_email');
+
+        if (! $userId || ! $email) {
+            return redirect()->route('register')->with('error', 'Start registration again to continue without email verification.');
+        }
+
+        $user = DB::transaction(function () use ($userId, $email): ?User {
+            $user = User::query()->whereKey($userId)->lockForUpdate()->first();
+
+            if (! $user || $user->status !== 'unverified' || Str::lower(trim($user->email)) !== $email) {
+                return null;
+            }
+
+            $user->forceFill([
+                'status' => $user->role === 'buyer' ? 'approved' : 'pending',
+            ])->save();
+
+            EmailVerificationCode::query()->where('user_id', $user->id)->delete();
+
+            return $user;
+        });
+
+        $request->session()->forget(['verification_user_id', 'verification_email']);
+
+        if (! $user) {
+            return redirect()->route('login')->with('error', 'This registration can no longer be continued. Please sign in or register again.');
+        }
+
+        return redirect()->route('login')->with('success', $user->role === 'buyer'
+            ? 'Email verification was skipped. Your account is ready to sign in.'
+            : 'Email verification was skipped. Your application is waiting for admin review.');
     }
 
     public function verifyEmail(Request $request): RedirectResponse
@@ -466,7 +499,7 @@ class AuthController extends Controller
 
             $user->forceFill([
                 'status' => $user->role === 'buyer' ? 'approved' : 'pending',
-                ...($record->channel === 'phone' ? ['phone_verified_at' => now()] : ['email_verified_at' => now()]),
+                'email_verified_at' => now(),
             ])->save();
             $record->delete();
 
@@ -474,8 +507,10 @@ class AuthController extends Controller
         });
 
         if (! $verified) {
-            throw ValidationException::withMessages(['code' => 'That code does not match. Check your selected delivery method and try again.']);
+            throw ValidationException::withMessages(['code' => 'That code does not match. Check your email and try again.']);
         }
+
+        $request->session()->forget(['verification_user_id', 'verification_email']);
 
         return redirect()->route('login')->with('success', $user->role === 'buyer'
             ? 'Your account is verified. You can now sign in.'
@@ -486,30 +521,26 @@ class AuthController extends Controller
     {
         $validated = $request->validate([
             'email' => ['required', 'email', 'max:255'],
-            'channel' => ['required', Rule::in(['email', 'phone'])],
         ]);
         $email = Str::lower(trim($validated['email']));
         $user = User::query()->whereRaw('LOWER(TRIM(email)) = ?', [$email])->where('status', 'unverified')->first();
 
         if ($user) {
             $record = EmailVerificationCode::query()->firstOrNew(['user_id' => $user->id]);
-            if ($validated['channel'] === 'phone' && ! $this->smsOtpSender->isConfigured()) {
-                return back()->withErrors(['channel' => 'Phone code delivery is not configured yet. Choose email or try again later.'])->withInput(['email' => $email, 'channel' => 'phone']);
-            }
-            if ($record->exists && $record->channel === $validated['channel'] && $record->last_sent_at?->gt(now()->subSeconds(60))) {
-                return back()->withErrors(['channel' => 'Wait one minute before requesting another code with this method.'])->withInput(['email' => $email, 'channel' => $validated['channel']]);
+            if ($record->exists && $record->last_sent_at?->gt(now()->subSeconds(60))) {
+                return back()->withErrors(['email' => 'Wait one minute before requesting another code.'])->withInput(['email' => $email]);
             }
             try {
-                $this->issueVerificationCode($user, $record, $validated['channel']);
+                $this->issueVerificationCode($user, $record);
             } catch (\Throwable $exception) {
                 report($exception);
 
-                return back()->withErrors(['channel' => 'We could not send a code. Check delivery settings or choose another method.'])
-                    ->withInput(['email' => $email, 'channel' => $validated['channel']]);
+                return back()->withErrors(['email' => 'We could not send a code to this email address. Check email delivery settings and try again.'])
+                    ->withInput(['email' => $email]);
             }
         }
 
-        return back()->with('status', 'If an unverified EZiCart account matches, a new code has been sent using the selected method.');
+        return back()->with('status', 'If an unverified EZiCart account matches, a new code has been sent by email.');
     }
 
     private function identityRules(?User $account = null): array
@@ -524,16 +555,11 @@ class AuthController extends Controller
         ];
     }
 
-    private function psgcAddressRules(): array
+    private function psgcAddressRules(bool $postalRequired = false): array
     {
-        return [
-            'region_code' => ['required', 'regex:/^\d{10}$/'],
-            'province_code' => ['required', 'regex:/^(?:\d{10}|NCR)$/'],
-            'municipality_code' => ['required', 'regex:/^\d{10}$/'],
-            'barangay_code' => ['required', 'regex:/^\d{10}$/'],
-            'house_number' => ['required', 'string', 'max:100'],
-            'street_address' => ['required', 'string', 'max:255'],
-        ];
+        return array_replace($this->psgcAddressService->validationRules(), [
+            'postal_code' => $postalRequired ? ['required', 'digits:4'] : ['nullable', 'digits:4'],
+        ]);
     }
 
     private function resolveAddress(array $validated): array
@@ -572,23 +598,6 @@ class AuthController extends Controller
         }
 
         $request->merge(['email' => $email, 'contact_no' => $phone]);
-    }
-
-    private function ensureNumverifyAccepts(string $phoneNumber): void
-    {
-        $result = $this->phoneValidator->validatePhilippineMobile($phoneNumber);
-
-        if ($result === null) {
-            throw ValidationException::withMessages([
-                'contact_no' => 'Phone number verification is temporarily unavailable. Please try again later.',
-            ]);
-        }
-
-        if (! $result) {
-            throw ValidationException::withMessages([
-                'contact_no' => 'Enter a valid Philippine mobile number.',
-            ]);
-        }
     }
 
     private function createVerifiedAccount(array $validated, array $details, string $role): User
@@ -650,28 +659,27 @@ class AuthController extends Controller
 
     private function beginVerification(User $user): RedirectResponse
     {
+        session([
+            'verification_user_id' => $user->id,
+            'verification_email' => Str::lower(trim($user->email)),
+        ]);
+
         return redirect()->route('verification.notice', ['email' => $user->email])
             ->with('verification_email', $user->email)
-            ->with('success', 'Your account has been created. Choose where to receive your six-digit code.');
+            ->with('success', 'Your account has been created. Email verification is paused; you can continue without a code.');
     }
 
-    private function issueVerificationCode(User $user, EmailVerificationCode $record, string $channel): void
+    private function issueVerificationCode(User $user, EmailVerificationCode $record): void
     {
         $code = (string) random_int(100000, 999999);
+        $user->notify(new EmailVerificationCodeNotification($code));
+
         $record->fill([
-            'channel' => $channel,
             'code_hash' => Hash::make($code),
             'expires_at' => now()->addMinutes(5),
             'attempts' => 0,
             'last_sent_at' => now(),
         ])->save();
-        if ($channel === 'phone') {
-            $this->smsOtpSender->send($user->contact_no, $code);
-
-            return;
-        }
-
-        $user->notify(new EmailVerificationCodeNotification($code));
     }
 
     private function accountStateMessage(User $user): string

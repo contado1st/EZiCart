@@ -84,12 +84,14 @@
                     @endif
 
                     @auth
-                        <a href="{{ route('notifications.index') }}" class="nav-link">Notifications
-                            @if (auth()->user()->unreadNotifications()->exists())
-                                <span class="cart-count-badge">{{ auth()->user()->unreadNotifications()->count() }}</span>
-                            @endif
-                        </a>
-                        <a href="{{ route('account.profile.edit') }}" class="nav-link">Account</a>
+                        @if (auth()->user()->role !== 'buyer')
+                            <a href="{{ route('notifications.index') }}" class="nav-link">Notifications
+                                @if (auth()->user()->unreadNotifications()->exists())
+                                    <span class="cart-count-badge">{{ auth()->user()->unreadNotifications()->count() }}</span>
+                                @endif
+                            </a>
+                            <a href="{{ route('account.profile.edit') }}" class="nav-link">Account</a>
+                        @endif
                         @if (auth()->user()->role === 'seller')
                             <a href="{{ route('seller.dashboard') }}" class="btn-primary nav-btn-compact">Dashboard</a>
                         @elseif(auth()->user()->role === 'admin')
@@ -99,7 +101,11 @@
                         @elseif(auth()->user()->role === 'sorting_center')
                             <a href="{{ route('logistics.dashboard') }}" class="btn-primary nav-btn-compact">Sorting Hub</a>
                         @else
-                            <a href="{{ route('buyer.dashboard') }}" class="btn-primary nav-btn-compact">My Account</a>
+                            <a href="{{ route('account.profile.edit') }}" class="btn-primary nav-btn-compact">My Account
+                                @if (auth()->user()->unreadNotifications()->exists())
+                                    <span class="cart-count-badge">{{ auth()->user()->unreadNotifications()->count() }}</span>
+                                @endif
+                            </a>
                         @endif
 
                         <form action="{{ route('logout') }}" method="POST" class="logout-form-inline">

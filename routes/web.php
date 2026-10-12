@@ -51,6 +51,7 @@ Route::middleware('guest')->group(function () {
     Route::get('/verify-email', [AuthController::class, 'showEmailVerification'])->name('verification.notice');
     Route::post('/verify-email', [AuthController::class, 'verifyEmail'])->middleware('throttle:email-verification')->name('verification.verify');
     Route::post('/verify-email/resend', [AuthController::class, 'resendVerificationCode'])->middleware('throttle:email-verification-resend')->name('verification.resend');
+    Route::post('/verify-email/skip', [AuthController::class, 'skipEmailVerification'])->middleware('throttle:email-verification')->name('verification.skip');
 
     // Logistics company application (operational role: sorting_center)
     Route::get('/register/sorting-center', [AuthController::class, 'showSortingCenterRegisterForm'])->name('register.sorting');
