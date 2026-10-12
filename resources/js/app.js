@@ -1,6 +1,5 @@
 import "./password-visibility.js";
 import "./registration-name-inputs.js";
-import "./registration-wizard.js";
 
 document.querySelectorAll(".ops-shell .ops-table").forEach((table) => {
     const headers = Array.from(table.querySelectorAll("thead th")).map(
