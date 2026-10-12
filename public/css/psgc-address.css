@@ -2,6 +2,38 @@
     width: 100%;
 }
 
+.psgc-address-fields [hidden] {
+    display: none !important;
+}
+
+.address-entry-choice {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .75rem 1.25rem;
+    margin: 0 0 .5rem;
+    padding: 0;
+    border: 0;
+}
+
+.address-entry-choice legend {
+    margin-bottom: .5rem;
+    font-weight: 650;
+}
+
+.address-entry-choice label {
+    display: inline-flex;
+    align-items: center;
+    gap: .45rem;
+    cursor: pointer;
+}
+
+.address-entry-choice input[type="radio"] {
+    width: 1rem;
+    min-height: 1rem;
+    margin: 0;
+    accent-color: #16a34a;
+}
+
 .psgc-address-fields .auth-grid {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));

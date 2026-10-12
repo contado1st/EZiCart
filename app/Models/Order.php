@@ -27,6 +27,7 @@ class Order extends Model
         'barangay',
         'street_address',
         'house_number',
+        'postal_code',
         'notes',
     ];
 

@@ -1,0 +1,524 @@
+.buyer-account-page {
+    display: grid;
+    width: min(100% - 2rem, 90rem);
+    min-height: calc(100vh - var(--navbar-height, 5.3rem));
+    grid-template-columns: 16rem minmax(0, 1fr);
+    gap: 1.25rem;
+    margin: 0 auto;
+    padding-block: 1.5rem 3rem;
+    color: #253044;
+    font-family: "Instrument Sans", ui-sans-serif, system-ui, sans-serif;
+}
+
+.buyer-account-sidebar,
+.buyer-account-panel {
+    background: #fff;
+    border: 1px solid #e6e8ed;
+}
+
+.buyer-account-sidebar {
+    align-self: start;
+    padding: 1.15rem;
+}
+
+.buyer-account-person {
+    display: grid;
+    grid-template-columns: 3rem minmax(0, 1fr);
+    align-items: center;
+    gap: 0.75rem;
+    padding-bottom: 1.15rem;
+    border-bottom: 1px solid #eceef1;
+}
+
+.buyer-account-avatar {
+    display: grid;
+    width: 3rem;
+    height: 3rem;
+    place-items: center;
+    color: #74283b;
+    background: #f8dfe3;
+    border: 1px solid #efc2ca;
+    border-radius: 50%;
+    font-size: 0.9rem;
+    font-weight: 700;
+}
+
+.buyer-account-person > div {
+    display: grid;
+    min-width: 0;
+    gap: 0.25rem;
+}
+
+.buyer-account-person strong {
+    overflow: hidden;
+    color: #202633;
+    font-size: 0.84rem;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.buyer-account-person a,
+.buyer-account-header > a {
+    color: #a32f4b;
+    font-size: 0.76rem;
+    text-decoration: none;
+}
+
+.buyer-account-sidebar nav {
+    display: grid;
+    gap: 0.2rem;
+    padding-top: 1rem;
+}
+
+.buyer-account-nav-heading {
+    margin: 0.65rem 0 0.25rem;
+    color: #31394a;
+    font-size: 0.83rem;
+    font-weight: 700;
+}
+
+.buyer-account-nav-heading:not(:first-child) {
+    margin-top: 1.1rem;
+    padding-top: 0.85rem;
+    border-top: 1px solid #eceef1;
+}
+
+.buyer-account-sidebar nav a {
+    display: block;
+    padding: 0.55rem 0.7rem;
+    color: #576174;
+    border-radius: 0.35rem;
+    font-size: 0.8rem;
+    text-decoration: none;
+    transition: color 150ms ease, background-color 150ms ease;
+}
+
+.buyer-account-sidebar nav a:hover,
+.buyer-account-sidebar nav a.is-active {
+    color: #902c46;
+    background: #fff0f2;
+}
+
+.buyer-account-sidebar nav a.buyer-account-notification-link {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+}
+
+.buyer-account-notification-count {
+    display: inline-grid;
+    min-width: 1.35rem;
+    height: 1.35rem;
+    place-items: center;
+    padding-inline: 0.35rem;
+    color: #fff;
+    background: #c14862;
+    border-radius: 999px;
+    font-size: 0.68rem;
+    font-weight: 700;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+}
+
+.buyer-account-sidebar-logout {
+    margin-top: 1rem;
+    padding-top: 0.85rem;
+    border-top: 1px solid #eceef1;
+}
+
+.buyer-account-sidebar-logout button {
+    padding: 0.4rem 0.7rem;
+    color: #902c46;
+    background: transparent;
+    border: 0;
+    font: inherit;
+    font-size: 0.78rem;
+    font-weight: 650;
+    cursor: pointer;
+}
+
+.buyer-account-sidebar-logout button:focus-visible {
+    outline: 2px solid #c14862;
+    outline-offset: 2px;
+}
+
+.buyer-notification {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1.25rem;
+}
+
+.buyer-notification.is-unread {
+    background: #fff8f8;
+}
+
+.buyer-notification-copy {
+    min-width: 0;
+}
+
+.buyer-notification-copy strong {
+    color: #202633;
+    font-size: 0.9rem;
+}
+
+.buyer-notification-copy p {
+    margin: 0.35rem 0;
+    color: #4f5b6e;
+    font-size: 0.82rem;
+    line-height: 1.5;
+}
+
+.buyer-notification-copy small,
+.buyer-notification-read {
+    color: #667085;
+    font-size: 0.72rem;
+}
+
+.buyer-notification-actions {
+    display: flex;
+    flex: 0 0 auto;
+    align-items: center;
+    gap: 0.55rem;
+}
+
+.buyer-notification-actions form {
+    margin: 0;
+}
+
+.buyer-notifications-empty h2 {
+    margin: 0;
+    color: #202633;
+    font-size: 1rem;
+}
+
+.buyer-notifications-empty p {
+    margin: 0.4rem 0 0;
+    color: #667085;
+    font-size: 0.82rem;
+}
+
+.buyer-notifications-pagination {
+    justify-self: end;
+}
+
+.buyer-account-content {
+    display: grid;
+    min-width: 0;
+    align-content: start;
+    gap: 1rem;
+}
+
+.buyer-account-header {
+    display: flex;
+    align-items: end;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.3rem 0 1rem;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.buyer-account-eyebrow {
+    margin: 0 0 0.3rem;
+    color: #9c3b53;
+    font-size: 0.66rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+}
+
+.buyer-account-header h1 {
+    margin: 0;
+    color: #202633;
+    font-size: clamp(1.45rem, 2.5vw, 1.85rem);
+    font-weight: 650;
+    letter-spacing: -0.025em;
+}
+
+.buyer-account-header p:last-child {
+    margin: 0.35rem 0 0;
+    color: #667085;
+    font-size: 0.82rem;
+    line-height: 1.5;
+}
+
+.buyer-account-header > a {
+    flex: 0 0 auto;
+    padding-bottom: 0.2rem;
+    text-underline-offset: 0.2em;
+}
+
+.buyer-account-panel {
+    min-width: 0;
+    padding: clamp(1rem, 2vw, 1.5rem);
+    scroll-margin-top: 6.5rem;
+}
+
+.buyer-account-panel-heading {
+    display: flex;
+    align-items: start;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 1.15rem;
+    padding-bottom: 0.9rem;
+    border-bottom: 1px solid #eceef1;
+}
+
+.buyer-account-panel-heading h2 {
+    margin: 0;
+    color: #202633;
+    font-size: 1.08rem;
+    font-weight: 650;
+}
+
+.buyer-account-panel-heading p {
+    margin: 0.3rem 0 0;
+    color: #667085;
+    font-size: 0.78rem;
+    line-height: 1.5;
+}
+
+.buyer-account-form-grid,
+.buyer-password-fields {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1rem;
+}
+
+.buyer-account-page .form-group {
+    display: grid;
+    min-width: 0;
+    gap: 0.4rem;
+    margin: 0;
+}
+
+.buyer-account-page .form-label,
+.buyer-account-page .auth-field label {
+    color: #354052;
+    font-size: 0.78rem;
+    font-weight: 650;
+}
+
+.buyer-account-page .form-control,
+.buyer-account-page .auth-field input:not([type="checkbox"]):not([type="file"]),
+.buyer-account-page .auth-field select {
+    width: 100%;
+    min-height: 2.65rem;
+    padding: 0.6rem 0.7rem;
+    color: #202633;
+    background: #fff;
+    border: 1px solid #d7dce4;
+    border-radius: 0.3rem;
+    font: inherit;
+    font-size: 0.82rem;
+}
+
+.buyer-account-page .form-control:focus-visible,
+.buyer-account-page .auth-field input:focus-visible,
+.buyer-account-page .auth-field select:focus-visible,
+.buyer-account-page .credential-password-toggle:focus-visible,
+.buyer-account-save:focus-visible {
+    outline: 2px solid #c14862;
+    outline-offset: 2px;
+}
+
+.buyer-account-page .form-group small {
+    color: #667085;
+    font-size: 0.7rem;
+    line-height: 1.4;
+}
+
+.buyer-account-page .buyer-account-field-error {
+    margin: 0;
+    color: #a52643;
+    font-size: 0.73rem;
+    line-height: 1.4;
+}
+
+.buyer-account-address {
+    margin-top: 1.5rem;
+    padding-top: 1rem;
+    border-top: 1px solid #eceef1;
+    scroll-margin-top: 6.5rem;
+}
+
+.buyer-account-address .buyer-account-panel-heading {
+    margin-bottom: 0.8rem;
+    border: 0;
+}
+
+.buyer-account-page .psgc-address-fields {
+    display: grid;
+    gap: 0.75rem;
+}
+
+.buyer-account-page .auth-grid {
+    gap: 0.75rem;
+}
+
+.buyer-account-page .auth-help {
+    margin: 0;
+    color: #667085;
+    font-size: 0.7rem;
+}
+
+.buyer-account-page .address-entry-choice {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.6rem 1rem;
+    padding: 0.7rem 0;
+    border-bottom: 1px solid #eceef1;
+}
+
+.buyer-account-page .address-entry-choice legend {
+    width: 100%;
+    margin-bottom: 0.35rem;
+    color: #354052;
+    font-size: 0.78rem;
+    font-weight: 650;
+}
+
+.buyer-account-page .address-entry-choice label {
+    color: #4f5b6e;
+    font-size: 0.76rem;
+}
+
+.buyer-account-page .address-entry-choice input {
+    accent-color: #c14862;
+}
+
+.buyer-account-save {
+    min-height: 2.65rem;
+    margin-top: 1.1rem;
+    padding: 0.65rem 1.1rem;
+    color: #211216;
+    background: #ef6f79;
+    border: 1px solid #ef6f79;
+    border-radius: 0.25rem;
+    font: inherit;
+    font-size: 0.8rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background-color 150ms ease;
+}
+
+.buyer-account-save:hover {
+    background: #e95b69;
+}
+
+.buyer-account-notice {
+    padding: 0.8rem 1rem;
+    color: #24583f;
+    background: #eef8f1;
+    border: 1px solid #cde7d4;
+    font-size: 0.82rem;
+}
+
+.buyer-account-notice--error {
+    color: #8d263e;
+    background: #fff0f2;
+    border-color: #f0c9d0;
+}
+
+.buyer-password-fields {
+    grid-template-columns: 1fr;
+    max-width: 34rem;
+}
+
+.buyer-account-page .credential-password-wrap {
+    position: relative;
+}
+
+.buyer-account-page .credential-password-wrap .form-control {
+    padding-right: 4rem;
+}
+
+.buyer-account-page .credential-password-toggle {
+    position: absolute;
+    top: 50%;
+    right: 0.4rem;
+    padding: 0.35rem 0.45rem;
+    color: #922b45;
+    background: transparent;
+    border: 0;
+    font: inherit;
+    font-size: 0.72rem;
+    font-weight: 700;
+    transform: translateY(-50%);
+    cursor: pointer;
+}
+
+@media (max-width: 760px) {
+    .buyer-account-page {
+        width: min(100% - 1.25rem, 46rem);
+        grid-template-columns: 1fr;
+        gap: 0.85rem;
+        padding-block: 0.85rem 2rem;
+    }
+
+    .buyer-account-sidebar {
+        padding: 0.85rem;
+    }
+
+    .buyer-account-person {
+        grid-template-columns: 2.5rem minmax(0, 1fr);
+        padding-bottom: 0.7rem;
+    }
+
+    .buyer-account-avatar {
+        width: 2.5rem;
+        height: 2.5rem;
+    }
+
+    .buyer-account-sidebar nav {
+        display: flex;
+        gap: 0.3rem;
+        overflow-x: auto;
+        padding-top: 0.65rem;
+    }
+
+    .buyer-account-nav-heading {
+        display: none;
+    }
+
+    .buyer-account-sidebar nav a {
+        flex: 0 0 auto;
+        padding: 0.5rem 0.65rem;
+        white-space: nowrap;
+    }
+
+    .buyer-account-header {
+        align-items: start;
+    }
+
+    .buyer-orders-content {
+        padding: 1rem;
+    }
+}
+
+@media (max-width: 520px) {
+    .buyer-account-header {
+        flex-direction: column;
+        gap: 0.6rem;
+    }
+
+    .buyer-account-form-grid,
+    .buyer-account-page .auth-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .buyer-account-panel {
+        padding: 0.9rem;
+    }
+
+    .buyer-notification {
+        align-items: stretch;
+        flex-direction: column;
+        gap: 0.85rem;
+    }
+
+    .buyer-notification-actions {
+        flex-wrap: wrap;
+    }
+}

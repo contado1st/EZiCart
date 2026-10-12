@@ -24,6 +24,17 @@
             const barangay = container.querySelector('[data-address-select="barangay"]');
             const status = container.querySelector("[data-address-status]");
             const endpoint = container.dataset.optionsUrl;
+            const modeChoices = [...container.querySelectorAll("[data-address-mode-choice]")];
+            const psgcPanel = container.querySelector("[data-psgc-address-panel]");
+            const manualPanel = container.querySelector("[data-manual-address-panel]");
+            const manualFields = [...container.querySelectorAll("[data-manual-address-field]")];
+            let manualMode = container.dataset.addressMode === "manual";
+
+            container.querySelectorAll("[data-address-digits-only]").forEach((input) => {
+                input.addEventListener("input", () => {
+                    input.value = input.value.replace(/\D/g, "").slice(0, 4);
+                });
+            });
             const selected = {
                 region: container.dataset.selectedRegion,
                 province: container.dataset.selectedProvince,
@@ -44,7 +55,28 @@
                     const match = [...select.options].find((option) => option.text === selectedName);
                     if (match) select.value = match.value;
                 }
-                select.disabled = items.length === 0;
+                select.disabled = manualMode || items.length === 0;
+            };
+
+            const syncEntryMode = () => {
+                psgcPanel.hidden = manualMode;
+                manualPanel.hidden = !manualMode;
+                manualFields.forEach((field) => {
+                    field.disabled = !manualMode;
+                    field.required = manualMode;
+                });
+                [region, province, municipality, barangay].forEach((select) => {
+                    select.disabled = manualMode;
+                });
+                if (!manualMode) {
+                    region.disabled = false;
+                    province.disabled = !region.value || province.options.length <= 1;
+                    municipality.disabled = !province.value || municipality.options.length <= 1;
+                    barangay.disabled = !municipality.value || barangay.options.length <= 1;
+                    status.textContent = "Choose a region to load location lists, or switch to manual entry.";
+                } else {
+                    status.textContent = "Enter the region, province, city or municipality, and barangay.";
+                }
             };
 
             const setHidden = (key, select) => {
@@ -120,11 +152,13 @@
 
             barangay.addEventListener("change", () => setHidden("barangay", barangay));
 
-            (async () => {
+            const loadSavedAddress = async () => {
                 try {
                     fill(region, await loadOptions(endpoint, "regions"), "Choose a region", selected.region);
                     if (!region.value) {
-                        status.textContent = "Select your region to load locations.";
+                        if (!manualMode) {
+                            status.textContent = "Select your region to load locations.";
+                        }
                         return;
                     }
                     setHidden("region", region);
@@ -134,12 +168,27 @@
                     await loadLocalities(ncr ? region.value : province.value, ncr ? "region" : "province", selected.municipality);
                     if (!municipality.value) return;
                     await loadBarangays(municipality.value, selected.barangay);
-                    status.textContent = "Address locations loaded.";
+                    if (!manualMode) {
+                        status.textContent = "Address locations loaded.";
+                    }
                 } catch {
                     fill(region, [], "Location data unavailable");
-                    status.textContent = "Location data could not load. Refresh and try again.";
+                    if (!manualMode) {
+                        status.textContent = "Location lists could not load. Switch to manual entry to continue.";
+                    }
                 }
-            })();
+            };
+
+            modeChoices.forEach((choice) => {
+                choice.addEventListener("change", () => {
+                    manualMode = choice.value === "manual";
+                    syncEntryMode();
+                    if (!manualMode) loadSavedAddress();
+                });
+            });
+
+            syncEntryMode();
+            if (!manualMode) loadSavedAddress();
         });
     };
 

@@ -40,6 +40,7 @@ class User extends Authenticatable implements AuthenticatableContract
         'barangay',
         'street_address',
         'house_number',
+        'postal_code',
         'id_upload_path',
         'business_name',
         'line_of_business',
@@ -72,7 +73,6 @@ class User extends Authenticatable implements AuthenticatableContract
     {
         return [
             'email_verified_at' => 'datetime',
-            'phone_verified_at' => 'datetime',
             'password' => 'hashed',
             'birthday' => 'date',
             'license_expires_at' => 'date',

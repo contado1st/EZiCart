@@ -21,11 +21,11 @@ class HomeController extends Controller
         }
 
         $categories = [
-            ['name' => 'Beauty', 'icon' => '💄'],
-            ['name' => 'Home & Living', 'icon' => '🏠'],
-            ['name' => 'Fashion', 'icon' => '👗'],
-            ['name' => 'Electronics', 'icon' => '🎧'],
-            ['name' => 'Groceries', 'icon' => '🛒'],
+            ['name' => 'Beauty', 'icon' => "\u{1F484}"],
+            ['name' => 'Home & Living', 'icon' => "\u{1F3E0}"],
+            ['name' => 'Fashion', 'icon' => "\u{1F457}"],
+            ['name' => 'Electronics', 'icon' => "\u{1F3A7}"],
+            ['name' => 'Groceries', 'icon' => "\u{1F6D2}"],
         ];
 
         $query = Product::where('compliance_status', 'approved')
@@ -48,7 +48,9 @@ class HomeController extends Controller
 
         $products = $query->latest()->paginate(12)->withQueryString();
 
-        return view('home', compact('categories', 'products'));
+        $view = $request->user() ? 'home' : 'home-guest';
+
+        return view($view, compact('categories', 'products'));
     }
 
     public function showProduct(Product $product)
