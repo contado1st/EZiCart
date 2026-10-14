@@ -37,7 +37,7 @@ class AdminController extends Controller
             ])->count(),
         ];
 
-        // 4. Pending Registrations Queue (Sellers & Couriers requiring verification)
+        // 4. Pending Registrations Queue
         $pendingUsers = User::where('status', 'pending')
             ->latest()
             ->take(5)
@@ -54,7 +54,9 @@ class AdminController extends Controller
 
     public function index()
     {
-        $pendingUsers = User::where('status', 'pending')->latest()->paginate(15);
+        $pendingUsers = User::where('status', 'pending')
+            ->latest()
+            ->paginate(15);
 
         return view('admin.registrations', compact('pendingUsers'));
     }
@@ -63,7 +65,11 @@ class AdminController extends Controller
     {
         DB::transaction(function () use ($user, $notifications): void {
             $lockedUser = User::query()->whereKey($user->id)->lockForUpdate()->firstOrFail();
-            abort_unless($lockedUser->role !== 'admin' && $lockedUser->status === 'pending', 422, 'Only pending accounts can be approved.');
+            abort_unless(
+                $lockedUser->role !== 'admin' && $lockedUser->status === 'pending',
+                422,
+                'Only pending accounts can be approved.'
+            );
 
             $lockedUser->forceFill([
                 'status' => 'approved',
@@ -83,7 +89,11 @@ class AdminController extends Controller
 
         DB::transaction(function () use ($user, $notifications, $validated): void {
             $lockedUser = User::query()->whereKey($user->id)->lockForUpdate()->firstOrFail();
-            abort_unless($lockedUser->role !== 'admin' && $lockedUser->status === 'pending', 422, 'Only pending accounts can be rejected.');
+            abort_unless(
+                $lockedUser->role !== 'admin' && $lockedUser->status === 'pending',
+                422,
+                'Only pending accounts can be rejected.'
+            );
 
             $lockedUser->forceFill([
                 'status' => 'rejected',

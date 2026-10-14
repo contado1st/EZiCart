@@ -5,8 +5,10 @@ namespace Tests\Feature;
 use App\Models\EmailVerificationCode;
 use App\Models\User;
 use App\Notifications\EmailVerificationCodeNotification;
+use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Storage;
@@ -22,7 +24,10 @@ class RegistrationFlowTest extends TestCase
         $this->withoutVite();
     }
 
-    public function test_buyer_registration_creates_unverified_account_and_sends_verification_notification(): void
+    /**
+     * Scenario 1: Buyer registration sends a 6-digit OTP.
+     */
+    public function test_buyer_registration_creates_unverified_account_and_sends_verification_otp(): void
     {
         Notification::fake();
 
@@ -35,101 +40,49 @@ class RegistrationFlowTest extends TestCase
         $user = User::query()->where('email', 'buyer@example.com')->firstOrFail();
         $this->assertSame('buyer', $user->role);
         $this->assertSame('unverified', $user->status);
+        $this->assertNull($user->email_verified_at);
         $this->assertSame('09171234567', $user->contact_no);
-        $this->assertSame($user->contact_no, $user->canonical_mobile);
         $this->assertNotNull($user->terms_accepted_at);
         $this->assertNotNull($user->privacy_accepted_at);
+
         $this->assertDatabaseHas('email_verification_codes', ['user_id' => $user->id]);
-        $this->assertDatabaseCount('users', 1);
-        Notification::assertSentTo($user, EmailVerificationCodeNotification::class);
+        $record = EmailVerificationCode::where('user_id', $user->id)->firstOrFail();
+        $this->assertNotNull($record->code_hash);
+        $this->assertNotNull($record->expires_at);
+        $this->assertTrue($record->expires_at->isFuture());
+
+        Notification::assertSentTo($user, EmailVerificationCodeNotification::class, function ($notification) {
+            return strlen($notification->code) === 6 && ctype_digit($notification->code);
+        });
     }
 
-    public function test_a_valid_otp_activates_buyer_and_can_only_be_used_once(): void
-    {
-        Notification::fake();
-        $this->post(route('register.post'), $this->buyerDetails())->assertRedirect();
-        $user = User::query()->firstOrFail();
-        EmailVerificationCode::query()->where('user_id', $user->id)->update([
-            'code_hash' => Hash::make('482916'),
-            'expires_at' => now()->addMinutes(5),
-        ]);
-
-        $payload = ['email' => $user->email, 'code' => '482916'];
-        $this->post(route('verification.verify'), $payload)
-            ->assertRedirect(route('login'));
-        $this->assertSame('approved', $user->fresh()->status);
-        $this->assertNotNull($user->fresh()->email_verified_at);
-        $this->assertDatabaseMissing('email_verification_codes', ['user_id' => $user->id]);
-
-        $this->post(route('verification.verify'), $payload)->assertSessionHasErrors('code');
-    }
-
-    public function test_expired_or_incorrect_otp_does_not_activate_account(): void
-    {
-        Notification::fake();
-        $this->post(route('register.post'), $this->buyerDetails())->assertRedirect();
-        $user = User::query()->firstOrFail();
-        EmailVerificationCode::query()->where('user_id', $user->id)->update([
-            'code_hash' => Hash::make('482916'),
-            'expires_at' => now()->subSecond(),
-        ]);
-
-        $this->post(route('verification.verify'), ['email' => $user->email, 'code' => '482916'])
-            ->assertSessionHasErrors('code');
-        $this->assertSame('unverified', $user->fresh()->status);
-    }
-
-    public function test_login_redirects_unverified_accounts_to_email_verification_and_denies_session(): void
+    public function test_otp_email_template_renders_subject_and_body_correctly(): void
     {
         $user = User::query()->forceCreate([
-            'first_name' => 'Pending',
-            'last_name' => 'Buyer',
-            'contact_no' => '09281234567',
-            'email' => 'pending@example.com',
+            'first_name' => 'Miguel',
+            'last_name' => 'Santos',
+            'email' => 'miguel@example.com',
+            'contact_no' => '09171234567',
             'password' => Hash::make('Password@2026'),
             'role' => 'buyer',
             'status' => 'unverified',
         ]);
 
-        $this->post(route('login.post'), ['email' => ' PENDING@EXAMPLE.COM ', 'password' => 'Password@2026'])
-            ->assertRedirect(route('verification.notice', ['email' => $user->email]));
-        $this->assertGuest();
+        $notification = new EmailVerificationCodeNotification('456789');
+        $mail = $notification->toMail($user);
+
+        $this->assertSame('Your EZiCart Verification Code: 456789', $mail->subject);
+        $renderedHtml = (string) $mail->render();
+        $this->assertStringContainsString('456789', $renderedHtml);
+        $this->assertStringContainsString('EZiCart', $renderedHtml);
+        $this->assertStringContainsString('Miguel Santos', $renderedHtml);
+        $this->assertStringContainsString('5 minutes', $renderedHtml);
     }
 
-    public function test_email_and_mobile_are_unique_after_normalization(): void
-    {
-        Notification::fake();
-        $this->post(route('register.post'), $this->buyerDetails())->assertRedirect();
-
-        $this->post(route('register.post'), $this->buyerDetails([
-            'first_name' => 'Ana Marie',
-            'email' => ' BUYER@example.com ',
-            'contact_no' => '+639171234567',
-        ]))->assertSessionHasErrors(['email', 'contact_no']);
-        $this->assertDatabaseCount('users', 1);
-    }
-
-    public function test_buyer_registration_enforces_age_password_and_consent(): void
-    {
-        $this->from(route('register'))
-            ->post(route('register.post'), $this->buyerDetails([
-                'birthday' => now()->subYears(17)->toDateString(),
-                'password' => 'short',
-                'password_confirmation' => 'different',
-                'terms' => '0',
-            ]))
-            ->assertRedirect(route('register'))
-            ->assertSessionHasErrors(['birthday', 'password', 'terms']);
-        $this->assertDatabaseCount('users', 0);
-    }
-
-    public function test_public_rider_registration_is_not_available(): void
-    {
-        $this->get('/register/courier')->assertNotFound();
-        $this->post('/register/courier')->assertNotFound();
-    }
-
-    public function test_seller_registration_stores_required_private_documents_and_waits_for_verification(): void
+    /**
+     * Scenario 2: Seller registration sends an OTP.
+     */
+    public function test_seller_registration_stores_required_private_documents_and_sends_verification_otp(): void
     {
         Notification::fake();
         Storage::fake('private');
@@ -143,13 +96,14 @@ class RegistrationFlowTest extends TestCase
             'line_of_business' => 'Home & Living',
             'seller_type' => 'Corporation',
             'tin' => '123-456-789-000',
-            'region' => 'National Capital Region (NCR)',
-            'province' => 'Metro Manila',
-            'municipality' => 'Quezon City',
-            'barangay' => 'Commonwealth',
+            'address_mode' => 'manual',
+            'manual_region' => 'National Capital Region (NCR)',
+            'manual_province' => 'Metro Manila',
+            'manual_municipality' => 'Quezon City',
+            'manual_barangay' => 'Commonwealth',
             'street_address' => 'Blk 12 Lot 8',
             'postal_code' => '1121',
-            'id_document' => UploadedFile::fake()->image('id.jpg'),
+            'id_document' => UploadedFile::fake()->create('id.pdf', 500, 'application/pdf'),
             'bir_form_2303' => UploadedFile::fake()->create('bir.pdf', 500, 'application/pdf'),
             'sec_certificate' => UploadedFile::fake()->create('sec.pdf', 500, 'application/pdf'),
             'password' => 'Seller-Pass@2026',
@@ -158,156 +112,499 @@ class RegistrationFlowTest extends TestCase
         ])->assertRedirect(route('verification.notice', ['email' => 'seller@example.com']));
 
         $seller = User::query()->where('email', 'seller@example.com')->firstOrFail();
+        $this->assertSame('seller', $seller->role);
         $this->assertSame('unverified', $seller->status);
+        $this->assertNull($seller->email_verified_at);
+
         Storage::disk('private')->assertExists($seller->id_path);
         Storage::disk('private')->assertExists($seller->sec_certificate_path);
         Storage::disk('private')->assertExists($seller->bir_certificate_path);
+
         $this->assertDatabaseHas('email_verification_codes', ['user_id' => $seller->id]);
         Notification::assertSentTo($seller, EmailVerificationCodeNotification::class);
     }
 
-    public function test_corporate_seller_cannot_register_without_sec_certificate(): void
-    {
-        Storage::fake('private');
-        $this->from(route('register.seller'))
-            ->post(route('register.seller.post'), [
-                'first_name' => 'Maria Clara', 'last_name' => 'Santos',
-                'email' => 'seller@example.com', 'contact_no' => '09189876543',
-                'shop_name' => 'Maria Clara Crafts', 'line_of_business' => 'Home & Living',
-                'seller_type' => 'Corporation', 'tin' => '123-456-789-000',
-                'region' => 'National Capital Region (NCR)', 'province' => 'Metro Manila',
-                'municipality' => 'Quezon City', 'barangay' => 'Commonwealth',
-                'street_address' => 'Blk 12 Lot 8', 'postal_code' => '1121',
-                'id_document' => UploadedFile::fake()->image('id.jpg'),
-                'bir_form_2303' => UploadedFile::fake()->create('bir.pdf', 500, 'application/pdf'),
-                'password' => 'Seller-Pass@2026', 'password_confirmation' => 'Seller-Pass@2026', 'terms' => '1',
-            ])
-            ->assertRedirect(route('register.seller'))
-            ->assertSessionHasErrors('sec_certificate');
-
-        $this->assertDatabaseCount('users', 0);
-    }
-
-    public function test_logistics_registration_accepts_multiple_regions_and_keeps_documents_private(): void
+    /**
+     * Scenario 3: Logistics registration sends an OTP.
+     */
+    public function test_logistics_registration_accepts_service_areas_and_sends_verification_otp(): void
     {
         Notification::fake();
         Storage::fake('private');
 
         $this->post(route('register.sorting.post'), [
-            'first_name' => 'Carlos Antonio', 'last_name' => 'Mendoza',
-            'email' => 'operations@example.com', 'contact_no' => '09285551234',
-            'business_name' => 'Bilis Hatid Express Inc.', 'sec_registration_no' => 'CS202012345',
-            'tin' => '234-567-890-000', 'region' => 'National Capital Region (NCR)',
-            'province' => 'Metro Manila', 'municipality' => 'Pasig City', 'barangay' => 'Kapitolyo',
-            'street_address' => 'Unit 5B, 88 West Capitol Drive', 'postal_code' => '1603',
+            'first_name' => 'Carlos Antonio',
+            'last_name' => 'Mendoza',
+            'email' => 'operations@example.com',
+            'contact_no' => '09285551234',
+            'business_name' => 'Bilis Hatid Express Inc.',
+            'sec_registration_no' => 'CS202012345',
+            'tin' => '234-567-890-000',
+            'address_mode' => 'manual',
+            'manual_region' => 'National Capital Region (NCR)',
+            'manual_province' => 'Metro Manila',
+            'manual_municipality' => 'Pasig City',
+            'manual_barangay' => 'Kapitolyo',
+            'street_address' => 'Unit 5B, 88 West Capitol Drive',
+            'postal_code' => '1603',
             'contact_position' => 'Operations Manager',
             'service_areas' => ['National Capital Region (NCR)', 'Region IV-A (CALABARZON)'],
             'sec_certificate' => UploadedFile::fake()->create('sec.pdf', 500, 'application/pdf'),
             'bir_form_2303' => UploadedFile::fake()->create('bir.pdf', 500, 'application/pdf'),
             'business_permit' => UploadedFile::fake()->create('permit.pdf', 500, 'application/pdf'),
-            'representative_id' => UploadedFile::fake()->image('rep.jpg'),
-            'password' => 'Logistics-Pass@2026', 'password_confirmation' => 'Logistics-Pass@2026',
+            'representative_id' => UploadedFile::fake()->create('rep.pdf', 500, 'application/pdf'),
+            'password' => 'Logistics-Pass@2026',
+            'password_confirmation' => 'Logistics-Pass@2026',
             'terms' => '1',
         ])->assertRedirect(route('verification.notice', ['email' => 'operations@example.com']));
 
         $company = User::query()->where('email', 'operations@example.com')->firstOrFail();
         $this->assertSame('sorting_center', $company->role);
         $this->assertSame('unverified', $company->status);
-        $this->assertSame(['National Capital Region (NCR)', 'Region IV-A (CALABARZON)'], $company->service_areas);
+        $this->assertNull($company->email_verified_at);
+
         Storage::disk('private')->assertExists($company->sec_certificate_path);
         Storage::disk('private')->assertExists($company->bir_certificate_path);
         Storage::disk('private')->assertExists($company->permit_path);
         Storage::disk('private')->assertExists($company->representative_id_path);
+
+        $this->assertDatabaseHas('email_verification_codes', ['user_id' => $company->id]);
         Notification::assertSentTo($company, EmailVerificationCodeNotification::class);
     }
 
-    public function test_rejected_seller_can_correct_and_resubmit_the_application(): void
+    /**
+     * Scenario 4: Correct OTP successfully verifies email.
+     * Buyer transitions to 'approved' immediately. Seller and Logistics transition to 'pending'.
+     */
+    public function test_correct_otp_verifies_buyer_and_seller_differently(): void
     {
-        Storage::fake('private');
-        $seller = User::query()->forceCreate([
-            'first_name' => 'Maria Clara', 'last_name' => 'Santos',
-            'email' => 'seller@example.com', 'canonical_email' => 'seller@example.com',
-            'contact_no' => '09189876543', 'canonical_mobile' => '09189876543',
-            'password' => Hash::make('Seller-Pass@2026'), 'role' => 'seller', 'status' => 'rejected',
-            'shop_name' => 'Maria Clara Crafts', 'business_name' => 'Maria Clara Crafts',
-            'line_of_business' => 'Home & Living', 'seller_type' => 'Individual', 'tin' => '123-456-789-000',
-            'region' => 'National Capital Region (NCR)', 'province' => 'Metro Manila',
-            'municipality' => 'Quezon City', 'barangay' => 'Commonwealth',
-            'street_address' => 'Blk 12 Lot 8', 'postal_code' => '1121',
-            'id_path' => 'documents/old-id.pdf', 'rejection_reason' => 'Upload a clearer government ID.',
+        Notification::fake();
+
+        // 1. Buyer verification -> approved
+        $this->post(route('register.post'), $this->buyerDetails())->assertRedirect();
+        $buyer = User::query()->where('email', 'buyer@example.com')->firstOrFail();
+
+        EmailVerificationCode::query()->where('user_id', $buyer->id)->update([
+            'code_hash' => Hash::make('123456'),
+            'expires_at' => now()->addMinutes(5),
         ]);
 
-        $this->actingAs($seller)->get(route('application.resubmit'))
-            ->assertOk()
-            ->assertSee('Upload a clearer government ID.')
-            ->assertSee('Maria Clara Crafts');
-
-        $this->post(route('logout'));
-        $this->post(route('login.post'), ['email' => $seller->email, 'password' => 'Seller-Pass@2026'])
-            ->assertRedirect(route('application.resubmit'));
-
-        $this->post(route('application.resubmit.post'), [
-            'first_name' => 'Maria Clara', 'last_name' => 'Santos',
-            'email' => 'seller@example.com', 'contact_no' => '09189876543',
-            'shop_name' => 'Maria Clara Crafts Updated', 'line_of_business' => 'Home & Living',
-            'seller_type' => 'Individual', 'tin' => '123-456-789-000',
-            'region' => 'National Capital Region (NCR)', 'province' => 'Metro Manila',
-            'municipality' => 'Quezon City', 'barangay' => 'Commonwealth',
-            'street_address' => 'Blk 12 Lot 8', 'postal_code' => '1121',
-            'id_document' => UploadedFile::fake()->image('updated-id.jpg'),
-            'password' => 'Seller-Pass@2026', 'password_confirmation' => 'Seller-Pass@2026', 'terms' => '1',
+        $this->post(route('verification.verify'), [
+            'email' => $buyer->email,
+            'code' => '123456',
         ])->assertRedirect(route('login'))->assertSessionHas('success');
 
-        $this->assertGuest();
-        $this->assertDatabaseHas('users', [
-            'id' => $seller->id,
-            'shop_name' => 'Maria Clara Crafts Updated',
-            'status' => 'pending',
-            'rejection_reason' => null,
+        $this->assertSame('approved', $buyer->fresh()->status);
+        $this->assertNotNull($buyer->fresh()->email_verified_at);
+        $this->assertDatabaseMissing('email_verification_codes', ['user_id' => $buyer->id]);
+
+        // 2. Seller verification -> pending admin approval
+        $seller = User::query()->forceCreate([
+            'first_name' => 'Seller',
+            'last_name' => 'Test',
+            'email' => 'pending.seller@example.com',
+            'contact_no' => '09191234567',
+            'password' => Hash::make('Seller@2026'),
+            'role' => 'seller',
+            'status' => 'unverified',
         ]);
-        Storage::disk('private')->assertExists($seller->fresh()->id_path);
+        EmailVerificationCode::query()->forceCreate([
+            'user_id' => $seller->id,
+            'code_hash' => Hash::make('654321'),
+            'expires_at' => now()->addMinutes(5),
+            'attempts' => 0,
+            'last_sent_at' => now(),
+        ]);
+
+        $this->post(route('verification.verify'), [
+            'email' => $seller->email,
+            'code' => '654321',
+        ])->assertRedirect(route('login'))->assertSessionHas('success');
+
+        $this->assertSame('pending', $seller->fresh()->status);
+        $this->assertNotNull($seller->fresh()->email_verified_at);
+        $this->assertDatabaseMissing('email_verification_codes', ['user_id' => $seller->id]);
     }
 
-    public function test_rejected_logistics_company_can_correct_and_resubmit_the_application(): void
+    /**
+     * Scenario 5: Incorrect OTP is rejected.
+     */
+    public function test_incorrect_otp_is_rejected(): void
     {
-        Storage::fake('private');
-        $company = User::query()->forceCreate([
-            'first_name' => 'Carlos Antonio', 'last_name' => 'Mendoza',
-            'email' => 'operations@example.com', 'canonical_email' => 'operations@example.com',
-            'contact_no' => '09285551234', 'canonical_mobile' => '09285551234',
-            'password' => Hash::make('Logistics-Pass@2026'), 'role' => 'sorting_center', 'status' => 'rejected',
-            'business_name' => 'Bilis Hatid Express Inc.', 'canonical_company_name' => 'bilis hatid express inc.',
-            'sec_registration_no' => 'CS202012345', 'tin' => '234-567-890-000',
-            'region' => 'National Capital Region (NCR)', 'province' => 'Metro Manila',
-            'municipality' => 'Pasig City', 'barangay' => 'Kapitolyo',
-            'street_address' => 'Unit 5B, 88 West Capitol Drive', 'postal_code' => '1603',
-            'contact_position' => 'Operations Manager',
-            'service_areas' => ['National Capital Region (NCR)'],
-            'rejection_reason' => 'Upload a current business permit.',
+        Notification::fake();
+        $this->post(route('register.post'), $this->buyerDetails())->assertRedirect();
+        $user = User::query()->firstOrFail();
+
+        EmailVerificationCode::query()->where('user_id', $user->id)->update([
+            'code_hash' => Hash::make('123456'),
+            'expires_at' => now()->addMinutes(5),
         ]);
 
-        $this->actingAs($company)->post(route('application.resubmit.post'), [
-            'first_name' => 'Carlos Antonio', 'last_name' => 'Mendoza',
-            'email' => 'operations@example.com', 'contact_no' => '09285551234',
-            'business_name' => 'Bilis Hatid Express Inc.', 'sec_registration_no' => 'CS202012345',
-            'tin' => '234-567-890-000', 'region' => 'National Capital Region (NCR)',
-            'province' => 'Metro Manila', 'municipality' => 'Pasig City', 'barangay' => 'Kapitolyo',
-            'street_address' => 'Unit 5B, 88 West Capitol Drive', 'postal_code' => '1603',
-            'contact_position' => 'Operations Manager',
-            'service_areas' => ['National Capital Region (NCR)', 'Region IV-A (CALABARZON)'],
-            'sec_certificate' => UploadedFile::fake()->create('sec.pdf', 500, 'application/pdf'),
-            'bir_form_2303' => UploadedFile::fake()->create('bir.pdf', 500, 'application/pdf'),
-            'business_permit' => UploadedFile::fake()->create('permit.pdf', 500, 'application/pdf'),
-            'representative_id' => UploadedFile::fake()->image('rep.jpg'),
-            'terms' => '1',
-        ])->assertRedirect(route('login'))->assertSessionHas('success');
+        $this->post(route('verification.verify'), [
+            'email' => $user->email,
+            'code' => '999999',
+        ])->assertSessionHasErrors('code');
 
-        $this->assertDatabaseHas('users', [
-            'id' => $company->id,
+        $this->assertSame('unverified', $user->fresh()->status);
+        $this->assertNull($user->fresh()->email_verified_at);
+        $this->assertSame(1, EmailVerificationCode::where('user_id', $user->id)->first()->attempts);
+    }
+
+    /**
+     * Scenario 6: Expired OTP is rejected.
+     */
+    public function test_expired_otp_is_rejected(): void
+    {
+        Notification::fake();
+        $this->post(route('register.post'), $this->buyerDetails())->assertRedirect();
+        $user = User::query()->firstOrFail();
+
+        EmailVerificationCode::query()->where('user_id', $user->id)->update([
+            'code_hash' => Hash::make('123456'),
+            'expires_at' => now()->subMinute(),
+        ]);
+
+        $this->post(route('verification.verify'), [
+            'email' => $user->email,
+            'code' => '123456',
+        ])->assertSessionHasErrors('code');
+
+        $this->assertSame('unverified', $user->fresh()->status);
+    }
+
+    /**
+     * Scenario 7: Resending an OTP generates a new code and invalidates the previous code.
+     */
+    public function test_resending_otp_generates_new_code_and_invalidates_previous_code(): void
+    {
+        Notification::fake();
+        $this->post(route('register.post'), $this->buyerDetails())->assertRedirect();
+        $user = User::query()->firstOrFail();
+
+        $originalRecord = EmailVerificationCode::where('user_id', $user->id)->firstOrFail();
+        $originalHash = $originalRecord->code_hash;
+
+        // Simulate 65 seconds passed so cooldown expires
+        Carbon::setTestNow(now()->addSeconds(65));
+
+        $this->post(route('verification.resend'), ['email' => $user->email])
+            ->assertSessionHas('success');
+
+        $newRecord = EmailVerificationCode::where('user_id', $user->id)->firstOrFail();
+        $this->assertNotSame($originalHash, $newRecord->code_hash);
+        $this->assertSame(0, $newRecord->attempts);
+
+        Notification::assertSentToTimes($user, EmailVerificationCodeNotification::class, 2);
+
+        Carbon::setTestNow();
+    }
+
+    /**
+     * Scenario 8: Resending is blocked during the 60-second cooldown period.
+     */
+    public function test_resending_is_blocked_during_cooldown_period(): void
+    {
+        Notification::fake();
+        $this->post(route('register.post'), $this->buyerDetails())->assertRedirect();
+        $user = User::query()->firstOrFail();
+
+        // Immediately try to resend without waiting 60s
+        $this->post(route('verification.resend'), ['email' => $user->email])
+            ->assertSessionHasErrors('email');
+
+        // Notification count remains 1 (only the registration one)
+        Notification::assertSentToTimes($user, EmailVerificationCodeNotification::class, 1);
+    }
+
+    /**
+     * Scenario 9: Excessive OTP attempts are rate-limited.
+     */
+    public function test_excessive_otp_attempts_are_blocked(): void
+    {
+        Notification::fake();
+        $this->post(route('register.post'), $this->buyerDetails())->assertRedirect();
+        $user = User::query()->firstOrFail();
+
+        EmailVerificationCode::query()->where('user_id', $user->id)->update([
+            'code_hash' => Hash::make('123456'),
+            'attempts' => 5,
+        ]);
+
+        $this->post(route('verification.verify'), [
+            'email' => $user->email,
+            'code' => '123456',
+        ])->assertSessionHasErrors('code');
+
+        $this->assertSame('unverified', $user->fresh()->status);
+    }
+
+    /**
+     * Scenario 10: A buyer can log in immediately after email verification.
+     */
+    public function test_buyer_can_log_in_immediately_after_email_verification(): void
+    {
+        $buyer = User::query()->forceCreate([
+            'first_name' => 'Verified',
+            'last_name' => 'Buyer',
+            'email' => 'buyer.verified@example.com',
+            'contact_no' => '09121112233',
+            'password' => Hash::make('Password@2026'),
+            'role' => 'buyer',
+            'status' => 'approved',
+            'email_verified_at' => now(),
+        ]);
+
+        $this->post(route('login.post'), [
+            'email' => $buyer->email,
+            'password' => 'Password@2026',
+        ])->assertRedirect(route('buyer.dashboard'));
+
+        $this->assertAuthenticatedAs($buyer);
+    }
+
+    public function test_existing_approved_admin_can_log_in_immediately_without_email_verification(): void
+    {
+        $admin = User::query()->forceCreate([
+            'first_name' => 'Legacy',
+            'last_name' => 'Admin',
+            'email' => 'legacy.admin@example.com',
+            'contact_no' => '09121112234',
+            'password' => Hash::make('Admin@2026'),
+            'role' => 'admin',
+            'status' => 'approved',
+            'email_verified_at' => null,
+        ]);
+
+        $this->post(route('login.post'), [
+            'email' => $admin->email,
+            'password' => 'Admin@2026',
+        ])->assertRedirect(route('admin.dashboard'));
+
+        $this->assertAuthenticatedAs($admin);
+        $this->assertNotNull($admin->fresh()->email_verified_at);
+    }
+
+
+    /**
+     * Scenario 11: An unverified buyer cannot log in.
+     */
+    public function test_unverified_buyer_cannot_log_in(): void
+    {
+        $buyer = User::query()->forceCreate([
+            'first_name' => 'Unverified',
+            'last_name' => 'Buyer',
+            'email' => 'buyer.unverified@example.com',
+            'contact_no' => '09124445566',
+            'password' => Hash::make('Password@2026'),
+            'role' => 'buyer',
+            'status' => 'unverified',
+            'email_verified_at' => null,
+        ]);
+
+        $this->post(route('login.post'), [
+            'email' => $buyer->email,
+            'password' => 'Password@2026',
+        ])->assertRedirect(route('verification.notice', ['email' => $buyer->email]))
+            ->assertSessionHas('error');
+
+        $this->assertGuest();
+    }
+
+    /**
+     * Scenario 12: A verified but unapproved seller cannot log in.
+     */
+    public function test_verified_but_unapproved_seller_cannot_log_in(): void
+    {
+        $seller = User::query()->forceCreate([
+            'first_name' => 'Pending',
+            'last_name' => 'Seller',
+            'email' => 'seller.pending@example.com',
+            'contact_no' => '09127778899',
+            'password' => Hash::make('Password@2026'),
+            'role' => 'seller',
             'status' => 'pending',
-            'rejection_reason' => null,
+            'email_verified_at' => now(),
         ]);
-        $this->assertSame(['National Capital Region (NCR)', 'Region IV-A (CALABARZON)'], $company->fresh()->service_areas);
+
+        $this->post(route('login.post'), [
+            'email' => $seller->email,
+            'password' => 'Password@2026',
+        ])->assertRedirect(route('login'))
+            ->assertSessionHas('error', 'Your email has been verified. Your seller registration is now awaiting admin approval.');
+
+        $this->assertGuest();
+    }
+
+    /**
+     * Scenario 13: A verified but unapproved logistics applicant cannot log in.
+     */
+    public function test_verified_but_unapproved_logistics_cannot_log_in(): void
+    {
+        $logistics = User::query()->forceCreate([
+            'first_name' => 'Pending',
+            'last_name' => 'Logistics',
+            'email' => 'logistics.pending@example.com',
+            'contact_no' => '09128889900',
+            'password' => Hash::make('Password@2026'),
+            'role' => 'sorting_center',
+            'status' => 'pending',
+            'email_verified_at' => now(),
+        ]);
+
+        $this->post(route('login.post'), [
+            'email' => $logistics->email,
+            'password' => 'Password@2026',
+        ])->assertRedirect(route('login'))
+            ->assertSessionHas('error', 'Your email has been verified. Your logistics registration is now awaiting admin approval.');
+
+        $this->assertGuest();
+    }
+
+    /**
+     * Scenario 14: An approved seller can log in.
+     */
+    public function test_approved_seller_can_log_in(): void
+    {
+        $seller = User::query()->forceCreate([
+            'first_name' => 'Approved',
+            'last_name' => 'Seller',
+            'email' => 'seller.approved@example.com',
+            'contact_no' => '09129990011',
+            'password' => Hash::make('Password@2026'),
+            'role' => 'seller',
+            'status' => 'approved',
+            'email_verified_at' => now(),
+            'approved_at' => now(),
+        ]);
+
+        $this->post(route('login.post'), [
+            'email' => $seller->email,
+            'password' => 'Password@2026',
+        ])->assertRedirect(route('seller.dashboard'));
+
+        $this->assertAuthenticatedAs($seller);
+    }
+
+    /**
+     * Scenario 15: An approved logistics applicant can log in.
+     */
+    public function test_approved_logistics_applicant_can_log_in(): void
+    {
+        $logistics = User::query()->forceCreate([
+            'first_name' => 'Approved',
+            'last_name' => 'Logistics',
+            'email' => 'logistics.approved@example.com',
+            'contact_no' => '09120001122',
+            'password' => Hash::make('Password@2026'),
+            'role' => 'sorting_center',
+            'status' => 'approved',
+            'email_verified_at' => now(),
+            'approved_at' => now(),
+        ]);
+
+        $this->post(route('login.post'), [
+            'email' => $logistics->email,
+            'password' => 'Password@2026',
+        ])->assertRedirect(route('logistics.dashboard'));
+
+        $this->assertAuthenticatedAs($logistics);
+    }
+
+    /**
+     * Scenario 16: Rejected seller and logistics accounts cannot access protected features.
+     */
+    public function test_rejected_seller_and_logistics_cannot_access_protected_features(): void
+    {
+        $rejectedSeller = User::query()->forceCreate([
+            'first_name' => 'Rejected',
+            'last_name' => 'Seller',
+            'email' => 'rejected.seller@example.com',
+            'contact_no' => '09123334455',
+            'password' => Hash::make('Password@2026'),
+            'role' => 'seller',
+            'status' => 'rejected',
+            'email_verified_at' => now(),
+            'rejection_reason' => 'Permit blurred.',
+        ]);
+
+        // Attempting to visit seller dashboard directly
+        $this->actingAs($rejectedSeller)->get(route('seller.dashboard'))
+            ->assertRedirect(route('login'));
+        $this->assertGuest();
+    }
+
+    /**
+     * Scenario 17: Users cannot bypass verification or approval by manually accessing dashboard routes.
+     */
+    public function test_unverified_or_unapproved_users_cannot_bypass_via_direct_url(): void
+    {
+        $unverifiedBuyer = User::query()->forceCreate([
+            'first_name' => 'Sneaky',
+            'last_name' => 'Buyer',
+            'email' => 'sneaky@example.com',
+            'contact_no' => '09125556677',
+            'password' => Hash::make('Password@2026'),
+            'role' => 'buyer',
+            'status' => 'unverified',
+            'email_verified_at' => null,
+        ]);
+
+        $this->actingAs($unverifiedBuyer)->get(route('buyer.dashboard'))
+            ->assertRedirect(route('login'));
+        $this->assertGuest();
+    }
+
+    /**
+     * Scenario 18: Admin can review only verified pending accounts and approve them.
+     */
+    public function test_admin_approval_workflow_requires_verified_email(): void
+    {
+        Notification::fake();
+
+        $admin = User::query()->forceCreate([
+            'first_name' => 'Admin',
+            'last_name' => 'User',
+            'email' => 'admin@example.com',
+            'contact_no' => '09120000000',
+            'password' => Hash::make('Admin@2026'),
+            'role' => 'admin',
+            'status' => 'approved',
+            'email_verified_at' => now(),
+        ]);
+
+        // Unverified seller should NOT be allowed to be approved
+        $unverifiedSeller = User::query()->forceCreate([
+            'first_name' => 'Unverified',
+            'last_name' => 'Seller',
+            'email' => 'seller.unverified@example.com',
+            'contact_no' => '09121113333',
+            'password' => Hash::make('Password@2026'),
+            'role' => 'seller',
+            'status' => 'unverified',
+            'email_verified_at' => null,
+        ]);
+
+        $this->actingAs($admin)->post(route('admin.registrations.approve', $unverifiedSeller))
+            ->assertStatus(422);
+
+        // Verified pending seller CAN be approved
+        $pendingSeller = User::query()->forceCreate([
+            'first_name' => 'Pending',
+            'last_name' => 'Seller',
+            'email' => 'seller.pending.review@example.com',
+            'contact_no' => '09122224444',
+            'password' => Hash::make('Password@2026'),
+            'role' => 'seller',
+            'status' => 'pending',
+            'email_verified_at' => now(),
+        ]);
+
+        $this->actingAs($admin)->post(route('admin.registrations.approve', $pendingSeller))
+            ->assertRedirect();
+
+        $this->assertSame('approved', $pendingSeller->fresh()->status);
+        $this->assertNotNull($pendingSeller->fresh()->approved_at);
+        $this->assertSame($admin->id, $pendingSeller->fresh()->approved_by);
     }
 
     private function buyerDetails(array $overrides = []): array

@@ -18,13 +18,21 @@ class EnsureAccountActive
     {
         $user = $request->user();
 
-        if ($user !== null && $user->status !== 'approved') {
-            $user->forceFill(['remember_token' => null])->save();
-            Auth::logout();
-            $request->session()->invalidate();
-            $request->session()->regenerateToken();
+        if ($user !== null) {
+            $isUnverified = $user->status === 'unverified';
 
-            return redirect()->route('login')->with('error', 'Your account is no longer active. Please contact support.');
+            if ($user->status !== 'approved' || $isUnverified) {
+                $user->forceFill(['remember_token' => null])->save();
+                Auth::logout();
+                $request->session()->invalidate();
+                $request->session()->regenerateToken();
+
+                $message = $isUnverified
+                    ? 'Please verify your email address to access your account.'
+                    : 'Your account is no longer active. Please contact support.';
+
+                return redirect()->route('login')->with('error', $message);
+            }
         }
 
         return $next($request);
