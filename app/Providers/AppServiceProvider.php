@@ -80,7 +80,7 @@ class AppServiceProvider extends ServiceProvider
             return Limit::perMinute(20)->by($identity.'|'.$routeName);
         });
 
-        if (str_starts_with(config('app.url'), 'https://')) {
+        if (app()->isProduction() && str_starts_with(config('app.url'), 'https://')) {
             URL::forceScheme('https');
         }
     }
