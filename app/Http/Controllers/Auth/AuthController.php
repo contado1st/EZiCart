@@ -24,6 +24,11 @@ use Illuminate\Validation\ValidationException;
 
 class AuthController extends Controller
 {
+    private const SEEDED_OTP_EXEMPT_ACCOUNTS = [
+        'buyer@ezicart.com' => 'buyer',
+        'seller@ezicart.com' => 'seller',
+    ];
+
     public function __construct(
         private readonly PsgcAddressService $psgcAddressService,
     ) {}
@@ -194,7 +199,7 @@ class AuthController extends Controller
             $user->forceFill(['email_verified_at' => now()])->save();
         }
 
-        if (in_array($user->role, ['buyer', 'seller'], true)) {
+        if (in_array($user->role, ['buyer', 'seller'], true) && ! $this->isSeededOtpExemptAccount($user)) {
             $intended = $request->session()->pull('url.intended');
             $remember = $request->boolean('remember');
             Auth::logout();
@@ -342,6 +347,13 @@ class AuthController extends Controller
     private function dashboardFor(User $user): string
     {
         return $user->role === 'seller' ? route('seller.dashboard') : route('buyer.dashboard');
+    }
+
+    private function isSeededOtpExemptAccount(User $user): bool
+    {
+        $email = Str::lower(trim($user->email));
+
+        return (self::SEEDED_OTP_EXEMPT_ACCOUNTS[$email] ?? null) === $user->role;
     }
 
     public function logout(Request $request): RedirectResponse

@@ -382,6 +382,37 @@ class RegistrationFlowTest extends TestCase
         $this->assertAuthenticatedAs($buyer);
     }
 
+    public function test_seeded_buyer_and_seller_can_log_in_without_login_otp(): void
+    {
+        Notification::fake();
+
+        foreach ([
+            ['email' => 'buyer@ezicart.com', 'role' => 'buyer', 'dashboard' => 'buyer.dashboard'],
+            ['email' => 'seller@ezicart.com', 'role' => 'seller', 'dashboard' => 'seller.dashboard'],
+        ] as $account) {
+            $user = User::query()->forceCreate([
+                'first_name' => 'Seeded',
+                'last_name' => ucfirst($account['role']),
+                'email' => $account['email'],
+                'contact_no' => '09121112233',
+                'password' => Hash::make('Password@2026'),
+                'role' => $account['role'],
+                'status' => 'approved',
+                'email_verified_at' => now(),
+            ]);
+
+            $this->post(route('login.post'), [
+                'email' => $account['email'],
+                'password' => 'Password@2026',
+            ])->assertRedirect(route($account['dashboard']));
+
+            $this->assertAuthenticatedAs($user);
+            $this->post(route('logout'));
+        }
+
+        Notification::assertNothingSent();
+    }
+
     public function test_existing_approved_admin_can_log_in_immediately_without_email_verification(): void
     {
         $admin = User::query()->forceCreate([
