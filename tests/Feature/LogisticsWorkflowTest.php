@@ -14,6 +14,7 @@ use App\Models\ParcelTrackingEvent;
 use App\Models\Product;
 use App\Models\User;
 use App\Notifications\AccountStatusNotification;
+use App\Notifications\EmailVerificationCodeNotification;
 use App\Notifications\OrderMessageNotification;
 use App\Notifications\OrderStatusNotification;
 use App\Notifications\OrderWorkflowNotification;
@@ -994,6 +995,7 @@ class LogisticsWorkflowTest extends TestCase
 
     public function test_professor_order_flow_completes_from_seller_acceptance_through_buyer_confirmation(): void
     {
+        Notification::fake();
         Storage::fake('private');
         $this->post(route('register.post'), [
             'first_name' => 'Professor', 'last_name' => 'Flow',
@@ -1011,6 +1013,14 @@ class LogisticsWorkflowTest extends TestCase
         $this->post(route('verification.verify'), ['email' => $buyer->email, 'code' => '482916'])->assertRedirect(route('login'));
         $buyer->refresh();
         $this->post(route('login.post'), ['email' => $buyer->email, 'password' => 'Buyer-Pass@2026'])
+            ->assertRedirect(route('login.otp.notice'));
+        $code = null;
+        Notification::assertSentTo($buyer, EmailVerificationCodeNotification::class, function ($notification) use (&$code) {
+            $code = $notification->code;
+
+            return true;
+        });
+        $this->post(route('login.otp.verify'), ['code' => $code])
             ->assertRedirect(route('buyer.dashboard'));
         $admin = $this->user('admin', 'approved');
 
@@ -2102,12 +2112,21 @@ class LogisticsWorkflowTest extends TestCase
 
     public function test_remembered_session_is_invalidated_after_the_account_is_suspended(): void
     {
+        Notification::fake();
         $buyer = $this->user('buyer', 'approved');
         $this->post(route('login.post'), [
             'email' => $buyer->email,
             'password' => 'password',
             'remember' => true,
-        ])->assertRedirect(route('buyer.dashboard'));
+        ])->assertRedirect(route('login.otp.notice'));
+        $code = null;
+        Notification::assertSentTo($buyer, EmailVerificationCodeNotification::class, function ($notification) use (&$code) {
+            $code = $notification->code;
+
+            return true;
+        });
+        $this->post(route('login.otp.verify'), ['code' => $code])
+            ->assertRedirect(route('buyer.dashboard'));
         $this->assertAuthenticatedAs($buyer);
         $this->assertNotNull($buyer->fresh()->remember_token);
 

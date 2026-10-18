@@ -194,6 +194,37 @@ class AuthController extends Controller
             $user->forceFill(['email_verified_at' => now()])->save();
         }
 
+        if (in_array($user->role, ['buyer', 'seller'], true)) {
+            $intended = $request->session()->pull('url.intended');
+            $remember = $request->boolean('remember');
+            Auth::logout();
+            $request->session()->invalidate();
+            $request->session()->regenerateToken();
+
+            try {
+                $code = (string) random_int(100000, 999999);
+                $user->notify(new EmailVerificationCodeNotification($code));
+            } catch (\Throwable $exception) {
+                report($exception);
+
+                return redirect()->route('login')->with('error', 'We could not send a sign-in code. Check your email delivery settings and try again.');
+            }
+
+            $request->session()->put('login_otp', [
+                'user_id' => $user->id,
+                'email' => Str::lower(trim($user->email)),
+                'code_hash' => Hash::make($code),
+                'expires_at' => now()->addMinutes(5)->timestamp,
+                'attempts' => 0,
+                'sent_at' => now()->timestamp,
+                'remember' => $remember,
+                'intended' => is_string($intended) ? $intended : null,
+            ]);
+
+            return redirect()->route('login.otp.notice')
+                ->with('success', 'A sign-in code has been sent to your email address.');
+        }
+
         // 6. Approved Accounts
         $request->session()->regenerate();
 
@@ -204,6 +235,113 @@ class AuthController extends Controller
             'sorting_center' => redirect()->intended(route('logistics.dashboard')),
             default => redirect()->intended(route('buyer.dashboard')),
         };
+    }
+
+    public function showLoginOtp(): RedirectResponse|\Illuminate\Contracts\View\View
+    {
+        $challenge = session('login_otp');
+        if (! is_array($challenge) || empty($challenge['user_id']) || empty($challenge['email'])) {
+            return redirect()->route('login')->with('error', 'Sign in first to request a verification code.');
+        }
+
+        if (($challenge['expires_at'] ?? 0) < now()->timestamp) {
+            session()->forget('login_otp');
+
+            return redirect()->route('login')->with('error', 'Your sign-in code expired. Please sign in again.');
+        }
+
+        $cooldownSeconds = max(0, 60 - (now()->timestamp - (int) ($challenge['sent_at'] ?? 0)));
+
+        return view('auth.verify-email', [
+            'email' => $challenge['email'],
+            'cooldownSeconds' => $cooldownSeconds,
+            'verificationMode' => 'login',
+        ]);
+    }
+
+    public function verifyLoginOtp(Request $request): RedirectResponse
+    {
+        $validated = $request->validate(['code' => ['required', 'digits:6']]);
+        $challenge = $request->session()->get('login_otp');
+        if (! is_array($challenge) || empty($challenge['user_id'])) {
+            return redirect()->route('login')->with('error', 'Sign in first to request a verification code.');
+        }
+
+        if (($challenge['expires_at'] ?? 0) < now()->timestamp) {
+            $request->session()->forget('login_otp');
+
+            return redirect()->route('login')->with('error', 'Your sign-in code expired. Please sign in again.');
+        }
+
+        if (($challenge['attempts'] ?? 0) >= 5) {
+            $request->session()->forget('login_otp');
+
+            return redirect()->route('login')->with('error', 'Too many incorrect codes. Please sign in again to request a new code.');
+        }
+
+        if (! Hash::check($validated['code'], $challenge['code_hash'] ?? '')) {
+            $challenge['attempts'] = (int) ($challenge['attempts'] ?? 0) + 1;
+            $request->session()->put('login_otp', $challenge);
+
+            return back()->withErrors(['code' => 'That sign-in code is incorrect. Please try again.']);
+        }
+
+        $user = User::query()->find($challenge['user_id']);
+        if (! $user || ! in_array($user->role, ['buyer', 'seller'], true) || $user->status !== 'approved') {
+            $request->session()->forget('login_otp');
+
+            return redirect()->route('login')->with('error', 'This account is not eligible to sign in.');
+        }
+
+        $remember = (bool) ($challenge['remember'] ?? false);
+        $intended = $challenge['intended'] ?? null;
+        $request->session()->forget('login_otp');
+        Auth::login($user, $remember);
+        $request->session()->regenerate();
+
+        return redirect()->intended(is_string($intended) ? $intended : $this->dashboardFor($user));
+    }
+
+    public function resendLoginOtp(Request $request): RedirectResponse
+    {
+        $challenge = $request->session()->get('login_otp');
+        if (! is_array($challenge) || empty($challenge['user_id'])) {
+            return redirect()->route('login')->with('error', 'Sign in first to request a verification code.');
+        }
+
+        $elapsed = now()->timestamp - (int) ($challenge['sent_at'] ?? 0);
+        if ($elapsed < 60) {
+            return back()->withErrors(['code' => 'Please wait '.(60 - $elapsed).' seconds before requesting another code.']);
+        }
+
+        $user = User::query()->find($challenge['user_id']);
+        if (! $user || ! in_array($user->role, ['buyer', 'seller'], true) || $user->status !== 'approved') {
+            $request->session()->forget('login_otp');
+
+            return redirect()->route('login')->with('error', 'This account is not eligible to sign in.');
+        }
+
+        try {
+            $code = (string) random_int(100000, 999999);
+            $user->notify(new EmailVerificationCodeNotification($code));
+        } catch (\Throwable $exception) {
+            report($exception);
+
+            return back()->withErrors(['code' => 'We could not send a new code. Please try again later.']);
+        }
+
+        $challenge['code_hash'] = Hash::make($code);
+        $challenge['expires_at'] = now()->addMinutes(5)->timestamp;
+        $challenge['attempts'] = 0;
+        $challenge['sent_at'] = now()->timestamp;
+        $request->session()->put('login_otp', $challenge);
+
+        return back()->with('success', 'A new sign-in code has been sent to your email address.');
+    }
+
+    private function dashboardFor(User $user): string
+    {
+        return $user->role === 'seller' ? route('seller.dashboard') : route('buyer.dashboard');
     }
 
     public function logout(Request $request): RedirectResponse

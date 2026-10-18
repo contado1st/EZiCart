@@ -37,6 +37,9 @@ Route::get('/psgc-addresses', PsgcAddressController::class)->middleware('throttl
 Route::middleware('guest')->group(function () {
     Route::get('/login', [AuthController::class, 'showLoginForm'])->name('login');
     Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:auth-login')->name('login.post');
+    Route::get('/login/verify', [AuthController::class, 'showLoginOtp'])->name('login.otp.notice');
+    Route::post('/login/verify', [AuthController::class, 'verifyLoginOtp'])->middleware('throttle:email-verification')->name('login.otp.verify');
+    Route::post('/login/verify/resend', [AuthController::class, 'resendLoginOtp'])->middleware('throttle:email-verification-resend')->name('login.otp.resend');
     Route::get('/forgot-password', [AuthController::class, 'showForgotPasswordForm'])->name('password.request');
     Route::post('/forgot-password', [AuthController::class, 'sendPasswordResetLink'])->middleware('throttle:password-reset-link')->name('password.email');
     Route::get('/reset-password/{token}', [AuthController::class, 'showResetPasswordForm'])->name('password.reset');
