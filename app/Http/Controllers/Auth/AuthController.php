@@ -113,8 +113,60 @@ class AuthController extends Controller
         }
 
         $user = $request->user();
-        if ($user->status !== 'approved') {
-            if ($user->status === 'rejected' && in_array($user->role, ['seller', 'sorting_center'], true)) {
+
+        // 1. Admin accounts bypass OTP verification
+        if ($user->role === 'admin') {
+            if ($user->status !== 'approved') {
+                Auth::logout();
+                $request->session()->invalidate();
+                $request->session()->regenerateToken();
+
+                return redirect()->route('login')->with('error', $this->accountStateMessage($user));
+            }
+
+            if ($user->email_verified_at === null) {
+                $user->forceFill(['email_verified_at' => now()])->save();
+            }
+
+            $request->session()->regenerate();
+
+            return redirect()->intended(route('admin.dashboard'));
+        }
+
+        // 2. Email Verification Enforcement (unverified accounts must verify their email)
+        if ($user->status === 'unverified') {
+            Auth::logout();
+            $request->session()->invalidate();
+            $request->session()->regenerateToken();
+
+            $request->session()->put([
+                'verification_user_id' => $user->id,
+                'verification_email' => Str::lower(trim($user->email)),
+            ]);
+
+            return redirect()->route('verification.notice', ['email' => $user->email])
+                ->with('error', 'Your email address is not verified. Please enter the verification code sent to your email, or request a new code.');
+        }
+
+        // 3. Administrator Approval Enforcement (Sellers and Logistics require admin approval after verification)
+        if ($user->status === 'pending') {
+            Auth::logout();
+            $request->session()->invalidate();
+            $request->session()->regenerateToken();
+
+            $roleLabel = match ($user->role) {
+                'seller' => 'seller registration',
+                'sorting_center' => 'logistics registration',
+                default => 'application',
+            };
+
+            return redirect()->route('login')
+                ->with('error', "Your email has been verified. Your {$roleLabel} is now awaiting admin approval.");
+        }
+
+        // 4. Rejected Status (Allow resubmission for seller and logistics applicants)
+        if ($user->status === 'rejected') {
+            if (in_array($user->role, ['seller', 'sorting_center'], true)) {
                 $request->session()->regenerate();
 
                 return redirect()->route('application.resubmit')
@@ -125,19 +177,24 @@ class AuthController extends Controller
             $request->session()->invalidate();
             $request->session()->regenerateToken();
 
-            if ($user->status === 'unverified') {
-                $request->session()->put([
-                    'verification_user_id' => $user->id,
-                    'verification_email' => Str::lower(trim($user->email)),
-                ]);
-
-                return redirect()->route('verification.notice', ['email' => $user->email])
-                    ->with('error', $this->accountStateMessage($user));
-            }
-
-            return back()->with('error', $this->accountStateMessage($user));
+            return redirect()->route('login')->with('error', $this->accountStateMessage($user));
         }
 
+        // 5. Any other non-approved status (e.g. suspended)
+        if ($user->status !== 'approved') {
+            Auth::logout();
+            $request->session()->invalidate();
+            $request->session()->regenerateToken();
+
+            return redirect()->route('login')->with('error', $this->accountStateMessage($user));
+        }
+
+        // For approved accounts, ensure email_verified_at is set
+        if ($user->email_verified_at === null) {
+            $user->forceFill(['email_verified_at' => now()])->save();
+        }
+
+        // 6. Approved Accounts
         $request->session()->regenerate();
 
         return match ($user->role) {
@@ -166,7 +223,7 @@ class AuthController extends Controller
     public function register(Request $request): RedirectResponse
     {
         $this->normalizeIdentity($request);
-        $validated = $request->validate($this->identityRules() + $this->psgcAddressRules() + [
+        $validated = $request->validate($this->identityRules() + $this->psgcAddressRules(false, false) + [
             'birthday' => ['required', 'date', 'before_or_equal:today', 'before:-18 years'],
             'password' => ['required', 'string', PasswordRule::min(8)->mixedCase()->numbers()->symbols(), 'confirmed'],
             'terms' => ['accepted'],
@@ -190,7 +247,7 @@ class AuthController extends Controller
     public function sellerRegister(Request $request): RedirectResponse
     {
         $this->normalizeIdentity($request);
-        $validated = $request->validate($this->identityRules() + $this->psgcAddressRules(true) + [
+        $validated = $request->validate($this->identityRules() + $this->psgcAddressRules(true, true) + [
             'shop_name' => ['required', 'string', 'min:3', 'max:30', 'unique:users,shop_name'],
             'line_of_business' => ['required', 'string', 'max:100'],
             'seller_type' => ['required', 'in:Individual,Sole Proprietorship,Corporation'],
@@ -238,7 +295,7 @@ class AuthController extends Controller
             'canonical_company_name' => Str::lower(trim((string) $request->input('business_name'))),
             'sec_registration_no' => Str::upper(trim((string) $request->input('sec_registration_no'))),
         ]);
-        $validated = $request->validate($this->identityRules() + $this->psgcAddressRules(true) + [
+        $validated = $request->validate($this->identityRules() + $this->psgcAddressRules(true, true) + [
             'business_name' => ['required', 'string', 'min:3', 'max:150'],
             'canonical_company_name' => ['required', 'string', 'max:150', Rule::unique('users', 'canonical_company_name')],
             'sec_registration_no' => ['required', 'regex:/^[A-Za-z]{2}\d{9}$/', 'unique:users,sec_registration_no'],
@@ -316,7 +373,7 @@ class AuthController extends Controller
         }
 
         if ($applicant->role === 'seller') {
-            $validated = $request->validate($commonRules + $this->psgcAddressRules(true) + [
+            $validated = $request->validate($commonRules + $this->psgcAddressRules(true, true) + [
                 'shop_name' => ['required', 'string', 'min:3', 'max:30', Rule::unique('users', 'shop_name')->ignore($applicant->id)],
                 'line_of_business' => ['required', 'string', 'max:100'],
                 'seller_type' => ['required', 'in:Individual,Sole Proprietorship,Corporation'],
@@ -347,7 +404,7 @@ class AuthController extends Controller
                 'postal_code' => $validated['postal_code'] ?? null,
             ];
         } else {
-            $validated = $request->validate($commonRules + $this->psgcAddressRules(true) + [
+            $validated = $request->validate($commonRules + $this->psgcAddressRules(true, true) + [
                 'business_name' => ['required', 'string', 'min:3', 'max:150'],
                 'canonical_company_name' => ['required', 'string', 'max:150', Rule::unique('users', 'canonical_company_name')->ignore($applicant->id)],
                 'sec_registration_no' => ['required', 'regex:/^[A-Za-z]{2}\d{9}$/', Rule::unique('users', 'sec_registration_no')->ignore($applicant->id)],
@@ -426,48 +483,29 @@ class AuthController extends Controller
 
     public function showEmailVerification(Request $request)
     {
-        $email = $request->session()->get('verification_email', $request->query('email'));
+        $sessionEmail = $request->session()->get('verification_email');
+        $queryEmail = $request->query('email');
+        $email = Str::lower(trim((string) ($sessionEmail ?: $queryEmail)));
+
+        $user = null;
+        $cooldownSeconds = 0;
+
+        if ($email !== '') {
+            $user = User::query()->whereRaw('LOWER(TRIM(email)) = ?', [$email])->where('status', 'unverified')->first();
+            if ($user) {
+                $record = EmailVerificationCode::query()->where('user_id', $user->id)->first();
+                if ($record && $record->last_sent_at) {
+                    $cooldownEnd = $record->last_sent_at->copy()->addSeconds(60);
+                    $cooldownSeconds = now()->lt($cooldownEnd) ? (int) ceil(now()->diffInSeconds($cooldownEnd)) : 0;
+                }
+            }
+        }
 
         return view('auth.verify-email', [
             'email' => $email,
-            'canSkip' => $request->session()->has('verification_user_id') && filled($email),
+            'user' => $user,
+            'cooldownSeconds' => $cooldownSeconds,
         ]);
-    }
-
-    public function skipEmailVerification(Request $request): RedirectResponse
-    {
-        $userId = $request->session()->get('verification_user_id');
-        $email = $request->session()->get('verification_email');
-
-        if (! $userId || ! $email) {
-            return redirect()->route('register')->with('error', 'Start registration again to continue without email verification.');
-        }
-
-        $user = DB::transaction(function () use ($userId, $email): ?User {
-            $user = User::query()->whereKey($userId)->lockForUpdate()->first();
-
-            if (! $user || $user->status !== 'unverified' || Str::lower(trim($user->email)) !== $email) {
-                return null;
-            }
-
-            $user->forceFill([
-                'status' => $user->role === 'buyer' ? 'approved' : 'pending',
-            ])->save();
-
-            EmailVerificationCode::query()->where('user_id', $user->id)->delete();
-
-            return $user;
-        });
-
-        $request->session()->forget(['verification_user_id', 'verification_email']);
-
-        if (! $user) {
-            return redirect()->route('login')->with('error', 'This registration can no longer be continued. Please sign in or register again.');
-        }
-
-        return redirect()->route('login')->with('success', $user->role === 'buyer'
-            ? 'Email verification was skipped. Your account is ready to sign in.'
-            : 'Email verification was skipped. Your application is waiting for admin review.');
     }
 
     public function verifyEmail(Request $request): RedirectResponse
@@ -480,16 +518,22 @@ class AuthController extends Controller
 
         $user = User::query()->whereRaw('LOWER(TRIM(email)) = ?', [$validated['email']])->first();
         if (! $user || $user->status !== 'unverified') {
-            throw ValidationException::withMessages(['code' => 'This verification request is no longer active. Request a new code or sign in.']);
+            throw ValidationException::withMessages([
+                'code' => 'This verification request is no longer active or the account has already been verified.',
+            ]);
         }
 
         $verified = DB::transaction(function () use ($user, $validated): bool {
             $record = EmailVerificationCode::query()->where('user_id', $user->id)->lockForUpdate()->first();
             if (! $record || $record->expires_at->isPast()) {
-                throw ValidationException::withMessages(['code' => 'This code has expired. Request a new one to continue.']);
+                throw ValidationException::withMessages([
+                    'code' => 'This verification code has expired. Please request a new code.',
+                ]);
             }
-            if ($record->attempts >= 6) {
-                throw ValidationException::withMessages(['code' => 'Too many attempts. Request a new code to continue.']);
+            if ($record->attempts >= 5) {
+                throw ValidationException::withMessages([
+                    'code' => 'Too many incorrect attempts. Please request a new verification code.',
+                ]);
             }
             if (! Hash::check($validated['code'], $record->code_hash)) {
                 $record->increment('attempts');
@@ -497,50 +541,81 @@ class AuthController extends Controller
                 return false;
             }
 
+            // Buyer accounts are activated immediately upon email verification.
+            // Seller and Logistics accounts transition to 'pending' awaiting administrator approval.
+            $nextStatus = $user->role === 'buyer' ? 'approved' : 'pending';
+
             $user->forceFill([
-                'status' => $user->role === 'buyer' ? 'approved' : 'pending',
+                'status' => $nextStatus,
                 'email_verified_at' => now(),
             ])->save();
+
+            // OTP invalidated immediately after successful verification
             $record->delete();
 
             return true;
         });
 
         if (! $verified) {
-            throw ValidationException::withMessages(['code' => 'That code does not match. Check your email and try again.']);
+            throw ValidationException::withMessages([
+                'code' => 'The verification code you entered is incorrect. Check your email and try again.',
+            ]);
         }
 
         $request->session()->forget(['verification_user_id', 'verification_email']);
 
-        return redirect()->route('login')->with('success', $user->role === 'buyer'
-            ? 'Your account is verified. You can now sign in.'
-            : 'Your account is verified. Your application is now waiting for admin review.');
+        if ($user->role === 'buyer') {
+            return redirect()->route('login')->with('success', 'Your email has been verified successfully. You can now sign in.');
+        }
+
+        if ($user->role === 'seller') {
+            return redirect()->route('login')->with('success', 'Your email has been verified. Your seller registration is now awaiting admin approval.');
+        }
+
+        return redirect()->route('login')->with('success', 'Your email has been verified. Your logistics registration is now awaiting admin approval.');
     }
 
     public function resendVerificationCode(Request $request): RedirectResponse
     {
+        $request->merge(['email' => Str::lower(trim((string) $request->input('email')))]);
         $validated = $request->validate([
             'email' => ['required', 'email', 'max:255'],
         ]);
-        $email = Str::lower(trim($validated['email']));
+        $email = $validated['email'];
         $user = User::query()->whereRaw('LOWER(TRIM(email)) = ?', [$email])->where('status', 'unverified')->first();
 
         if ($user) {
             $record = EmailVerificationCode::query()->firstOrNew(['user_id' => $user->id]);
-            if ($record->exists && $record->last_sent_at?->gt(now()->subSeconds(60))) {
-                return back()->withErrors(['email' => 'Wait one minute before requesting another code.'])->withInput(['email' => $email]);
+
+            // Enforce 60-second cooldown
+            if ($record->exists && $record->last_sent_at) {
+                $cooldownEnd = $record->last_sent_at->copy()->addSeconds(60);
+                if (now()->lt($cooldownEnd)) {
+                    $remaining = (int) ceil(now()->diffInSeconds($cooldownEnd));
+
+                    return back()->withErrors(['email' => "Please wait {$remaining} seconds before requesting another code."])
+                        ->withInput(['email' => $email]);
+                }
             }
+
             try {
                 $this->issueVerificationCode($user, $record);
             } catch (\Throwable $exception) {
                 report($exception);
 
-                return back()->withErrors(['email' => 'We could not send a code to this email address. Check email delivery settings and try again.'])
+                return back()->withErrors(['email' => 'We could not deliver a verification code to this email. Please check delivery settings and try again.'])
                     ->withInput(['email' => $email]);
             }
+
+            $request->session()->put([
+                'verification_user_id' => $user->id,
+                'verification_email' => $user->email,
+            ]);
+
+            return back()->with('success', 'A new 6-digit verification code has been sent to your email address.');
         }
 
-        return back()->with('status', 'If an unverified EZiCart account matches, a new code has been sent by email.');
+        return back()->with('status', 'If an unverified EZiCart account matches that email address, a new code has been sent.');
     }
 
     private function identityRules(?User $account = null): array
@@ -565,15 +640,38 @@ class AuthController extends Controller
         ];
     }
 
-    private function psgcAddressRules(bool $postalRequired = false): array
+    private function psgcAddressRules(bool $postalRequired = false, bool $addressRequired = true): array
     {
-        return array_replace($this->psgcAddressService->validationRules(), [
+        $rules = $this->psgcAddressService->validationRules();
+
+        if (! $addressRequired) {
+            $rules['address_mode'] = ['nullable', Rule::in(['psgc', 'manual'])];
+            $rules['region_code'] = ['required_if:address_mode,psgc', 'nullable', 'regex:/^\d{10}$/'];
+            $rules['province_code'] = ['required_if:address_mode,psgc', 'nullable', 'regex:/^(?:\d{10}|NCR)$/'];
+            $rules['municipality_code'] = ['required_if:address_mode,psgc', 'nullable', 'regex:/^\d{10}$/'];
+            $rules['barangay_code'] = ['required_if:address_mode,psgc', 'nullable', 'regex:/^\d{10}$/'];
+            $rules['manual_region'] = ['required_if:address_mode,manual', 'nullable', 'string', 'max:120'];
+            $rules['manual_province'] = ['required_if:address_mode,manual', 'nullable', 'string', 'max:120'];
+            $rules['manual_municipality'] = ['required_if:address_mode,manual', 'nullable', 'string', 'max:120'];
+            $rules['manual_barangay'] = ['required_if:address_mode,manual', 'nullable', 'string', 'max:120'];
+        }
+
+        return array_replace($rules, [
             'postal_code' => $postalRequired ? ['required', 'digits:4'] : ['nullable', 'digits:4'],
         ]);
     }
 
     private function resolveAddress(array $validated): array
     {
+        if (empty($validated['address_mode'])) {
+            return [
+                'region' => $validated['region'] ?? null,
+                'province' => $validated['province'] ?? null,
+                'municipality' => $validated['municipality'] ?? null,
+                'barangay' => $validated['barangay'] ?? null,
+            ];
+        }
+
         return $this->psgcAddressService->resolve($validated);
     }
 
@@ -669,6 +767,9 @@ class AuthController extends Controller
 
     private function beginVerification(User $user): RedirectResponse
     {
+        $record = EmailVerificationCode::query()->firstOrNew(['user_id' => $user->id]);
+        $this->issueVerificationCode($user, $record);
+
         session([
             'verification_user_id' => $user->id,
             'verification_email' => Str::lower(trim($user->email)),
@@ -676,7 +777,7 @@ class AuthController extends Controller
 
         return redirect()->route('verification.notice', ['email' => $user->email])
             ->with('verification_email', $user->email)
-            ->with('success', 'Your account has been created. Email verification is paused; you can continue without a code.');
+            ->with('success', 'A 6-digit verification code has been sent to your email address.');
     }
 
     private function issueVerificationCode(User $user, EmailVerificationCode $record): void
@@ -689,13 +790,14 @@ class AuthController extends Controller
             'expires_at' => now()->addMinutes(5),
             'attempts' => 0,
             'last_sent_at' => now(),
+            'channel' => 'email',
         ])->save();
     }
 
     private function accountStateMessage(User $user): string
     {
         return match ($user->status) {
-            'unverified' => 'Verify your account before signing in. Request a new code from the verification page.',
+            'unverified' => 'Verify your email address before signing in.',
             'pending', 'pending_approval' => 'Your application is under review. EZiCart will notify you after the decision.',
             'pending_activation' => 'Activate your rider account using the latest link sent to your email before signing in.',
             'rejected' => 'Your application was not approved. '.($user->rejection_reason ?: 'Contact support for next steps.'),
