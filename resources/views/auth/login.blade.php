@@ -41,7 +41,7 @@
                     @csrf
                     <div class="auth-field">
                         <label for="email">Email address</label>
-                        <input id="email" type="email" name="email" value="{{ old('email') }}" autocomplete="email" required autofocus>
+                        <input id="email" type="email" name="email" value="{{ old('email') }}" autocomplete="email" autocapitalize="none" spellcheck="false" pattern="[A-Za-z0-9]+(\.[A-Za-z0-9]+)*@[A-Za-z0-9]+(\.[A-Za-z0-9]+)+" title="Use letters and numbers, with @ and dots in the email address." data-email-character-limit required autofocus>
                         @error('email')<span class="auth-field-error">{{ $message }}</span>@enderror
                     </div>
                     <div class="auth-field">

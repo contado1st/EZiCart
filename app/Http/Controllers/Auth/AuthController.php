@@ -103,7 +103,7 @@ class AuthController extends Controller
     {
         $request->merge(['email' => Str::lower(trim((string) $request->input('email')))]);
         $credentials = $request->validate([
-            'email' => ['required', 'email', 'max:255'],
+            'email' => $this->emailRules(),
             'password' => ['required', 'string'],
         ]);
 
@@ -550,8 +550,18 @@ class AuthController extends Controller
             'middle_name' => ['nullable', 'string', 'min:1', 'max:50', 'regex:/\A[\p{L}\p{M}]+(?:[ ]+[\p{L}\p{M}]+)*\z/u'],
             'last_name' => ['required', 'string', 'min:2', 'max:50', 'regex:/\A[\p{L}\p{M}]+(?:[ ]+[\p{L}\p{M}]+)*\z/u'],
             'suffix' => ['nullable', 'string', 'max:20', 'regex:/\A[\p{L}\p{M}\p{N} .-]*\z/u'],
-            'email' => ['required', 'email', 'max:255', Rule::unique('users', 'email')->ignore($account?->id), Rule::unique('users', 'canonical_email')->ignore($account?->id)],
+            'email' => [...$this->emailRules(), Rule::unique('users', 'email')->ignore($account?->id), Rule::unique('users', 'canonical_email')->ignore($account?->id)],
             'contact_no' => ['required', 'string', 'regex:/^09\d{9}$/', Rule::unique('users', 'canonical_mobile')->ignore($account?->id)],
+        ];
+    }
+
+    private function emailRules(): array
+    {
+        return [
+            'required',
+            'email',
+            'max:255',
+            'regex:/\A[A-Za-z0-9]+(?:\.[A-Za-z0-9]+)*@[A-Za-z0-9]+(?:\.[A-Za-z0-9]+)+\z/',
         ];
     }
 
