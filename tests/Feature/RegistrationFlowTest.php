@@ -387,9 +387,13 @@ class RegistrationFlowTest extends TestCase
         Notification::fake();
 
         foreach ([
-            ['email' => 'buyer@ezicart.com', 'role' => 'buyer', 'dashboard' => 'buyer.dashboard'],
-            ['email' => 'seller@ezicart.com', 'role' => 'seller', 'dashboard' => 'seller.dashboard'],
+            ['email' => 'buyer@ezicart.com', 'role' => 'buyer'],
+            ['email' => 'seller@ezicart.com', 'role' => 'seller'],
         ] as $account) {
+            $dashboardUrl = $account['role'] === 'seller'
+                ? route('seller.dashboard')
+                : route('buyer.dashboard');
+
             $user = User::query()->forceCreate([
                 'first_name' => 'Seeded',
                 'last_name' => ucfirst($account['role']),
@@ -404,7 +408,7 @@ class RegistrationFlowTest extends TestCase
             $this->post(route('login.post'), [
                 'email' => $account['email'],
                 'password' => 'Password@2026',
-            ])->assertRedirect(route($account['dashboard']));
+            ])->assertRedirect($dashboardUrl);
 
             $this->assertAuthenticatedAs($user);
             $this->post(route('logout'));
