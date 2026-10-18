@@ -149,7 +149,7 @@
                                 @if ($order->seller?->contact_no)
                                     <div>
                                         <a href="tel:{{ $order->seller->contact_no }}" class="courier-tel-link">
-                                            📞 {{ $order->seller->contact_no }}
+                                            <x-shop-icon name="phone" /> {{ $order->seller->contact_no }}
                                         </a>
                                     </div>
                                 @endif
@@ -210,7 +210,7 @@
                                 @if ($order->seller?->contact_no)
                                     <div>
                                         <a href="tel:{{ $order->seller->contact_no }}" class="courier-tel-link">
-                                            📞 {{ $order->seller->contact_no }}
+                                            <x-shop-icon name="phone" /> {{ $order->seller->contact_no }}
                                         </a>
                                     </div>
                                 @endif
@@ -307,7 +307,7 @@
                                 @if ($order->seller?->contact_no)
                                     <div>
                                         <a href="tel:{{ $order->seller->contact_no }}" class="courier-tel-link">
-                                            📞 {{ $order->seller->contact_no }}
+                                            <x-shop-icon name="phone" /> {{ $order->seller->contact_no }}
                                         </a>
                                     </div>
                                 @endif
@@ -360,7 +360,7 @@
                         <div class="ops-muted">Recipient: {{ $order->recipient_name }} · {{ $order->delivery_area ?? $order->municipality }}</div>
                     </div>
                     <span class="courier-failed-reason-tag">
-                        ⚠️ {{ str_replace('_', ' ', ucfirst($order->delivery_failure_reason)) }}
+                        <x-shop-icon name="warning" /> {{ str_replace('_', ' ', ucfirst($order->delivery_failure_reason)) }}
                     </span>
                 </div>
                 <div class="courier-failed-guidance">
@@ -405,14 +405,14 @@
                                 <div class="ops-muted">{{ $order->delivery_area }}</div>
                                 <div>
                                     <a href="tel:{{ $order->recipient_contact }}" class="courier-tel-link">
-                                        📞 {{ $order->recipient_contact }}
+                                        <x-shop-icon name="phone" /> {{ $order->recipient_contact }}
                                     </a>
                                 </div>
                             </td>
                             <td data-label="Payment">
                                 @if ($order->payment_method === 'COD')
                                     <div class="courier-cod-badge">
-                                        💵 COD: ₱{{ number_format($order->total_amount, 2) }}
+                                        <x-shop-icon name="money" /> COD: ₱{{ number_format($order->total_amount, 2) }}
                                     </div>
                                 @else
                                     <span class="ops-status ops-status--green">{{ $order->payment_method }}</span>

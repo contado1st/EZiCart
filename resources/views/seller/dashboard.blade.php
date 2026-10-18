@@ -20,13 +20,13 @@
                 <!-- Navigation Links -->
                 <nav class="dash-nav">
                     <a href="{{ route('seller.dashboard') }}" class="dash-nav-item active">
-                        📊 Dashboard Overview
+                        <x-shop-icon name="diagram" /> Dashboard Overview
                     </a>
                     <a href="{{ route('seller.products.index') }}" class="dash-nav-item">
-                        📦 Inventory Management
+                        <x-shop-icon name="package1" /> Inventory Management
                     </a>
                     <a href="{{ route('seller.orders.index') }}" class="dash-nav-item">
-                        🛍️ Order Management
+                        <x-shop-icon name="cart1" /> Order Management
                     </a>
                 </nav>
             </div>
@@ -35,7 +35,7 @@
             <form action="{{ route('logout') }}" method="POST">
                 @csrf
                 <button type="submit" class="dash-logout-btn">
-                    🚪 Logout
+                    <x-shop-icon name="arrowback" /> Logout
                 </button>
             </form>
         </aside>
@@ -44,7 +44,7 @@
         <main class="dash-main">
             <div class="dash-header">
                 <div>
-                    <h1 class="dash-title">Welcome back, {{ auth()->user()->first_name }} 👋</h1>
+                    <h1 class="dash-title">Welcome back, {{ auth()->user()->first_name }} <x-shop-icon name="smileypositive" /></h1>
                     <p class="dash-subtitle">Here is what is happening with your store today.</p>
                 </div>
                 <div>
@@ -110,7 +110,7 @@
                         </div>
                     @empty
                         <div class="dash-empty-box">
-                            📦 No active orders yet. Orders from buyers will appear here for packing, waybill generation,
+                            <x-shop-icon name="package1" /> No active orders yet. Orders from buyers will appear here for packing, waybill generation,
                             and rider pickup scheduling.
                         </div>
                     @endforelse
@@ -120,13 +120,13 @@
                     <h3 class="dash-panel-title">Seller Actions</h3>
                     <div class="dash-action-list">
                         <a href="{{ route('seller.products.create') }}" class="dash-action-btn">
-                            ➕ Add Product / Set Discounts
+                            <x-shop-icon name="checklist" /> Add Product / Set Discounts
                         </a>
                         <a href="{{ route('seller.products.index') }}" class="dash-action-btn">
-                            📋 View All Inventory & Stock
+                            <x-shop-icon name="checklist" /> View All Inventory & Stock
                         </a>
                         <a href="{{ route('seller.orders.index') }}" class="dash-action-btn">
-                            🛍️ Process Orders & Print Waybills
+                            <x-shop-icon name="cart1" /> Process Orders & Print Waybills
                         </a>
                     </div>
                 </div>

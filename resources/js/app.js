@@ -1,5 +1,28 @@
 import "./password-visibility.js";
 import "./registration-name-inputs.js";
+import "@h2d2/shopicons/es/regular/arrowback";
+import "@h2d2/shopicons/es/regular/cart1";
+import "@h2d2/shopicons/es/regular/cart2";
+import "@h2d2/shopicons/es/regular/checklist";
+import "@h2d2/shopicons/es/regular/close";
+import "@h2d2/shopicons/es/regular/delivery1";
+import "@h2d2/shopicons/es/regular/diagram";
+import "@h2d2/shopicons/es/regular/exclamationtriangle";
+import "@h2d2/shopicons/es/regular/invoice";
+import "@h2d2/shopicons/es/regular/lightbulb";
+import "@h2d2/shopicons/es/regular/location";
+import "@h2d2/shopicons/es/regular/lock";
+import "@h2d2/shopicons/es/regular/megaphone";
+import "@h2d2/shopicons/es/regular/money";
+import "@h2d2/shopicons/es/regular/note";
+import "@h2d2/shopicons/es/regular/package1";
+import "@h2d2/shopicons/es/regular/phone";
+import "@h2d2/shopicons/es/regular/print";
+import "@h2d2/shopicons/es/regular/settings";
+import "@h2d2/shopicons/es/regular/shield";
+import "@h2d2/shopicons/es/regular/smileypositive";
+import "@h2d2/shopicons/es/regular/voucher";
+import "@h2d2/shopicons/es/regular/warning";
 
 document.querySelectorAll(".ops-shell .ops-table").forEach((table) => {
     const headers = Array.from(table.querySelectorAll("thead th")).map(

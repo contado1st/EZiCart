@@ -15,17 +15,17 @@
                 </div>
                 <nav class="dash-nav">
                     <a href="{{ route('seller.dashboard') }}" class="dash-nav-item">
-                        📊 Dashboard Overview
+                        <x-shop-icon name="diagram" /> Dashboard Overview
                     </a>
                     <a href="{{ route('seller.products.index') }}" class="dash-nav-item active">
-                        📦 Inventory Management
+                        <x-shop-icon name="package1" /> Inventory Management
                     </a>
                 </nav>
             </div>
 
             <form action="{{ route('logout') }}" method="POST">
                 @csrf
-                <button type="submit" class="dash-logout-btn">🚪 Logout</button>
+                <button type="submit" class="dash-logout-btn"><x-shop-icon name="arrowback" /> Logout</button>
             </form>
         </aside>
 
@@ -40,7 +40,7 @@
             </div>
 
             @if (session('success'))
-                <div class="dash-alert-success">✅ {{ session('success') }}</div>
+                <div class="dash-alert-success"><x-shop-icon name="checklist" /> {{ session('success') }}</div>
             @endif
 
             <div class="dash-table-wrapper">
@@ -65,7 +65,7 @@
                                                 alt="{{ $product->name }}" class="u-extracted-aac99b4b41">
                                         @else
                                             <div class="u-extracted-c70ac6556c">
-                                                📦</div>
+                                                <x-shop-icon name="package1" /></div>
                                         @endif
                                         <div>
                                             <div class="u-extracted-8fa6b099d3">

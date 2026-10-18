@@ -123,7 +123,7 @@
                                                 ($type === 'license' && $rider->license_path) ||
                                                 ($type === 'vehicle' && $rider->or_cr_path))
                                                 <a class="logistics-doc-chip" href="{{ route('logistics.riders.documents.show', [$rider, $type]) }}">
-                                                    📄 {{ $label }}
+                                                    <x-shop-icon name="note" /> {{ $label }}
                                                 </a>
                                             @else
                                                 <span class="logistics-doc-pending">{{ $label }} pending</span>

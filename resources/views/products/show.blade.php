@@ -18,7 +18,7 @@
                     <img src="{{ asset('storage/' . $product->image_path) }}" alt="{{ $product->name }}"
                         class="product-gallery-img">
                 @else
-                    <div class="product-gallery-placeholder">📦</div>
+                    <div class="product-gallery-placeholder"><x-shop-icon name="package1" /></div>
                 @endif
             </div>
 
@@ -105,13 +105,13 @@
 
                             <div class="product-actions-row">
                                 <button type="submit" class="btn-primary product-btn-add-cart">
-                                    🛒 Add to Cart
+                                    <x-shop-icon name="cart2" /> Add to Cart
                                 </button>
                             </div>
                         </form>
                     @else
                         <div class="role-restriction-box">
-                            <span class="role-restriction-icon">🔒</span>
+                            <span class="role-restriction-icon"><x-shop-icon name="lock" /></span>
                             <div>
                                 <div class="role-restriction-title">Role Restriction Active</div>
                                 <div class="role-restriction-text">
@@ -123,7 +123,7 @@
                     @endif
                 @else
                     <div class="role-restriction-box">
-                        <span class="role-restriction-icon">💡</span>
+                        <span class="role-restriction-icon"><x-shop-icon name="lightbulb" /></span>
                         <div>
                             <div class="role-restriction-title">Buyer Sign-in Required</div>
                             <div class="role-restriction-text">

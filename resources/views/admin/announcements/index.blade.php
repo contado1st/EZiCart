@@ -14,17 +14,17 @@
                     <h2 class="dash-profile-title">{{ auth()->user()->first_name }} {{ auth()->user()->last_name }}</h2>
                 </div>
                 <nav class="dash-nav">
-                    <a href="{{ route('admin.dashboard') }}" class="dash-nav-item">📊 Platform Overview</a>
-                    <a href="{{ route('admin.registrations.index') }}" class="dash-nav-item">🛡️ User Approvals</a>
-                    <a href="{{ route('admin.reports.index') }}" class="dash-nav-item">📑 Financial & Commission</a>
-                    <a href="{{ route('admin.disputes.index') }}" class="dash-nav-item">⚖️ Dispute Arbitration</a>
-                    <a href="{{ route('admin.announcements.index') }}" class="dash-nav-item active">📢 Announcements</a>
-                    <a href="{{ route('admin.moderation.index') }}" class="dash-nav-item">🚫 Account Moderation</a>
+                    <a href="{{ route('admin.dashboard') }}" class="dash-nav-item"><x-shop-icon name="diagram" /> Platform Overview</a>
+                    <a href="{{ route('admin.registrations.index') }}" class="dash-nav-item"><x-shop-icon name="shield" /> User Approvals</a>
+                    <a href="{{ route('admin.reports.index') }}" class="dash-nav-item"><x-shop-icon name="invoice" /> Financial & Commission</a>
+                    <a href="{{ route('admin.disputes.index') }}" class="dash-nav-item"><x-shop-icon name="diagram" /> Dispute Arbitration</a>
+                    <a href="{{ route('admin.announcements.index') }}" class="dash-nav-item active"><x-shop-icon name="megaphone" /> Announcements</a>
+                    <a href="{{ route('admin.moderation.index') }}" class="dash-nav-item"><x-shop-icon name="close" /> Account Moderation</a>
                 </nav>
             </div>
             <form action="{{ route('logout') }}" method="POST">
                 @csrf
-                <button type="submit" class="dash-logout-btn">🚪 Logout</button>
+                <button type="submit" class="dash-logout-btn"><x-shop-icon name="arrowback" /> Logout</button>
             </form>
         </aside>
 
@@ -37,7 +37,7 @@
             </div>
 
             @if (session('success'))
-                <div class="dash-alert-success">✅ {{ session('success') }}</div>
+                <div class="dash-alert-success"><x-shop-icon name="checklist" /> {{ session('success') }}</div>
             @endif
 
             <div class="controls-grid">

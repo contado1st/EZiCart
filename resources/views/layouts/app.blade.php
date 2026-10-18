@@ -75,7 +75,7 @@
                     <!-- Cart Link Visible Only to Guests and Buyers -->
                     @if (!auth()->check() || auth()->user()->role === 'buyer')
                         <a href="{{ route('cart.index') }}" class="nav-link cart-link">
-                            <span>🛒 Cart</span>
+                            <span><x-shop-icon name="cart2" /> Cart</span>
                             @if (session('cart') && count(session('cart')) > 0)
                                 <span class="cart-count-badge">
                                     {{ array_sum(array_column(session('cart'), 'quantity')) }}
@@ -136,13 +136,13 @@
                 <div class="announcement-banner banner-type-{{ $announcement->type }}">
                     <span class="u-extracted-888f29e5c3">
                         @if ($announcement->type === 'urgent')
-                            🚨
+                            <x-shop-icon name="exclamationtriangle" />
                         @elseif($announcement->type === 'warning')
-                            ⚠️
+                            <x-shop-icon name="warning" />
                         @elseif($announcement->type === 'maintenance')
-                            🛠️
+                            <x-shop-icon name="settings" />
                         @else
-                            📢
+                            <x-shop-icon name="megaphone" />
                         @endif
                     </span>
                     <div>

@@ -17,16 +17,16 @@
                 </div>
 
                 <nav class="dash-nav">
-                    <a href="{{ route('seller.dashboard') }}" class="dash-nav-item">📊 Dashboard</a>
-                    <a href="{{ route('seller.products.index') }}" class="dash-nav-item">📦 Products</a>
-                    <a href="{{ route('seller.orders.index') }}" class="dash-nav-item">📑 Orders & Waybills</a>
-                    <a href="{{ route('seller.vouchers.index') }}" class="dash-nav-item active">🎟️ Promotional Vouchers</a>
+                    <a href="{{ route('seller.dashboard') }}" class="dash-nav-item"><x-shop-icon name="diagram" /> Dashboard</a>
+                    <a href="{{ route('seller.products.index') }}" class="dash-nav-item"><x-shop-icon name="package1" /> Products</a>
+                    <a href="{{ route('seller.orders.index') }}" class="dash-nav-item"><x-shop-icon name="invoice" /> Orders & Waybills</a>
+                    <a href="{{ route('seller.vouchers.index') }}" class="dash-nav-item active"><x-shop-icon name="voucher" /> Promotional Vouchers</a>
                 </nav>
             </div>
 
             <form action="{{ route('logout') }}" method="POST">
                 @csrf
-                <button type="submit" class="dash-logout-btn">🚪 Logout</button>
+                <button type="submit" class="dash-logout-btn"><x-shop-icon name="arrowback" /> Logout</button>
             </form>
         </aside>
 
@@ -40,12 +40,12 @@
             </div>
 
             @if (session('success'))
-                <div class="dash-alert-success">✅ {{ session('success') }}</div>
+                <div class="dash-alert-success"><x-shop-icon name="checklist" /> {{ session('success') }}</div>
             @endif
 
             @if (session('error'))
                 <div class="dash-alert-success u-extracted-ee8231be38">
-                    ⚠️ {{ session('error') }}
+                    <x-shop-icon name="warning" /> {{ session('error') }}
                 </div>
             @endif
 
@@ -97,7 +97,7 @@
                         </div>
 
                         <button type="submit" class="dash-btn-primary u-extracted-92762f464d">
-                            ➕ Create Voucher
+                            <x-shop-icon name="checklist" /> Create Voucher
                         </button>
                     </form>
                 </div>

@@ -20,12 +20,12 @@
             </div>
 
             @if (session('success'))
-                <div class="dash-alert-success">✅ {{ session('success') }}</div>
+                <div class="dash-alert-success"><x-shop-icon name="checklist" /> {{ session('success') }}</div>
             @endif
 
             @if (session('error'))
                 <div class="dash-alert-success u-extracted-ee8231be38">
-                    ⚠️ {{ session('error') }}
+                    <x-shop-icon name="warning" /> {{ session('error') }}
                 </div>
             @endif
 
@@ -117,7 +117,7 @@
                                 @elseif(in_array($order->status, ['DELIVERED', 'COMPLETED']))
                                     <a href="{{ route('buyer.orders.dispute.create', $order->id) }}"
                                         class="dash-btn-sm u-extracted-8dddb4a915">
-                                        ⚠️ File Dispute
+                                        <x-shop-icon name="warning" /> File Dispute
                                     </a>
                                 @endif
 

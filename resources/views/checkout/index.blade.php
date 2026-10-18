@@ -13,7 +13,7 @@
 
         @if (session('error'))
             <div class="u-extracted-a243a89dcf">
-                ⚠️ {{ session('error') }}
+                <x-shop-icon name="warning" /> {{ session('error') }}
             </div>
         @endif
 

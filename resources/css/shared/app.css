@@ -1153,3 +1153,17 @@ body {
     font-size: inherit;
     font-weight: 600;
 }
+
+.shop-icon[data-shopicon] {
+    display: inline-flex;
+    width: 1.15em;
+    height: 1.15em;
+    flex: 0 0 auto;
+    vertical-align: -0.18em;
+}
+
+.shop-icon[data-shopicon] svg {
+    display: block;
+    width: 100%;
+    height: 100%;
+}

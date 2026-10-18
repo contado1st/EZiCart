@@ -15,20 +15,20 @@
                 </div>
                 <nav class="dash-nav">
                     <a href="{{ route('seller.dashboard') }}" class="dash-nav-item">
-                        📊 Dashboard Overview
+                        <x-shop-icon name="diagram" /> Dashboard Overview
                     </a>
                     <a href="{{ route('seller.products.index') }}" class="dash-nav-item">
-                        📦 Inventory Management
+                        <x-shop-icon name="package1" /> Inventory Management
                     </a>
                     <a href="{{ route('seller.orders.index') }}" class="dash-nav-item active">
-                        🛍️ Order Management
+                        <x-shop-icon name="cart1" /> Order Management
                     </a>
                 </nav>
             </div>
 
             <form action="{{ route('logout') }}" method="POST">
                 @csrf
-                <button type="submit" class="dash-logout-btn">🚪 Logout</button>
+                <button type="submit" class="dash-logout-btn"><x-shop-icon name="arrowback" /> Logout</button>
             </form>
         </aside>
 
@@ -42,7 +42,7 @@
             </div>
 
             @if (session('success'))
-                <div class="dash-alert-success">✅ {{ session('success') }}</div>
+                <div class="dash-alert-success"><x-shop-icon name="checklist" /> {{ session('success') }}</div>
             @endif
 
             <!-- Filter Tabs -->
@@ -122,7 +122,7 @@
                         <div class="order-seller-action-row">
                             <a href="{{ route('seller.orders.waybill', $order->id) }}" target="_blank"
                                 class="dash-btn-sm dash-btn-outline">
-                                🖨️ Waybill
+                                <x-shop-icon name="print" /> Waybill
                             </a>
 
                             @if (
@@ -194,7 +194,7 @@
                 </div>
             @empty
                 <div class="dash-empty-box">
-                    📦 No customer orders found under this status.
+                    <x-shop-icon name="package1" /> No customer orders found under this status.
                 </div>
             @endforelse
 

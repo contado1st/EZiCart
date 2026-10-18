@@ -15,14 +15,14 @@
                     <h2 class="dash-profile-title">{{ auth()->user()->first_name }} {{ auth()->user()->last_name }}</h2>
                 </div>
                 <nav class="dash-nav">
-                    <a href="{{ route('admin.dashboard') }}" class="dash-nav-item">📊 Platform Overview</a>
-                    <a href="{{ route('admin.registrations.index') }}" class="dash-nav-item">🛡️ User Approvals</a>
-                    <a href="{{ route('admin.reports.index') }}" class="dash-nav-item active">📑 Financial & Commission</a>
+                    <a href="{{ route('admin.dashboard') }}" class="dash-nav-item"><x-shop-icon name="diagram" /> Platform Overview</a>
+                    <a href="{{ route('admin.registrations.index') }}" class="dash-nav-item"><x-shop-icon name="shield" /> User Approvals</a>
+                    <a href="{{ route('admin.reports.index') }}" class="dash-nav-item active"><x-shop-icon name="invoice" /> Financial & Commission</a>
                 </nav>
             </div>
             <form action="{{ route('logout') }}" method="POST">
                 @csrf
-                <button type="submit" class="dash-logout-btn">🚪 Logout</button>
+                <button type="submit" class="dash-logout-btn"><x-shop-icon name="arrowback" /> Logout</button>
             </form>
         </aside>
 
@@ -53,7 +53,7 @@
                 </form>
 
                 <div class="report-actions-group">
-                    <button onclick="window.print()" class="report-print-btn">🖨️ Print Statement</button>
+                    <button onclick="window.print()" class="report-print-btn"><x-shop-icon name="print" /> Print Statement</button>
                 </div>
             </div>
 
