@@ -177,3 +177,30 @@
 .registration-back { min-height: 3rem; padding: 0.7rem 1rem; color: #b62d4b; background: #fff; border: 1px solid #e5b8c1; border-radius: 0.55rem; font: inherit; font-size: 0.95rem; font-weight: 700; cursor: pointer; }
 .registration-back:hover { background: #fff0f2; }
 .registration-back:focus-visible, .registration-step-tab:focus-visible { outline: 3px solid #c83e5a; outline-offset: 2px; }
+
+.auth-otp-input {
+    letter-spacing: 0.45em !important;
+    font-size: 1.6rem !important;
+    font-weight: 800 !important;
+    text-align: center !important;
+    padding-left: 0.45em !important;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace !important;
+    color: #8e1e3b !important;
+    background: #fff8f9 !important;
+    border: 2px solid #e5b8c1 !important;
+}
+.auth-otp-input:focus {
+    border-color: #c83e5a !important;
+    background: #ffffff !important;
+}
+.auth-resend button:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    color: #725f64 !important;
+}
+.auth-target-email {
+    font-weight: 700;
+    color: #8e1e3b;
+    word-break: break-all;
+}
+
