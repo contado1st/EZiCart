@@ -17,6 +17,7 @@ use App\Services\LogisticsExceptionService;
 use App\Services\OrderAreaService;
 use App\Services\OrderTransitionService;
 use App\Services\QrCodeService;
+use App\Services\RegistrationIdentityService;
 use App\Services\RiderBadgeService;
 use App\Services\TransactionAwareNotificationSender;
 use Illuminate\Database\Eloquent\Builder;
@@ -39,46 +40,64 @@ use Throwable;
 
 class LogisticsController extends Controller
 {
-    public function storeRider(Request $request): RedirectResponse
+    private const MOBILE_FORMAT_ERROR = 'Mobile number must contain exactly 11 digits in the format 09XXXXXXXXX, or use the equivalent +63 format.';
+
+    private const MOBILE_DUPLICATE_ERROR = 'This mobile number is already in use.';
+
+    public function storeRider(Request $request, RegistrationIdentityService $identity): RedirectResponse
     {
         $operator = $this->authenticatedUser();
         abort_unless($operator->role === 'sorting_center' && $operator->status === 'approved', 403);
 
-        $email = Str::lower(trim((string) $request->input('email')));
-        $phone = preg_replace('/[\s()-]/', '', (string) $request->input('contact_no')) ?? '';
-        if (preg_match('/^\+639\d{9}$/', $phone)) {
-            $phone = '0'.substr($phone, 3);
-        }
+        $email = $identity->normalizeEmail((string) $request->input('email'));
+        $phone = $identity->normalizeMobile((string) $request->input('contact_no'));
+        $license = $identity->canonicalCode((string) $request->input('license_number'));
+        $plate = Str::upper(trim((string) $request->input('plate_number')));
         $request->merge([
             'email' => $email,
             'contact_no' => $phone,
-            'license_number' => Str::upper(trim((string) $request->input('license_number'))),
-            'plate_number' => Str::upper(preg_replace('/\s+/', '', (string) $request->input('plate_number')) ?? ''),
+            'license_number' => $license,
+            'canonical_license_number' => $license,
+            'plate_number' => $plate,
+            'canonical_plate' => $identity->canonicalPlate($plate),
         ]);
 
         $validated = $request->validate([
-            'first_name' => ['required', 'string', 'min:2', 'max:50', 'regex:/^[\p{L}\p{M} .\'-]+$/u'],
-            'last_name' => ['required', 'string', 'min:2', 'max:50', 'regex:/^[\p{L}\p{M} .\'-]+$/u'],
-            'birthday' => ['required', 'date', 'before_or_equal:today', 'before:-18 years'],
-            'email' => ['required', 'email', 'max:255', 'unique:users,email', 'unique:users,canonical_email'],
+            'first_name' => ['required', 'string', 'min:2', 'max:50', 'regex:'.$identity->nameRule()],
+            'last_name' => ['required', 'string', 'min:2', 'max:50', 'regex:'.$identity->nameRule()],
+            'birthday' => ['required', 'date', 'before_or_equal:today', 'before_or_equal:'.now()->subYearsNoOverflow(18)->toDateString()],
+            'email' => ['required', 'email:rfc', 'max:255', 'unique:users,email', 'unique:users,canonical_email'],
             'contact_no' => ['required', 'regex:/^09\d{9}$/', 'unique:users,canonical_mobile'],
-            'license_number' => ['required', 'regex:/^[A-Z]\d{2}-\d{2}-\d{6}$/', 'unique:users,license_number'],
+            'license_number' => ['required', 'regex:/^[A-Z]\d{2}-\d{2}-\d{6}$/'],
+            'canonical_license_number' => ['required', 'size:13', 'unique:users,canonical_license_number'],
             'license_expires_at' => ['required', 'date', 'after_or_equal:today'],
             'vehicle_type' => ['required', 'in:Motorcycle,Car,Van'],
-            'plate_number' => ['required', 'string', 'min:2', 'max:20', 'unique:users,plate_number', 'unique:users,canonical_plate'],
+            'plate_number' => ['required', 'string', 'min:2', 'max:20'],
+            'canonical_plate' => ['required', 'string', 'min:2', 'max:20', 'unique:users,canonical_plate'],
             'license_document' => ['required', 'file', 'mimes:jpg,jpeg,png,pdf', 'max:5120'],
             'or_cr_document' => ['required', 'file', 'mimes:jpg,jpeg,png,pdf', 'max:5120'],
+        ], [
+            'contact_no.regex' => self::MOBILE_FORMAT_ERROR,
+            'contact_no.unique' => self::MOBILE_DUPLICATE_ERROR,
         ]);
 
-        $duplicateEmail = User::query()->whereRaw('LOWER(TRIM(email)) = ?', [$email])->exists();
+        $duplicateEmail = User::query()->where('canonical_email', $email)->orWhereRaw('LOWER(TRIM(email)) = ?', [$email])->exists();
         $duplicateMobile = User::query()->where('canonical_mobile', $phone)->orWhereIn('contact_no', [$phone, '+63'.substr($phone, 1)])->exists();
-        abort_if($duplicateEmail, 422, 'This email address is already linked to an account.');
+        if ($duplicateEmail) {
+            throw ValidationException::withMessages(['email' => 'This email address is already linked to an account.']);
+        }
         if ($duplicateMobile) {
-            throw ValidationException::withMessages(['contact_no' => 'This mobile number is already linked to an account.']);
+            throw ValidationException::withMessages(['contact_no' => self::MOBILE_DUPLICATE_ERROR]);
         }
 
-        $rider = DB::transaction(function () use ($validated, $operator, $request): User {
-            $rider = User::query()->forceCreate([
+        $storedPaths = [
+            $request->file('license_document')->store('documents/licenses', 'private'),
+            $request->file('or_cr_document')->store('documents/or_cr', 'private'),
+        ];
+
+        try {
+            $rider = DB::transaction(function () use ($validated, $operator, $storedPaths): User {
+                $rider = User::query()->forceCreate([
                 'first_name' => trim($validated['first_name']),
                 'last_name' => trim($validated['last_name']),
                 'email' => $validated['email'],
@@ -90,11 +109,12 @@ class LogisticsController extends Controller
                 'age' => Carbon::parse($validated['birthday'])->age,
                 'vehicle_type' => $validated['vehicle_type'],
                 'plate_number' => $validated['plate_number'],
-                'canonical_plate' => $validated['plate_number'],
+                'canonical_plate' => $validated['canonical_plate'],
                 'license_number' => $validated['license_number'],
+                'canonical_license_number' => $validated['canonical_license_number'],
                 'license_expires_at' => $validated['license_expires_at'],
-                'license_path' => $request->file('license_document')->store('documents/licenses', 'private'),
-                'or_cr_path' => $request->file('or_cr_document')->store('documents/or_cr', 'private'),
+                'license_path' => $storedPaths[0],
+                'or_cr_path' => $storedPaths[1],
                 'role' => 'courier',
                 'status' => 'pending_activation',
                 'logistics_owner_id' => $operator->id,
@@ -104,10 +124,32 @@ class LogisticsController extends Controller
                 'street_address' => $operator->street_address,
             ]);
 
-            return $rider;
-        });
+                return $rider;
+            });
+        } catch (QueryException $exception) {
+            \Illuminate\Support\Facades\Storage::disk('private')->delete($storedPaths);
+            if (User::query()->where('canonical_email', $validated['email'])->exists()) {
+                throw ValidationException::withMessages(['email' => 'This email address is already linked to an account.']);
+            }
+            if (User::query()->where('canonical_mobile', $validated['contact_no'])->exists()) {
+                throw ValidationException::withMessages(['contact_no' => 'This mobile number is already linked to an account.']);
+            }
+            if (User::query()->where('canonical_license_number', $validated['canonical_license_number'])->exists()) {
+                throw ValidationException::withMessages(['license_number' => 'This license number is already linked to an account.']);
+            }
+            if (User::query()->where('canonical_plate', $validated['canonical_plate'])->exists()) {
+                throw ValidationException::withMessages(['plate_number' => 'This plate number is already linked to an account.']);
+            }
 
-        $this->sendRiderActivation($rider);
+            throw $exception;
+        } catch (Throwable $exception) {
+            \Illuminate\Support\Facades\Storage::disk('private')->delete($storedPaths);
+            throw $exception;
+        }
+
+        if (! $this->sendRiderActivation($rider)) {
+            return back()->with('error', 'The rider account was created, but the activation email could not be sent. Use Resend activation to try again.');
+        }
 
         return back()->with('success', "{$rider->first_name} {$rider->last_name} was added. An activation link was sent to {$rider->email}.");
     }
@@ -118,12 +160,14 @@ class LogisticsController extends Controller
         abort_unless($user->role === 'courier' && (int) $user->logistics_owner_id === (int) $operator->id, 404);
         abort_unless($user->status === 'pending_activation', 422, 'Only riders who have not activated their account can receive a new activation link.');
 
-        $this->sendRiderActivation($user);
+        if (! $this->sendRiderActivation($user)) {
+            return back()->with('error', 'The activation email could not be sent. Check mail settings and try again.');
+        }
 
         return back()->with('success', 'A new activation link has been sent. Previous links are no longer valid.');
     }
 
-    private function sendRiderActivation(User $rider): void
+    private function sendRiderActivation(User $rider): bool
     {
         $token = Str::random(64);
         DB::table('rider_activation_tokens')->updateOrInsert(
@@ -133,8 +177,11 @@ class LogisticsController extends Controller
 
         try {
             $rider->notify(new RiderActivationNotification($token));
+            return true;
         } catch (Throwable $exception) {
             Log::warning('Rider activation email could not be dispatched.', ['rider_id' => $rider->id]);
+
+            return false;
         }
     }
 
@@ -1373,36 +1420,6 @@ class LogisticsController extends Controller
         });
 
         return back()->with('success', 'Rider service areas updated. The first selected area is primary.');
-    }
-
-    public function approveRider(User $user, TransactionAwareNotificationSender $notifications): RedirectResponse
-    {
-        $operator = $this->authenticatedUser();
-        DB::transaction(function () use ($user, $notifications, $operator): void {
-            $lockedUser = User::query()->whereKey($user->id)->lockForUpdate()->firstOrFail();
-            abort_unless($lockedUser->role === 'courier' && $lockedUser->status === 'pending', 404);
-            abort_unless($this->riderBelongsToHub($lockedUser, $operator) || ! $this->isMultiHubOperation(), 403, 'Assign this rider to the hub before approving the application.');
-
-            $lockedUser->forceFill(['status' => 'approved'])->save();
-            $notifications->send($lockedUser, new AccountStatusNotification('approved'));
-        });
-
-        return back()->with('success', "Courier {$user->first_name} {$user->last_name} approved.");
-    }
-
-    public function rejectRider(User $user, TransactionAwareNotificationSender $notifications): RedirectResponse
-    {
-        $operator = $this->authenticatedUser();
-        DB::transaction(function () use ($user, $notifications, $operator): void {
-            $lockedUser = User::query()->whereKey($user->id)->lockForUpdate()->firstOrFail();
-            abort_unless($lockedUser->role === 'courier' && $lockedUser->status === 'pending', 404);
-            abort_unless($this->riderBelongsToHub($lockedUser, $operator) || ! $this->isMultiHubOperation(), 403, 'This rider application belongs to another hub or is unassigned.');
-
-            $lockedUser->forceFill(['status' => 'rejected'])->save();
-            $notifications->send($lockedUser, new AccountStatusNotification('rejected'));
-        });
-
-        return back()->with('success', 'Courier application rejected.');
     }
 
     public function returnParcel(Order $order, OrderTransitionService $transitions): RedirectResponse

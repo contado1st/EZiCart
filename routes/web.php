@@ -30,6 +30,8 @@ use Illuminate\Support\Facades\Route;
 
 // 1. Public Marketplace & Browsing Routes
 Route::get('/', [HomeController::class, 'index'])->name('home');
+Route::view('/terms', 'legal.terms')->name('terms');
+Route::view('/privacy', 'legal.privacy')->name('privacy');
 Route::get('/product/{product}', [HomeController::class, 'showProduct'])->name('product.show');
 Route::get('/psgc-addresses', PsgcAddressController::class)->middleware('throttle:120,1')->name('psgc.addresses');
 
@@ -194,8 +196,6 @@ Route::middleware(['auth', 'account.active', 'auth.session'])->group(function ()
         Route::get('/riders', [LogisticsController::class, 'riders'])->name('riders');
         Route::post('/riders', [LogisticsController::class, 'storeRider'])->middleware('throttle:operational-action')->name('riders.store');
         Route::post('/riders/{user}/resend-activation', [LogisticsController::class, 'resendRiderActivation'])->middleware('throttle:operational-action')->name('riders.activation.resend');
-        Route::post('/riders/{user}/approve', [LogisticsController::class, 'approveRider'])->middleware('throttle:operational-action')->name('riders.approve');
-        Route::post('/riders/{user}/reject', [LogisticsController::class, 'rejectRider'])->middleware('throttle:operational-action')->name('riders.reject');
         Route::post('/riders/{user}/suspend', [LogisticsController::class, 'suspendRider'])->middleware('throttle:operational-action')->name('riders.suspend');
         Route::post('/riders/{user}/reactivate', [LogisticsController::class, 'reactivateRider'])->middleware('throttle:operational-action')->name('riders.reactivate');
         Route::patch('/riders/{user}/areas', [LogisticsController::class, 'updateRiderAreas'])->middleware('throttle:operational-action')->name('riders.areas.update');

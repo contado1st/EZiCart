@@ -106,6 +106,8 @@ class CheckoutController extends Controller
             'recipient_name' => 'required|string|max:255',
             'recipient_contact' => 'required|string|max:20',
             ...$psgc->validationRules(),
+            'province' => ['required_without:province_code', 'nullable', 'string', 'max:120'],
+            'municipality' => ['required_without:municipality_code', 'nullable', 'string', 'max:120'],
             'payment_method' => 'required|string|in:COD',
             'notes' => 'nullable|string|max:500',
         ]);

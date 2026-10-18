@@ -11,6 +11,13 @@
         "Noto Color Emoji";
 }
 
+.legal-page {
+    max-width: 52rem;
+    margin: 3rem auto;
+    padding: 0 1rem;
+    line-height: 1.7;
+}
+
 /* EZiart Logo */
 .brand-logo-img {
     width: 7rem;

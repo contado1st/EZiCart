@@ -22,15 +22,15 @@
         <summary><strong>Add a rider</strong><span class="ops-muted">Create a roster entry and email a one-use activation link.</span></summary>
         <form method="POST" action="{{ route('logistics.riders.store') }}" enctype="multipart/form-data" class="ops-rider-form">
             @csrf
-            <div><label for="rider-first-name">First name</label><input id="rider-first-name" name="first_name" value="{{ old('first_name') }}" required maxlength="50"></div>
-            <div><label for="rider-last-name">Last name</label><input id="rider-last-name" name="last_name" value="{{ old('last_name') }}" required maxlength="50"></div>
-            <div><label for="rider-birthday">Date of birth</label><input id="rider-birthday" type="date" name="birthday" value="{{ old('birthday') }}" required></div>
-            <div><label for="rider-email">Email</label><input id="rider-email" type="email" name="email" value="{{ old('email') }}" required autocomplete="email"></div>
-            <div><label for="rider-mobile">Mobile number</label><input id="rider-mobile" type="tel" name="contact_no" value="{{ old('contact_no') }}" placeholder="09XXXXXXXXX or +639XXXXXXXXX" required></div>
-            <div><label for="rider-license-number">Driver’s license number</label><input id="rider-license-number" name="license_number" value="{{ old('license_number') }}" placeholder="N01-23-456789" required></div>
-            <div><label for="rider-license-expiry">License expiry date</label><input id="rider-license-expiry" type="date" name="license_expires_at" value="{{ old('license_expires_at') }}" required></div>
+            <div><label for="rider-first-name">First name</label><input id="rider-first-name" name="first_name" value="{{ old('first_name') }}" required minlength="2" pattern="[\p{L}\p{M} .\x27-]{2,50}" title="Use 2 to 50 letters, spaces, apostrophes, periods, or hyphens."></div>
+            <div><label for="rider-last-name">Last name</label><input id="rider-last-name" name="last_name" value="{{ old('last_name') }}" required minlength="2" pattern="[\p{L}\p{M} .\x27-]{2,50}" title="Use 2 to 50 letters, spaces, apostrophes, periods, or hyphens."></div>
+            <div><label for="rider-birthday">Date of birth</label><input id="rider-birthday" type="date" name="birthday" value="{{ old('birthday') }}" max="{{ now()->subYearsNoOverflow(18)->toDateString() }}" required></div>
+            <div><label for="rider-email">Email</label><input id="rider-email" type="email" name="email" value="{{ old('email') }}" required autocomplete="email" maxlength="255"></div>
+            <div><label for="rider-mobile">Mobile number</label><input id="rider-mobile" type="tel" name="contact_no" value="{{ old('contact_no') }}" placeholder="09XXXXXXXXX or +639XXXXXXXXX" autocomplete="tel" inputmode="tel" maxlength="16" pattern="(?:09\d{9}|09\d{2} ?\d{3} ?\d{4}|\+639\d{9}|\+63 ?9\d{2} ?\d{3} ?\d{4})" title="Enter a valid PH mobile number: 11 digits in 09XXXXXXXXX format or the equivalent +63 format." data-philippine-phone required><small class="ops-muted">Enter exactly 11 digits: 09XXXXXXXXX or its +63 equivalent.</small></div>
+            <div><label for="rider-license-number">Driver’s license number</label><input id="rider-license-number" name="license_number" value="{{ old('license_number') }}" placeholder="N01-23-456789" pattern="[A-Za-z][0-9]{2}-[0-9]{2}-[0-9]{6}" minlength="13" maxlength="13" title="Enter one letter followed by 2-2-6 digits, for example N01-23-456789." required></div>
+            <div><label for="rider-license-expiry">License expiry date</label><input id="rider-license-expiry" type="date" name="license_expires_at" value="{{ old('license_expires_at') }}" min="{{ now()->toDateString() }}" required></div>
             <div><label for="rider-vehicle">Vehicle type</label><select id="rider-vehicle" name="vehicle_type" required><option value="">Choose vehicle</option>@foreach (['Motorcycle', 'Car', 'Van'] as $vehicle)<option value="{{ $vehicle }}" @selected(old('vehicle_type') === $vehicle)>{{ $vehicle }}</option>@endforeach</select></div>
-            <div><label for="rider-plate">Plate number</label><input id="rider-plate" name="plate_number" value="{{ old('plate_number') }}" required maxlength="20"></div>
+            <div><label for="rider-plate">Plate number</label><input id="rider-plate" name="plate_number" value="{{ old('plate_number') }}" required minlength="2" maxlength="20"></div>
             <div><label for="rider-license-file">Driver’s license document</label><input id="rider-license-file" type="file" name="license_document" accept=".jpg,.jpeg,.png,.pdf" required></div>
             <div><label for="rider-orcr-file">Vehicle OR/CR</label><input id="rider-orcr-file" type="file" name="or_cr_document" accept=".jpg,.jpeg,.png,.pdf" required></div>
             <p class="ops-muted">Documents must be JPG, PNG, or PDF and no larger than 5 MB. The rider will set their own password from the activation email.</p>
@@ -142,17 +142,6 @@
                                         @csrf
                                         <button class="ops-btn" type="submit">Resend activation</button>
                                     </form>
-                                @elseif ($rider->status === 'pending')
-                                    <div class="courier-actions">
-                                        <form method="POST" action="{{ route('logistics.riders.approve', $rider) }}">
-                                            @csrf
-                                            <button class="ops-btn ops-btn--primary" type="submit">Approve</button>
-                                        </form>
-                                        <form method="POST" action="{{ route('logistics.riders.reject', $rider) }}">
-                                            @csrf
-                                            <button class="ops-btn ops-btn--danger" type="submit">Reject</button>
-                                        </form>
-                                    </div>
                                 @elseif($rider->status === 'approved')
                                     <form class="ops-form" method="POST" action="{{ route('logistics.riders.suspend', $rider) }}">
                                         @csrf

@@ -46,7 +46,9 @@ document.querySelectorAll("[data-seller-type]").forEach((select) => {
             const visible = applicableTypes.includes(select.value);
 
             field.hidden = !visible;
-            if (input) input.required = visible;
+            if (input) {
+                input.required = visible && field.dataset.requiredOnVisible !== "0";
+            }
         });
     };
 
@@ -63,6 +65,24 @@ document.querySelectorAll("form[data-auth-submit]").forEach((form) => {
         submit.setAttribute("aria-busy", "true");
         submit.dataset.originalText = submit.textContent;
         submit.textContent = "Sending…";
+    });
+});
+
+document.querySelectorAll(".auth-field-error").forEach((error, index) => {
+    const field = error.closest(".auth-field")?.querySelector("input, select, textarea");
+    if (!field) return;
+    if (!error.id) error.id = `auth-field-error-${index + 1}`;
+    field.setAttribute("aria-invalid", "true");
+    const describedBy = new Set((field.getAttribute("aria-describedby") || "").split(/\s+/).filter(Boolean));
+    describedBy.add(error.id);
+    field.setAttribute("aria-describedby", Array.from(describedBy).join(" "));
+});
+
+window.addEventListener("pageshow", () => {
+    document.querySelectorAll("form[data-auth-submit] button[type='submit']").forEach((button) => {
+        button.disabled = false;
+        button.removeAttribute("aria-busy");
+        if (button.dataset.originalText) button.textContent = button.dataset.originalText;
     });
 });
 
