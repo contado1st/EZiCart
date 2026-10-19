@@ -17,19 +17,38 @@ class RiderActivationController extends Controller
     {
         $activation = DB::table('rider_activation_tokens')
             ->where('token_hash', hash('sha256', $token))
-            ->where('expires_at', '>', now())
             ->first();
 
-        abort_unless($activation, 404);
+        if (! $activation) {
+            return view('auth.activate-rider', [
+                'token' => null,
+                'activationError' => 'This activation link is invalid or has already been used. Ask your logistics company to send a new one.',
+            ]);
+        }
 
-        return view('auth.activate-rider', ['token' => $token]);
+        if (now()->greaterThanOrEqualTo($activation->expires_at)) {
+            return view('auth.activate-rider', [
+                'token' => null,
+                'activationError' => 'This activation link has expired. Ask your logistics company to send a new one.',
+            ]);
+        }
+
+        $rider = \App\Models\User::query()->find($activation->user_id);
+        if (! $rider || $rider->role !== 'courier' || $rider->status !== 'pending_activation') {
+            return view('auth.activate-rider', [
+                'token' => null,
+                'activationError' => 'This rider activation link is no longer active. Contact your logistics company for help.',
+            ]);
+        }
+
+        return view('auth.activate-rider', ['token' => $token, 'activationError' => null]);
     }
 
     public function activate(Request $request): RedirectResponse
     {
         $validated = $request->validate([
             'token' => ['required', 'string', 'size:64'],
-            'password' => ['required', 'string', PasswordRule::min(8)->mixedCase()->numbers()->symbols(), 'confirmed'],
+            'password' => ['required', 'string', PasswordRule::min(8)->max(128)->mixedCase()->numbers()->symbols(), 'confirmed'],
         ]);
 
         $activated = DB::transaction(function () use ($validated): bool {

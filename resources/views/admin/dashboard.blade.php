@@ -17,10 +17,10 @@
 
                 <nav class="dash-nav">
                     <a href="{{ route('admin.dashboard') }}" class="dash-nav-item active">
-                        📊 Platform Overview
+                        <x-shop-icon name="diagram" /> Platform Overview
                     </a>
                     <a href="{{ route('admin.registrations.index') }}" class="dash-nav-item">
-                        🛡️ User Approvals
+                        <x-shop-icon name="shield" /> User Approvals
                     </a>
                     <a href="{{ route('admin.compliance.products.index') }}" class="dash-nav-item">Product Compliance</a>
                 </nav>
@@ -29,7 +29,7 @@
             <form action="{{ route('logout') }}" method="POST">
                 @csrf
                 <button type="submit" class="dash-logout-btn">
-                    🚪 Logout
+                    <x-shop-icon name="arrowback" /> Logout
                 </button>
             </form>
         </aside>
@@ -54,7 +54,7 @@
             </div>
 
             @if (session('success'))
-                <div class="dash-alert-success">✅ {{ session('success') }}</div>
+                <div class="dash-alert-success"><x-shop-icon name="checklist" /> {{ session('success') }}</div>
             @endif
 
             <!-- Financial & Logistics KPI Cards -->
@@ -188,7 +188,7 @@
                         </div>
                     @empty
                         <div class="dash-empty-box">
-                            ✅ All user registration requests have been addressed.
+                            <x-shop-icon name="checklist" /> All user registration requests have been addressed.
                         </div>
                     @endforelse
                 </div>

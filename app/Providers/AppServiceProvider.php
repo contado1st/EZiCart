@@ -48,10 +48,16 @@ class AppServiceProvider extends ServiceProvider
             ];
         });
 
-        RateLimiter::for('registration', function (Request $request): Limit {
+        RateLimiter::for('registration', function (Request $request): array {
             $routeName = $request->route()?->getName() ?? $request->path();
+            $email = Str::lower(trim((string) $request->input('email')));
 
-            return Limit::perMinute(5)->by($routeName.'|'.$request->ip());
+            return [
+                Limit::perMinute((int) config('registration.registration_per_email_per_minute', 10))
+                    ->by($routeName.'|'.$request->ip().'|'.($email !== '' ? $email : 'missing-email')),
+                Limit::perMinute((int) config('registration.registration_per_ip_per_minute', 100))
+                    ->by($routeName.'|ip:'.$request->ip()),
+            ];
         });
 
         RateLimiter::for('email-verification', function (Request $request): Limit {

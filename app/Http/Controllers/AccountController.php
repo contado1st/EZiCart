@@ -8,7 +8,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Str;
 use App\Services\PsgcAddressService;
-use Illuminate\Validation\Rules\Password;
+use Illuminate\Validation\Rules\Password as PasswordRule;
 
 class AccountController extends Controller
 {
@@ -62,7 +62,7 @@ class AccountController extends Controller
     {
         $validated = $request->validate([
             'current_password' => ['required', 'current_password'],
-            'password' => ['required', 'confirmed', Password::min(8)],
+            'password' => ['required', 'confirmed', PasswordRule::min(8)->max(128)->mixedCase()->numbers()->symbols()],
         ]);
 
         Auth::logoutOtherDevices($validated['current_password']);

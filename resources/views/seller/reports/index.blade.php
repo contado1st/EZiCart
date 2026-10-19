@@ -17,17 +17,17 @@
                 </div>
 
                 <nav class="dash-nav">
-                    <a href="{{ route('seller.dashboard') }}" class="dash-nav-item">📊 Dashboard</a>
-                    <a href="{{ route('seller.products.index') }}" class="dash-nav-item">📦 Products</a>
-                    <a href="{{ route('seller.orders.index') }}" class="dash-nav-item">📑 Orders & Waybills</a>
-                    <a href="{{ route('seller.vouchers.index') }}" class="dash-nav-item">🎟️ Promotional Vouchers</a>
-                    <a href="{{ route('seller.reports.index') }}" class="dash-nav-item active">📈 Financial Reports</a>
+                    <a href="{{ route('seller.dashboard') }}" class="dash-nav-item"><x-shop-icon name="diagram" /> Dashboard</a>
+                    <a href="{{ route('seller.products.index') }}" class="dash-nav-item"><x-shop-icon name="package1" /> Products</a>
+                    <a href="{{ route('seller.orders.index') }}" class="dash-nav-item"><x-shop-icon name="invoice" /> Orders & Waybills</a>
+                    <a href="{{ route('seller.vouchers.index') }}" class="dash-nav-item"><x-shop-icon name="voucher" /> Promotional Vouchers</a>
+                    <a href="{{ route('seller.reports.index') }}" class="dash-nav-item active"><x-shop-icon name="diagram" /> Financial Reports</a>
                 </nav>
             </div>
 
             <form action="{{ route('logout') }}" method="POST">
                 @csrf
-                <button type="submit" class="dash-logout-btn">🚪 Logout</button>
+                <button type="submit" class="dash-logout-btn"><x-shop-icon name="arrowback" /> Logout</button>
             </form>
         </aside>
 
@@ -57,7 +57,7 @@
                 </form>
 
                 <div class="report-actions-group">
-                    <button onclick="window.print()" class="report-print-btn">🖨️ Print Statement</button>
+                    <button onclick="window.print()" class="report-print-btn"><x-shop-icon name="print" /> Print Statement</button>
                 </div>
             </div>
 

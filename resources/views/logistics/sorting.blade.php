@@ -51,7 +51,7 @@
                             <td>
                                 <div class="logistics-sort-flow">
                                     <span class="logistics-area">
-                                        📍 {{ $order->municipality }}, {{ $order->province }}
+                                        <x-shop-icon name="location" /> {{ $order->municipality }}, {{ $order->province }}
                                     </span>
                                 </div>
                             </td>

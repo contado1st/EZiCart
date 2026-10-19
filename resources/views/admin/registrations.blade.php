@@ -18,7 +18,7 @@
 
         @if (session('success'))
             <div class="alert-success">
-                ✅ {{ session('success') }}
+                <x-shop-icon name="checklist" /> {{ session('success') }}
             </div>
         @endif
 
@@ -88,12 +88,12 @@
                             <td>
                                 @if ($user->id_path || $user->license_path)
                                     <a href="{{ route('admin.users.documents.show', [$user, $user->license_path ? 'license' : 'identity']) }}"
-                                        class="doc-link">📄 View Valid ID / License</a>
+                                        class="doc-link"><x-shop-icon name="note" /> View Valid ID / License</a>
                                 @endif
 
                                 @if ($user->permit_path)
                                     <a href="{{ route('admin.users.documents.show', [$user, 'permit']) }}"
-                                        class="doc-link">📋 View Business Permit</a>
+                                        class="doc-link"><x-shop-icon name="checklist" /> View Business Permit</a>
                                 @endif
 
                                 @if ($user->sec_certificate_path)
@@ -108,7 +108,7 @@
 
                                 @if ($user->or_cr_path)
                                     <a href="{{ route('admin.users.documents.show', [$user, 'vehicle']) }}"
-                                        class="doc-link">🛵 View Vehicle OR/CR</a>
+                                        class="doc-link"><x-shop-icon name="delivery1" /> View Vehicle OR/CR</a>
                                 @endif
                             </td>
 

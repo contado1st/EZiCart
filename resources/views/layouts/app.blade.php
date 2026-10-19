@@ -30,6 +30,7 @@
     @vite('resources/js/app.js')
     <script src="{{ asset('js/password-visibility.js') }}?v={{ filemtime(public_path('js/password-visibility.js')) }}" defer></script>
     <script src="{{ asset('js/registration-name-inputs.js') }}?v={{ filemtime(public_path('js/registration-name-inputs.js')) }}" defer></script>
+    <script src="{{ asset('js/email-input-constraint.js') }}?v={{ filemtime(public_path('js/email-input-constraint.js')) }}" defer></script>
     <script src="{{ asset('js/psgc-address.js') }}?v={{ filemtime(public_path('js/psgc-address.js')) }}" defer></script>
     <script src="{{ asset('js/registration-wizard.js') }}?v={{ filemtime(public_path('js/registration-wizard.js')) }}" defer></script>
 </head>
@@ -74,7 +75,7 @@
                     <!-- Cart Link Visible Only to Guests and Buyers -->
                     @if (!auth()->check() || auth()->user()->role === 'buyer')
                         <a href="{{ route('cart.index') }}" class="nav-link cart-link">
-                            <span>🛒 Cart</span>
+                            <span><x-shop-icon name="cart2" /> Cart</span>
                             @if (session('cart') && count(session('cart')) > 0)
                                 <span class="cart-count-badge">
                                     {{ array_sum(array_column(session('cart'), 'quantity')) }}
@@ -135,13 +136,13 @@
                 <div class="announcement-banner banner-type-{{ $announcement->type }}">
                     <span class="u-extracted-888f29e5c3">
                         @if ($announcement->type === 'urgent')
-                            🚨
+                            <x-shop-icon name="exclamationtriangle" />
                         @elseif($announcement->type === 'warning')
-                            ⚠️
+                            <x-shop-icon name="warning" />
                         @elseif($announcement->type === 'maintenance')
-                            🛠️
+                            <x-shop-icon name="settings" />
                         @else
-                            📢
+                            <x-shop-icon name="megaphone" />
                         @endif
                     </span>
                     <div>

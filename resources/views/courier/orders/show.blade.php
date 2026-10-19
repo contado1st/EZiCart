@@ -27,7 +27,7 @@
             <div class="courier-failed-header">
                 <h2>Delivery attempt recorded</h2>
                 <span class="courier-failed-reason-tag">
-                    ⚠️ {{ str_replace('_', ' ', ucfirst($order->delivery_failure_reason)) }}
+                    <x-shop-icon name="warning" /> {{ str_replace('_', ' ', ucfirst($order->delivery_failure_reason)) }}
                 </span>
             </div>
             <div class="courier-failed-guidance">
@@ -50,13 +50,13 @@
             <p>{{ trim(($order->house_number ? $order->house_number.' ' : '').$order->street_address) }}, {{ $order->barangay }}, {{ $order->municipality }}, {{ $order->province }}</p>
             <div>
                 <a href="tel:{{ $order->recipient_contact }}" class="courier-tel-link">
-                    📞 Call {{ $order->recipient_contact }}
+                    <x-shop-icon name="phone" /> Call {{ $order->recipient_contact }}
                 </a>
             </div>
             <div class="ops-field">
                 @if ($order->payment_method === 'COD')
                     <div class="courier-cod-badge">
-                        💵 Cash on Delivery: ₱{{ number_format($order->total_amount, 2) }}
+                        <x-shop-icon name="money" /> Cash on Delivery: ₱{{ number_format($order->total_amount, 2) }}
                     </div>
                 @else
                     <span class="ops-status ops-status--green">{{ $order->payment_method }}</span>

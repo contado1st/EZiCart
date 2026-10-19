@@ -4,12 +4,23 @@ namespace Database\Seeders;
 
 use App\Models\User;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Hash;
+use LogicException;
 
 class DatabaseSeeder extends Seeder
 {
     public function run(): void
     {
+        if (! app()->environment(['local', 'testing'])) {
+            throw new LogicException('Demo accounts may only be seeded in local or testing environments.');
+        }
+
+        $demoPassword = config('registration.demo_password') ?: Str::password(32);
+        if (! config('registration.demo_password') && $this->command) {
+            $this->command->warn('A one-time demo password was generated for this local seed run: '.$demoPassword);
+        }
+
         // 1. Admin Account
         $this->updateOrCreateUser(
             ['email' => 'admin@ezicart.com'],
@@ -27,7 +38,7 @@ class DatabaseSeeder extends Seeder
                 'street_address' => '123 Admin Way',
                 'role' => 'admin',
                 'status' => 'approved',
-                'password' => Hash::make('password123'),
+                'password' => Hash::make($demoPassword),
             ]
         );
 
@@ -48,7 +59,7 @@ class DatabaseSeeder extends Seeder
                 'street_address' => '45 Market Rd.',
                 'role' => 'buyer',
                 'status' => 'approved',
-                'password' => Hash::make('password123'),
+                'password' => Hash::make($demoPassword),
             ]
         );
 
@@ -71,7 +82,7 @@ class DatabaseSeeder extends Seeder
                 'line_of_business' => 'Beauty & Personal Care',
                 'role' => 'seller',
                 'status' => 'approved',
-                'password' => Hash::make('password123'),
+                'password' => Hash::make($demoPassword),
             ]
         );
 
@@ -94,7 +105,7 @@ class DatabaseSeeder extends Seeder
                 'plate_number' => 'MC-4589',
                 'role' => 'courier',
                 'status' => 'approved',
-                'password' => Hash::make('password123'),
+                'password' => Hash::make($demoPassword),
             ]
         );
 
@@ -116,7 +127,7 @@ class DatabaseSeeder extends Seeder
                 'business_name' => 'EZiCart Central Sorting Hub',
                 'role' => 'sorting_center',
                 'status' => 'approved',
-                'password' => Hash::make('password123'),
+                'password' => Hash::make($demoPassword),
             ]
         );
 
@@ -139,7 +150,7 @@ class DatabaseSeeder extends Seeder
                 'line_of_business' => 'Electronics',
                 'role' => 'seller',
                 'status' => 'pending',
-                'password' => Hash::make('password123'),
+                'password' => Hash::make($demoPassword),
             ]
         );
     }

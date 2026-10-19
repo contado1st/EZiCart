@@ -14,6 +14,7 @@ use App\Models\ParcelTrackingEvent;
 use App\Models\Product;
 use App\Models\User;
 use App\Notifications\AccountStatusNotification;
+use App\Notifications\EmailVerificationCodeNotification;
 use App\Notifications\OrderMessageNotification;
 use App\Notifications\OrderStatusNotification;
 use App\Notifications\OrderWorkflowNotification;
@@ -994,6 +995,7 @@ class LogisticsWorkflowTest extends TestCase
 
     public function test_professor_order_flow_completes_from_seller_acceptance_through_buyer_confirmation(): void
     {
+        Notification::fake();
         Storage::fake('private');
         $this->post(route('register.post'), [
             'first_name' => 'Professor', 'last_name' => 'Flow',
@@ -1011,6 +1013,14 @@ class LogisticsWorkflowTest extends TestCase
         $this->post(route('verification.verify'), ['email' => $buyer->email, 'code' => '482916'])->assertRedirect(route('login'));
         $buyer->refresh();
         $this->post(route('login.post'), ['email' => $buyer->email, 'password' => 'Buyer-Pass@2026'])
+            ->assertRedirect(route('login.otp.notice'));
+        $code = null;
+        Notification::assertSentTo($buyer, EmailVerificationCodeNotification::class, function ($notification) use (&$code) {
+            $code = $notification->code;
+
+            return true;
+        });
+        $this->post(route('login.otp.verify'), ['code' => $code])
             ->assertRedirect(route('buyer.dashboard'));
         $admin = $this->user('admin', 'approved');
 
@@ -1046,12 +1056,9 @@ class LogisticsWorkflowTest extends TestCase
         $this->assertSame(150.0, (float) $order->total_amount);
         $this->assertNull($order->delivery_courier_id);
         $this->assertNotSame('EZC-SPOOFED', $order->order_number);
-        $sellerOrderNotice = $seller->notifications()
-            ->where('type', OrderWorkflowNotification::class)
-            ->get()
-            ->first(fn ($notification): bool => $notification->data['event_type'] === 'order_placed');
-        $this->assertNotNull($sellerOrderNotice);
-        $this->assertSame($order->id, $sellerOrderNotice->data['order_id']);
+        Notification::assertSentTo($seller, OrderWorkflowNotification::class, fn (OrderWorkflowNotification $notification): bool =>
+            $notification->eventType === 'order_placed' && $notification->order->id === $order->id,
+        );
         $center = $this->user('sorting_center', 'approved');
         $rider = $this->user('courier', 'approved', ['assigned_area' => 'Majayjay']);
 
@@ -1062,7 +1069,7 @@ class LogisticsWorkflowTest extends TestCase
             'pickup_scheduled_for' => now()->addDay()->format('Y-m-d\\TH:i'),
             'pickup_window' => 'Morning (8 AM–12 PM)',
         ])->assertRedirect();
-        $this->assertContains('pickup_requested', $center->notifications()->where('type', OrderWorkflowNotification::class)->get()->pluck('data.event_type')->all());
+        Notification::assertSentTo($center, OrderWorkflowNotification::class, fn (OrderWorkflowNotification $notification): bool => $notification->eventType === 'pickup_requested');
 
         $this->actingAsUser($center)->post(route('logistics.orders.assignPickup', $order), ['pickup_courier_id' => $rider->id])->assertRedirect();
         $this->actingAsUser($rider)->post(route('courier.orders.claim', $order))->assertRedirect();
@@ -1492,15 +1499,8 @@ class LogisticsWorkflowTest extends TestCase
     public function test_logistics_can_approve_reject_reassign_and_return_failed_parcels(): void
     {
         $center = $this->user('sorting_center', 'approved');
-        $pendingRider = $this->user('courier', 'pending');
-        $rejectedRider = $this->user('courier', 'pending');
         $firstRider = $this->user('courier', 'approved', ['assigned_area' => 'Majayjay']);
         $nextRider = $this->user('courier', 'approved', ['assigned_area' => 'Majayjay']);
-
-        $this->actingAsUser($center)->post(route('logistics.riders.approve', $pendingRider))->assertRedirect();
-        $this->actingAsUser($center)->post(route('logistics.riders.reject', $rejectedRider))->assertRedirect();
-        $this->assertDatabaseHas('users', ['id' => $pendingRider->id, 'status' => 'approved']);
-        $this->assertDatabaseHas('users', ['id' => $rejectedRider->id, 'status' => 'rejected']);
 
         $order = $this->order(['status' => 'SORTED', 'delivery_area' => 'Majayjay']);
         $product = Product::create([
@@ -2016,14 +2016,14 @@ class LogisticsWorkflowTest extends TestCase
             'email' => 'new-buyer@example.test', 'contact_no' => '09123456789',
             'birthday' => '1990-01-01', 'terms' => '1',
             'password' => 'Buyer-Pass@2026', 'password_confirmation' => 'Buyer-Pass@2026',
-        ])->assertRedirect(route('verification.notice', ['email' => 'new-buyer@example.test']));
+        ])->assertRedirect(route('verification.notice'));
 
         $buyer = User::where('email', 'new-buyer@example.test')->firstOrFail();
         $this->assertSame('unverified', $buyer->status);
         $this->assertDatabaseHas('email_verification_codes', ['user_id' => $buyer->id]);
 
         $this->post(route('login.post'), ['email' => $buyer->email, 'password' => 'Buyer-Pass@2026'])
-            ->assertRedirect(route('verification.notice', ['email' => $buyer->email]));
+            ->assertRedirect(route('verification.notice'));
         $this->assertGuest();
 
         EmailVerificationCode::query()->where('user_id', $buyer->id)->update([
@@ -2102,12 +2102,21 @@ class LogisticsWorkflowTest extends TestCase
 
     public function test_remembered_session_is_invalidated_after_the_account_is_suspended(): void
     {
+        Notification::fake();
         $buyer = $this->user('buyer', 'approved');
         $this->post(route('login.post'), [
             'email' => $buyer->email,
             'password' => 'password',
             'remember' => true,
-        ])->assertRedirect(route('buyer.dashboard'));
+        ])->assertRedirect(route('login.otp.notice'));
+        $code = null;
+        Notification::assertSentTo($buyer, EmailVerificationCodeNotification::class, function ($notification) use (&$code) {
+            $code = $notification->code;
+
+            return true;
+        });
+        $this->post(route('login.otp.verify'), ['code' => $code])
+            ->assertRedirect(route('buyer.dashboard'));
         $this->assertAuthenticatedAs($buyer);
         $this->assertNotNull($buyer->fresh()->remember_token);
 
@@ -2280,20 +2289,10 @@ class LogisticsWorkflowTest extends TestCase
         $this->post(route('register.post'))->assertSessionHasErrors('first_name');
     }
 
-    public function test_logistics_rider_review_actions_are_throttled(): void
+    public function test_riders_do_not_have_a_separate_logistics_approval_or_rejection_step(): void
     {
-        $center = $this->user('sorting_center', 'approved');
-        $rider = $this->user('courier', 'pending');
-        $this->actingAsUser($center);
-
-        for ($attempt = 1; $attempt <= 30; $attempt++) {
-            $this->post(route('logistics.riders.approve', $rider));
-        }
-
-        $this->assertSame('approved', $rider->fresh()->status);
-        $this->post(route('logistics.riders.suspend', $rider), ['reason' => 'Policy review.'])->assertRedirect();
-        $this->assertSame('suspended', $rider->fresh()->status);
-        $this->post(route('logistics.riders.approve', $rider))->assertTooManyRequests();
+        $this->assertFalse(\Illuminate\Support\Facades\Route::has('logistics.riders.approve'));
+        $this->assertFalse(\Illuminate\Support\Facades\Route::has('logistics.riders.reject'));
     }
 
     public function test_admin_account_decisions_send_email_and_in_app_notifications(): void
@@ -2303,17 +2302,11 @@ class LogisticsWorkflowTest extends TestCase
         $approvedUser = $this->user('buyer', 'pending');
         $rejectedUser = $this->user('seller', 'pending');
         $center = $this->user('sorting_center', 'approved');
-        $approvedRider = $this->user('courier', 'pending');
-        $rejectedRider = $this->user('courier', 'pending');
 
         $this->actingAsUser($admin)->post(route('admin.registrations.approve', $approvedUser))->assertRedirect();
         $this->post(route('admin.registrations.reject', $approvedUser))->assertSessionHasErrors('reason');
         $this->post(route('admin.registrations.reject', $rejectedUser), ['reason' => 'Documents need correction.'])->assertRedirect();
         $this->post(route('admin.registrations.approve', $rejectedUser))->assertUnprocessable();
-        $this->actingAsUser($center)->post(route('logistics.riders.approve', $approvedRider))->assertRedirect();
-        $this->post(route('logistics.riders.reject', $approvedRider))->assertNotFound();
-        $this->post(route('logistics.riders.reject', $rejectedRider))->assertRedirect();
-        $this->post(route('logistics.riders.approve', $rejectedRider))->assertNotFound();
 
         Notification::assertSentTo($approvedUser, AccountStatusNotification::class, function (AccountStatusNotification $notification) use ($approvedUser): bool {
             return $notification->status === 'approved'
@@ -2329,12 +2322,8 @@ class LogisticsWorkflowTest extends TestCase
                 && str_contains($notification->toMail($rejectedUser)->subject, 'not approved')
                 && $notification->toDatabase($rejectedUser)['url'] === '';
         });
-        Notification::assertSentTo($approvedRider, AccountStatusNotification::class);
-        Notification::assertSentTo($rejectedRider, AccountStatusNotification::class);
         $this->assertDatabaseHas('users', ['id' => $approvedUser->id, 'status' => 'approved']);
         $this->assertDatabaseHas('users', ['id' => $rejectedUser->id, 'status' => 'rejected']);
-        $this->assertDatabaseHas('users', ['id' => $approvedRider->id, 'status' => 'approved']);
-        $this->assertDatabaseHas('users', ['id' => $rejectedRider->id, 'status' => 'rejected']);
     }
 
     public function test_logistics_can_reactivate_only_couriers_it_suspended(): void
@@ -2550,15 +2539,15 @@ class LogisticsWorkflowTest extends TestCase
         ]);
         $this->patch(route('account.password.update'), [
             'current_password' => 'wrong-password',
-            'password' => 'new-account-password',
-            'password_confirmation' => 'new-account-password',
+            'password' => 'New-Account@2026',
+            'password_confirmation' => 'New-Account@2026',
         ])->assertSessionHasErrors('current_password');
         $this->patch(route('account.password.update'), [
             'current_password' => 'password',
-            'password' => 'new-account-password',
-            'password_confirmation' => 'new-account-password',
+            'password' => 'New-Account@2026',
+            'password_confirmation' => 'New-Account@2026',
         ])->assertRedirect()->assertSessionHas('success');
-        $this->assertTrue(Hash::check('new-account-password', $buyer->fresh()->password));
+        $this->assertTrue(Hash::check('New-Account@2026', $buyer->fresh()->password));
         $this->assertNotSame('current-remember-token', $buyer->fresh()->remember_token);
 
         $this->withSession(['password_hash_web' => $staleSessionPasswordHash])

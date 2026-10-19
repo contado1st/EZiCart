@@ -7,6 +7,7 @@
 @section('title', 'Verify Your Email | EZiCart')
 
 @section('content')
+    @php($isLoginOtp = ($verificationMode ?? 'registration') === 'login')
     <main class="auth-page">
         <section class="auth-shell auth-shell--verify" aria-labelledby="auth-title">
             <aside class="auth-aside">
@@ -14,18 +15,18 @@
                 <div class="auth-aside-copy">
                     <p class="auth-kicker">Account Security</p>
                     <h1>One last step.</h1>
-                    <p>Verify your email address to protect your account and start using EZiCart.</p>
+                    <p>{{ $isLoginOtp ? 'Confirm it is you before we open your account.' : 'Verify your email address to protect your account and start using EZiCart.' }}</p>
                 </div>
                 <p class="auth-aside-foot">Philippine commerce, verified and secured.</p>
             </aside>
 
             <div class="auth-content">
                 <div class="auth-mobile-brand"><a class="auth-brand" href="{{ route('home') }}">EZiCart<span>.</span></a></div>
-                <h2 id="auth-title">Verify Your Email</h2>
+                <h2 id="auth-title">{{ $isLoginOtp ? 'Verify Your Sign In' : 'Verify Your Email' }}</h2>
                 <p class="auth-intro">
-                    We've sent a 6-digit verification code to
+                    {{ $isLoginOtp ? 'We sent a 6-digit sign-in code to' : "We've sent a 6-digit verification code to" }}
                     <span class="auth-target-email">{{ $email ?: 'your registered email address' }}</span>.
-                    Enter the code below to complete verification.
+                    {{ $isLoginOtp ? 'Enter it to finish signing in.' : 'Enter the code below to complete verification.' }}
                 </p>
 
                 {{-- Status & Error Messages --}}
@@ -46,12 +47,12 @@
                 @endif
 
                 {{-- OTP Verification Form --}}
-                <form action="{{ route('verification.verify') }}" method="POST" class="auth-form" id="verify-form" novalidate>
+                <form action="{{ $isLoginOtp ? route('login.otp.verify') : route('verification.verify') }}" method="POST" class="auth-form" id="verify-form" novalidate>
                     @csrf
                     
-                    @if ($email)
+                    @if ($email && ! $isLoginOtp)
                         <input type="hidden" name="email" id="verify-email" value="{{ $email }}">
-                    @else
+                    @elseif (! $email)
                         <div class="auth-field">
                             <label for="input-email">Registered email address</label>
                             <input id="input-email" type="email" name="email" value="{{ old('email') }}" required autofocus autocomplete="email" placeholder="name@example.com">
@@ -86,9 +87,11 @@
 
                 {{-- Resend OTP Section with Cooldown Timer --}}
                 <div class="auth-resend">
-                    <form action="{{ route('verification.resend') }}" method="POST" id="resend-form">
+                    <form action="{{ $isLoginOtp ? route('login.otp.resend') : route('verification.resend') }}" method="POST" id="resend-form">
                         @csrf
-                        <input type="hidden" name="email" id="resend-email" value="{{ $email }}">
+                        @unless ($isLoginOtp)
+                            <input type="hidden" name="email" id="resend-email" value="{{ $email }}">
+                        @endunless
                         <p class="auth-help" style="margin-bottom: 0.5rem;">Didn’t receive the code? Check your spam folder or resend.</p>
                         <button type="submit" id="resend-btn" @disabled($cooldownSeconds > 0)>
                             <span id="resend-btn-text">
@@ -102,7 +105,7 @@
                     </form>
                 </div>
 
-                <p class="auth-switch">Already verified or need another account? <a href="{{ route('login') }}">Back to sign in</a></p>
+                <p class="auth-switch">{{ $isLoginOtp ? 'Need to start over?' : 'Already verified or need another account?' }} <a href="{{ route('login') }}">Back to sign in</a></p>
             </div>
         </section>
     </main>
