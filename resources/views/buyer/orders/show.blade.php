@@ -35,6 +35,12 @@
                 <a href="{{ route('buyer.dashboard') }}" class="dash-btn-sm dash-btn-outline">Back to orders</a>
             </div>
 
+            @if($order->purchase)
+                <section class="dash-panel"><h2>Purchase #{{ $order->purchase->id }}</h2><p>Purchase total: ₱{{ number_format($order->purchase->total_cents / 100, 2) }}</p>
+                    @foreach($order->purchase->orders as $sibling)<p><a href="{{ route('buyer.orders.show', $sibling) }}">{{ $sibling->order_number }}</a> — {{ $sibling->seller->business_name ?? 'Merchant' }}{{ $sibling->replacement_for_order_id ? ' (replacement shipment)' : '' }}</p>@endforeach
+                </section>
+            @endif
+
             <section class="dash-panel">
                 <div class="order-card-header">
                     <div>

@@ -42,7 +42,7 @@ class BuyerController extends Controller
     {
         abort_if($order->buyer_id !== $this->authenticatedUser()->id, 403);
 
-        $order->load(['seller', 'items.product', 'dispute', 'trackingEvents.actor', 'deliveryAttempts']);
+        $order->load(['seller', 'items.product', 'dispute', 'trackingEvents.actor', 'deliveryAttempts', 'purchase.orders.seller']);
 
         $deliveryCode = $deliveryCodes->reveal($order);
         $deliveryCodeQr = $deliveryCode === null ? null : $qrCodes->svg('EZD:'.$deliveryCode, 180);

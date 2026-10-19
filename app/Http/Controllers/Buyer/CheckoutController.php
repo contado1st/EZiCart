@@ -3,254 +3,115 @@
 namespace App\Http\Controllers\Buyer;
 
 use App\Http\Controllers\Controller;
-use App\Models\Order;
-use App\Models\OrderItem;
-use App\Models\ParcelTrackingEvent;
-use App\Models\Product;
-use App\Models\ProductVariation;
+use App\Models\Purchase;
 use App\Models\Voucher;
-use App\Notifications\OrderWorkflowNotification;
+use App\Services\CheckoutPricingService;
 use App\Services\OrderAreaService;
+use App\Services\PlacePurchaseService;
 use App\Services\PsgcAddressService;
-use App\Services\TransactionAwareNotificationSender;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
-use Throwable;
+use Illuminate\Validation\ValidationException;
 
 class CheckoutController extends Controller
 {
-    public function index()
+    public function index(Request $request, CheckoutPricingService $pricing)
     {
-        $cart = session()->get('cart', []);
-
-        if (empty($cart)) {
+        $cart = $request->session()->get('cart', []);
+        if ($cart === []) {
             return redirect()->route('cart.index')->with('error', 'Your cart is empty.');
         }
+        $appliedVoucher = $request->session()->get('applied_voucher');
+        $voucher = $appliedVoucher ? Voucher::find($appliedVoucher['id']) : null;
+        try {
+            $quote = $pricing->quote($cart, $voucher);
+        } catch (ValidationException $exception) {
+            if (isset($exception->errors()['voucher_code'])) {
+                $request->session()->forget('applied_voucher');
 
-        $subtotal = 0;
-        foreach ($cart as $item) {
-            $subtotal += $item['price'] * $item['quantity'];
-        }
-
-        $discount = 0.00;
-        $appliedVoucher = session()->get('applied_voucher');
-
-        if ($appliedVoucher) {
-            $voucher = Voucher::find($appliedVoucher['id']);
-            if ($voucher && $voucher->isValidForAmount($subtotal)) {
-                $discount = $voucher->calculateDiscount($subtotal);
-            } else {
-                session()->forget('applied_voucher');
-                $appliedVoucher = null;
+                return redirect()->route('checkout.index')->with('error', $exception->errors()['voucher_code'][0]);
             }
-        }
 
-        $shippingFee = 50.00;
-        $total = max(0, $subtotal - $discount) + $shippingFee;
+            return redirect()->route('cart.index')->with('error', collect($exception->errors())->flatten()->first());
+        }
+        if ($appliedVoucher && ! $voucher) {
+            $request->session()->forget('applied_voucher');
+            $appliedVoucher = null;
+        }
+        $cart = array_map(fn ($line) => array_diff_key($line, array_flip(['product', 'variation'])), $quote['lines']);
+        $request->session()->put('cart', $cart);
+        $token = $request->session()->get('checkout_token', (string) Str::uuid());
+        $request->session()->put(['checkout_token' => $token, 'checkout_quote_hash' => $quote['hash']]);
+        $subtotal = $quote['subtotal_cents'] / 100;
+        $discount = $quote['discount_cents'] / 100;
+        $shippingFee = $quote['shipping_cents'] / 100;
+        $total = $quote['total_cents'] / 100;
         $user = $this->authenticatedUser();
 
-        return view('checkout.index', compact('cart', 'subtotal', 'discount', 'appliedVoucher', 'shippingFee', 'total', 'user'));
+        return view('checkout.index', compact('cart', 'subtotal', 'discount', 'shippingFee', 'total', 'user', 'appliedVoucher', 'quote', 'token'));
     }
 
-    public function applyVoucher(Request $request)
+    public function applyVoucher(Request $request, CheckoutPricingService $pricing): RedirectResponse
     {
-        $request->validate([
-            'voucher_code' => 'required|string',
-        ]);
-
-        $code = strtoupper(trim($request->input('voucher_code')));
-        $voucher = Voucher::where('code', $code)->first();
-
+        $validated = $request->validate(['voucher_code' => ['required', 'string', 'max:50']]);
+        $voucher = Voucher::query()->where('code', Str::upper(trim($validated['voucher_code'])))->first();
         if (! $voucher) {
-            return back()->with('error', 'Voucher code not found.');
+            return back()->withErrors(['voucher_code' => 'Voucher code not found.']);
         }
+        $pricing->quote($request->session()->get('cart', []), $voucher);
+        $request->session()->put('applied_voucher', ['id' => $voucher->id, 'code' => $voucher->code]);
 
-        $cart = session()->get('cart', []);
-        $subtotal = 0;
-        foreach ($cart as $item) {
-            $subtotal += $item['price'] * $item['quantity'];
-        }
-
-        if (! $voucher->isValidForAmount($subtotal)) {
-            return back()->with('error', 'Voucher cannot be applied. Minimum spend requirement: ₱'.number_format($voucher->min_spend, 2));
-        }
-
-        session()->put('applied_voucher', [
-            'id' => $voucher->id,
-            'code' => $voucher->code,
-            'type' => $voucher->type,
-            'value' => $voucher->value,
-        ]);
-
-        return back()->with('success', "Voucher '{$voucher->code}' applied successfully!");
+        return redirect()->route('checkout.index')->with('success', 'Voucher applied. Review your updated total.');
     }
 
-    public function removeVoucher()
+    public function removeVoucher(Request $request): RedirectResponse
     {
-        session()->forget('applied_voucher');
+        $request->session()->forget('applied_voucher');
 
-        return back()->with('success', 'Voucher removed.');
+        return redirect()->route('checkout.index');
     }
 
-    public function process(Request $request, TransactionAwareNotificationSender $notifications, OrderAreaService $areas, PsgcAddressService $psgc): RedirectResponse
+    public function process(Request $request, PlacePurchaseService $purchases, OrderAreaService $areas, PsgcAddressService $psgc): RedirectResponse
     {
-        $cart = session()->get('cart', []);
-
-        if (empty($cart)) {
-            return redirect()->route('cart.index')->with('error', 'Your cart is empty.');
-        }
-
         $validated = $request->validate([
-            'recipient_name' => 'required|string|max:255',
-            'recipient_contact' => 'required|string|max:20',
+            'checkout_token' => ['required', 'uuid'], 'quote_hash' => ['required', 'string', 'size:64'],
+            'recipient_name' => ['required', 'string', 'max:255'],
+            'recipient_contact' => ['required', 'regex:/^(09\d{9}|\+639\d{9})$/'],
             ...$psgc->validationRules(),
             'province' => ['required_without:province_code', 'nullable', 'string', 'max:120'],
             'municipality' => ['required_without:municipality_code', 'nullable', 'string', 'max:120'],
-            'payment_method' => 'required|string|in:COD',
-            'notes' => 'nullable|string|max:500',
+            'payment_method' => ['required', 'in:COD'], 'notes' => ['nullable', 'string', 'max:200'],
         ]);
-        $location = $psgc->resolve($validated);
-        $destinationArea = $areas->findForAddress($location['province'], $location['municipality']);
+        $buyer = $this->authenticatedUser();
+        ksort($validated);
+        $requestHash = hash('sha256', json_encode($validated, JSON_THROW_ON_ERROR));
+        $existing = Purchase::query()->where('buyer_id', $buyer->id)->where('checkout_token', $validated['checkout_token'])->first();
+        if ($existing) {
+            abort_unless(hash_equals($existing->request_hash, $requestHash), 422, 'This checkout token was already used with different details.');
 
-        $appliedVoucherData = session()->get('applied_voucher');
-        $voucher = null;
-        if ($appliedVoucherData) {
-            $voucher = Voucher::find($appliedVoucherData['id']);
+            return redirect()->route('buyer.dashboard')->with('success', 'Your original purchase is already recorded.');
         }
-
-        DB::beginTransaction();
-
+        abort_unless($request->session()->get('checkout_token') === $validated['checkout_token'] && $request->session()->get('checkout_quote_hash') === $validated['quote_hash'], 422, 'Review checkout before placing your order.');
+        $location = $psgc->resolve($validated);
+        $destination = $areas->findForAddress($location['province'], $location['municipality']);
+        $address = [
+            ...$location, 'recipient_name' => $validated['recipient_name'], 'recipient_contact' => $validated['recipient_contact'],
+            'street_address' => $validated['street_address'] ?? '', 'house_number' => $validated['house_number'] ?? null,
+            'postal_code' => $validated['postal_code'] ?? null, 'notes' => $validated['notes'] ?? null,
+            'destination_area_id' => $destination?->id,
+        ];
         try {
-            /** @var array<int, list<array{product: Product, variation_id: int|string|null, variation_info: string|null, quantity: int, price: int|float|string}>> $groupedCart */
-            $groupedCart = [];
-            $cartTotalSubtotal = 0;
-
-            foreach ($cart as $item) {
-                $productId = $item['product_id'] ?? $item['id'];
-                $product = Product::lockForUpdate()->find($productId);
-
-                if (! $product || $product->compliance_status !== 'approved' || $product->is_archived || $product->stock < $item['quantity']) {
-                    DB::rollBack();
-
-                    return back()->with('error', "Sorry, {$item['name']} is out of stock or has insufficient inventory.");
-                }
-
-                if (! empty($item['variation_id'])) {
-                    $variation = ProductVariation::lockForUpdate()->find($item['variation_id']);
-                    if (! $variation || $variation->stock < $item['quantity']) {
-                        DB::rollBack();
-
-                        return back()->with('error', "Sorry, the selected variation for {$item['name']} does not have enough stock.");
-                    }
-                }
-
-                $itemSubtotal = $item['price'] * $item['quantity'];
-                $cartTotalSubtotal += $itemSubtotal;
-
-                $groupedCart[$product->user_id][] = [
-                    'product' => $product,
-                    'variation_id' => $item['variation_id'] ?? null,
-                    'variation_info' => $item['variation_info'] ?? null,
-                    'quantity' => $item['quantity'],
-                    'price' => $item['price'],
-                ];
-            }
-
-            // Compute overall discount
-            $totalDiscount = 0.00;
-            if ($voucher && $voucher->isValidForAmount($cartTotalSubtotal)) {
-                $totalDiscount = $voucher->calculateDiscount($cartTotalSubtotal);
-                $voucher->increment('used_count');
-            }
-
-            foreach ($groupedCart as $sellerId => $items) {
-                $sellerSubtotal = 0;
-                foreach ($items as $itm) {
-                    $sellerSubtotal += $itm['price'] * $itm['quantity'];
-                }
-
-                // Proportional discount allocation if voucher was applied
-                $sellerDiscount = ($cartTotalSubtotal > 0)
-                    ? round(($sellerSubtotal / $cartTotalSubtotal) * $totalDiscount, 2)
-                    : 0.00;
-
-                $commissionFee = max(0, $sellerSubtotal - $sellerDiscount) * 0.10;
-                $shippingFee = 50.00;
-                $orderTotal = max(0, $sellerSubtotal - $sellerDiscount) + $shippingFee;
-
-                $order = Order::query()->forceCreate([
-                    'order_number' => 'EZC-'.strtoupper(Str::random(10)),
-                    'buyer_id' => $this->authenticatedUser()->id,
-                    'seller_id' => $sellerId,
-                    'recipient_name' => $validated['recipient_name'],
-                    'recipient_contact' => $validated['recipient_contact'],
-                    'region' => $location['region'],
-                    'province' => $location['province'],
-                    'municipality' => $location['municipality'],
-                    'destination_area_id' => $destinationArea?->id,
-                    'barangay' => $location['barangay'],
-                    'house_number' => $validated['house_number'] ?? null,
-                    'postal_code' => $validated['postal_code'] ?? null,
-                    'street_address' => $validated['street_address'] ?? '',
-                    'subtotal' => $sellerSubtotal,
-                    'voucher_code' => $voucher ? $voucher->code : null,
-                    'discount_amount' => $sellerDiscount,
-                    'shipping_fee' => $shippingFee,
-                    'commission_fee' => $commissionFee,
-                    'total_amount' => $orderTotal,
-                    'payment_method' => $validated['payment_method'],
-                    'status' => 'PLACED',
-                    'notes' => $validated['notes'] ?? null,
-                ]);
-                ParcelTrackingEvent::create([
-                    'order_id' => $order->id,
-                    'actor_id' => $this->authenticatedUser()->id,
-                    'event_type' => 'order_placed',
-                    'status' => $order->status,
-                    'location' => $order->municipality,
-                    'notes' => 'Order placed by buyer.',
-                ]);
-
-                foreach ($items as $itm) {
-                    OrderItem::create([
-                        'order_id' => $order->id,
-                        'product_id' => $itm['product']->id,
-                        'variation_id' => $itm['variation_id'] ?? null,
-                        'variation_info' => $itm['variation_info'] ?? null,
-                        'product_name' => $itm['product']->name,
-                        'unit_price' => $itm['price'],
-                        'quantity' => $itm['quantity'],
-                        'item_total' => $itm['price'] * $itm['quantity'],
-                    ]);
-
-                    $itm['product']->decrement('stock', $itm['quantity']);
-
-                    if (! empty($itm['variation_id'])) {
-                        ProductVariation::where('id', $itm['variation_id'])->decrement('stock', $itm['quantity']);
-                    }
-                }
-
-                $notifications->send(
-                    $order->seller,
-                    new OrderWorkflowNotification($order, 'order_placed', 'A buyer placed an order. Review it and confirm whether you can fulfill it.'),
-                );
-            }
-
-            DB::commit();
-
-            session()->forget(['cart', 'applied_voucher']);
-
-            return redirect()->route('buyer.dashboard')->with('success', 'Order placed successfully! Waiting for seller preparation.');
-        } catch (Throwable $exception) {
-            if (DB::transactionLevel() > 0) {
-                DB::rollBack();
-            }
-
+            $purchases->place($buyer, $validated['checkout_token'], $requestHash, $request->session()->get('cart', []), $validated['quote_hash'], $request->session()->get('applied_voucher.id'), $address);
+        } catch (ValidationException $exception) {
+            return redirect()->route('checkout.index')->withInput()->withErrors($exception->errors());
+        } catch (\Throwable $exception) {
             report($exception);
 
-            return back()->with('error', "We couldn't place your order right now. Please try again.");
+            return back()->withInput()->with('error', "We couldn't place your order right now. Please try again.");
         }
+        $request->session()->forget(['cart', 'applied_voucher', 'checkout_token', 'checkout_quote_hash']);
+
+        return redirect()->route('buyer.dashboard')->with('success', 'Purchase placed successfully. Each seller will prepare their shipment.');
     }
 }

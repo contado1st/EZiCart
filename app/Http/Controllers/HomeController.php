@@ -10,7 +10,8 @@ class HomeController extends Controller
     public function index(Request $request)
     {
         $roleDashboardRoute = match ($request->user()?->role) {
-            'admin' => 'admin.dashboard',
+            'admin', 'ecommerce_admin' => 'admin.dashboard',
+            'logistics_admin' => 'logistics-admin.dashboard',
             'courier' => 'courier.dashboard',
             'sorting_center' => 'logistics.dashboard',
             default => null,
@@ -31,6 +32,7 @@ class HomeController extends Controller
         $query = Product::where('compliance_status', 'approved')
             ->where('is_archived', false)
             ->where('stock', '>', 0)
+            ->where(fn ($query) => $query->whereDoesntHave('variations')->orWhereHas('variations', fn ($variants) => $variants->where('is_active', true)->where('stock', '>', 0)))
             ->with('seller');
 
         // Filter by category
@@ -57,7 +59,8 @@ class HomeController extends Controller
     {
         abort_if($product->compliance_status !== 'approved' || $product->is_archived || $product->stock <= 0, 404);
 
-        $product->load('seller');
+        $product->load(['seller', 'variations' => fn ($query) => $query->where('is_active', true)]);
+        abort_if($product->variations()->exists() && $product->variations->isEmpty(), 404);
 
         return view('products.show', compact('product'));
     }

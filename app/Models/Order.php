@@ -76,6 +76,31 @@ class Order extends Model
         return $this->belongsTo(User::class, 'buyer_id');
     }
 
+    public function purchase(): BelongsTo
+    {
+        return $this->belongsTo(Purchase::class);
+    }
+
+    public function finance(): HasOne
+    {
+        return $this->hasOne(OrderFinance::class);
+    }
+
+    public function refundExecutions(): HasMany
+    {
+        return $this->hasMany(RefundExecution::class);
+    }
+
+    public function payout(): HasOne
+    {
+        return $this->hasOne(SellerPayout::class);
+    }
+
+    public function activeTransfer(): HasOne
+    {
+        return $this->hasOne(ParcelTransfer::class, 'active_order_id');
+    }
+
     public function seller(): BelongsTo
     {
         return $this->belongsTo(User::class, 'seller_id');
@@ -169,6 +194,11 @@ class Order extends Model
     protected function casts(): array
     {
         return [
+            'seller_response_due_at' => 'datetime',
+            'preparation_due_at' => 'datetime',
+            'seller_reminded_at' => 'datetime',
+            'restock_inspected_at' => 'datetime',
+            'restock_approved' => 'boolean',
             'picked_up_at' => 'datetime',
             'pickup_claimed_at' => 'datetime',
             'pickup_requested_at' => 'datetime',

@@ -26,6 +26,18 @@
         </aside>
 
         <main class="dash-main">
+            @if (session('success'))
+                <p role="status">{{ session('success') }}</p>
+            @endif
+            @if ($errors->any())
+                <div role="alert">
+                    @foreach ($errors->all() as $message)
+                        <p>{{ $message }}</p>
+                    @endforeach
+                </div>
+            @endif
+            @if($order->status === 'PLACED' && $order->seller_response_due_at)<p role="status">Confirm by {{ $order->seller_response_due_at->format('M d, Y h:i A') }}.</p>@endif
+            @if(in_array($order->status, ['CONFIRMED', 'PREPARING'], true) && $order->preparation_due_at)<p role="status">Finish preparation by {{ $order->preparation_due_at->format('M d, Y h:i A') }}.</p>@endif
             <div class="dash-header">
                 <div>
                     <h1 class="dash-title">Order {{ $order->order_number }}</h1>
@@ -158,6 +170,18 @@
                     @endif
                 </div>
             </section>
+            @if($order->status === 'RETURNED_TO_SELLER' && $order->restock_inspected_at === null && $order->inventory_restored_at === null)
+                <section class="dash-panel"><h2>Inspect returned items</h2>
+                    <form method="POST" action="{{ route('seller.orders.return-inspection', $order) }}">@csrf
+                        <label>Inspection result<select name="restock" required><option value="">Choose a result</option><option value="1">All items are sellable — restock</option><option value="0">Items are damaged or unsuitable — exclude from stock</option></select></label>
+                        <label>Inspection notes<textarea name="reason" required minlength="5" maxlength="500"></textarea></label><button class="dash-btn-sm" type="submit">Record inspection</button>
+                    </form>
+                </section>
+            @endif
+            @if($order->dispute?->status === 'REPLACEMENT_APPROVED' && $order->status === 'RETURNED_TO_SELLER')
+                <form method="POST" action="{{ route('seller.replacements.store', $order->dispute) }}">@csrf<button class="dash-btn-sm" type="submit">Create approved no-charge replacement</button></form>
+            @endif
+            <a href="{{ route('finance.index') }}" class="dash-btn-sm">Order financial records</a>
         </main>
     </div>
 @endsection

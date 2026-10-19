@@ -10,6 +10,7 @@ use App\Services\PsgcAddressService;
 use App\Services\RegistrationIdentityService;
 use Carbon\Carbon;
 use Illuminate\Auth\Events\PasswordReset;
+use Illuminate\Contracts\View\View;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -26,7 +27,9 @@ use Illuminate\Validation\ValidationException;
 class AuthController extends Controller
 {
     private const TIN_FORMAT_ERROR = 'TIN must contain exactly 12 digits in the format 000-000-000-000.';
+
     private const MOBILE_FORMAT_ERROR = 'Mobile number must contain exactly 11 digits in the format 09XXXXXXXXX, or use the equivalent +63 format.';
+
     private const MOBILE_DUPLICATE_ERROR = 'This mobile number is already in use.';
 
     private const SEEDED_OTP_EXEMPT_ACCOUNTS = [
@@ -126,7 +129,7 @@ class AuthController extends Controller
         $user = $request->user();
 
         // 1. Admin accounts bypass OTP verification
-        if ($user->role === 'admin') {
+        if ($user->administrationDashboardRoute() !== null) {
             if ($user->status !== 'approved') {
                 Auth::logout();
                 $request->session()->invalidate();
@@ -141,7 +144,7 @@ class AuthController extends Controller
 
             $request->session()->regenerate();
 
-            return redirect()->intended(route('admin.dashboard'));
+            return redirect()->intended(route($user->administrationDashboardRoute()));
         }
 
         // 2. Email Verification Enforcement (unverified accounts must verify their email)
@@ -241,14 +244,15 @@ class AuthController extends Controller
 
         return match ($user->role) {
             'seller' => redirect()->intended(route('seller.dashboard')),
-            'admin' => redirect()->intended(route('admin.dashboard')),
+            'admin', 'ecommerce_admin' => redirect()->intended(route('admin.dashboard')),
+            'logistics_admin' => redirect()->intended(route('logistics-admin.dashboard')),
             'courier' => redirect()->intended(route('courier.dashboard')),
             'sorting_center' => redirect()->intended(route('logistics.dashboard')),
             default => redirect()->intended(route('buyer.dashboard')),
         };
     }
 
-    public function showLoginOtp(): RedirectResponse|\Illuminate\Contracts\View\View
+    public function showLoginOtp(): RedirectResponse|View
     {
         $challenge = session('login_otp');
         if (! is_array($challenge) || empty($challenge['user_id']) || empty($challenge['email'])) {

@@ -9,7 +9,7 @@
         <aside class="dash-sidebar">
             <div>
                 <div class="dash-profile-badge">
-                    <span class="dash-role-tag dash-role-admin">Super Admin</span>
+                    <span class="dash-role-tag dash-role-admin">E-Commerce Admin</span>
                     <h2 class="dash-profile-title">Product Compliance</h2>
                     <p class="dash-profile-subtitle">Manual listing review and seller warnings</p>
                 </div>

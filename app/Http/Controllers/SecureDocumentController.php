@@ -26,7 +26,7 @@ class SecureDocumentController extends Controller
     public function userDocument(User $user, string $type): StreamedResponse
     {
         $actor = $this->authenticatedUser();
-        $authorized = $actor->role === 'admin';
+        $authorized = $actor->canManageAccount($user);
         if ($actor->role === 'sorting_center' && $user->role === 'courier') {
             if ($user->logistics_owner_id !== null) {
                 $authorized = (int) $user->logistics_owner_id === (int) $actor->id;
@@ -60,7 +60,7 @@ class SecureDocumentController extends Controller
 
     public function disputeEvidence(Dispute $dispute): StreamedResponse
     {
-        abort_unless($this->authenticatedUser()->role === 'admin', 403);
+        abort_unless($this->authenticatedUser()->isCommerceAdmin(), 403);
         abort_unless(is_string($dispute->evidence_path) && Storage::disk('private')->exists($dispute->evidence_path), 404);
 
         return Storage::disk('private')->download($dispute->evidence_path, basename($dispute->evidence_path));
@@ -70,7 +70,7 @@ class SecureDocumentController extends Controller
     {
         $actor = $this->authenticatedUser();
         $attempt->loadMissing('order');
-        $authorized = $actor->role === 'admin'
+        $authorized = $actor->isCommerceAdmin() || $actor->isLogisticsAdmin()
             || ($actor->role === 'buyer' && $attempt->order->buyer_id === $actor->id)
             || ($actor->role === 'courier' && $attempt->rider_id === $actor->id)
             || ($actor->role === 'sorting_center' && (int) $attempt->order->sorting_center_id === $actor->id);

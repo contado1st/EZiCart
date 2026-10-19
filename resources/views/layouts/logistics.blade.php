@@ -34,6 +34,7 @@
                         aria-label="Parcel intake" title="Parcel intake" data-compact="IN"
                         aria-current="{{ request()->routeIs('logistics.intake') ? 'page' : 'false' }}"
                         href="{{ route('logistics.intake') }}">Parcel intake</a>
+                    <a href="{{ route('parcel-transfers.index') }}" aria-label="Hub transfers" title="Hub transfers" data-compact="TR">Hub transfers</a>
                     <a class="{{ request()->routeIs('logistics.pickupRequests') ? 'active' : '' }}"
                         aria-label="Pickup requests" title="Pickup requests" data-compact="PU"
                         aria-current="{{ request()->routeIs('logistics.pickupRequests') ? 'page' : 'false' }}"

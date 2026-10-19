@@ -8,6 +8,7 @@ use App\Models\DeliveryAssignment;
 use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\ParcelTrackingEvent;
+use App\Models\ParcelTransfer;
 use App\Models\Product;
 use App\Models\ProductVariation;
 use App\Models\User;
@@ -51,6 +52,8 @@ class OrderTransitionService
     public function __construct(
         private InventoryRestorationService $inventoryRestoration,
         private TransactionAwareNotificationSender $notifications,
+        private AdministrativeAuditService $audits,
+        private OrderFinancialService $finances,
     ) {}
 
     public function transition(
@@ -70,6 +73,7 @@ class OrderTransitionService
         return DB::transaction(function () use ($order, $actor, $target, $eventType, $location, $notes, $attributes): Order {
             $lockedOrder = Order::query()->whereKey($order->id)->lockForUpdate()->firstOrFail();
             $current = $lockedOrder->status;
+            abort_if(ParcelTransfer::query()->where('active_order_id', $lockedOrder->id)->exists(), 422, 'Complete the active hub transfer before changing parcel status.');
 
             if (! in_array($target->value, self::TRANSITIONS[$current] ?? [], true)) {
                 throw new HttpException(422, 'This order cannot move to that status.');
@@ -107,6 +111,12 @@ class OrderTransitionService
             }
 
             $this->authorizeActor($lockedOrder, $actor, $target);
+            if ($target === OrderStatus::Confirmed && $lockedOrder->seller_response_due_at?->isPast()) {
+                throw new HttpException(422, 'The seller confirmation deadline has expired.');
+            }
+            if (in_array($target, [OrderStatus::Preparing, OrderStatus::ReadyForPickup], true) && $lockedOrder->preparation_due_at?->isPast()) {
+                throw new HttpException(422, 'The seller preparation deadline has expired.');
+            }
             if ($target === OrderStatus::Confirmed) {
                 $this->validateSellerOrderInventory($lockedOrder);
             }
@@ -119,11 +129,19 @@ class OrderTransitionService
             }
 
             $lockedOrder->forceFill([...$transitionAttributes, 'status' => $target->value])->save();
+            if ($target === OrderStatus::Delivered) {
+                $this->finances->recordCollection($lockedOrder, $actor);
+            }
 
             $this->recordAssignmentLifecycle($lockedOrder->refresh(), $actor, $target);
 
-            if (in_array($target, [OrderStatus::Cancelled, OrderStatus::ReturnedToSeller], true)) {
+            if ($target === OrderStatus::Cancelled) {
                 $this->inventoryRestoration->restore($lockedOrder);
+                $this->finances->voidUncollected($lockedOrder, $actor);
+            }
+
+            if ($target === OrderStatus::Confirmed) {
+                $lockedOrder->forceFill(['preparation_due_at' => now()->addHours((int) config('commerce.seller_preparation_hours')), 'seller_reminded_at' => null])->save();
             }
 
             ParcelTrackingEvent::create([
@@ -134,6 +152,7 @@ class OrderTransitionService
                 'location' => $location,
                 'notes' => $notes,
             ]);
+            $this->audits->record($actor, $lockedOrder, $eventType, ['status' => $current], ['status' => $target->value], $notes ?? 'Validated order transition.');
 
             foreach ($this->notificationRecipients($lockedOrder, $target) as $recipient) {
                 $this->notifications->send($recipient, new OrderStatusNotification(
@@ -146,6 +165,51 @@ class OrderTransitionService
 
             return $lockedOrder->refresh();
         });
+    }
+
+    public function receiveHubTransfer(ParcelTransfer $transfer, User $actor, string $reference): void
+    {
+        DB::transaction(function () use ($transfer, $actor, $reference): void {
+            $order = Order::query()->whereKey($transfer->order_id)->lockForUpdate()->firstOrFail();
+            $locked = ParcelTransfer::query()->whereKey($transfer->id)->lockForUpdate()->firstOrFail();
+            abort_unless($actor->role === 'sorting_center' && $actor->status === 'approved' && $actor->id === $locked->destination_hub_id, 403);
+            abort_unless($locked->status === 'IN_TRANSIT' && $locked->released_at !== null && $order->sorting_center_id === $locked->source_hub_id && in_array($order->status, ['AT_SORTING_CENTER', 'SORTED'], true), 422, 'Only a released transfer can be received.');
+            abort_unless(hash_equals('EZP:'.$order->parcel_code, $reference), 422, 'Scan the parcel label for this transfer.');
+            abort_unless($order->destinationArea?->sorting_center_id === $actor->id, 422, 'Destination service-area ownership changed. Logistics must investigate the transfer.');
+            $previous = $order->only(['status', 'sorting_center_id']);
+            $order->forceFill(['status' => OrderStatus::AtSortingCenter->value, 'sorting_center_id' => $actor->id, 'received_at' => now(), 'sorted_at' => null])->save();
+            $locked->forceFill(['status' => 'RECEIVED', 'active_order_id' => null, 'received_by' => $actor->id, 'received_at' => now()])->save();
+            ParcelTrackingEvent::create(['order_id' => $order->id, 'actor_id' => $actor->id, 'event_type' => 'hub_transfer_received', 'status' => $order->status, 'notes' => 'Destination hub scanned and received the transfer parcel.']);
+            $this->audits->record($actor, $order, 'hub_transfer_received', $previous, $order->only(['status', 'sorting_center_id']), 'Physical parcel label scanned at destination hub.');
+            $this->notifications->send([$order->buyer, $order->seller, $locked->sourceHub], new OrderWorkflowNotification($order, 'hub_transfer_received', 'Parcel received at the destination hub for sorting.'));
+        });
+    }
+
+    public function expireSellerDeadline(Order $order): bool
+    {
+        return DB::transaction(function () use ($order): bool {
+            $locked = Order::query()->whereKey($order->id)->lockForUpdate()->firstOrFail();
+            $due = match ($locked->status) {
+                'PLACED' => $locked->seller_response_due_at,
+                'CONFIRMED', 'PREPARING' => $locked->preparation_due_at,
+                default => null,
+            };
+            if ($due === null || $due->isFuture() || $locked->seller_handover_at !== null || $locked->picked_up_at !== null || $locked->received_at !== null || $locked->hub_released_at !== null) {
+                return false;
+            }
+            $previous = $locked->status;
+            $locked->forceFill(['status' => OrderStatus::Cancelled->value])->save();
+            $this->inventoryRestoration->restore($locked);
+            $this->finances->voidUncollected($locked, null);
+            ParcelTrackingEvent::query()->create([
+                'order_id' => $locked->id, 'actor_id' => null, 'event_type' => 'seller_deadline_expired',
+                'status' => OrderStatus::Cancelled->value, 'notes' => 'Seller response or preparation deadline expired before physical custody.',
+            ]);
+            $this->audits->record(null, $locked, 'seller_deadline_expired', ['status' => $previous], ['status' => OrderStatus::Cancelled->value], 'Seller deadline expired before physical custody.');
+            $this->notifications->send([$locked->buyer, $locked->seller], new OrderStatusNotification($locked, OrderStatus::Cancelled->value, 'seller_deadline_expired', 'Order cancelled because the seller deadline expired.'));
+
+            return true;
+        }, 3);
     }
 
     public function declineDeliveryAssignment(Order $order, User $actor, ?string $reason = null): Order
@@ -356,12 +420,12 @@ class OrderTransitionService
             OrderStatus::Completed => $actor->role === 'buyer' && $order->buyer_id === $actor->id,
             OrderStatus::Cancelled => ($actor->role === 'buyer' && $order->buyer_id === $actor->id)
                 || ($actor->role === 'seller' && $order->seller_id === $actor->id)
-                || $actor->role === 'admin',
+                || $actor->isCommerceAdmin(),
             OrderStatus::PickedUp => $actor->role === 'courier' && $order->pickup_courier_id === $actor->id,
             OrderStatus::OutForDelivery, OrderStatus::Delivered, OrderStatus::DeliveryFailed => $actor->role === 'courier' && $order->delivery_courier_id === $actor->id,
             OrderStatus::AtSortingCenter, OrderStatus::AssignedToRider => $actor->role === 'sorting_center',
             OrderStatus::Sorted => $actor->role === 'sorting_center',
-            OrderStatus::ReturnInTransit => $actor->role === 'admin' || $actor->role === 'sorting_center' || ($actor->role === 'courier' && $order->delivery_courier_id === $actor->id),
+            OrderStatus::ReturnInTransit => $actor->isCommerceAdmin() || $actor->role === 'sorting_center' || ($actor->role === 'courier' && $order->delivery_courier_id === $actor->id),
             default => false,
         };
 
@@ -400,7 +464,7 @@ class OrderTransitionService
             'A parcel in physical custody cannot be cancelled.',
         );
 
-        if (in_array($actor->role, ['seller', 'admin'], true) && blank($reason)) {
+        if (($actor->role === 'seller' || $actor->isCommerceAdmin()) && blank($reason)) {
             throw new HttpException(422, 'A cancellation reason is required.');
         }
     }

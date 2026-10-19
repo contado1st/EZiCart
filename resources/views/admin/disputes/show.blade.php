@@ -10,7 +10,7 @@
         <aside class="dash-sidebar">
             <div>
                 <div class="dash-profile-badge">
-                    <span class="dash-role-tag dash-role-admin">Super Admin</span>
+                    <span class="dash-role-tag dash-role-admin">E-Commerce Admin</span>
                     <h2 class="dash-profile-title">{{ auth()->user()->first_name }} {{ auth()->user()->last_name }}</h2>
                 </div>
                 <nav class="dash-nav">

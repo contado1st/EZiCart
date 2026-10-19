@@ -1,6 +1,7 @@
 @php
     $roleDashboardRoute = match (auth()->user()?->role) {
-        'admin' => 'admin.dashboard',
+        'admin', 'ecommerce_admin' => 'admin.dashboard',
+        'logistics_admin' => 'logistics-admin.dashboard',
         'courier' => 'courier.dashboard',
         'sorting_center' => 'logistics.dashboard',
         default => null,
@@ -93,10 +94,15 @@
                             </a>
                             <a href="{{ route('account.profile.edit') }}" class="nav-link">Account</a>
                         @endif
+                        @if (in_array(auth()->user()->role, ['buyer', 'seller', 'courier', 'admin', 'ecommerce_admin', 'logistics_admin'], true))
+                            <a href="{{ route('finance.index') }}" class="nav-link">Financial records</a>
+                        @endif
                         @if (auth()->user()->role === 'seller')
                             <a href="{{ route('seller.dashboard') }}" class="btn-primary nav-btn-compact">Dashboard</a>
-                        @elseif(auth()->user()->role === 'admin')
+                        @elseif(auth()->user()->isCommerceAdmin())
                             <a href="{{ route('admin.dashboard') }}" class="btn-primary nav-btn-compact">Admin Panel</a>
+                        @elseif(auth()->user()->isLogisticsAdmin())
+                            <a href="{{ route('logistics-admin.dashboard') }}" class="btn-primary nav-btn-compact">Logistics control tower</a>
                         @elseif(auth()->user()->role === 'courier')
                             <a href="{{ route('courier.dashboard') }}" class="btn-primary nav-btn-compact">Deliveries</a>
                         @elseif(auth()->user()->role === 'sorting_center')

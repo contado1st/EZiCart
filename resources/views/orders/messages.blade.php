@@ -18,7 +18,8 @@
                     'seller' => ['seller.orders.show', 'seller.orders.messages.store'],
                     'courier' => ['courier.orders.show', 'courier.orders.messages.store'],
                     'sorting_center' => ['logistics.tracking', 'logistics.orders.messages.store'],
-                    'admin' => ['admin.dashboard', 'admin.orders.messages.store'],
+                    'admin', 'ecommerce_admin' => ['admin.dashboard', 'admin.orders.messages.store'],
+                    'logistics_admin' => ['logistics-admin.dashboard', 'logistics-admin.orders.messages.store'],
                     default => ['notifications.index', 'notifications.index'],
                 };
             @endphp

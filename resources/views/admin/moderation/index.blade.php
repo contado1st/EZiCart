@@ -10,7 +10,7 @@
         <aside class="dash-sidebar">
             <div>
                 <div class="dash-profile-badge">
-                    <span class="dash-role-tag dash-role-admin">Super Admin</span>
+                    <span class="dash-role-tag dash-role-admin">E-Commerce Admin</span>
                     <h2 class="dash-profile-title">{{ auth()->user()->first_name }} {{ auth()->user()->last_name }}</h2>
                 </div>
                 <nav class="dash-nav">
@@ -49,9 +49,7 @@
                         <select name="role" class="controls-select u-extracted-de2395bfe6">
                             <option value="">All Roles</option>
                             <option value="seller" {{ $role === 'seller' ? 'selected' : '' }}>Sellers</option>
-                            <option value="courier" {{ $role === 'courier' ? 'selected' : '' }}>Couriers</option>
                             <option value="buyer" {{ $role === 'buyer' ? 'selected' : '' }}>Buyers</option>
-                            <option value="sorting_center" {{ $role === 'sorting_center' ? 'selected' : '' }}>Hubs</option>
                         </select>
                         <button type="submit" class="dash-btn-sm dash-btn-primary">Filter</button>
                     </form>

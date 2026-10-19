@@ -35,6 +35,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Notification;
+use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -145,7 +146,10 @@ class LogisticsWorkflowTest extends TestCase
             'price' => 100,
             'quantity' => 1,
             'variation_id' => null,
-        ]]])->post(route('checkout.process'), [
+        ]]])->get(route('checkout.index'))->assertOk();
+        $this->post(route('checkout.process'), [
+            'checkout_token' => session('checkout_token'),
+            'quote_hash' => session('checkout_quote_hash'),
             'recipient_name' => 'Hub Routed Buyer',
             'recipient_contact' => '09123456789',
             'province' => 'Laguna',
@@ -1036,7 +1040,10 @@ class LogisticsWorkflowTest extends TestCase
         ]);
         $product->forceFill(['compliance_status' => 'approved'])->save();
         $this->post(route('cart.add', $product), ['quantity' => 1])->assertRedirect(route('cart.index'));
+        $this->get(route('checkout.index'))->assertOk();
         $this->post(route('checkout.process'), [
+            'checkout_token' => session('checkout_token'),
+            'quote_hash' => session('checkout_quote_hash'),
             'recipient_name' => 'Professor Flow',
             'recipient_contact' => '09123456789',
             'province' => 'Laguna',
@@ -1056,8 +1063,7 @@ class LogisticsWorkflowTest extends TestCase
         $this->assertSame(150.0, (float) $order->total_amount);
         $this->assertNull($order->delivery_courier_id);
         $this->assertNotSame('EZC-SPOOFED', $order->order_number);
-        Notification::assertSentTo($seller, OrderWorkflowNotification::class, fn (OrderWorkflowNotification $notification): bool =>
-            $notification->eventType === 'order_placed' && $notification->order->id === $order->id,
+        Notification::assertSentTo($seller, OrderWorkflowNotification::class, fn (OrderWorkflowNotification $notification): bool => $notification->eventType === 'order_placed' && $notification->order->id === $order->id,
         );
         $center = $this->user('sorting_center', 'approved');
         $rider = $this->user('courier', 'approved', ['assigned_area' => 'Majayjay']);
@@ -1592,6 +1598,8 @@ class LogisticsWorkflowTest extends TestCase
         ])->assertRedirect();
         $this->assertDatabaseHas('orders', ['id' => $order->id, 'status' => 'RETURNED_TO_SELLER', 'delivery_courier_id' => $nextRider->id]);
         $this->assertDatabaseHas('parcel_tracking_events', ['order_id' => $order->id, 'event_type' => 'returned_to_seller']);
+        $this->assertDatabaseHas('products', ['id' => $product->id, 'stock' => 2]);
+        $this->post(route('seller.orders.return-inspection', $order), ['restock' => 1, 'reason' => 'Returned products inspected and sellable.'])->assertRedirect();
         $this->assertDatabaseHas('products', ['id' => $product->id, 'stock' => 5]);
         $this->assertDatabaseHas('scan_events', [
             'order_id' => $order->id,
@@ -1718,6 +1726,8 @@ class LogisticsWorkflowTest extends TestCase
             'rider_badge' => 'EZR:'.$returnBadge,
         ])->assertRedirect();
         $this->assertDatabaseHas('orders', ['id' => $order->id, 'status' => 'RETURNED_TO_SELLER']);
+        $this->assertDatabaseHas('products', ['id' => $product->id, 'stock' => 2]);
+        $this->post(route('seller.orders.return-inspection', $order), ['restock' => 1, 'reason' => 'Returned products inspected and sellable.'])->assertRedirect();
         $this->assertDatabaseHas('products', ['id' => $product->id, 'stock' => 5]);
     }
 
@@ -2223,7 +2233,10 @@ class LogisticsWorkflowTest extends TestCase
         Str::createRandomStringsUsing(fn (int $length): string => str_repeat('A', $length));
 
         try {
-            $response = $this->actingAsUser($buyer)->withSession(['cart' => $cart])->post(route('checkout.process'), [
+            $this->actingAsUser($buyer)->withSession(['cart' => $cart])->get(route('checkout.index'))->assertOk();
+            $response = $this->post(route('checkout.process'), [
+                'checkout_token' => session('checkout_token'),
+                'quote_hash' => session('checkout_quote_hash'),
                 'recipient_name' => 'Test Buyer',
                 'recipient_contact' => '09123456789',
                 'province' => 'Laguna',
@@ -2291,8 +2304,8 @@ class LogisticsWorkflowTest extends TestCase
 
     public function test_riders_do_not_have_a_separate_logistics_approval_or_rejection_step(): void
     {
-        $this->assertFalse(\Illuminate\Support\Facades\Route::has('logistics.riders.approve'));
-        $this->assertFalse(\Illuminate\Support\Facades\Route::has('logistics.riders.reject'));
+        $this->assertFalse(Route::has('logistics.riders.approve'));
+        $this->assertFalse(Route::has('logistics.riders.reject'));
     }
 
     public function test_admin_account_decisions_send_email_and_in_app_notifications(): void
@@ -2329,12 +2342,12 @@ class LogisticsWorkflowTest extends TestCase
     public function test_logistics_can_reactivate_only_couriers_it_suspended(): void
     {
         Notification::fake();
-        $admin = $this->user('admin', 'approved');
+        $admin = $this->user('logistics_admin', 'approved');
         $center = $this->user('sorting_center', 'approved');
         $adminSuspendedRider = $this->user('courier', 'approved');
         $logisticsSuspendedRider = $this->user('courier', 'approved');
 
-        $this->actingAsUser($admin)->post(route('admin.moderation.suspend', $adminSuspendedRider), [
+        $this->actingAsUser($admin)->post(route('logistics-admin.users.suspend', $adminSuspendedRider), [
             'suspension_reason' => 'Admin review required.',
         ])->assertRedirect();
         Notification::assertSentTo($adminSuspendedRider, AccountStatusNotification::class, function (AccountStatusNotification $notification) use ($adminSuspendedRider): bool {
@@ -2414,7 +2427,7 @@ class LogisticsWorkflowTest extends TestCase
 
     public function test_admin_suspension_opens_a_hub_exception_for_the_logistics_recovery_queue(): void
     {
-        $admin = $this->user('admin', 'approved');
+        $admin = $this->user('logistics_admin', 'approved');
         $center = $this->user('sorting_center', 'approved');
         $rider = $this->user('courier', 'approved');
         $order = $this->order([
@@ -2423,11 +2436,11 @@ class LogisticsWorkflowTest extends TestCase
             'sorting_center_id' => $center->id,
         ]);
 
-        $this->actingAsUser($admin)->get(route('admin.moderation.index', ['role' => 'courier']))
+        $this->actingAsUser($admin)->get(route('logistics-admin.dashboard'))
             ->assertOk()
             ->assertSee('Suspending this rider will open 1 logistics recovery case.');
 
-        $this->actingAsUser($admin)->post(route('admin.moderation.suspend', $rider), [
+        $this->actingAsUser($admin)->post(route('logistics-admin.users.suspend', $rider), [
             'suspension_reason' => 'Admin credential review.',
         ])->assertRedirect();
 
@@ -2641,8 +2654,7 @@ class LogisticsWorkflowTest extends TestCase
     {
         $emptyOrder = $this->order();
         $this->actingAsUser($emptyOrder->seller)
-            ->patch(route('seller.orders.updateStatus', $emptyOrder), ['status' => 'CONFIRMED'])
-            ->assertUnprocessable();
+            ->patch(route('seller.orders.updateStatus', $emptyOrder), ['status' => 'CONFIRMED'])->assertRedirect()->assertSessionHasErrors('status');
         $this->assertDatabaseHas('orders', ['id' => $emptyOrder->id, 'status' => 'PLACED']);
 
         $order = $this->order();
@@ -2655,23 +2667,20 @@ class LogisticsWorkflowTest extends TestCase
         $archivedOrder = $this->order();
         $this->addOrderInventoryItem($archivedOrder, 1, true);
         $this->actingAsUser($archivedOrder->seller)
-            ->patch(route('seller.orders.updateStatus', $archivedOrder), ['status' => 'CONFIRMED'])
-            ->assertUnprocessable();
+            ->patch(route('seller.orders.updateStatus', $archivedOrder), ['status' => 'CONFIRMED'])->assertRedirect()->assertSessionHasErrors('status');
         $this->assertDatabaseHas('orders', ['id' => $archivedOrder->id, 'status' => 'PLACED']);
 
         $flaggedOrder = $this->order();
         $this->addOrderInventoryItem($flaggedOrder, 1, false, 'flagged');
         $this->actingAsUser($flaggedOrder->seller)
-            ->patch(route('seller.orders.updateStatus', $flaggedOrder), ['status' => 'CONFIRMED'])
-            ->assertUnprocessable();
+            ->patch(route('seller.orders.updateStatus', $flaggedOrder), ['status' => 'CONFIRMED'])->assertRedirect()->assertSessionHasErrors('status');
         $this->assertDatabaseHas('orders', ['id' => $flaggedOrder->id, 'status' => 'PLACED']);
 
         $restoredOrder = $this->order();
         $restoredProduct = $this->addOrderInventoryItem($restoredOrder, 1);
         app(InventoryRestorationService::class)->restore($restoredOrder);
         $this->actingAsUser($restoredOrder->seller)
-            ->patch(route('seller.orders.updateStatus', $restoredOrder), ['status' => 'CONFIRMED'])
-            ->assertUnprocessable();
+            ->patch(route('seller.orders.updateStatus', $restoredOrder), ['status' => 'CONFIRMED'])->assertRedirect()->assertSessionHasErrors('status');
         $this->assertDatabaseHas('products', ['id' => $restoredProduct->id, 'stock' => 1]);
         $this->assertDatabaseHas('orders', ['id' => $restoredOrder->id, 'status' => 'PLACED']);
     }
@@ -2686,7 +2695,7 @@ class LogisticsWorkflowTest extends TestCase
             ->assertSee('Fulfillment is on hold because payment verification for GCash is not configured yet.')
             ->assertDontSee('Accept order');
 
-        $this->patch(route('seller.orders.updateStatus', $order), ['status' => 'CONFIRMED'])->assertUnprocessable();
+        $this->patch(route('seller.orders.updateStatus', $order), ['status' => 'CONFIRMED'])->assertRedirect()->assertSessionHasErrors('status');
         $this->assertDatabaseHas('orders', ['id' => $order->id, 'status' => 'PLACED']);
 
         $legacyLogisticsOrder = $this->order(['payment_method' => 'GCash', 'status' => 'SORTED']);
@@ -2724,8 +2733,13 @@ class LogisticsWorkflowTest extends TestCase
             ->assertOk()
             ->assertSee('Fulfillment is on hold because payment verification for GCash is not configured yet.');
 
+        $product = Product::query()->forceCreate([
+            'user_id' => $seller->id, 'name' => 'Bank transfer hold test item', 'category' => 'Test',
+            'price' => 100, 'stock' => 2, 'is_archived' => false, 'compliance_status' => 'approved',
+        ]);
+
         $this->withSession(['cart' => [[
-            'product_id' => 1,
+            'product_id' => $product->id,
             'name' => 'Payment hold test item',
             'price' => 100,
             'quantity' => 1,
@@ -2736,17 +2750,6 @@ class LogisticsWorkflowTest extends TestCase
             ->assertDontSee('value="GCash"', false)
             ->assertDontSee('value="Bank Transfer"', false)
             ->assertSee('Cash on delivery is the available payment method while payment verification for other methods is being configured.');
-
-        $product = Product::query()->create([
-            'user_id' => $seller->id,
-            'name' => 'Bank transfer hold test item',
-            'description' => 'Checkout notification test item',
-            'category' => 'Test',
-            'price' => 100,
-            'stock' => 2,
-            'is_archived' => false,
-        ]);
-        $product->forceFill(['compliance_status' => 'approved'])->save();
 
         $this->actingAsUser($order->buyer)->withSession(['cart' => [[
             'product_id' => $product->id,

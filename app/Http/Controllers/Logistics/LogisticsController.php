@@ -9,6 +9,7 @@ use App\Models\AreaMunicipality;
 use App\Models\DeliveryAttempt;
 use App\Models\Order;
 use App\Models\ParcelTrackingEvent;
+use App\Models\ParcelTransfer;
 use App\Models\User;
 use App\Notifications\AccountStatusNotification;
 use App\Notifications\OrderWorkflowNotification;
@@ -31,9 +32,9 @@ use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
-use Illuminate\Validation\Rules\Password as PasswordRule;
 use Illuminate\View\View;
 use Symfony\Component\HttpKernel\Exception\HttpException;
 use Throwable;
@@ -98,36 +99,36 @@ class LogisticsController extends Controller
         try {
             $rider = DB::transaction(function () use ($validated, $operator, $storedPaths): User {
                 $rider = User::query()->forceCreate([
-                'first_name' => trim($validated['first_name']),
-                'last_name' => trim($validated['last_name']),
-                'email' => $validated['email'],
-                'canonical_email' => $validated['email'],
-                'password' => Hash::make(Str::random(64)),
-                'contact_no' => $validated['contact_no'],
-                'canonical_mobile' => $validated['contact_no'],
-                'birthday' => $validated['birthday'],
-                'age' => Carbon::parse($validated['birthday'])->age,
-                'vehicle_type' => $validated['vehicle_type'],
-                'plate_number' => $validated['plate_number'],
-                'canonical_plate' => $validated['canonical_plate'],
-                'license_number' => $validated['license_number'],
-                'canonical_license_number' => $validated['canonical_license_number'],
-                'license_expires_at' => $validated['license_expires_at'],
-                'license_path' => $storedPaths[0],
-                'or_cr_path' => $storedPaths[1],
-                'role' => 'courier',
-                'status' => 'pending_activation',
-                'logistics_owner_id' => $operator->id,
-                'province' => $operator->province,
-                'municipality' => $operator->municipality,
-                'barangay' => $operator->barangay,
-                'street_address' => $operator->street_address,
-            ]);
+                    'first_name' => trim($validated['first_name']),
+                    'last_name' => trim($validated['last_name']),
+                    'email' => $validated['email'],
+                    'canonical_email' => $validated['email'],
+                    'password' => Hash::make(Str::random(64)),
+                    'contact_no' => $validated['contact_no'],
+                    'canonical_mobile' => $validated['contact_no'],
+                    'birthday' => $validated['birthday'],
+                    'age' => Carbon::parse($validated['birthday'])->age,
+                    'vehicle_type' => $validated['vehicle_type'],
+                    'plate_number' => $validated['plate_number'],
+                    'canonical_plate' => $validated['canonical_plate'],
+                    'license_number' => $validated['license_number'],
+                    'canonical_license_number' => $validated['canonical_license_number'],
+                    'license_expires_at' => $validated['license_expires_at'],
+                    'license_path' => $storedPaths[0],
+                    'or_cr_path' => $storedPaths[1],
+                    'role' => 'courier',
+                    'status' => 'pending_activation',
+                    'logistics_owner_id' => $operator->id,
+                    'province' => $operator->province,
+                    'municipality' => $operator->municipality,
+                    'barangay' => $operator->barangay,
+                    'street_address' => $operator->street_address,
+                ]);
 
                 return $rider;
             });
         } catch (QueryException $exception) {
-            \Illuminate\Support\Facades\Storage::disk('private')->delete($storedPaths);
+            Storage::disk('private')->delete($storedPaths);
             if (User::query()->where('canonical_email', $validated['email'])->exists()) {
                 throw ValidationException::withMessages(['email' => 'This email address is already linked to an account.']);
             }
@@ -143,7 +144,7 @@ class LogisticsController extends Controller
 
             throw $exception;
         } catch (Throwable $exception) {
-            \Illuminate\Support\Facades\Storage::disk('private')->delete($storedPaths);
+            Storage::disk('private')->delete($storedPaths);
             throw $exception;
         }
 
@@ -177,6 +178,7 @@ class LogisticsController extends Controller
 
         try {
             $rider->notify(new RiderActivationNotification($token));
+
             return true;
         } catch (Throwable $exception) {
             Log::warning('Rider activation email could not be dispatched.', ['rider_id' => $rider->id]);
@@ -290,7 +292,7 @@ class LogisticsController extends Controller
             abort_unless($lockedOrder->pickup_claimed_at === null || $previousRider?->status === 'suspended', 422, 'The accepted pickup must be released by its unavailable rider before reassignment.');
             abort_if($previousRider?->id === $rider->id, 422, 'Choose a different rider for reassignment.');
 
-            $lockedOrder->forceFill(['pickup_courier_id' => $rider->id])->save();
+            $lockedOrder->forceFill(['pickup_courier_id' => $rider->id, 'pickup_claimed_at' => null])->save();
             if ($previousRider !== null) {
                 DB::table('logistics_exceptions')
                     ->where('order_id', $lockedOrder->id)
@@ -614,6 +616,7 @@ class LogisticsController extends Controller
                 $orderId = $order->id;
                 $locationId = $location->id;
                 abort_unless((int) $order->sorting_center_id === $operator->id, 403, 'This parcel belongs to another sorting center.');
+                abort_if(ParcelTransfer::query()->where('active_order_id', $order->id)->where('status', 'IN_TRANSIT')->exists(), 422, 'A transfer parcel cannot be stored at its former hub while in transit.');
                 abort_unless($order->status === 'SORTED' || ($order->status === 'AT_SORTING_CENTER' && in_array($location->type, ['RECEIVING', 'EXCEPTION'], true)), 422, 'This parcel cannot be placed at a location in its current stage.');
                 abort_unless($location->type === 'EXCEPTION' || $location->area_id === null || (int) $location->area_id === (int) $order->destination_area_id, 422, 'The location area does not match this parcel route. Use an exception location for misrouted parcels.');
 
@@ -687,6 +690,9 @@ class LogisticsController extends Controller
         }
 
         $removed = DB::transaction(function () use ($order, $location, $operator, $method, $request): bool {
+            $lockedOrder = Order::query()->whereKey($order->id)->lockForUpdate()->firstOrFail();
+            abort_unless((int) $lockedOrder->sorting_center_id === $operator->id, 403, 'This parcel belongs to another sorting center.');
+            abort_if(ParcelTransfer::query()->where('active_order_id', $order->id)->where('status', 'IN_TRANSIT')->exists(), 422, 'This parcel is in transit between hubs.');
             $placement = DB::table('parcel_placements')->where('order_id', $order->id)->where('location_id', $location->id)
                 ->where('active_order_id', $order->id)->whereNull('removed_at')->lockForUpdate()->first();
             if ($placement === null) {
@@ -1630,6 +1636,7 @@ class LogisticsController extends Controller
     {
         abort_unless($operator->role === 'sorting_center' && $operator->status === 'approved', 403);
         abort_unless($order->sorting_center_id === null || (int) $order->sorting_center_id === $operator->id, 403, 'This parcel belongs to another sorting center.');
+        abort_if(ParcelTransfer::query()->where('active_order_id', $order->id)->where('status', 'IN_TRANSIT')->exists(), 422, 'This parcel is in transit between hubs.');
 
         $areaHubId = $order->destination_area_id === null
             ? null

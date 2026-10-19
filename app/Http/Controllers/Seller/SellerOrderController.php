@@ -18,6 +18,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
+use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
 
 class SellerOrderController extends Controller
 {
@@ -62,16 +63,28 @@ class SellerOrderController extends Controller
         $validated = $request->validate(['status' => 'required|in:CONFIRMED,PREPARING,READY_FOR_PICKUP']);
         $actor = $this->authenticatedUser();
 
-        $transitions->transition(
-            $order,
-            $actor,
-            OrderStatus::from($validated['status']),
-            strtolower($validated['status']),
-            $actor->municipality,
-            'Seller updated order fulfillment status.',
-        );
+        try {
+            $transitions->transition(
+                $order,
+                $actor,
+                OrderStatus::from($validated['status']),
+                strtolower($validated['status']),
+                $actor->municipality,
+                'Seller updated order fulfillment status.',
+            );
+        } catch (HttpExceptionInterface $exception) {
+            if ($exception->getStatusCode() !== 422 || $request->expectsJson()) {
+                throw $exception;
+            }
 
-        return back()->with('success', 'Order status updated to '.str_replace('_', ' ', $validated['status']).'.');
+            $order->refresh();
+
+            return redirect()->route('seller.orders.show', $order)->withErrors([
+                'status' => $exception->getMessage().' Current order status: '.str_replace('_', ' ', $order->status).'. Review the available action below.',
+            ]);
+        }
+
+        return redirect()->route('seller.orders.show', $order)->with('success', 'Order status updated to '.str_replace('_', ' ', $validated['status']).'.');
     }
 
     public function cancel(Request $request, Order $order, OrderTransitionService $transitions)
@@ -139,7 +152,7 @@ class SellerOrderController extends Controller
             ]);
         });
 
-        return back()->with('success', 'Return receipt confirmed and inventory restored.');
+        return back()->with('success', 'Return receipt confirmed. Inspect the items before restocking.');
     }
 
     public function schedulePickup(Request $request, Order $order, TransactionAwareNotificationSender $notifications, LogisticsHubNotificationService $hubNotifications)

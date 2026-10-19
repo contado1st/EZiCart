@@ -31,6 +31,7 @@
                         aria-label="Work board" title="Work board" data-compact="OV"
                         aria-current="{{ request()->routeIs('courier.dashboard') ? 'page' : 'false' }}"
                         href="{{ route('courier.dashboard') }}">Work board</a>
+                    <a href="{{ route('finance.index') }}" aria-label="Cash remittances" title="Cash remittances" data-compact="CO">Cash remittances</a>
                     <a class="{{ request()->routeIs('courier.tracking') ? 'active' : '' }}"
                         aria-label="Active parcels" title="Active parcels" data-compact="AC"
                         aria-current="{{ request()->routeIs('courier.tracking') ? 'page' : 'false' }}"

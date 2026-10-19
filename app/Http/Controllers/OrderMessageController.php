@@ -57,6 +57,6 @@ class OrderMessageController extends Controller
 
     private function authorizeParticipant(Order $order, User $actor): void
     {
-        abort_unless($actor->role === 'admin' || $order->messageParticipants()->contains('id', $actor->id), 403);
+        abort_unless($actor->isCommerceAdmin() || $actor->isLogisticsAdmin() || $order->messageParticipants()->contains('id', $actor->id), 403);
     }
 }

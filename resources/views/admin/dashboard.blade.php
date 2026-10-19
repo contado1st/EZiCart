@@ -10,7 +10,7 @@
         <aside class="dash-sidebar">
             <div>
                 <div class="dash-profile-badge">
-                    <span class="dash-role-tag dash-role-admin">Super Admin</span>
+                    <span class="dash-role-tag dash-role-admin">E-Commerce Admin</span>
                     <h2 class="dash-profile-title">{{ auth()->user()->first_name }} {{ auth()->user()->last_name }}</h2>
                     <p class="dash-profile-subtitle">Platform Governance</p>
                 </div>
@@ -23,6 +23,8 @@
                         <x-shop-icon name="shield" /> User Approvals
                     </a>
                     <a href="{{ route('admin.compliance.products.index') }}" class="dash-nav-item">Product Compliance</a>
+                    <a href="{{ route('finance.index') }}" class="dash-nav-item">Refunds and seller payouts</a>
+                    <a href="{{ route('admin.vouchers.index') }}" class="dash-nav-item">Platform vouchers</a>
                 </nav>
             </div>
 
@@ -60,9 +62,9 @@
             <!-- Financial & Logistics KPI Cards -->
             <div class="dash-stats-grid">
                 <div class="dash-stat-card">
-                    <div class="dash-stat-label">Platform Revenue</div>
+                    <div class="dash-stat-label">Verified gross commission</div>
                     <div class="dash-stat-value success">₱{{ number_format($stats['total_commission'], 2) }}</div>
-                    <div class="dash-stat-subtext success">10% commission on fulfilled orders</div>
+                    <div class="dash-stat-subtext success">Completed orders with verified remittances, before promotion costs</div>
                 </div>
 
                 <div class="dash-stat-card">

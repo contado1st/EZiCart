@@ -5,9 +5,11 @@ namespace App\Http\Controllers\Admin;
 use App\Enums\OrderStatus;
 use App\Http\Controllers\Controller;
 use App\Models\Order;
+use App\Models\OrderFinance;
 use App\Models\Product;
 use App\Models\User;
 use App\Notifications\AccountStatusNotification;
+use App\Services\AdministrativeAuditService;
 use App\Services\OrderTransitionService;
 use App\Services\TransactionAwareNotificationSender;
 use Illuminate\Http\RedirectResponse;
@@ -16,11 +18,14 @@ use Illuminate\Support\Facades\DB;
 
 class AdminController extends Controller
 {
+    public function __construct(private AdministrativeAuditService $audits) {}
+
     public function dashboard()
     {
         // 1. Total 10% Platform Commission Collected (Completed orders)
-        $platformEarnings = Order::whereIn('status', ['DELIVERED', 'COMPLETED'])
-            ->sum('commission_fee');
+        $platformEarnings = OrderFinance::query()->where('remittance_status', 'VERIFIED')
+            ->whereHas('order', fn ($query) => $query->where('status', 'COMPLETED')->whereDoesntHave('refundExecutions'))
+            ->sum('commission_cents') / 100;
 
         // 2. Gross Merchandise Value (GMV - All non-cancelled orders)
         $grossMerchandiseValue = Order::whereNotIn('status', ['DELIVERY_FAILED', 'RETURN_IN_TRANSIT', 'RETURNED_TO_SELLER', 'CANCELLED'])
@@ -30,7 +35,7 @@ class AdminController extends Controller
         $stats = [
             'total_commission' => $platformEarnings,
             'gmv' => $grossMerchandiseValue,
-            'pending_users' => User::where('status', 'pending')->count(),
+            'pending_users' => User::where('role', 'seller')->where('status', 'pending')->count(),
             'pending_product_reviews' => Product::where('compliance_status', 'pending_review')->count(),
             'active_parcels' => Order::whereIn('status', [
                 'READY_FOR_PICKUP', 'PICKED_UP', 'AT_SORTING_CENTER', 'SORTED', 'ASSIGNED_TO_RIDER', 'OUT_FOR_DELIVERY',
@@ -38,7 +43,7 @@ class AdminController extends Controller
         ];
 
         // 4. Pending Registrations Queue
-        $pendingUsers = User::where('status', 'pending')
+        $pendingUsers = User::where('role', 'seller')->where('status', 'pending')
             ->latest()
             ->take(5)
             ->get();
@@ -54,7 +59,7 @@ class AdminController extends Controller
 
     public function index()
     {
-        $pendingUsers = User::where('status', 'pending')
+        $pendingUsers = User::where('role', 'seller')->where('status', 'pending')
             ->latest()
             ->paginate(15);
 
@@ -63,8 +68,10 @@ class AdminController extends Controller
 
     public function approve(User $user, TransactionAwareNotificationSender $notifications): RedirectResponse
     {
+        abort_unless($this->authenticatedUser()->canManageAccount($user), 403);
         DB::transaction(function () use ($user, $notifications): void {
             $lockedUser = User::query()->whereKey($user->id)->lockForUpdate()->firstOrFail();
+            abort_unless($this->authenticatedUser()->canManageAccount($lockedUser), 403);
             abort_unless(
                 $lockedUser->role !== 'admin' && $lockedUser->status === 'pending',
                 422,
@@ -78,6 +85,7 @@ class AdminController extends Controller
                 'rejection_reason' => null,
             ])->save();
             $notifications->send($lockedUser, new AccountStatusNotification('approved'));
+            $this->audits->record($this->authenticatedUser(), $lockedUser, 'account_approved', ['status' => 'pending'], ['status' => 'approved'], 'Application and supporting documents reviewed.');
         });
 
         return back()->with('success', "Account for {$user->first_name} {$user->last_name} ({$user->role}) has been approved.");
@@ -85,10 +93,12 @@ class AdminController extends Controller
 
     public function reject(Request $request, User $user, TransactionAwareNotificationSender $notifications): RedirectResponse
     {
+        abort_unless($this->authenticatedUser()->canManageAccount($user), 403);
         $validated = $request->validate(['reason' => ['required', 'string', 'min:5', 'max:1000']]);
 
         DB::transaction(function () use ($user, $notifications, $validated): void {
             $lockedUser = User::query()->whereKey($user->id)->lockForUpdate()->firstOrFail();
+            abort_unless($this->authenticatedUser()->canManageAccount($lockedUser), 403);
             abort_unless(
                 $lockedUser->role !== 'admin' && $lockedUser->status === 'pending',
                 422,
@@ -102,6 +112,7 @@ class AdminController extends Controller
                 'rejection_reason' => trim($validated['reason']),
             ])->save();
             $notifications->send($lockedUser, new AccountStatusNotification('rejected'));
+            $this->audits->record($this->authenticatedUser(), $lockedUser, 'account_rejected', ['status' => 'pending'], ['status' => 'rejected'], $validated['reason']);
         });
 
         return back()->with('success', "Account for {$user->first_name} {$user->last_name} ({$user->role}) has been rejected.");

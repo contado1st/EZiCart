@@ -19,6 +19,8 @@
 
         <form action="{{ route('checkout.process') }}" method="POST" class="checkout-layout">
             @csrf
+            <input type="hidden" name="checkout_token" value="{{ $token }}">
+            <input type="hidden" name="quote_hash" value="{{ $quote['hash'] }}">
 
             <!-- Delivery & Payment Section -->
             <div>
@@ -44,8 +46,8 @@
 
                         <div class="checkout-form-group checkout-form-full">
                             <label class="checkout-label">Order Notes (Optional)</label>
-                            <textarea name="notes" rows="2" class="checkout-input"
-                                placeholder="Notes for seller or courier delivery landmarks..."></textarea>
+                            <textarea name="notes" rows="2" maxlength="200" class="checkout-input"
+                                placeholder="Notes for seller or courier delivery landmarks...">{{ old('notes') }}</textarea>
                         </div>
                     </div>
                 </div>
@@ -90,9 +92,17 @@
                 </div>
 
                 <div class="checkout-summary-row">
-                    <span>Shipping Fee</span>
+                    <span>Shipping ({{ count($quote['groups']) }} seller shipments at ₱{{ number_format(config('commerce.shipping_per_seller_cents') / 100, 2) }} each)</span>
                     <span>₱{{ number_format($shippingFee, 2) }}</span>
                 </div>
+
+                @if ($discount > 0)
+                    <div class="checkout-summary-row"><span>Voucher discount</span><span>−₱{{ number_format($discount, 2) }}</span></div>
+                @endif
+
+                @if ($errors->any())
+                    <div role="alert">@foreach ($errors->all() as $message)<p>{{ $message }}</p>@endforeach</div>
+                @endif
 
                 <div class="checkout-total-row">
                     <span>Total Amount</span>
@@ -104,5 +114,14 @@
                 </button>
             </div>
         </form>
+        <form method="POST" action="{{ route('checkout.voucher.apply') }}" class="checkout-card">
+            @csrf
+            <label for="voucher-code">Voucher code</label>
+            <input id="voucher-code" name="voucher_code" maxlength="50" class="checkout-input" required value="{{ old('voucher_code', $appliedVoucher['code'] ?? '') }}">
+            <button class="checkout-btn-place-order" type="submit">Apply voucher</button>
+        </form>
+        @if ($appliedVoucher)
+            <form method="POST" action="{{ route('checkout.voucher.remove') }}">@csrf @method('DELETE')<button type="submit">Remove voucher</button></form>
+        @endif
     </div>
 @endsection
