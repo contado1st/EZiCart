@@ -57,20 +57,20 @@ body.dashboard-workspace.workspace-logistics {
     top: 0;
     z-index: 60;
     display: grid;
-    grid-template-columns: var(--workspace-sidebar-width) minmax(0, 1fr);
+    grid-template-columns: 180px minmax(0, 1fr);
     height: var(--workspace-header-height);
     border-bottom: 1px solid var(--workspace-line);
     background: linear-gradient(110deg, #fff1f5 0%, #fbd1e0 55%, #f5a9c3 100%);
 }
-.workspace-brand { display: flex; align-items: center; gap: 10px; padding: 0 24px; text-decoration: none; border-right: 1px solid var(--workspace-line); }
+.workspace-brand { display: flex; align-items: center; justify-content: flex-start; gap: 10px; padding: 0 16px; min-width: 0; }
+.workspace-brand > a { display: inline-flex; flex-shrink: 0; }
 .workspace-brand img { width: 96px; height: 45px; object-fit: contain; }
-.workspace-brand > span { border-left: 1px solid var(--workspace-line); padding-left: 10px; color: var(--workspace-muted); font-size: 10px; letter-spacing: .02em; }
 .workspace-toolbar { display: flex; align-items: center; gap: 16px; padding: 0 28px; min-width: 0; }
 .workspace-icon-button { position: relative; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; width: 36px; height: 36px; padding: 8px; border: 0; border-radius: 8px; background: transparent; color: var(--workspace-muted); cursor: pointer; text-decoration: none; }
 .workspace-icon-button:hover { color: var(--workspace-accent); background: var(--workspace-soft); }
 .workspace-icon-button .shop-icon { width: 19px; height: 19px; }
-.workspace-menu-button { border: 1px solid #e6b6c9; background: #fff5f9; color: #71384f; }
-.workspace-menu-button:hover { border-color: #c47a99; background: #fff; color: #9f2046; }
+.workspace-menu-button { border: 0; background: transparent; color: #71384f; }
+.workspace-menu-button:hover { background: #fff1f6; color: #9f2046; }
 .workspace-hamburger { display: block; flex-shrink: 0; }
 .workspace-breadcrumb { display: flex; align-items: center; gap: 12px; min-width: 0; color: var(--workspace-muted); font-size: 12px; }
 .workspace-breadcrumb strong { color: var(--workspace-ink); font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -227,9 +227,7 @@ body.dashboard-workspace.workspace-logistics {
 .workspace-account-grid form { margin-top: 12px; }
 .dashboard-workspace :is(section[id], article[id]) { scroll-margin-top: 92px; }
 body.workspace-nav-collapsed { --workspace-sidebar-width: 76px; }
-.workspace-nav-collapsed .workspace-brand { justify-content: center; padding-inline: 12px; }
-.workspace-nav-collapsed .workspace-brand img { width: 52px; }
-.workspace-nav-collapsed :is(.workspace-brand > span, .workspace-sidebar .workspace-nav-label, .workspace-nav-heading, .workspace-sidebar-footer form) { display: none; }
+.workspace-nav-collapsed :is(.workspace-sidebar .workspace-nav-label, .workspace-nav-heading, .workspace-sidebar-footer form) { display: none; }
 .workspace-nav-collapsed .workspace-sidebar-heading { justify-content: center; padding: 25px 0 18px; }
 .workspace-nav-collapsed .workspace-nav-link { justify-content: center; padding-inline: 0; }
 .workspace-nav-collapsed .workspace-sidebar-footer { padding: 16px 0; justify-content: center; }
@@ -246,9 +244,8 @@ body.workspace-nav-collapsed { --workspace-sidebar-width: 76px; }
 }
 @media (max-width: 900px) {
     body.dashboard-workspace { --workspace-sidebar-width: 0px; }
-    .workspace-topbar { grid-template-columns: 132px minmax(0, 1fr); }
+    .workspace-topbar { grid-template-columns: 174px minmax(0, 1fr); }
     .workspace-brand { padding: 0 16px; border-right: 0; }
-    .workspace-brand > span { display: none; }
     .workspace-toolbar { padding-inline: 8px 16px; }
     .workspace-breadcrumb, .workspace-toolbar-divider { display: none; }
     .workspace-toolbar-actions { gap: 8px; }
@@ -268,7 +265,7 @@ body.workspace-nav-collapsed { --workspace-sidebar-width: 76px; }
 }
 @media (max-width: 540px) {
     body.dashboard-workspace { --workspace-header-height: 64px; }
-    .workspace-topbar { grid-template-columns: 108px minmax(0, 1fr); }
+    .workspace-topbar { grid-template-columns: 150px minmax(0, 1fr); }
     .workspace-brand img { width: 80px; }
     .workspace-brand { padding-inline: 14px; }
     .workspace-toolbar { gap: 4px; padding-right: 12px; }

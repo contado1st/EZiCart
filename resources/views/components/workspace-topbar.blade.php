@@ -20,16 +20,17 @@
 @endphp
 <a class="workspace-skip" href="#workspace-content">Skip to content</a>
 <header class="workspace-topbar">
-    <a href="{{ $roleDashboardRoute ? route($roleDashboardRoute) : route($workspaceUser->role === 'seller' ? 'seller.dashboard' : 'buyer.dashboard') }}" class="workspace-brand" aria-label="EZiCart dashboard">
-        <img src="{{ asset('images/ezicart-logo.png') }}" alt="EZiCart">
-        <span>Workspace</span>
-    </a>
-    <div class="workspace-toolbar">
+    <div class="workspace-brand">
+        <a href="{{ $roleDashboardRoute ? route($roleDashboardRoute) : route($workspaceUser->role === 'seller' ? 'seller.dashboard' : 'buyer.dashboard') }}" aria-label="EZiCart dashboard">
+            <img src="{{ asset('images/ezicart-logo.png') }}" alt="EZiCart">
+        </a>
         <button class="workspace-icon-button workspace-menu-button" type="button" data-workspace-toggle aria-controls="workspace-sidebar" aria-expanded="true" aria-label="Toggle sidebar" title="Toggle sidebar">
             <svg class="workspace-hamburger" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true" focusable="false">
                 <path d="M4 6h16M4 12h16M4 18h16" />
             </svg>
         </button>
+    </div>
+    <div class="workspace-toolbar">
         <div class="workspace-breadcrumb"><span>Workspace</span><span aria-hidden="true">/</span><strong>{{ $workspaceName }}</strong></div>
         <div class="workspace-toolbar-actions">
             <time class="workspace-date" datetime="{{ now()->toDateString() }}">{{ now()->format('D, d M Y') }}</time>
