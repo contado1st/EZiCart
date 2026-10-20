@@ -21,8 +21,10 @@ import "@h2d2/shopicons/es/regular/package1";
 import "@h2d2/shopicons/es/regular/phone";
 import "@h2d2/shopicons/es/regular/print";
 import "@h2d2/shopicons/es/regular/settings";
+import "@h2d2/shopicons/es/regular/search";
 import "@h2d2/shopicons/es/regular/shield";
 import "@h2d2/shopicons/es/regular/smileypositive";
+import "@h2d2/shopicons/es/regular/star";
 import "@h2d2/shopicons/es/regular/voucher";
 import "@h2d2/shopicons/es/regular/warning";
 

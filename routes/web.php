@@ -21,6 +21,7 @@ use App\Http\Controllers\Buyer\ReviewController;
 use App\Http\Controllers\Courier\CourierController;
 use App\Http\Controllers\FinancialController;
 use App\Http\Controllers\HomeController;
+use App\Http\Controllers\SearchController;
 use App\Http\Controllers\Logistics\LogisticsController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\OrderMessageController;
@@ -37,6 +38,7 @@ use Illuminate\Support\Facades\Route;
 
 // 1. Public Marketplace & Browsing Routes
 Route::get('/', [HomeController::class, 'index'])->name('home');
+Route::get('/search', [SearchController::class, 'index'])->name('search.index');
 Route::view('/terms', 'legal.terms')->name('terms');
 Route::view('/privacy', 'legal.privacy')->name('privacy');
 Route::get('/product/{product}', [HomeController::class, 'showProduct'])->name('product.show');

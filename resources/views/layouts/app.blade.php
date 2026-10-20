@@ -47,6 +47,7 @@
 
 <body @class([
     'landing-page' => request()->routeIs('home'),
+    'catalog-search-page' => request()->routeIs('search.index'),
     'role-workspace' => $isRoleWorkspaceRoute,
     'dashboard-workspace' => $isDashboardWorkspace,
     'workspace-logistics' => $isDashboardWorkspace && in_array(auth()->user()?->role, ['courier', 'sorting_center', 'logistics_admin'], true),
@@ -68,8 +69,8 @@
                     <p class="navbar-workspace-label">{{ $workspaceLabel }}</p>
                 @elseif (!$roleDashboardRoute)
                     <div class="search-wrapper">
-                        <form action="{{ route('home') }}" method="GET" class="search-form">
-                            <input type="text" name="search" value="{{ request('search') }}"
+                        <form action="{{ route('search.index') }}" method="GET" class="search-form" role="search">
+                            <input type="search" name="search" value="{{ request('search') }}" maxlength="150" aria-label="Search products and shops"
                                 placeholder="Search for products, shops and more" class="search-input">
                             <button type="submit" class="search-button">
                                 Search

@@ -29,10 +29,7 @@ class HomeController extends Controller
             ['name' => 'Groceries', 'icon' => "\u{1F6D2}"],
         ];
 
-        $query = Product::where('compliance_status', 'approved')
-            ->where('is_archived', false)
-            ->where('stock', '>', 0)
-            ->where(fn ($query) => $query->whereDoesntHave('variations')->orWhereHas('variations', fn ($variants) => $variants->where('is_active', true)->where('stock', '>', 0)))
+        $query = Product::query()->availableForMarketplace()
             ->with('seller');
 
         // Filter by category
