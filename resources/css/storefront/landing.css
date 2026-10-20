@@ -43,8 +43,9 @@ body.landing-page {
     position: relative;
     z-index: 30;
     color: var(--landing-ink);
-    background: var(--landing-plaster);
-    border-bottom: 1px solid var(--landing-rule);
+    background: linear-gradient(110deg, #fff1f5, #fbd1e0 55%, #f5a9c3);
+    border-top: 0;
+    border-bottom: 1px solid #e6b6c9;
 }
 
 .landing-page .navbar-container {
