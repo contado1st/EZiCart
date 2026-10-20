@@ -36,6 +36,7 @@
             <time class="workspace-date" datetime="{{ now()->toDateString() }}">{{ now()->format('D, d M Y') }}</time>
             <a class="workspace-primary-action" href="{{ route($workspaceActionRoute) }}">{{ $workspaceAction }}<x-shop-icon name="arrowback" /></a>
             <span class="workspace-toolbar-divider" aria-hidden="true"></span>
+            <a class="workspace-icon-button" href="{{ route('chat.index') }}" aria-label="Messages" title="Messages"><x-shop-icon name="chat" /></a>
             <a class="workspace-icon-button" href="{{ route('notifications.index') }}" aria-label="Notifications{{ $workspaceUnread ? ', '.$workspaceUnread.' unread' : '' }}" title="Notifications">
                 <x-shop-icon name="bell" />
                 @if ($workspaceUnread)<span class="workspace-unread" aria-hidden="true"></span>@endif

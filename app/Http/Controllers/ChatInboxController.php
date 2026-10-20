@@ -2,19 +2,16 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Order;
+use App\Services\MessagingInboxService;
 use Illuminate\Http\Request;
 
 class ChatInboxController extends Controller
 {
-    public function __invoke(Request $request)
+    public function __invoke(Request $request, MessagingInboxService $inbox)
     {
-        $actor = $request->user();
-        abort_unless(in_array($actor->role, ['buyer', 'seller'], true), 403);
-        $orders = Order::query()->where($actor->role === 'buyer' ? 'buyer_id' : 'seller_id', $actor->id)
-            ->with(['seller', 'buyer', 'conversation' => fn ($q) => $q->withMax('messages', 'created_at')])
-            ->latest('updated_at')->paginate(20);
+        $threads = $inbox->threads($request);
+        $messagePrefix = $inbox->routePrefix($request->user());
 
-        return view('orders.inbox', compact('orders'));
+        return view('orders.inbox', compact('threads', 'messagePrefix'));
     }
 }

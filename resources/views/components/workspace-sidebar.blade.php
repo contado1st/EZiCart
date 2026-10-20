@@ -25,6 +25,9 @@
             ],
         ],
         'courier' => [
+            'Communication' => [
+                ['chat.index', 'chat', 'Messages', 'chat.index'],
+            ],
             'Delivery operations' => [
                 ['courier.dashboard', 'diagram', 'Work board', 'courier.dashboard'],
                 ['courier.tracking', 'delivery1', 'Active parcels', 'courier.tracking'],

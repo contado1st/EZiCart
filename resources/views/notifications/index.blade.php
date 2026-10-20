@@ -1,91 +1,30 @@
-@extends('layouts.app')
-
-@if (auth()->user()?->role === 'buyer')
-    @push('styles')
-        @vite('resources/css/shared/dashboard.css')
-        <link rel="stylesheet" href="{{ asset('css/buyer-account.css') }}?v={{ filemtime(public_path('css/buyer-account.css')) }}">
-    @endpush
-@endif
-
-@section('content')
-    @if (auth()->user()?->role === 'buyer')
-        <main class="buyer-account-page">
-            @include('components.buyer-account-sidebar', ['activeSection' => 'notifications'])
-
-            <section class="buyer-account-content" aria-labelledby="buyer-notifications-title">
-                <header class="buyer-account-header">
-                    <div>
-                        <h1 id="buyer-notifications-title">Notifications</h1>
-                        <p>Order and account updates for your EZiCart account.</p>
-                    </div>
-                </header>
-
-                @forelse ($notifications as $notification)
-                    <article class="buyer-account-panel buyer-notification {{ $notification->read_at === null ? 'is-unread' : '' }}">
-                        <div class="buyer-notification-copy">
-                            <strong>{{ $notification->data['order_number'] ?? ($notification->data['product_name'] ?? 'EZiCart update') }}</strong>
-                            <p>{{ $notification->data['message'] ?? 'You have a new update.' }}</p>
-                            <small>{{ $notification->created_at->format('M d, Y h:i A') }}</small>
-                        </div>
-                        <div class="buyer-notification-actions">
-                            @if (!empty($notification->data['url']))
-                                <a class="dash-btn-sm dash-btn-outline" href="{{ $notification->data['url'] }}">View update</a>
-                            @endif
-                            @if ($notification->read_at === null)
-                                <form method="POST" action="{{ route('notifications.read', $notification->id) }}">
-                                    @csrf
-                                    <button type="submit" class="dash-btn-sm dash-btn-primary">Mark read</button>
-                                </form>
-                            @else
-                                <span class="buyer-notification-read">Read</span>
-                            @endif
-                        </div>
-                    </article>
-                @empty
-                    <div class="buyer-account-panel buyer-notifications-empty">
-                        <h2>You’re all caught up</h2>
-                        <p>New order and account updates will appear here.</p>
-                    </div>
-                @endforelse
-
-                <nav class="buyer-notifications-pagination" aria-label="Notification pages">
-                    {{ $notifications->links() }}
-                </nav>
-            </section>
-        </main>
-    @else
-        <main class="container u-extracted-d7ea292b2e">
-            <h1>Notifications</h1>
-            <p>Order and account updates for your EZiCart account.</p>
-
-            @forelse ($notifications as $notification)
-                <article class="dash-panel u-extracted-9655da144d">
-                    <div class="u-extracted-e74ab7275b">
-                        <div>
-                            <strong>{{ $notification->data['order_number'] ?? ($notification->data['product_name'] ?? 'EZiCart update') }}</strong>
-                            <p>{{ $notification->data['message'] ?? 'You have a new update.' }}</p>
-                            <small>{{ $notification->created_at->format('M d, Y h:i A') }}</small>
-                        </div>
-                        <div class="u-extracted-f228196b24">
-                            @if (!empty($notification->data['url']))
-                                <a class="dash-btn-sm dash-btn-outline" href="{{ $notification->data['url'] }}">View update</a>
-                            @endif
-                            @if ($notification->read_at === null)
-                                <form method="POST" action="{{ route('notifications.read', $notification->id) }}">
-                                    @csrf
-                                    <button type="submit" class="dash-btn-sm dash-btn-primary">Mark read</button>
-                                </form>
-                            @else
-                                <span>Read</span>
-                            @endif
-                        </div>
-                    </div>
-                </article>
-            @empty
-                <p>You have no notifications yet.</p>
-            @endforelse
-
-            {{ $notifications->links() }}
-        </main>
-    @endif
+@extends('layouts.communications')
+@section('title', 'Notifications | EZiCart')
+@section('communications-title', 'Notifications')
+@section('communications-description', 'Order updates, messages and account activity, organized for you.')
+@section('communications-content')
+<div class="notification-frame">
+    <aside class="notification-sidebar" aria-label="Notification categories"><h2>Your updates</h2><a href="{{ route('notifications.index') }}" @class(['is-active' => !request('category') || request('category') === 'all'])><x-shop-icon name="bell" /> All updates <span>{{ $totalCount }}</span></a>
+        @foreach(['orders' => ['package1', 'Order updates'], 'messages' => ['chat', 'Messages'], 'stock' => ['bell', 'Stock alerts'], 'account' => ['account', 'Account activity']] as $category => [$icon, $label])<a href="{{ route('notifications.index', ['category' => $category, 'filter' => request('filter')]) }}" @class(['is-active' => request('category') === $category]) @if(request('category') === $category) aria-current="page" @endif><x-shop-icon name="{{ $icon }}" /> {{ $label }}</a>@endforeach
+        <p>Private updates for your account. Open an update to view its details and mark it read.</p>
+    </aside>
+    <section class="notification-feed" aria-labelledby="notification-feed-title">
+        <header class="notification-feed-heading"><div><h2 id="notification-feed-title">{{ request('category') && request('category') !== 'all' ? ucfirst(request('category')).' updates' : 'All updates' }}</h2><p>{{ $unreadCount }} unread {{ \Illuminate\Support\Str::plural('notification', $unreadCount) }}</p></div><form method="POST" action="{{ route('notifications.read-all') }}">@csrf<button class="communications-text-link" type="submit" @disabled(!$unreadCount)>Mark all as read</button></form></header>
+        <nav class="notification-filters" aria-label="Notification read status"><a href="{{ route('notifications.index', ['category' => request('category'), 'filter' => 'all']) }}" @class(['is-active' => request('filter') !== 'unread']) @if(request('filter') !== 'unread') aria-current="page" @endif>All</a><a href="{{ route('notifications.index', ['category' => request('category'), 'filter' => 'unread']) }}" @class(['is-active' => request('filter') === 'unread']) @if(request('filter') === 'unread') aria-current="page" @endif>Unread</a></nav>
+        <div class="notification-items">
+        @forelse($notifications as $notification)
+            @php
+                $notificationIcon = match($notification->type) {
+                    \App\Notifications\OrderMessageNotification::class => 'chat',
+                    \App\Notifications\StockAvailabilityNotification::class => 'bell',
+                    \App\Notifications\OrderStatusNotification::class, \App\Notifications\OrderWorkflowNotification::class => 'package1',
+                    default => 'account',
+                };
+            @endphp
+            <article @class(['notification-item', 'is-unread' => !$notification->read_at])><span class="notification-item-icon"><x-shop-icon name="{{ $notificationIcon }}" /></span><div class="notification-item-copy"><div class="notification-item-title"><h3>{{ $notification->data['order_number'] ?? $notification->data['product_name'] ?? 'EZiCart update' }}</h3>@if(!$notification->read_at)<span class="notification-unread-dot" aria-label="Unread"></span>@endif</div><p>{{ $notification->data['message'] ?? 'You have a new update.' }}</p><time datetime="{{ $notification->created_at->toIso8601String() }}">{{ $notification->created_at->format('M d, Y · h:i A') }}</time></div><div class="notification-item-actions">@if(!empty($notification->data['url']))<form method="POST" action="{{ route('notifications.open', $notification->id) }}">@csrf<button class="notification-open" type="submit">View update</button></form>@endif @if(!$notification->read_at)<form method="POST" action="{{ route('notifications.read', $notification->id) }}">@csrf<button class="communications-text-link" type="submit">Mark read</button></form>@else<span class="notification-read-label">Read</span>@endif</div></article>
+        @empty<div class="conversation-empty notification-empty"><span class="communications-empty-icon"><x-shop-icon name="bell" /></span><h2>{{ request('filter') === 'unread' ? 'You’re all caught up' : 'No updates here yet' }}</h2><p>New order, message and account updates will appear here.</p></div>@endforelse
+        </div>
+        @if($notifications->hasPages())<nav class="notification-pagination" aria-label="Notification pages">{{ $notifications->links() }}</nav>@endif
+    </section>
+</div>
 @endsection

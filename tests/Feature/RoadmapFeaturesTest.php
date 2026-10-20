@@ -84,7 +84,7 @@ class RoadmapFeaturesTest extends TestCase
         $order = $this->order();
         $other = $this->order();
         $this->actingAsUser($order->buyer)->get(route('chat.index'))->assertOk()->assertSee($order->order_number)->assertDontSee($other->order_number);
-        $this->actingAsUser($this->user('courier'))->get(route('chat.index'))->assertForbidden();
+        $this->actingAsUser($this->user('courier'))->get(route('chat.index'))->assertOk()->assertDontSee($order->order_number)->assertDontSee($other->order_number);
     }
 
     public function test_cancellation_requires_seller_review_and_restores_stock_once(): void

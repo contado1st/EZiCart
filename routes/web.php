@@ -92,7 +92,7 @@ Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
 
 // 3. Protected Routes (Strictly Isolated by Role)
 Route::middleware(['auth', 'account.active', 'auth.session'])->group(function () {
-    Route::get('/chat', ChatInboxController::class)->middleware('role:buyer,seller')->name('chat.index');
+    Route::get('/chat', ChatInboxController::class)->middleware('role:buyer,seller,courier,sorting_center,admin,ecommerce_admin,logistics_admin')->name('chat.index');
     Route::get('/sales-reports', SalesReportController::class)->middleware('role:seller,admin,ecommerce_admin')->name('sales-reports.index');
     Route::get('/activity-logs', ActivityLogController::class)->middleware('role:admin,ecommerce_admin,logistics_admin')->name('activity-logs.index');
     Route::get('/logistics-coverage', [CoverageController::class, 'index'])->middleware('role:sorting_center,logistics_admin')->name('coverage.index');
@@ -113,6 +113,8 @@ Route::middleware(['auth', 'account.active', 'auth.session'])->group(function ()
     Route::post('/parcel-transfers/{transfer}/receive', [ParcelTransferController::class, 'receive'])->middleware(['role:sorting_center', 'throttle:operational-action'])->name('parcel-transfers.receive');
     Route::post('/parcel-transfers/{transfer}/cancel', [ParcelTransferController::class, 'cancel'])->middleware(['role:logistics_admin', 'throttle:operational-action'])->name('parcel-transfers.cancel');
     Route::get('/notifications', [NotificationController::class, 'index'])->name('notifications.index');
+    Route::post('/notifications/read-all', [NotificationController::class, 'markAllRead'])->name('notifications.read-all');
+    Route::post('/notifications/{notification}/open', [NotificationController::class, 'open'])->name('notifications.open');
     Route::post('/notifications/{notification}/read', [NotificationController::class, 'markRead'])->name('notifications.read');
     Route::get('/account/documents/{type}', [SecureDocumentController::class, 'ownDocument'])->name('account.documents.show');
     Route::get('/account', [AccountController::class, 'edit'])->name('account.profile.edit');
