@@ -2138,6 +2138,12 @@ class LogisticsWorkflowTest extends TestCase
             'role' => 'seller',
             'status' => 'pending',
         ]);
+        $this->assertDatabaseHas('users', [
+            'email' => 'logistics.admin@ezicart.com',
+            'canonical_email' => 'logistics.admin@ezicart.com',
+            'role' => 'logistics_admin',
+            'status' => 'approved',
+        ]);
     }
 
     public function test_order_transition_service_rejects_attributes_outside_the_target_allow_list(): void
