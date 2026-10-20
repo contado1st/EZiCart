@@ -1,6 +1,8 @@
 import "./password-visibility.js";
 import "./registration-name-inputs.js";
+import "@h2d2/shopicons/es/regular/account";
 import "@h2d2/shopicons/es/regular/arrowback";
+import "@h2d2/shopicons/es/regular/bell";
 import "@h2d2/shopicons/es/regular/cart1";
 import "@h2d2/shopicons/es/regular/cart2";
 import "@h2d2/shopicons/es/regular/checklist";

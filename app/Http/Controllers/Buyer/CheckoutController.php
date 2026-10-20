@@ -51,8 +51,9 @@ class CheckoutController extends Controller
         $user = $this->authenticatedUser();
         $addressBook->importProfileAddress($user);
         $addresses = $user->addresses()->orderByDesc('is_default')->latest('id')->get();
-        $choice = $request->session()->hasOldInput('saved_address_id')
-            ? ($request->old('saved_address_id') ?: 'new')
+        $oldInput = $request->old();
+        $choice = array_key_exists('saved_address_id', $oldInput)
+            ? ($oldInput['saved_address_id'] ?: 'new')
             : $request->query('address_id');
         $selectedAddress = $choice === 'new' ? null : $addresses->firstWhere('is_default', true);
         if ($choice !== null && $choice !== 'new') {

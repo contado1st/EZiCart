@@ -162,6 +162,20 @@ class BuyerAddressTest extends TestCase
         $this->assertSame(5, Product::sole()->stock);
     }
 
+    public function test_checkout_preserves_manual_address_choice_after_validation_error(): void
+    {
+        $buyer = $this->user();
+        $this->actingAs($buyer)->withSession(['cart' => $this->cart()])->get(route('checkout.index'))->assertOk();
+        $this->from(route('checkout.index'))->post(route('checkout.process'), [
+            ...$this->address(['recipient_name' => 'Previous Recipient', 'recipient_contact' => 'invalid']),
+            'saved_address_id' => '', 'checkout_token' => session('checkout_token'),
+            'quote_hash' => session('checkout_quote_hash'), 'payment_method' => 'COD',
+        ])->assertRedirect(route('checkout.index'))->assertSessionHasErrors('recipient_contact');
+
+        $this->get(route('checkout.index'))->assertOk()
+            ->assertViewHas('selectedAddress', null)->assertSee('Previous Recipient');
+    }
+
     private function user(string $role = 'buyer'): User
     {
         return User::forceCreate([

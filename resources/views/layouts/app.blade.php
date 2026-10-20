@@ -93,7 +93,7 @@
                             <span><x-shop-icon name="cart2" /> Cart</span>
                             @if (session('cart') && count(session('cart')) > 0)
                                 <span class="cart-count-badge">
-                                    {{ array_sum(array_column(session('cart'), 'quantity')) }}
+                                    {{ count(session('cart')) }}
                                 </span>
                             @endif
                         </a>
@@ -101,7 +101,7 @@
 
                     @auth
                         @if (auth()->user()->role !== 'buyer')
-                            <a href="{{ route('notifications.index') }}" class="nav-link">Notifications
+                            <a href="{{ route('notifications.index') }}" class="nav-link"><x-shop-icon name="bell" /> Notifications
                                 @if (auth()->user()->unreadNotifications()->exists())
                                     <span class="cart-count-badge">{{ auth()->user()->unreadNotifications()->count() }}</span>
                                 @endif
