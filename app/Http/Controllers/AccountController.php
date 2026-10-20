@@ -8,18 +8,25 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Str;
 use App\Services\PsgcAddressService;
+use App\Services\BuyerAddressService;
+use App\Models\User;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rules\Password as PasswordRule;
 
 class AccountController extends Controller
 {
-    public function edit(): View
+    public function edit(BuyerAddressService $addressBook): View
     {
         $user = $this->authenticatedUser()->load('serviceAreas');
+        if ($user->role === 'buyer') {
+            $addressBook->importProfileAddress($user);
+            $user->loadCount('addresses');
+        }
 
         return view('account.edit', compact('user'));
     }
 
-    public function update(Request $request, PsgcAddressService $psgcAddressService): RedirectResponse
+    public function update(Request $request, PsgcAddressService $psgcAddressService, BuyerAddressService $addressBook): RedirectResponse
     {
         $user = $this->authenticatedUser();
         $rules = [
@@ -41,7 +48,8 @@ class AccountController extends Controller
         }
 
         $validated = $request->validate($rules);
-        $address = $psgcAddressService->resolve($validated);
+        $hasAddress = $request->hasAny(['address_mode', 'province', 'municipality', 'region_code', 'manual_province']);
+        $address = $hasAddress ? $psgcAddressService->resolve($validated) : [];
         unset(
             $validated['address_mode'],
             $validated['region_code'],
@@ -53,7 +61,13 @@ class AccountController extends Controller
             $validated['manual_municipality'],
             $validated['manual_barangay'],
         );
-        $user->update(array_merge($validated, $address));
+        DB::transaction(function () use ($user, $validated, $address, $hasAddress, $addressBook): void {
+            User::query()->whereKey($user->id)->lockForUpdate()->firstOrFail();
+            $user->update(array_merge($validated, $address));
+            if ($user->role === 'buyer' && $hasAddress) {
+                $addressBook->syncProfileLocation($user);
+            }
+        });
 
         return back()->with('success', 'Your account details have been updated.');
     }

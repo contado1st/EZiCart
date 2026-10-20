@@ -10,7 +10,7 @@
     $workspaceLabel = auth()->user()?->role === 'courier' ? 'Courier workspace' : 'Logistics workspace';
     $isDashboardWorkspace = auth()->check() && request()->routeIs(
         'admin.*', 'seller.*', 'courier.*', 'logistics.*', 'logistics-admin.*',
-        'buyer.dashboard', 'buyer.orders.*', 'finance.*', 'parcel-transfers.*',
+        'buyer.dashboard', 'buyer.orders.*', 'buyer.addresses.*', 'finance.*', 'parcel-transfers.*',
         'account.profile.*', 'notifications.*'
     );
 @endphp

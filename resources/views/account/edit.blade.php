@@ -34,7 +34,7 @@
                         </div>
 
                         <div class="buyer-account-address" id="buyer-addresses">
-                            <div class="buyer-account-panel-heading"><div><h2>Delivery address</h2><p>Choose an address from the location lists or enter the details manually.</p></div></div>
+                            <div class="buyer-account-panel-heading"><div><h2>Default delivery address</h2><p>Editing this location also updates your default saved address.</p></div><a href="{{ route('buyer.addresses.index') }}">Manage saved addresses ({{ $user->addresses_count }})</a></div>
                             @include('components.psgc-address-fields', ['prefix' => 'account-address', 'address' => $user, 'postalRequired' => false])
                         </div>
                         <button class="buyer-account-save" type="submit">Save profile</button>

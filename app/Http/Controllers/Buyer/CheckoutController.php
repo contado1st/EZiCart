@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Purchase;
 use App\Models\Voucher;
 use App\Services\CheckoutPricingService;
+use App\Services\BuyerAddressService;
 use App\Services\OrderAreaService;
 use App\Services\PlacePurchaseService;
 use App\Services\PsgcAddressService;
@@ -16,7 +17,7 @@ use Illuminate\Validation\ValidationException;
 
 class CheckoutController extends Controller
 {
-    public function index(Request $request, CheckoutPricingService $pricing)
+    public function index(Request $request, CheckoutPricingService $pricing, BuyerAddressService $addressBook)
     {
         $cart = $request->session()->get('cart', []);
         if ($cart === []) {
@@ -48,8 +49,18 @@ class CheckoutController extends Controller
         $shippingFee = $quote['shipping_cents'] / 100;
         $total = $quote['total_cents'] / 100;
         $user = $this->authenticatedUser();
+        $addressBook->importProfileAddress($user);
+        $addresses = $user->addresses()->orderByDesc('is_default')->latest('id')->get();
+        $choice = $request->session()->hasOldInput('saved_address_id')
+            ? ($request->old('saved_address_id') ?: 'new')
+            : $request->query('address_id');
+        $selectedAddress = $choice === 'new' ? null : $addresses->firstWhere('is_default', true);
+        if ($choice !== null && $choice !== 'new') {
+            abort_unless(is_scalar($choice) && ctype_digit((string) $choice), 404);
+            $selectedAddress = $user->addresses()->findOrFail((int) $choice);
+        }
 
-        return view('checkout.index', compact('cart', 'subtotal', 'discount', 'shippingFee', 'total', 'user', 'appliedVoucher', 'quote', 'token'));
+        return view('checkout.index', compact('cart', 'subtotal', 'discount', 'shippingFee', 'total', 'user', 'appliedVoucher', 'quote', 'token', 'addresses', 'selectedAddress'));
     }
 
     public function applyVoucher(Request $request, CheckoutPricingService $pricing): RedirectResponse
@@ -76,13 +87,18 @@ class CheckoutController extends Controller
     {
         $validated = $request->validate([
             'checkout_token' => ['required', 'uuid'], 'quote_hash' => ['required', 'string', 'size:64'],
-            'recipient_name' => ['required', 'string', 'max:255'],
-            'recipient_contact' => ['required', 'regex:/^(09\d{9}|\+639\d{9})$/'],
-            ...$psgc->validationRules(),
-            'province' => ['required_without:province_code', 'nullable', 'string', 'max:120'],
-            'municipality' => ['required_without:municipality_code', 'nullable', 'string', 'max:120'],
+            'saved_address_id' => ['nullable', 'integer', 'min:1'],
             'payment_method' => ['required', 'in:COD'], 'notes' => ['nullable', 'string', 'max:200'],
         ]);
+        if (empty($validated['saved_address_id'])) {
+            $validated = [...$validated, ...$request->validate([
+                'recipient_name' => ['required', 'string', 'max:255'],
+                'recipient_contact' => ['required', 'regex:/^(09\d{9}|\+639\d{9})$/'],
+                ...$psgc->validationRules(),
+                'province' => ['required_without:province_code', 'nullable', 'string', 'max:120'],
+                'municipality' => ['required_without:municipality_code', 'nullable', 'string', 'max:120'],
+            ])];
+        }
         $buyer = $this->authenticatedUser();
         ksort($validated);
         $requestHash = hash('sha256', json_encode($validated, JSON_THROW_ON_ERROR));
@@ -93,12 +109,30 @@ class CheckoutController extends Controller
             return redirect()->route('buyer.dashboard')->with('success', 'Your original purchase is already recorded.');
         }
         abort_unless($request->session()->get('checkout_token') === $validated['checkout_token'] && $request->session()->get('checkout_quote_hash') === $validated['quote_hash'], 422, 'Review checkout before placing your order.');
-        $location = $psgc->resolve($validated);
+        // A saved address is always loaded through the buyer's relationship. Client address fields are ignored.
+        if (! empty($validated['saved_address_id'])) {
+            $savedAddress = $buyer->addresses()->findOrFail($validated['saved_address_id']);
+            $deliveryDetails = $savedAddress->only([...BuyerAddressService::LOCATION_FIELDS, 'recipient_name', 'recipient_contact']);
+            $deliveryDetails['street_address'] = (string) $savedAddress->street_address;
+            $deliveryDetails['barangay'] = (string) $savedAddress->barangay;
+            validator($deliveryDetails, [
+                'recipient_name' => ['required', 'string', 'max:255'],
+                'recipient_contact' => ['required', 'regex:/^(09\d{9}|\+639\d{9})$/'],
+                'province' => ['required', 'string', 'max:120'],
+                'municipality' => ['required', 'string', 'max:120'],
+            ])->validate();
+            $location = $savedAddress->only(['region', 'province', 'municipality', 'barangay']);
+        } else {
+            $location = $psgc->resolve($validated);
+            $deliveryDetails = [
+                ...$location, 'recipient_name' => $validated['recipient_name'], 'recipient_contact' => $validated['recipient_contact'],
+                'street_address' => $validated['street_address'] ?? '', 'house_number' => $validated['house_number'] ?? null,
+                'postal_code' => $validated['postal_code'] ?? null,
+            ];
+        }
         $destination = $areas->findForAddress($location['province'], $location['municipality']);
         $address = [
-            ...$location, 'recipient_name' => $validated['recipient_name'], 'recipient_contact' => $validated['recipient_contact'],
-            'street_address' => $validated['street_address'] ?? '', 'house_number' => $validated['house_number'] ?? null,
-            'postal_code' => $validated['postal_code'] ?? null, 'notes' => $validated['notes'] ?? null,
+            ...$deliveryDetails, 'notes' => $validated['notes'] ?? null,
             'destination_area_id' => $destination?->id,
         ];
         try {

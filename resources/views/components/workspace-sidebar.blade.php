@@ -98,7 +98,7 @@
             <a href="{{ route('notifications.index') }}" @class(['workspace-nav-link', 'is-active' => request()->routeIs('notifications.*')]) title="Notifications"><x-shop-icon name="bell" /><span class="workspace-nav-label">Notifications</span></a>
             <a href="{{ route('account.profile.edit') }}" @class(['workspace-nav-link', 'is-active' => request()->routeIs('account.profile.*')]) title="Account & profile"><x-shop-icon name="settings" /><span class="workspace-nav-label">Account & profile</span></a>
             @if ($sidebarUser->role === 'buyer')
-                <a href="{{ route('account.profile.edit') }}#buyer-addresses" class="workspace-nav-link" title="Addresses"><x-shop-icon name="location" /><span class="workspace-nav-label">Addresses</span></a>
+                <a href="{{ route('buyer.addresses.index') }}" @class(['workspace-nav-link', 'is-active' => request()->routeIs('buyer.addresses.*')]) title="Addresses" @if (request()->routeIs('buyer.addresses.*')) aria-current="page" @endif><x-shop-icon name="location" /><span class="workspace-nav-label">Addresses</span></a>
                 <a href="{{ route('account.profile.edit') }}#buyer-password" class="workspace-nav-link" title="Change password"><x-shop-icon name="lock" /><span class="workspace-nav-label">Change password</span></a>
             @endif
         </div>

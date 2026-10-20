@@ -2,6 +2,7 @@
 
 @push('styles')
     @vite('resources/css/buyer/checkout.css')
+    <link rel="stylesheet" href="{{ asset('css/buyer-addresses.css') }}?v={{ filemtime(public_path('css/buyer-addresses.css')) }}">
 @endpush
 
 @section('content')
@@ -17,36 +18,60 @@
             </div>
         @endif
 
+        <form method="GET" action="{{ route('checkout.index') }}" class="checkout-address-picker">
+            <div><label for="checkout-saved-address">Delivery address</label>
+                <select id="checkout-saved-address" name="address_id">
+                    @foreach ($addresses as $savedAddress)
+                        <option value="{{ $savedAddress->id }}" @selected($selectedAddress?->id === $savedAddress->id)>{{ $savedAddress->label }} — {{ $savedAddress->municipality }}{{ $savedAddress->is_default ? ' (default)' : '' }}</option>
+                    @endforeach
+                    <option value="new" @selected($selectedAddress === null)>Enter a different address</option>
+                </select>
+            </div>
+            <button type="submit">Use this address</button>
+            <a href="{{ route('buyer.addresses.index') }}">Manage saved addresses</a>
+        </form>
+
         <form action="{{ route('checkout.process') }}" method="POST" class="checkout-layout">
             @csrf
             <input type="hidden" name="checkout_token" value="{{ $token }}">
             <input type="hidden" name="quote_hash" value="{{ $quote['hash'] }}">
+            <input type="hidden" name="saved_address_id" value="{{ $selectedAddress?->id }}">
 
             <!-- Delivery & Payment Section -->
             <div>
                 <!-- Address Card -->
                 <div class="checkout-card">
                     <h2 class="checkout-card-title">1. Delivery Information</h2>
+                    @if ($selectedAddress)
+                        <div class="checkout-saved-address">
+                            <strong>{{ $selectedAddress->label }}</strong>
+                            @if ($selectedAddress->is_default)<span class="buyer-address-default">Default</span>@endif
+                            <x-buyer-address-summary :address="$selectedAddress" />
+                            <a href="{{ route('buyer.addresses.edit', $selectedAddress) }}">Edit this saved address</a>
+                        </div>
+                    @endif
                     <div class="checkout-form-grid">
+                        @unless ($selectedAddress)
                         <div class="checkout-form-group">
-                            <label class="checkout-label">Recipient Name *</label>
-                            <input type="text" name="recipient_name" class="checkout-input"
+                            <label for="checkout-recipient-name" class="checkout-label">Recipient Name *</label>
+                            <input id="checkout-recipient-name" type="text" name="recipient_name" class="checkout-input"
                                 value="{{ old('recipient_name', $user->first_name . ' ' . $user->last_name) }}" required>
                         </div>
 
                         <div class="checkout-form-group">
-                            <label class="checkout-label">Contact Number *</label>
-                            <input type="text" name="recipient_contact" class="checkout-input"
+                            <label for="checkout-recipient-contact" class="checkout-label">Contact Number *</label>
+                            <input id="checkout-recipient-contact" type="tel" name="recipient_contact" class="checkout-input" maxlength="13" pattern="(09[0-9]{9}|\+639[0-9]{9})"
                                 value="{{ old('recipient_contact', $user->contact_no) }}" required>
                         </div>
 
                         <div class="checkout-form-full">
                             @include('components.psgc-address-fields', ['prefix' => 'checkout-address', 'address' => $user, 'postalRequired' => false])
                         </div>
+                        @endunless
 
                         <div class="checkout-form-group checkout-form-full">
-                            <label class="checkout-label">Order Notes (Optional)</label>
-                            <textarea name="notes" rows="2" maxlength="200" class="checkout-input"
+                            <label for="checkout-notes" class="checkout-label">Order Notes (Optional)</label>
+                            <textarea id="checkout-notes" name="notes" rows="2" maxlength="200" class="checkout-input"
                                 placeholder="Notes for seller or courier delivery landmarks...">{{ old('notes') }}</textarea>
                         </div>
                     </div>

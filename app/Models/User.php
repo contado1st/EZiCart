@@ -134,6 +134,11 @@ class User extends Authenticatable implements AuthenticatableContract
         return $this->hasMany(Order::class, 'buyer_id');
     }
 
+    public function addresses(): HasMany
+    {
+        return $this->hasMany(BuyerAddress::class);
+    }
+
     /**
      * Orders received by this user as a seller.
      */

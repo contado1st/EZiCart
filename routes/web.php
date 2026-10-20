@@ -1,5 +1,7 @@
 <?php
 
+use App\Http\Controllers\Buyer\BuyerAddressController;
+
 use App\Http\Controllers\AccountController;
 use App\Http\Controllers\Admin\AdminAnnouncementController;
 use App\Http\Controllers\Admin\AdminComplianceController;
@@ -109,6 +111,8 @@ Route::middleware(['auth', 'account.active', 'auth.session'])->group(function ()
     // Buyer-Only Routes
     Route::middleware(['role:buyer'])->group(function () {
         Route::prefix('buyer')->name('buyer.')->group(function () {
+            Route::resource('addresses', BuyerAddressController::class)->except('show')->whereNumber('address');
+            Route::patch('/addresses/{address}/default', [BuyerAddressController::class, 'makeDefault'])->whereNumber('address')->middleware('throttle:operational-action')->name('addresses.default');
             Route::get('/dashboard', [BuyerController::class, 'dashboard'])->name('dashboard');
             Route::get('/orders/{order}', [BuyerController::class, 'showOrder'])->name('orders.show');
             Route::post('/orders/{order}/delivery-code/refresh', [BuyerController::class, 'refreshDeliveryCode'])->middleware('throttle:operational-action')->name('orders.delivery-code.refresh');

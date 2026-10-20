@@ -16,7 +16,7 @@
     <nav>
         <p class="buyer-account-nav-heading">My Account</p>
         <a class="{{ $activeSection === 'profile' ? 'is-active' : '' }}" href="{{ route('account.profile.edit') }}" @if ($activeSection === 'profile') aria-current="page" @endif>Profile</a>
-        <a href="{{ route('account.profile.edit') }}#buyer-addresses">Addresses</a>
+        <a href="{{ route('buyer.addresses.index') }}">Addresses</a>
         <a href="{{ route('account.profile.edit') }}#buyer-password">Change password</a>
         <a class="buyer-account-notification-link {{ $activeSection === 'notifications' ? 'is-active' : '' }}" href="{{ route('notifications.index') }}" @if ($activeSection === 'notifications') aria-current="page" @endif>
             <span>Notifications</span>
