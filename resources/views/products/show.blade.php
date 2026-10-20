@@ -24,6 +24,10 @@
 
             <!-- Product Purchase Information -->
             <div class="product-info-column">
+                @if (auth()->user()?->role === 'buyer')
+                    <form method="POST" action="{{ route('buyer.stock.watch', $product) }}">@csrf<button class="feature-button" type="submit"><x-shop-icon name="bell" /> Watch stock availability</button></form>
+                    <a href="{{ route('buyer.stock.index') }}">Manage stock alerts</a>
+                @endif
                 <div>
                     <span class="product-badge">{{ $product->category }}</span>
                     <h1 class="product-detail-title">{{ $product->name }}</h1>

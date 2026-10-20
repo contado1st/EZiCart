@@ -207,6 +207,7 @@
                                                     @endforeach
                                                 </select>
                                             </div>
+                                            <label class="ops-field">Backup / coverage override reason (when using a non-primary rider)<input name="coverage_override_reason" minlength="5" maxlength="500"></label>
                                             <button class="ops-btn ops-btn--primary" type="submit">
                                                 {{ $order->delivery_courier_id ? 'Reassign' : 'Assign' }}
                                             </button>

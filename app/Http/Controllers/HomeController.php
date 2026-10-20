@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Product;
+use App\Services\ProductRecommendationService;
 use Illuminate\Http\Request;
 
 class HomeController extends Controller
@@ -52,12 +53,16 @@ class HomeController extends Controller
         return view($view, compact('categories', 'products'));
     }
 
-    public function showProduct(Product $product)
+    public function showProduct(Request $request, Product $product, ProductRecommendationService $recommendations)
     {
         abort_if($product->compliance_status !== 'approved' || $product->is_archived || $product->stock <= 0, 404);
 
         $product->load(['seller', 'variations' => fn ($query) => $query->where('is_active', true)]);
         abort_if($product->variations()->exists() && $product->variations->isEmpty(), 404);
+
+        if ($request->user()?->role === 'buyer') {
+            $recommendations->recordView($request->user(), $product);
+        }
 
         return view('products.show', compact('product'));
     }

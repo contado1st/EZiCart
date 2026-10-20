@@ -7,4 +7,8 @@ return [
     'seller_response_hours' => 24,
     'seller_preparation_hours' => 48,
     'parcel_alert_hours' => 24,
+    'cancellation_response_hours' => 24,
+    'rider_acceptance_minutes' => 15,
+    'low_stock_threshold' => 5,
+    'logistics_provider' => 'EZiCart Logistics',
 ];

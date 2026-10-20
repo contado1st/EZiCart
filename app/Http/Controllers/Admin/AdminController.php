@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Enums\OrderStatus;
 use App\Http\Controllers\Controller;
+use App\Models\DeliveryAttempt;
 use App\Models\Order;
 use App\Models\OrderFinance;
 use App\Models\Product;
@@ -33,6 +34,12 @@ class AdminController extends Controller
 
         // 3. System Metrics
         $stats = [
+            'buyers' => User::where('role', 'buyer')->count(),
+            'sellers' => User::where('role', 'seller')->where('status', 'approved')->count(),
+            'products' => Product::where('compliance_status', 'approved')->where('is_archived', false)->count(),
+            'orders' => Order::count(),
+            'delivered' => Order::whereNotNull('delivered_at')->count(),
+            'failed_attempts' => DeliveryAttempt::where('outcome', 'failed')->count(),
             'total_commission' => $platformEarnings,
             'gmv' => $grossMerchandiseValue,
             'pending_users' => User::where('role', 'seller')->where('status', 'pending')->count(),

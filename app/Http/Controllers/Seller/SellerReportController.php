@@ -6,11 +6,13 @@ use App\Http\Controllers\Controller;
 use App\Models\Order;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
 
 class SellerReportController extends Controller
 {
     public function index(Request $request)
     {
+        $request->validate(['from_date' => ['nullable', 'date_format:Y-m-d'], 'to_date' => ['nullable', 'date_format:Y-m-d']]);
         $sellerId = $this->authenticatedUser()->id;
 
         $fromDate = $request->input('from_date')
@@ -20,6 +22,9 @@ class SellerReportController extends Controller
         $toDate = $request->input('to_date')
             ? Carbon::parse($request->input('to_date'))->endOfDay()
             : Carbon::now()->endOfDay();
+        if ($fromDate->gt($toDate)) {
+            throw ValidationException::withMessages(['to_date' => 'The end date must not precede the start date.']);
+        }
 
         // Base query restricted to the authenticated merchant within the date range
         $ordersQuery = Order::where('seller_id', $sellerId)
@@ -33,7 +38,8 @@ class SellerReportController extends Controller
         $grossSales = $completedOrders->sum('subtotal');
         $totalDiscounts = $completedOrders->sum('discount_amount');
         $platformCommissions = $completedOrders->sum('commission_fee');
-        $netProfit = max(0, $grossSales - $platformCommissions);
+        $sellerFundedDiscounts = $completedOrders->sum(fn ($order) => max(0, (float) $order->discount_amount - (float) $order->platform_discount_amount));
+        $netProfit = max(0, $grossSales - $sellerFundedDiscounts - $platformCommissions);
 
         $stats = [
             'gross_sales' => $grossSales,

@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\Product;
 use App\Models\ProductVariation;
 use App\Models\Voucher;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 class CheckoutPricingService
@@ -72,6 +73,7 @@ class CheckoutPricingService
         }
         ksort($groups);
         $eligible = 0;
+        $standardShipping = (int) (DB::table('commerce_settings')->where('key', 'shipping_per_seller_cents')->value('value') ?? config('commerce.shipping_per_seller_cents'));
         foreach ($groups as $sellerId => &$group) {
             $group['subtotal_cents'] = array_sum(array_column($group['lines'], 'item_cents'));
             $group['eligible'] = $voucher && ($voucher->seller_id === null || (int) $voucher->seller_id === (int) $sellerId);
@@ -102,7 +104,7 @@ class CheckoutPricingService
         foreach ($groups as $sellerId => &$group) {
             $group['discount_cents'] = $allocations[$sellerId] ?? 0;
             $group['platform_discount_cents'] = $voucher && $voucher->seller_id === null ? $group['discount_cents'] : 0;
-            $group['shipping_cents'] = (int) config('commerce.shipping_per_seller_cents');
+            $group['shipping_cents'] = $standardShipping;
             $net = $group['subtotal_cents'] - $group['discount_cents'];
             $group['commission_cents'] = intdiv(($net + $group['platform_discount_cents']) * (int) config('commerce.commission_basis_points') + 5000, 10000);
             $group['total_cents'] = $net + $group['shipping_cents'];
@@ -119,6 +121,7 @@ class CheckoutPricingService
             'lines' => $lines, 'groups' => $groups, 'total_cents' => $total,
             'subtotal_cents' => array_sum(array_column($groups, 'subtotal_cents')),
             'discount_cents' => $discount, 'shipping_cents' => array_sum(array_column($groups, 'shipping_cents')),
+            'standard_shipping_cents' => $standardShipping,
             'hash' => hash('sha256', json_encode([$fingerprint, $voucher?->id, $discount, $total], JSON_THROW_ON_ERROR)),
         ];
     }

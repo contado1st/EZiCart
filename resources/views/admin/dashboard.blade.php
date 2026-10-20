@@ -31,6 +31,11 @@
             @endif
 
             <!-- Financial & Logistics KPI Cards -->
+            <section class="feature-panel"><h2>Platform activity</h2><div class="feature-grid">
+                @foreach (['buyers' => 'Buyer accounts', 'sellers' => 'Approved sellers', 'products' => 'Approved listings', 'orders' => 'Orders placed', 'delivered' => 'Parcels delivered', 'failed_attempts' => 'Failed delivery attempts'] as $key => $label)
+                    <p><strong>{{ number_format($stats[$key]) }}</strong><br>{{ $label }}</p>
+                @endforeach
+            </div></section>
             <div class="dash-stats-grid">
                 <div class="dash-stat-card">
                     <span class="workspace-stat-icon" aria-hidden="true"><x-shop-icon name="money" /></span>

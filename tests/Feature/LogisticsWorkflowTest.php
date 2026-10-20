@@ -2576,10 +2576,13 @@ class LogisticsWorkflowTest extends TestCase
         ]);
 
         $this->actingAsUser($buyer)->post(route('buyer.orders.cancel', $order))->assertRedirect();
+        $this->assertDatabaseHas('orders', ['id' => $order->id, 'status' => 'PLACED']);
+        $this->assertDatabaseHas('products', ['id' => $product->id, 'stock' => 2]);
+        $this->actingAsUser($seller)->post(route('seller.orders.cancellation', $order), ['decision' => 'approve', 'response' => 'Approved buyer cancellation request.'])->assertRedirect();
         $this->assertDatabaseHas('orders', ['id' => $order->id, 'status' => 'CANCELLED']);
         $this->assertDatabaseHas('products', ['id' => $product->id, 'stock' => 5]);
-        $this->assertDatabaseHas('parcel_tracking_events', ['order_id' => $order->id, 'event_type' => 'cancelled']);
-        $this->post(route('buyer.orders.cancel', $order))->assertUnprocessable();
+        $this->assertDatabaseHas('parcel_tracking_events', ['order_id' => $order->id, 'event_type' => 'cancellation_approved']);
+        $this->actingAsUser($buyer)->post(route('buyer.orders.cancel', $order))->assertUnprocessable();
         $this->assertDatabaseHas('products', ['id' => $product->id, 'stock' => 5]);
     }
 

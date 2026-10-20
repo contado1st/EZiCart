@@ -27,7 +27,7 @@ class SellerOrderController extends Controller
         $status = $request->query('status');
 
         $query = $this->authenticatedUser()->sellerOrders()
-            ->with(['buyer', 'items'])
+            ->with(['buyer', 'items', 'pendingCancellation'])
             ->latest();
 
         if ($status) {
@@ -238,6 +238,7 @@ class SellerOrderController extends Controller
 
         return DB::transaction(function () use ($order, $seller, $notifications, $validated, $badgeRiderId, $request): RedirectResponse {
             $lockedOrder = Order::query()->whereKey($order->id)->lockForUpdate()->firstOrFail();
+            abort_if($lockedOrder->pendingCancellation()->exists(), 422, 'Resolve the pending cancellation request before parcel handover.');
             abort_unless(
                 $lockedOrder->status === 'READY_FOR_PICKUP'
                     && $lockedOrder->payment_method === 'COD'

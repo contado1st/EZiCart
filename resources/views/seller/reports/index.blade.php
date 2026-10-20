@@ -13,6 +13,7 @@
             <div class="dash-header">
                 <div>
                     <h1 class="dash-title">Financial & Profit Report</h1>
+                    <a class="dash-btn-sm dash-btn-primary" href="{{ route('sales-reports.index') }}">Itemized reports, CSV and PDF</a>
                     <p class="dash-subtitle">Track sales revenue, 10% platform commission, and calculated net profit.</p>
                 </div>
             </div>

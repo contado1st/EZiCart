@@ -11,7 +11,7 @@
     $isDashboardWorkspace = auth()->check() && request()->routeIs(
         'admin.*', 'seller.*', 'courier.*', 'logistics.*', 'logistics-admin.*',
         'buyer.dashboard', 'buyer.orders.*', 'buyer.addresses.*', 'finance.*', 'parcel-transfers.*',
-        'account.profile.*', 'notifications.*'
+        'account.profile.*', 'notifications.*', 'buyer.for-you*', 'buyer.stock.*', 'chat.index', 'sales-reports.*', 'activity-logs.*', 'coverage.*'
     );
 @endphp
 
@@ -33,6 +33,8 @@
     <link rel="stylesheet" href="{{ asset('css/psgc-address.css') }}?v={{ filemtime(public_path('css/psgc-address.css')) }}">
     <!-- Dynamic Page Stylesheets -->
     @stack('styles')
+    <link rel="stylesheet" href="{{ asset('css/roadmap-features.css') }}?v={{ filemtime(public_path('css/roadmap-features.css')) }}">
+    <script src="{{ asset('js/order-deadlines.js') }}?v={{ filemtime(public_path('js/order-deadlines.js')) }}" defer></script>
     @if ($isDashboardWorkspace)
         <link rel="stylesheet" href="{{ asset('css/workspace.css') }}?v={{ filemtime(public_path('css/workspace.css')) }}">
         <script src="{{ asset('js/workspace.js') }}?v={{ filemtime(public_path('js/workspace.js')) }}" defer></script>
@@ -191,6 +193,12 @@
     @endif
 
     <!-- Footer -->
+    @if (auth()->check() && in_array(auth()->user()->role, ['buyer', 'seller'], true) && !$isDashboardWorkspace)
+        <nav class="marketplace-chat-dock" aria-label="Shopping shortcuts">
+            @if (auth()->user()->role === 'buyer')<a href="{{ route('buyer.for-you') }}">For you</a>@endif
+            <a href="{{ route('chat.index') }}"><x-shop-icon name="chat" /> Chat</a>
+        </nav>
+    @endif
     @unless ($isRoleWorkspaceRoute || $isDashboardWorkspace)
         <footer class="footer">
             <div class="container footer-text">

@@ -117,7 +117,7 @@
                 </div>
 
                 <div class="checkout-summary-row">
-                    <span>Shipping ({{ count($quote['groups']) }} seller shipments at ₱{{ number_format(config('commerce.shipping_per_seller_cents') / 100, 2) }} each)</span>
+                    <span>Shipping ({{ count($quote['groups']) }} seller shipments at ₱{{ number_format($quote['standard_shipping_cents'] / 100, 2) }} each)</span>
                     <span>₱{{ number_format($shippingFee, 2) }}</span>
                 </div>
 

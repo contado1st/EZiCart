@@ -5,6 +5,7 @@ import "@h2d2/shopicons/es/regular/arrowback";
 import "@h2d2/shopicons/es/regular/bell";
 import "@h2d2/shopicons/es/regular/cart1";
 import "@h2d2/shopicons/es/regular/cart2";
+import "@h2d2/shopicons/es/regular/chat";
 import "@h2d2/shopicons/es/regular/checklist";
 import "@h2d2/shopicons/es/regular/close";
 import "@h2d2/shopicons/es/regular/delivery1";

@@ -1,8 +1,7 @@
 <?php
 
-use App\Http\Controllers\Buyer\BuyerAddressController;
-
 use App\Http\Controllers\AccountController;
+use App\Http\Controllers\Admin\ActivityLogController;
 use App\Http\Controllers\Admin\AdminAnnouncementController;
 use App\Http\Controllers\Admin\AdminComplianceController;
 use App\Http\Controllers\Admin\AdminController;
@@ -13,21 +12,28 @@ use App\Http\Controllers\Admin\LogisticsAdminController;
 use App\Http\Controllers\Admin\PlatformVoucherController;
 use App\Http\Controllers\Auth\AuthController;
 use App\Http\Controllers\Auth\RiderActivationController;
+use App\Http\Controllers\Buyer\BuyerAddressController;
 use App\Http\Controllers\Buyer\BuyerController;
 use App\Http\Controllers\Buyer\CartController;
 use App\Http\Controllers\Buyer\CheckoutController;
+use App\Http\Controllers\Buyer\DiscoveryController;
 use App\Http\Controllers\Buyer\DisputeController;
 use App\Http\Controllers\Buyer\ReviewController;
+use App\Http\Controllers\ChatInboxController;
+use App\Http\Controllers\Courier\AssignmentAcceptanceController;
 use App\Http\Controllers\Courier\CourierController;
 use App\Http\Controllers\FinancialController;
 use App\Http\Controllers\HomeController;
-use App\Http\Controllers\SearchController;
+use App\Http\Controllers\Logistics\CoverageController;
 use App\Http\Controllers\Logistics\LogisticsController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\OrderMessageController;
 use App\Http\Controllers\ParcelTransferController;
 use App\Http\Controllers\PsgcAddressController;
+use App\Http\Controllers\SalesReportController;
+use App\Http\Controllers\SearchController;
 use App\Http\Controllers\SecureDocumentController;
+use App\Http\Controllers\Seller\CancellationController;
 use App\Http\Controllers\Seller\ProductController;
 use App\Http\Controllers\Seller\ReturnInspectionController;
 use App\Http\Controllers\Seller\SellerController;
@@ -86,6 +92,22 @@ Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
 
 // 3. Protected Routes (Strictly Isolated by Role)
 Route::middleware(['auth', 'account.active', 'auth.session'])->group(function () {
+    Route::get('/chat', ChatInboxController::class)->middleware('role:buyer,seller')->name('chat.index');
+    Route::get('/sales-reports', SalesReportController::class)->middleware('role:seller,admin,ecommerce_admin')->name('sales-reports.index');
+    Route::get('/activity-logs', ActivityLogController::class)->middleware('role:admin,ecommerce_admin,logistics_admin')->name('activity-logs.index');
+    Route::get('/logistics-coverage', [CoverageController::class, 'index'])->middleware('role:sorting_center,logistics_admin')->name('coverage.index');
+    Route::post('/logistics-coverage', [CoverageController::class, 'store'])->middleware(['role:sorting_center,logistics_admin', 'throttle:operational-action'])->name('coverage.store');
+    Route::patch('/logistics-coverage/riders/{rider}', [CoverageController::class, 'vehicle'])->middleware(['role:sorting_center,logistics_admin', 'throttle:operational-action'])->name('coverage.vehicle');
+    Route::patch('/logistics-coverage/shipping', [CoverageController::class, 'shipping'])->middleware(['role:logistics_admin', 'throttle:operational-action'])->name('coverage.shipping');
+    Route::post('/courier/orders/{order}/accept-assignment', AssignmentAcceptanceController::class)->middleware(['role:courier', 'throttle:operational-action'])->name('courier.orders.accept-assignment');
+    Route::post('/seller/orders/{order}/cancellation', CancellationController::class)->middleware(['role:seller', 'throttle:operational-action'])->name('seller.orders.cancellation');
+    Route::middleware('role:buyer')->prefix('buyer')->name('buyer.')->group(function () {
+        Route::get('/for-you', [DiscoveryController::class, 'index'])->name('for-you');
+        Route::delete('/for-you/history', [DiscoveryController::class, 'reset'])->name('for-you.reset');
+        Route::get('/stock-alerts', [DiscoveryController::class, 'stock'])->name('stock.index');
+        Route::post('/stock-alerts/{product}', [DiscoveryController::class, 'watch'])->middleware('throttle:operational-action')->name('stock.watch');
+        Route::delete('/stock-alerts/{product}', [DiscoveryController::class, 'unwatch'])->name('stock.unwatch');
+    });
     Route::get('/parcel-transfers', [ParcelTransferController::class, 'index'])->middleware('role:sorting_center,logistics_admin')->name('parcel-transfers.index');
     Route::post('/parcel-transfers/{transfer}/release', [ParcelTransferController::class, 'release'])->middleware(['role:sorting_center', 'throttle:operational-action'])->name('parcel-transfers.release');
     Route::post('/parcel-transfers/{transfer}/receive', [ParcelTransferController::class, 'receive'])->middleware(['role:sorting_center', 'throttle:operational-action'])->name('parcel-transfers.receive');

@@ -6,6 +6,7 @@
 @endpush
 
 @section('content')
+    @include('components.order-deadlines', ['order' => $order])
     <div class="dash-wrapper">
 <main class="dash-main">
             <div class="dash-header">

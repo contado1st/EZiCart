@@ -13,6 +13,7 @@
             <div class="dash-header">
                 <div>
                     <h1 class="dash-title">Platform Commission & Sales Summary</h1>
+                    <a class="dash-btn-sm dash-btn-primary" href="{{ route('sales-reports.index') }}">Itemized reports, CSV and PDF</a>
                     <p class="dash-subtitle">Review completed order values, verified cash receipts, and recorded external settlements.</p>
                 </div>
             </div>

@@ -6,6 +6,7 @@ use App\Enums\OrderStatus;
 use App\Models\Area;
 use App\Models\DeliveryAssignment;
 use App\Models\Order;
+use App\Models\OrderCancellationRequest;
 use App\Models\OrderItem;
 use App\Models\ParcelTrackingEvent;
 use App\Models\ParcelTransfer;
@@ -73,6 +74,7 @@ class OrderTransitionService
         return DB::transaction(function () use ($order, $actor, $target, $eventType, $location, $notes, $attributes): Order {
             $lockedOrder = Order::query()->whereKey($order->id)->lockForUpdate()->firstOrFail();
             $current = $lockedOrder->status;
+            abort_if($lockedOrder->pendingCancellation()->exists(), 422, 'Resolve the pending cancellation request before changing this order.');
             abort_if(ParcelTransfer::query()->where('active_order_id', $lockedOrder->id)->exists(), 422, 'Complete the active hub transfer before changing parcel status.');
 
             if (! in_array($target->value, self::TRANSITIONS[$current] ?? [], true)) {
@@ -194,7 +196,7 @@ class OrderTransitionService
                 'CONFIRMED', 'PREPARING' => $locked->preparation_due_at,
                 default => null,
             };
-            if ($due === null || $due->isFuture() || $locked->seller_handover_at !== null || $locked->picked_up_at !== null || $locked->received_at !== null || $locked->hub_released_at !== null) {
+            if ($due === null || $due->isFuture() || $locked->pendingCancellation()->exists() || $locked->seller_handover_at !== null || $locked->picked_up_at !== null || $locked->received_at !== null || $locked->hub_released_at !== null) {
                 return false;
             }
             $previous = $locked->status;
@@ -207,6 +209,91 @@ class OrderTransitionService
             ]);
             $this->audits->record(null, $locked, 'seller_deadline_expired', ['status' => $previous], ['status' => OrderStatus::Cancelled->value], 'Seller deadline expired before physical custody.');
             $this->notifications->send([$locked->buyer, $locked->seller], new OrderStatusNotification($locked, OrderStatus::Cancelled->value, 'seller_deadline_expired', 'Order cancelled because the seller deadline expired.'));
+
+            return true;
+        }, 3);
+    }
+
+    public function requestCancellation(Order $order, User $buyer, string $reason): void
+    {
+        DB::transaction(function () use ($order, $buyer, $reason): void {
+            $locked = Order::query()->whereKey($order->id)->lockForUpdate()->firstOrFail();
+            abort_unless($buyer->role === 'buyer' && $locked->buyer_id === $buyer->id, 403);
+            $this->authorizeCancellation($locked, $buyer, $locked->status, $reason);
+            abort_if($locked->pendingCancellation()->exists(), 422, 'A cancellation request is already pending.');
+            OrderCancellationRequest::create([
+                'order_id' => $locked->id, 'active_order_id' => $locked->id, 'requested_by' => $buyer->id,
+                'reason' => $reason, 'respond_by' => now()->addHours((int) config('commerce.cancellation_response_hours', 24)),
+            ]);
+            ParcelTrackingEvent::create(['order_id' => $locked->id, 'actor_id' => $buyer->id, 'event_type' => 'cancellation_requested', 'status' => $locked->status, 'notes' => $reason]);
+            $this->audits->record($buyer, $locked, 'cancellation_requested', [], ['cancellation_status' => 'PENDING'], $reason);
+            $this->notifications->send([$locked->buyer, $locked->seller], new OrderWorkflowNotification($locked, 'cancellation_requested', 'Cancellation pending seller approval. Fulfillment is paused until the request is resolved.'));
+        }, 3);
+    }
+
+    public function resolveCancellation(Order $order, ?User $actor, bool $approve, string $response): bool
+    {
+        return DB::transaction(function () use ($order, $actor, $approve, $response): bool {
+            $locked = Order::query()->whereKey($order->id)->lockForUpdate()->firstOrFail();
+            $request = $locked->pendingCancellation()->lockForUpdate()->first();
+            if (! $request) {
+                return false;
+            }
+            if ($actor) {
+                abort_unless(($actor->role === 'seller' && $locked->seller_id === $actor->id) || $actor->isCommerceAdmin(), 403);
+                abort_if($request->respond_by->isPast(), 422, 'The response window has expired; the request awaits automatic approval.');
+            } else {
+                abort_unless($approve && $request->respond_by->lte(now()), 422);
+            }
+            $request->update(['active_order_id' => null, 'status' => $approve ? 'APPROVED' : 'REJECTED', 'response' => $response, 'responded_by' => $actor?->id, 'resolved_at' => now()]);
+            if (! $approve) {
+                $pausedSeconds = max(0, (int) $request->created_at->diffInSeconds(now()));
+                foreach (['seller_response_due_at', 'preparation_due_at'] as $deadline) {
+                    if ($locked->{$deadline}) {
+                        $locked->{$deadline} = $locked->{$deadline}->copy()->addSeconds($pausedSeconds);
+                    }
+                }
+                $locked->save();
+            }
+            if ($approve && $locked->status !== OrderStatus::Cancelled->value) {
+                abort_unless(in_array($locked->status, ['PLACED', 'CONFIRMED', 'PREPARING', 'READY_FOR_PICKUP'], true)
+                    && $locked->picked_up_at === null && $locked->seller_handover_at === null && $locked->received_at === null && $locked->hub_released_at === null, 422, 'A parcel in physical custody cannot be cancelled.');
+                $previous = $locked->status;
+                $locked->forceFill(['status' => OrderStatus::Cancelled->value])->save();
+                $this->inventoryRestoration->restore($locked);
+                $this->finances->voidUncollected($locked, $actor);
+                $this->audits->record($actor, $locked, 'cancellation_approved', ['status' => $previous], ['status' => 'CANCELLED'], $response);
+            } elseif (! $approve) {
+                $this->audits->record($actor, $locked, 'cancellation_rejected', ['cancellation_status' => 'PENDING'], ['cancellation_status' => 'REJECTED'], $response);
+            } else {
+                $this->audits->record($actor, $locked, 'cancellation_approved', ['cancellation_status' => 'PENDING'], ['cancellation_status' => 'APPROVED'], $response);
+            }
+            $event = $approve ? 'cancellation_approved' : 'cancellation_rejected';
+            ParcelTrackingEvent::create(['order_id' => $locked->id, 'actor_id' => $actor?->id, 'event_type' => $event, 'status' => $locked->status, 'notes' => $response]);
+            $this->notifications->send(collect([$locked->buyer, $locked->seller, $locked->pickupCourier, $locked->sortingCenter])->filter()->unique('id'),
+                new OrderWorkflowNotification($locked, $event, $approve ? 'Cancellation approved. Reserved inventory released; no COD payment was collected, so no refund is due.' : 'Cancellation rejected: '.$response));
+
+            return true;
+        }, 3);
+    }
+
+    public function expireRiderAssignment(Order $order): bool
+    {
+        return DB::transaction(function () use ($order): bool {
+            $locked = Order::query()->whereKey($order->id)->lockForUpdate()->firstOrFail();
+            if ($locked->status !== 'ASSIGNED_TO_RIDER' || $locked->hub_released_at !== null) {
+                return false;
+            }
+            $assignment = $locked->deliveryAssignments()->where('status', 'active')->lockForUpdate()->first();
+            if (! $assignment || $assignment->accepted_at !== null || $assignment->assigned_at->copy()->addMinutes((int) config('commerce.rider_acceptance_minutes', 15))->isFuture()) {
+                return false;
+            }
+            $previousRider = $locked->deliveryCourier;
+            $assignment->update(['status' => 'reassigned', 'active_order_id' => null, 'released_at' => now()]);
+            $locked->forceFill(['status' => OrderStatus::Sorted->value, 'delivery_courier_id' => null, 'assigned_at' => null])->save();
+            ParcelTrackingEvent::create(['order_id' => $locked->id, 'event_type' => 'rider_acceptance_expired', 'status' => $locked->status, 'notes' => 'Rider acceptance deadline expired before handoff; logistics must select another rider.']);
+            $this->audits->record(null, $locked, 'rider_acceptance_expired', ['status' => 'ASSIGNED_TO_RIDER', 'rider_id' => $previousRider?->id], ['status' => 'SORTED', 'rider_id' => null], 'Unaccepted assignment returned to the hub dispatch queue.');
+            $this->notifications->send(collect([$previousRider, $locked->sortingCenter])->filter(), new OrderWorkflowNotification($locked, 'delivery_assignment_replaced', 'The rider acceptance deadline expired. Parcel returned to logistics for reassignment.'));
 
             return true;
         }, 3);

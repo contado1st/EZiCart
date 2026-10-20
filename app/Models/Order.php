@@ -161,6 +161,11 @@ class Order extends Model
         return $this->hasOne(OrderConversation::class);
     }
 
+    public function pendingCancellation(): HasOne
+    {
+        return $this->hasOne(OrderCancellationRequest::class, 'active_order_id');
+    }
+
     /** @return Collection<int, User> */
     public function messageParticipants(): Collection
     {

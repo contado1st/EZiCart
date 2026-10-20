@@ -5,6 +5,7 @@
 @endpush
 
 @section('content')
+    @include('components.order-deadlines', ['order' => $order])
     <div class="dash-wrapper">
 <main class="dash-main">
             @if (session('success'))
@@ -141,7 +142,7 @@
                             <span class="text-muted-small">Awaiting courier handoff</span>
                         @endif
                     @endif
-                    @if (in_array($order->status, ['PLACED', 'CONFIRMED', 'PREPARING', 'READY_FOR_PICKUP'], true) && $order->picked_up_at === null && $order->seller_handover_at === null)
+                    @if (!$order->pendingCancellation && in_array($order->status, ['PLACED', 'CONFIRMED', 'PREPARING', 'READY_FOR_PICKUP'], true) && $order->picked_up_at === null && $order->seller_handover_at === null)
                         <form action="{{ route('seller.orders.cancel', $order) }}" method="POST" class="order-schedule-form">
                             @csrf
                             <label for="seller-cancel-reason">Reason for cancelling</label>

@@ -14,6 +14,7 @@ use App\Models\User;
 use App\Notifications\AccountStatusNotification;
 use App\Notifications\OrderWorkflowNotification;
 use App\Notifications\RiderActivationNotification;
+use App\Services\LogisticsCoverageService;
 use App\Services\LogisticsExceptionService;
 use App\Services\OrderAreaService;
 use App\Services\OrderTransitionService;
@@ -888,6 +889,7 @@ class LogisticsController extends Controller
         $rules = [
             'delivery_courier_id' => ['required', 'integer', 'exists:users,id'],
             'scheduled_at' => ['nullable', 'date', 'after:now'],
+            'coverage_override_reason' => ['nullable', 'string', 'min:5', 'max:500'],
         ];
         $validated = $request->validate($rules);
         $operator = $this->authenticatedUser();
@@ -907,6 +909,7 @@ class LogisticsController extends Controller
             abort_if($rider->status === 'suspended', 422, 'Suspended riders cannot receive parcels.');
             abort_unless($lockedOrder->destination_area_id !== null, 422, 'Sort this parcel into a destination area before dispatch.');
             abort_unless($rider->serviceAreas()->whereKey($lockedOrder->destination_area_id)->exists(), 422, 'The rider is not assigned to this destination area.');
+            app(LogisticsCoverageService::class)->assertRider($lockedOrder, $rider, $validated['coverage_override_reason'] ?? null);
             $activeDeliveries = Order::query()
                 ->where('delivery_courier_id', $rider->id)
                 ->activeCourierWorkload()
@@ -915,6 +918,9 @@ class LogisticsController extends Controller
             abort_if($activeDeliveries >= max(1, (int) config('logistics.maximum_active_deliveries_per_rider', 10)), 422, 'This rider is at the active delivery capacity limit.');
 
             $scheduleNote = isset($validated['scheduled_at']) ? ' Next attempt scheduled for '.Carbon::parse($validated['scheduled_at'])->format('M j, Y g:i A').'.' : '';
+            if (filled($validated['coverage_override_reason'] ?? null)) {
+                $scheduleNote .= ' Coverage override: '.$validated['coverage_override_reason'];
+            }
             $transitions->transition($lockedOrder, $operator, OrderStatus::AssignedToRider, 'rider_assigned', $lockedOrder->delivery_area, "Assigned to {$rider->first_name} {$rider->last_name}.{$scheduleNote}", [
                 'delivery_courier_id' => $rider->id,
                 'assigned_at' => now(),
@@ -1039,6 +1045,7 @@ class LogisticsController extends Controller
             abort_unless($lockedOrder->status === OrderStatus::AssignedToRider->value, 422, 'Assign this parcel before releasing it to a rider.');
             abort_unless($lockedOrder->payment_method === 'COD', 422, 'This parcel is on hold until payment verification is configured.');
             abort_unless($lockedOrder->delivery_courier_id !== null && $lockedOrder->hub_released_at === null, 422, 'This parcel has already been released or has no assigned rider.');
+            $this->recordAcceptanceAtHandoff($lockedOrder);
 
             $rider = User::query()->whereKey($lockedOrder->delivery_courier_id)->lockForUpdate()->firstOrFail();
             abort_unless($rider->role === 'courier' && $rider->status === 'approved', 422, 'Only an approved rider can receive a hub release.');
@@ -1126,6 +1133,7 @@ class LogisticsController extends Controller
                 foreach ($orders as $order) {
                     $this->assertHubAccess($order, $operator);
                     abort_unless($order->status === OrderStatus::AssignedToRider->value && $order->payment_method === 'COD' && $order->delivery_courier_id === $lockedRider->id && $order->hub_released_at === null, 422, 'Every selected parcel must be assigned to this rider, fulfillable, and not yet released.');
+                    $this->recordAcceptanceAtHandoff($order);
                     abort_unless($this->riderBelongsToHub($lockedRider, $operator) || ! $this->isMultiHubOperation(), 422, 'The rider is not assigned to this hub.');
                     abort_unless($order->destination_area_id !== null && $lockedRider->serviceAreas()->whereKey($order->destination_area_id)->exists(), 422, 'The assigned rider no longer serves every selected parcel destination.');
                     DB::table('scan_events')->insert([
@@ -1205,6 +1213,15 @@ class LogisticsController extends Controller
             ]);
 
         return back()->with('success', "Parcel {$order->order_number} recovered at the hub and returned to dispatch.");
+    }
+
+    private function recordAcceptanceAtHandoff(Order $order): void
+    {
+        $assignment = $order->deliveryAssignments()->where('status', 'active')->where('rider_id', $order->delivery_courier_id)->lockForUpdate()->first();
+        if ($assignment && ! $assignment->accepted_at) {
+            abort_if($assignment->assigned_at->copy()->addMinutes((int) config('commerce.rider_acceptance_minutes', 15))->lte(now()), 422, 'The rider acceptance deadline expired. Reassign this parcel before hub handoff.');
+            $assignment->update(['accepted_at' => now()]);
+        }
     }
 
     public function riders(RiderBadgeService $badges, QrCodeService $qrCodes): View

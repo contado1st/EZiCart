@@ -57,7 +57,7 @@
                         </div>
                         <div>
                             <span class="status-pill status-{{ strtolower(str_replace('_', '-', $order->status)) }}">
-                                {{ str_replace('_', ' ', $order->status) }}
+                                {{ $order->pendingCancellation ? 'CANCELLATION PENDING' : str_replace('_', ' ', $order->status) }}
                             </span>
                         </div>
                     </div>

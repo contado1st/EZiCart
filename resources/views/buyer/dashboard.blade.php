@@ -148,12 +148,14 @@
                                     </form>
                                 @endif
 
-                                @if (in_array($order->status, ['PLACED', 'CONFIRMED', 'PREPARING'], true))
+                                @if ($order->pendingCancellation)
+                                    <a class="dash-btn-sm" href="{{ route('buyer.orders.show', $order) }}">Cancellation pending</a>
+                                @elseif (in_array($order->status, ['PLACED', 'CONFIRMED', 'PREPARING'], true))
                                     <form action="{{ route('buyer.orders.cancel', $order) }}" method="POST">
                                         @csrf
                                         <button type="submit" class="dash-btn-sm"
-                                            onclick="return confirm('Cancel this order and restore its reserved stock?')">Cancel
-                                            order</button>
+                                            onclick="return confirm('Request cancellation? The seller has 24 hours to respond before automatic approval.')">Request
+                                            cancellation</button>
                                     </form>
                                 @endif
                             </div>

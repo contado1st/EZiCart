@@ -1,6 +1,7 @@
 @extends('layouts.courier')
 
 @section('workspace')
+    @include('components.order-deadlines', ['order' => $order])
     <header class="ops-heading">
         <div>
             <h1>Delivery details</h1>

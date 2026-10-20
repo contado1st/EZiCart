@@ -19,7 +19,7 @@ class BuyerController extends Controller
         $status = $request->query('status');
 
         $query = $this->authenticatedUser()->buyerOrders()
-            ->with(['seller', 'items.product'])
+            ->with(['seller', 'items.product', 'pendingCancellation'])
             ->latest();
 
         if ($status) {
@@ -76,11 +76,12 @@ class BuyerController extends Controller
         return back()->with('success', 'Order marked as completed! Thank you for confirming.');
     }
 
-    public function cancel(Order $order, OrderTransitionService $transitions)
+    public function cancel(Request $request, Order $order, OrderTransitionService $transitions)
     {
         abort_if($order->buyer_id !== $this->authenticatedUser()->id, 403);
-        $transitions->transition($order, $this->authenticatedUser(), OrderStatus::Cancelled, 'cancelled', $order->municipality, 'Buyer cancelled before shipment.');
+        $data = $request->validate(['reason' => ['nullable', 'string', 'min:5', 'max:500']]);
+        $transitions->requestCancellation($order, $this->authenticatedUser(), $data['reason'] ?? 'Buyer requested cancellation before shipment.');
 
-        return back()->with('success', 'Order cancelled and reserved inventory restored.');
+        return back()->with('success', 'Cancellation pending seller approval. Fulfillment is paused; unanswered requests are approved after 24 hours.');
     }
 }
