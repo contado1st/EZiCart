@@ -14,16 +14,15 @@ use App\Models\ParcelTrackingEvent;
 use App\Models\Product;
 use App\Models\User;
 use App\Notifications\AccountStatusNotification;
-use App\Notifications\EmailVerificationCodeNotification;
 use App\Notifications\OrderMessageNotification;
 use App\Notifications\OrderStatusNotification;
 use App\Notifications\OrderWorkflowNotification;
+use App\Notifications\PasswordRecoveryCodeNotification;
 use App\Notifications\ProductComplianceNotification;
 use App\Services\InventoryRestorationService;
 use App\Services\OrderTransitionService;
 use App\Services\RiderBadgeService;
 use App\Services\TransactionAwareNotificationSender;
-use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Database\QueryException;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -1017,15 +1016,8 @@ class LogisticsWorkflowTest extends TestCase
         $this->post(route('verification.verify'), ['email' => $buyer->email, 'code' => '482916'])->assertRedirect(route('login'));
         $buyer->refresh();
         $this->post(route('login.post'), ['email' => $buyer->email, 'password' => 'Buyer-Pass@2026'])
-            ->assertRedirect(route('login.otp.notice'));
-        $code = null;
-        Notification::assertSentTo($buyer, EmailVerificationCodeNotification::class, function ($notification) use (&$code) {
-            $code = $notification->code;
-
-            return true;
-        });
-        $this->post(route('login.otp.verify'), ['code' => $code])
             ->assertRedirect(route('buyer.dashboard'));
+        $this->assertAuthenticatedAs($buyer);
         $admin = $this->user('admin', 'approved');
 
         $seller = $this->user('seller', 'approved');
@@ -2118,15 +2110,7 @@ class LogisticsWorkflowTest extends TestCase
             'email' => $buyer->email,
             'password' => 'password',
             'remember' => true,
-        ])->assertRedirect(route('login.otp.notice'));
-        $code = null;
-        Notification::assertSentTo($buyer, EmailVerificationCodeNotification::class, function ($notification) use (&$code) {
-            $code = $notification->code;
-
-            return true;
-        });
-        $this->post(route('login.otp.verify'), ['code' => $code])
-            ->assertRedirect(route('buyer.dashboard'));
+        ])->assertRedirect(route('buyer.dashboard'));
         $this->assertAuthenticatedAs($buyer);
         $this->assertNotNull($buyer->fresh()->remember_token);
 
@@ -2298,7 +2282,7 @@ class LogisticsWorkflowTest extends TestCase
 
         $this->post(route('password.email'), ['email' => $user->email])
             ->assertRedirect()
-            ->assertSessionHas('status', 'If an account matches that email address, a password reset link has been sent.');
+            ->assertSessionHas('status', 'If an active account matches that email address, a password recovery code has been sent.');
         $this->post(route('register.post'))->assertSessionHasErrors('first_name');
     }
 
@@ -2482,42 +2466,45 @@ class LogisticsWorkflowTest extends TestCase
         ]);
     }
 
-    public function test_password_reset_uses_one_time_expiring_broker_tokens_and_neutral_responses(): void
+    public function test_password_reset_requires_a_one_time_email_code_and_neutral_responses(): void
     {
         Notification::fake();
         $user = $this->user('buyer', 'approved');
         $user->forceFill(['remember_token' => 'old-remember-token'])->save();
 
+        $this->get(route('password.reset.form'))->assertRedirect(route('password.request'));
         $this->post(route('password.email'), ['email' => $user->email])
-            ->assertSessionHas('status', 'If an account matches that email address, a password reset link has been sent.');
-        Notification::assertSentTo($user, ResetPassword::class);
+            ->assertSessionHas('status', 'If an active account matches that email address, a password recovery code has been sent.');
+        Notification::assertSentTo($user, PasswordRecoveryCodeNotification::class);
 
-        $token = null;
-        Notification::assertSentTo($user, ResetPassword::class, function (ResetPassword $notification) use (&$token): bool {
-            $token = $notification->token;
+        $code = null;
+        Notification::assertSentTo($user, PasswordRecoveryCodeNotification::class, function (PasswordRecoveryCodeNotification $notification) use (&$code): bool {
+            $code = $notification->code;
 
             return true;
         });
-        $this->assertIsString($token);
-        $this->get(route('password.reset', ['token' => $token, 'email' => $user->email]))->assertOk();
+        $this->assertIsString($code);
+        $this->get(route('password.otp.notice'))->assertOk()->assertSee($user->email)->assertSee('Verify Password Recovery');
+        $this->post(route('password.otp.verify'), ['code' => '000000'])->assertSessionHasErrors('code');
+        $this->assertGuest();
+        $this->post(route('password.otp.verify'), ['code' => $code])->assertRedirect(route('password.reset.form'));
+        $this->get(route('password.reset.form'))->assertOk();
 
         $this->post(route('password.update'), [
-            'token' => $token,
-            'email' => $user->email,
             'password' => 'New-Password@123',
             'password_confirmation' => 'New-Password@123',
         ])->assertRedirect(route('login'));
         $this->assertTrue(Hash::check('New-Password@123', $user->fresh()->password));
         $this->assertNotSame('old-remember-token', $user->fresh()->remember_token);
         $this->post(route('password.update'), [
-            'token' => $token,
-            'email' => $user->email,
             'password' => 'Another-Password@123',
             'password_confirmation' => 'Another-Password@123',
-        ])->assertSessionHasErrors('email');
+        ])->assertRedirect(route('password.request'));
 
         $this->post(route('password.email'), ['email' => 'unknown@example.test'])
-            ->assertSessionHas('status', 'If an account matches that email address, a password reset link has been sent.');
+            ->assertSessionHas('status', 'If an active account matches that email address, a password recovery code has been sent.');
+        $this->get(route('password.otp.notice'))->assertOk()->assertSee('unknown@example.test');
+        Notification::assertSentToTimes($user, PasswordRecoveryCodeNotification::class, 1);
     }
 
     public function test_account_management_updates_only_allowed_profile_fields_and_verifies_password_change(): void

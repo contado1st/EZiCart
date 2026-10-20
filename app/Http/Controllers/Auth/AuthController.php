@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\EmailVerificationCode;
 use App\Models\User;
 use App\Notifications\EmailVerificationCodeNotification;
+use App\Notifications\PasswordRecoveryCodeNotification;
 use App\Services\PsgcAddressService;
 use App\Services\RegistrationIdentityService;
 use Carbon\Carbon;
@@ -17,7 +18,6 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Facades\Password;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
@@ -31,11 +31,6 @@ class AuthController extends Controller
     private const MOBILE_FORMAT_ERROR = 'Mobile number must contain exactly 11 digits in the format 09XXXXXXXXX, or use the equivalent +63 format.';
 
     private const MOBILE_DUPLICATE_ERROR = 'This mobile number is already in use.';
-
-    private const SEEDED_OTP_EXEMPT_ACCOUNTS = [
-        'buyer@ezicart.com' => 'buyer',
-        'seller@ezicart.com' => 'seller',
-    ];
 
     public function __construct(
         private readonly PsgcAddressService $psgcAddressService,
@@ -76,41 +71,131 @@ class AuthController extends Controller
     {
         $validated = $request->validate(['email' => ['required', 'email', 'max:255']]);
         $email = Str::lower(trim($validated['email']));
-        Password::sendResetLink(['email' => $email]);
+        $request->session()->forget('password_reset_otp');
+        $user = User::query()->whereRaw('LOWER(TRIM(email)) = ?', [$email])->first();
+        $code = (string) random_int(100000, 999999);
+        $challengeUserId = null;
 
-        return back()->with('status', 'If an account matches that email address, a password reset link has been sent.');
+        if ($user !== null && $user->status === 'approved') {
+            try {
+                $user->notify(new PasswordRecoveryCodeNotification($code));
+                $challengeUserId = $user->id;
+            } catch (\Throwable $exception) {
+                report($exception);
+            }
+        }
+
+        $request->session()->put('password_reset_otp', [
+            'user_id' => $challengeUserId,
+            'email' => $email,
+            'code_hash' => Hash::make($code),
+            'expires_at' => now()->addMinutes(5)->timestamp,
+            'attempts' => 0,
+            'sent_at' => now()->timestamp,
+        ]);
+
+        return redirect()->route('password.otp.notice')
+            ->with('status', 'If an active account matches that email address, a password recovery code has been sent.');
     }
 
-    public function showResetPasswordForm(string $token)
+    public function showPasswordResetOtp(): RedirectResponse|View
     {
-        return view('auth.reset-password', ['token' => $token, 'email' => request()->query('email')]);
+        $challenge = session('password_reset_otp');
+        if (! is_array($challenge) || empty($challenge['email']) || empty($challenge['code_hash'])) {
+            return redirect()->route('password.request')->with('error', 'Enter your email address to request a recovery code.');
+        }
+
+        if (($challenge['expires_at'] ?? 0) < now()->timestamp) {
+            session()->forget('password_reset_otp');
+
+            return redirect()->route('password.request')->with('error', 'Your recovery code expired. Request a new one.');
+        }
+
+        return view('auth.verify-email', [
+            'email' => $challenge['email'],
+            'cooldownSeconds' => max(0, 60 - (now()->timestamp - (int) ($challenge['sent_at'] ?? 0))),
+            'verificationMode' => 'password-reset',
+        ]);
+    }
+
+    public function verifyPasswordResetOtp(Request $request): RedirectResponse
+    {
+        $validated = $request->validate(['code' => ['required', 'digits:6']]);
+        $challenge = $request->session()->get('password_reset_otp');
+        if (! is_array($challenge) || empty($challenge['email']) || empty($challenge['code_hash'])) {
+            return redirect()->route('password.request')->with('error', 'Request a recovery code before continuing.');
+        }
+
+        if (($challenge['expires_at'] ?? 0) < now()->timestamp || ($challenge['attempts'] ?? 0) >= 5) {
+            $request->session()->forget('password_reset_otp');
+
+            return redirect()->route('password.request')->with('error', 'Your recovery code expired or reached its attempt limit. Request a new one.');
+        }
+
+        if (! Hash::check($validated['code'], $challenge['code_hash'] ?? '')) {
+            $challenge['attempts'] = (int) $challenge['attempts'] + 1;
+            $request->session()->put('password_reset_otp', $challenge);
+
+            return back()->withErrors(['code' => 'That recovery code is incorrect. Please try again.']);
+        }
+
+        $user = filled($challenge['user_id'] ?? null) ? User::query()->find($challenge['user_id']) : null;
+        if ($user === null || $user->status !== 'approved' || Str::lower(trim($user->email)) !== $challenge['email']) {
+            $request->session()->forget('password_reset_otp');
+
+            return redirect()->route('password.request')->with('error', 'This account cannot reset its password right now.');
+        }
+
+        $challenge['verified_at'] = now()->timestamp;
+        $challenge['expires_at'] = now()->addMinutes(10)->timestamp;
+        unset($challenge['code_hash']);
+        $request->session()->regenerate();
+        $request->session()->put('password_reset_otp', $challenge);
+
+        return redirect()->route('password.reset.form');
+    }
+
+    public function showResetPasswordForm(): RedirectResponse|View
+    {
+        $challenge = session('password_reset_otp');
+        if (! is_array($challenge) || empty($challenge['verified_at']) || ($challenge['expires_at'] ?? 0) < now()->timestamp) {
+            session()->forget('password_reset_otp');
+
+            return redirect()->route('password.request')->with('error', 'Verify a recovery code before choosing a new password.');
+        }
+
+        return view('auth.reset-password', ['email' => $challenge['email']]);
     }
 
     public function resetPassword(Request $request): RedirectResponse
     {
-        $request->merge(['email' => Str::lower(trim((string) $request->input('email')))]);
+        $challenge = $request->session()->get('password_reset_otp');
+        if (! is_array($challenge) || empty($challenge['verified_at']) || ($challenge['expires_at'] ?? 0) < now()->timestamp) {
+            $request->session()->forget('password_reset_otp');
+
+            return redirect()->route('password.request')->with('error', 'Verify a recovery code before choosing a new password.');
+        }
+
         $validated = $request->validate([
-            'token' => ['required', 'string'],
-            'email' => ['required', 'email', 'max:255'],
             'password' => ['required', 'string', PasswordRule::min(8)->max(128)->mixedCase()->numbers()->symbols(), 'confirmed'],
         ]);
 
-        $status = Password::reset(
-            $validated,
-            function (User $user, string $password): void {
-                $user->forceFill([
-                    'password' => Hash::make($password),
-                    'remember_token' => Str::random(60),
-                ])->save();
-                event(new PasswordReset($user));
-            },
-        );
+        $user = filled($challenge['user_id'] ?? null) ? User::query()->find($challenge['user_id']) : null;
+        if ($user === null || $user->status !== 'approved' || Str::lower(trim($user->email)) !== $challenge['email']) {
+            $request->session()->forget('password_reset_otp');
 
-        if ($status === Password::PasswordReset) {
-            return redirect()->route('login')->with('success', 'Password reset successfully. You can now sign in.');
+            return redirect()->route('password.request')->with('error', 'This account cannot reset its password right now.');
         }
 
-        return back()->withInput($request->only('email'))->withErrors(['email' => __($status)]);
+        $user->forceFill([
+            'password' => Hash::make($validated['password']),
+            'remember_token' => Str::random(60),
+        ])->save();
+        event(new PasswordReset($user));
+        $request->session()->forget('password_reset_otp');
+        $request->session()->regenerate();
+
+        return redirect()->route('login')->with('success', 'Password reset successfully. You can now sign in.');
     }
 
     public function login(Request $request): RedirectResponse
@@ -208,38 +293,7 @@ class AuthController extends Controller
             $user->forceFill(['email_verified_at' => now()])->save();
         }
 
-        if (in_array($user->role, ['buyer', 'seller'], true) && ! $this->isSeededDemoOtpExemptAccount($user)) {
-            $intended = $request->session()->pull('url.intended');
-            $remember = $request->boolean('remember');
-            Auth::logout();
-            $request->session()->invalidate();
-            $request->session()->regenerateToken();
-
-            try {
-                $code = (string) random_int(100000, 999999);
-                $user->notify(new EmailVerificationCodeNotification($code));
-            } catch (\Throwable $exception) {
-                report($exception);
-
-                return redirect()->route('login')->with('error', 'We could not send a sign-in code. Check your email delivery settings and try again.');
-            }
-
-            $request->session()->put('login_otp', [
-                'user_id' => $user->id,
-                'email' => Str::lower(trim($user->email)),
-                'code_hash' => Hash::make($code),
-                'expires_at' => now()->addMinutes(5)->timestamp,
-                'attempts' => 0,
-                'sent_at' => now()->timestamp,
-                'remember' => $remember,
-                'intended' => is_string($intended) ? $intended : null,
-            ]);
-
-            return redirect()->route('login.otp.notice')
-                ->with('success', 'A sign-in code has been sent to your email address.');
-        }
-
-        // 6. Approved Accounts
+        // Approved accounts sign in with their password. Email codes are reserved for registration verification and password recovery.
         $request->session()->regenerate();
 
         return match ($user->role) {
@@ -252,76 +306,11 @@ class AuthController extends Controller
         };
     }
 
-    public function showLoginOtp(): RedirectResponse|View
+    public function resendPasswordResetOtp(Request $request): RedirectResponse
     {
-        $challenge = session('login_otp');
-        if (! is_array($challenge) || empty($challenge['user_id']) || empty($challenge['email'])) {
-            return redirect()->route('login')->with('error', 'Sign in first to request a verification code.');
-        }
-
-        if (($challenge['expires_at'] ?? 0) < now()->timestamp) {
-            session()->forget('login_otp');
-
-            return redirect()->route('login')->with('error', 'Your sign-in code expired. Please sign in again.');
-        }
-
-        $cooldownSeconds = max(0, 60 - (now()->timestamp - (int) ($challenge['sent_at'] ?? 0)));
-
-        return view('auth.verify-email', [
-            'email' => $challenge['email'],
-            'cooldownSeconds' => $cooldownSeconds,
-            'verificationMode' => 'login',
-        ]);
-    }
-
-    public function verifyLoginOtp(Request $request): RedirectResponse
-    {
-        $validated = $request->validate(['code' => ['required', 'digits:6']]);
-        $challenge = $request->session()->get('login_otp');
-        if (! is_array($challenge) || empty($challenge['user_id'])) {
-            return redirect()->route('login')->with('error', 'Sign in first to request a verification code.');
-        }
-
-        if (($challenge['expires_at'] ?? 0) < now()->timestamp) {
-            $request->session()->forget('login_otp');
-
-            return redirect()->route('login')->with('error', 'Your sign-in code expired. Please sign in again.');
-        }
-
-        if (($challenge['attempts'] ?? 0) >= 5) {
-            $request->session()->forget('login_otp');
-
-            return redirect()->route('login')->with('error', 'Too many incorrect codes. Please sign in again to request a new code.');
-        }
-
-        if (! Hash::check($validated['code'], $challenge['code_hash'] ?? '')) {
-            $challenge['attempts'] = (int) ($challenge['attempts'] ?? 0) + 1;
-            $request->session()->put('login_otp', $challenge);
-
-            return back()->withErrors(['code' => 'That sign-in code is incorrect. Please try again.']);
-        }
-
-        $user = User::query()->find($challenge['user_id']);
-        if (! $user || ! in_array($user->role, ['buyer', 'seller'], true) || $user->status !== 'approved') {
-            $request->session()->forget('login_otp');
-
-            return redirect()->route('login')->with('error', 'This account is not eligible to sign in.');
-        }
-
-        $remember = (bool) ($challenge['remember'] ?? false);
-        $intended = $challenge['intended'] ?? null;
-        $request->session()->forget('login_otp');
-        Auth::login($user, $remember);
-        $request->session()->regenerate();
-
-        return redirect()->intended(is_string($intended) ? $intended : $this->dashboardFor($user));
-    }
-
-    public function resendLoginOtp(Request $request): RedirectResponse
-    {
-        $challenge = $request->session()->get('login_otp');
-        if (! is_array($challenge) || empty($challenge['user_id'])) {
-            return redirect()->route('login')->with('error', 'Sign in first to request a verification code.');
+        $challenge = $request->session()->get('password_reset_otp');
+        if (! is_array($challenge) || empty($challenge['email']) || empty($challenge['code_hash'])) {
+            return redirect()->route('password.request')->with('error', 'Request a recovery code before continuing.');
         }
 
         $elapsed = now()->timestamp - (int) ($challenge['sent_at'] ?? 0);
@@ -329,47 +318,29 @@ class AuthController extends Controller
             return back()->withErrors(['code' => 'Please wait '.(60 - $elapsed).' seconds before requesting another code.']);
         }
 
-        $user = User::query()->find($challenge['user_id']);
-        if (! $user || ! in_array($user->role, ['buyer', 'seller'], true) || $user->status !== 'approved') {
-            $request->session()->forget('login_otp');
-
-            return redirect()->route('login')->with('error', 'This account is not eligible to sign in.');
-        }
-
+        $user = filled($challenge['user_id'] ?? null) ? User::query()->find($challenge['user_id']) : null;
         try {
             $code = (string) random_int(100000, 999999);
-            $user->notify(new EmailVerificationCodeNotification($code));
+            $user?->notify(new PasswordRecoveryCodeNotification($code));
         } catch (\Throwable $exception) {
             report($exception);
-
-            return back()->withErrors(['code' => 'We could not send a new code. Please try again later.']);
+            $user = null;
         }
 
+        $challenge['user_id'] = $user?->id;
         $challenge['code_hash'] = Hash::make($code);
         $challenge['expires_at'] = now()->addMinutes(5)->timestamp;
         $challenge['attempts'] = 0;
         $challenge['sent_at'] = now()->timestamp;
-        $request->session()->put('login_otp', $challenge);
+        unset($challenge['verified_at']);
+        $request->session()->put('password_reset_otp', $challenge);
 
-        return back()->with('success', 'A new sign-in code has been sent to your email address.');
-    }
-
-    private function dashboardFor(User $user): string
-    {
-        return $user->role === 'seller' ? route('seller.dashboard') : route('buyer.dashboard');
+        return back()->with('success', 'A new password recovery code has been sent.');
     }
 
     private function minimumAgeDate(): string
     {
         return now()->subYearsNoOverflow(18)->toDateString();
-    }
-
-    private function isSeededDemoOtpExemptAccount(User $user): bool
-    {
-        $email = Str::lower(trim($user->email));
-
-        return app()->environment(['local', 'testing'])
-            && (self::SEEDED_OTP_EXEMPT_ACCOUNTS[$email] ?? null) === $user->role;
     }
 
     public function logout(Request $request): RedirectResponse
