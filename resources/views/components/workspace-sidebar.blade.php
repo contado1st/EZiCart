@@ -1,0 +1,110 @@
+@php
+    $sidebarUser = auth()->user();
+    $navigation = match ($sidebarUser->role) {
+        'buyer' => [
+            'Shopping' => [
+                ['buyer.dashboard', 'diagram', 'My purchases', 'buyer.dashboard'],
+                ['home', 'package1', 'Marketplace', 'home'],
+                ['cart.index', 'cart2', 'My cart', 'cart.*'],
+                ['finance.index', 'invoice', 'Financial records', 'finance.*'],
+            ],
+        ],
+        'seller' => [
+            'Store management' => [
+                ['seller.dashboard', 'diagram', 'Overview', 'seller.dashboard'],
+                ['seller.orders.index', 'cart1', 'Orders', 'seller.orders.*'],
+                ['seller.products.index', 'package1', 'Products & inventory', 'seller.products.*'],
+                ['seller.vouchers.index', 'voucher', 'Vouchers', 'seller.vouchers.*'],
+                ['seller.reports.index', 'note', 'Reports', 'seller.reports.*'],
+                ['finance.index', 'money', 'Financial records', 'finance.*'],
+            ],
+        ],
+        'courier' => [
+            'Delivery operations' => [
+                ['courier.dashboard', 'diagram', 'Work board', 'courier.dashboard'],
+                ['courier.tracking', 'delivery1', 'Active parcels', 'courier.tracking'],
+                ['courier.history', 'checklist', 'Delivery history', 'courier.history'],
+                ['courier.earnings', 'money', 'Earnings', 'courier.earnings'],
+                ['finance.index', 'invoice', 'Cash remittances', 'finance.*'],
+            ],
+        ],
+        'sorting_center' => [
+            'Hub operations' => [
+                ['logistics.dashboard', 'diagram', 'Overview', 'logistics.dashboard'],
+                ['logistics.pickupRequests', 'delivery1', 'Pickup requests', 'logistics.pickupRequests'],
+                ['logistics.intake', 'package1', 'Parcel intake', 'logistics.intake'],
+                ['logistics.sorting', 'checklist', 'Sorting queue', 'logistics.sorting'],
+                ['logistics.dispatch', 'delivery1', 'Rider dispatch', 'logistics.dispatch'],
+                ['logistics.tracking', 'location', 'Delivery tracking', 'logistics.tracking'],
+            ],
+            'Hub management' => [
+                ['logistics.storage', 'package1', 'Storage locations', 'logistics.storage'],
+                ['parcel-transfers.index', 'delivery1', 'Hub transfers', 'parcel-transfers.*'],
+                ['logistics.scan-history', 'note', 'Scan history', 'logistics.scan-history'],
+                ['logistics.riders', 'account', 'Riders', 'logistics.riders'],
+                ['logistics.areas', 'location', 'Routing areas', 'logistics.areas*'],
+                ['logistics.reports', 'diagram', 'Reports', 'logistics.reports'],
+            ],
+        ],
+        'logistics_admin' => [
+            'Logistics management' => [
+                ['logistics-admin.dashboard', 'diagram', 'Control tower', 'logistics-admin.dashboard'],
+                ['logistics-admin.dashboard#applications', 'shield', 'Applications', ''],
+                ['logistics-admin.dashboard#service-areas', 'location', 'Service areas', ''],
+                ['logistics-admin.dashboard#managed-accounts', 'account', 'Centers & riders', ''],
+                ['logistics-admin.dashboard#parcels', 'package1', 'Parcel oversight', ''],
+                ['parcel-transfers.index', 'delivery1', 'Hub transfers', 'parcel-transfers.*'],
+                ['finance.index', 'money', 'COD & remittances', 'finance.*'],
+            ],
+        ],
+        default => [
+            'Marketplace' => [
+                ['admin.dashboard', 'diagram', 'Overview', 'admin.dashboard'],
+                ['admin.registrations.index', 'shield', 'User approvals', 'admin.registrations.*'],
+                ['admin.compliance.products.index', 'package1', 'Product compliance', 'admin.compliance.*'],
+                ['admin.disputes.index', 'warning', 'Disputes', 'admin.disputes.*'],
+                ['admin.vouchers.index', 'voucher', 'Platform vouchers', 'admin.vouchers.*'],
+                ['finance.index', 'money', 'Refunds & payouts', 'finance.*'],
+            ],
+            'Administration' => [
+                ['admin.reports.index', 'diagram', 'Reports', 'admin.reports.*'],
+                ['admin.moderation.index', 'shield', 'Account moderation', 'admin.moderation.*'],
+                ['admin.announcements.index', 'megaphone', 'Announcements', 'admin.announcements.*'],
+            ],
+        ],
+    };
+    $sidebarRole = match ($sidebarUser->role) {
+        'admin', 'ecommerce_admin' => 'E-commerce admin',
+        'logistics_admin' => 'Logistics admin',
+        'sorting_center' => 'Sorting center',
+        default => ucfirst($sidebarUser->role),
+    };
+@endphp
+<aside class="workspace-sidebar" id="workspace-sidebar" aria-label="{{ $sidebarRole }} navigation">
+    <div class="workspace-sidebar-heading"><span class="workspace-role-dot" aria-hidden="true"></span><span class="workspace-nav-label">{{ $sidebarRole }}</span><button type="button" class="workspace-icon-button workspace-mobile-close" data-workspace-close aria-label="Close navigation"><x-shop-icon name="close" /></button></div>
+    <nav class="workspace-navigation">
+        @foreach ($navigation as $group => $items)
+            <div class="workspace-nav-group"><p class="workspace-nav-heading">{{ $group }}</p>
+                @foreach ($items as [$destination, $icon, $label, $pattern])
+                    @php
+                        [$destinationRoute, $destinationAnchor] = array_pad(explode('#', $destination, 2), 2, null);
+                        $isActive = $pattern !== '' && request()->routeIs($pattern);
+                    @endphp
+                    <a href="{{ route($destinationRoute) }}{{ $destinationAnchor ? '#'.$destinationAnchor : '' }}" @class(['workspace-nav-link', 'is-active' => $isActive]) @if ($isActive) aria-current="page" @endif title="{{ $label }}" aria-label="{{ $label }}"><x-shop-icon :name="$icon" /><span class="workspace-nav-label">{{ $label }}</span></a>
+                @endforeach
+            </div>
+        @endforeach
+        <div class="workspace-nav-group"><p class="workspace-nav-heading">Account</p>
+            <a href="{{ route('notifications.index') }}" @class(['workspace-nav-link', 'is-active' => request()->routeIs('notifications.*')]) title="Notifications"><x-shop-icon name="bell" /><span class="workspace-nav-label">Notifications</span></a>
+            <a href="{{ route('account.profile.edit') }}" @class(['workspace-nav-link', 'is-active' => request()->routeIs('account.profile.*')]) title="Account & profile"><x-shop-icon name="settings" /><span class="workspace-nav-label">Account & profile</span></a>
+            @if ($sidebarUser->role === 'buyer')
+                <a href="{{ route('account.profile.edit') }}#buyer-addresses" class="workspace-nav-link" title="Addresses"><x-shop-icon name="location" /><span class="workspace-nav-label">Addresses</span></a>
+                <a href="{{ route('account.profile.edit') }}#buyer-password" class="workspace-nav-link" title="Change password"><x-shop-icon name="lock" /><span class="workspace-nav-label">Change password</span></a>
+            @endif
+        </div>
+    </nav>
+    <div class="workspace-sidebar-footer">
+        <a href="{{ route('account.profile.edit') }}" class="workspace-user-link"><span class="workspace-avatar">{{ mb_strtoupper(mb_substr($sidebarUser->first_name, 0, 1).mb_substr($sidebarUser->last_name, 0, 1)) }}</span><span class="workspace-nav-label"><strong>{{ $sidebarUser->first_name }} {{ $sidebarUser->last_name }}</strong><small>{{ $sidebarRole }}</small></span></a>
+        <form action="{{ route('logout') }}" method="POST">@csrf<button type="submit" class="workspace-icon-button" title="Sign out" aria-label="Sign out"><x-shop-icon name="arrowback" /></button></form>
+    </div>
+</aside>

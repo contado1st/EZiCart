@@ -6,26 +6,7 @@
 
 @section('content')
     <div class="dash-wrapper">
-        <aside class="dash-sidebar">
-            <div>
-                <div class="dash-profile-badge">
-                    <span class="dash-role-tag">Seller Portal</span>
-                    <h2 class="dash-profile-title">{{ auth()->user()->business_name ?? 'My Store' }}</h2>
-                    <p class="dash-profile-subtitle">Order management</p>
-                </div>
-                <nav class="dash-nav">
-                    <a href="{{ route('seller.dashboard') }}" class="dash-nav-item">Dashboard</a>
-                    <a href="{{ route('seller.products.index') }}" class="dash-nav-item">Inventory</a>
-                    <a href="{{ route('seller.orders.index') }}" class="dash-nav-item active">Orders</a>
-                </nav>
-            </div>
-            <form action="{{ route('logout') }}" method="POST">
-                @csrf
-                <button type="submit" class="dash-logout-btn">Logout</button>
-            </form>
-        </aside>
-
-        <main class="dash-main">
+<main class="dash-main">
             @if (session('success'))
                 <p role="status">{{ session('success') }}</p>
             @endif

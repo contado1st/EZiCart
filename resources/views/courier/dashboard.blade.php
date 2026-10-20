@@ -13,7 +13,46 @@
         </div>
     </header>
 
-    {{-- Mobile-First Hero Next Action Card --}}
+    <section class="ops-stats ops-stats--priority" aria-label="Today's work summary">
+        <div class="ops-stat ops-stat--action">
+            <span class="workspace-stat-icon" aria-hidden="true"><x-shop-icon name="package1" /></span>
+            <span>Pickup claims</span>
+            <strong>{{ $stats['claimed_pickups'] }}</strong>
+            <small class="workspace-stat-detail">Accepted pickup tasks</small>
+        </div>
+        <div class="ops-stat">
+            <span class="workspace-stat-icon" aria-hidden="true"><x-shop-icon name="delivery1" /></span>
+            <span>Parcels to hub</span>
+            <strong>{{ $stats['in_transit_hub'] }}</strong>
+            <small class="workspace-stat-detail">Awaiting hub handoff</small>
+        </div>
+        <div class="ops-stat ops-stat--action">
+            <span class="workspace-stat-icon" aria-hidden="true"><x-shop-icon name="location" /></span>
+            <span>Delivery workload</span>
+            <strong>{{ $stats['assigned_delivery'] }}</strong>
+            <small class="workspace-stat-detail">Your assigned deliveries</small>
+        </div>
+        <div class="ops-stat">
+            <span class="workspace-stat-icon" aria-hidden="true"><x-shop-icon name="arrowback" /></span>
+            <span>Returns to seller</span>
+            <strong>{{ $stats['returning_to_seller'] }}</strong>
+            <small class="workspace-stat-detail">Pending seller handoff</small>
+        </div>
+        <div class="ops-stat">
+            <span class="workspace-stat-icon" aria-hidden="true"><x-shop-icon name="checklist" /></span>
+            <span>Delivered today</span>
+            <strong>{{ $stats['completed_today'] }}</strong>
+            <small class="workspace-stat-detail">Successful deliveries today</small>
+        </div>
+        <div class="ops-stat ops-stat--danger">
+            <span class="workspace-stat-icon" aria-hidden="true"><x-shop-icon name="warning" /></span>
+            <span>Failed attempts today</span>
+            <strong>{{ $stats['failed_today'] }}</strong>
+            <small class="workspace-stat-detail">Recorded delivery attempts</small>
+        </div>
+    </section>
+
+    {{-- Next operational task --}}
     <section class="courier-hero-card" aria-labelledby="courier-next-action-title">
         <div>
             <span class="courier-hero-card__badge">Priority Action</span>
@@ -98,32 +137,7 @@
     </nav>
 
     {{-- Workload Summary Metrics --}}
-    <section class="ops-stats ops-stats--priority" aria-label="Today's work summary">
-        <div class="ops-stat ops-stat--action">
-            <span>Pickup claims</span>
-            <strong>{{ $stats['claimed_pickups'] }}</strong>
-        </div>
-        <div class="ops-stat">
-            <span>Parcels to hub</span>
-            <strong>{{ $stats['in_transit_hub'] }}</strong>
-        </div>
-        <div class="ops-stat ops-stat--action">
-            <span>Delivery workload</span>
-            <strong>{{ $stats['assigned_delivery'] }}</strong>
-        </div>
-        <div class="ops-stat">
-            <span>Returns to seller</span>
-            <strong>{{ $stats['returning_to_seller'] }}</strong>
-        </div>
-        <div class="ops-stat">
-            <span>Delivered today</span>
-            <strong>{{ $stats['completed_today'] }}</strong>
-        </div>
-        <div class="ops-stat ops-stat--danger">
-            <span>Failed attempts today</span>
-            <strong>{{ $stats['failed_today'] }}</strong>
-        </div>
-    </section>
+
 
     {{-- Available Seller Pickups --}}
     <section class="ops-panel courier-pickup" id="pickup-requests">

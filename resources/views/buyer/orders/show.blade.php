@@ -7,25 +7,7 @@
 
 @section('content')
     <div class="dash-wrapper">
-        <aside class="dash-sidebar">
-            <div>
-                <div class="dash-profile-badge">
-                    <span class="dash-role-tag">Buyer Portal</span>
-                    <h2 class="dash-profile-title">{{ auth()->user()->first_name }} {{ auth()->user()->last_name }}</h2>
-                    <p class="dash-profile-subtitle">Order details</p>
-                </div>
-                <nav class="dash-nav">
-                    <a href="{{ route('buyer.dashboard') }}" class="dash-nav-item active">My Orders</a>
-                    <a href="{{ route('cart.index') }}" class="dash-nav-item">View Cart</a>
-                </nav>
-            </div>
-            <form action="{{ route('logout') }}" method="POST">
-                @csrf
-                <button type="submit" class="dash-logout-btn">Logout</button>
-            </form>
-        </aside>
-
-        <main class="dash-main">
+<main class="dash-main">
             <div class="dash-header">
                 <div>
                     <h1 class="dash-title">Order {{ $order->order_number }}</h1>

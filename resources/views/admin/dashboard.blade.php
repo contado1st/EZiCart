@@ -7,40 +7,11 @@
 @section('content')
     <div class="dash-wrapper">
         <!-- Sidebar -->
-        <aside class="dash-sidebar">
-            <div>
-                <div class="dash-profile-badge">
-                    <span class="dash-role-tag dash-role-admin">E-Commerce Admin</span>
-                    <h2 class="dash-profile-title">{{ auth()->user()->first_name }} {{ auth()->user()->last_name }}</h2>
-                    <p class="dash-profile-subtitle">Platform Governance</p>
-                </div>
-
-                <nav class="dash-nav">
-                    <a href="{{ route('admin.dashboard') }}" class="dash-nav-item active">
-                        <x-shop-icon name="diagram" /> Platform Overview
-                    </a>
-                    <a href="{{ route('admin.registrations.index') }}" class="dash-nav-item">
-                        <x-shop-icon name="shield" /> User Approvals
-                    </a>
-                    <a href="{{ route('admin.compliance.products.index') }}" class="dash-nav-item">Product Compliance</a>
-                    <a href="{{ route('finance.index') }}" class="dash-nav-item">Refunds and seller payouts</a>
-                    <a href="{{ route('admin.vouchers.index') }}" class="dash-nav-item">Platform vouchers</a>
-                </nav>
-            </div>
-
-            <form action="{{ route('logout') }}" method="POST">
-                @csrf
-                <button type="submit" class="dash-logout-btn">
-                    <x-shop-icon name="arrowback" /> Logout
-                </button>
-            </form>
-        </aside>
-
-        <!-- Main Content Area -->
+<!-- Main Content Area -->
         <main class="dash-main">
             <div class="dash-header">
                 <div>
-                    <h1 class="dash-title">Platform Operations & Financials</h1>
+                    <h1 class="dash-title">Marketplace overview</h1>
                     <p class="dash-subtitle">System-wide monitoring of marketplace transactions, commission revenue, and
                         verifications.</p>
                 </div>
@@ -62,30 +33,35 @@
             <!-- Financial & Logistics KPI Cards -->
             <div class="dash-stats-grid">
                 <div class="dash-stat-card">
+                    <span class="workspace-stat-icon" aria-hidden="true"><x-shop-icon name="money" /></span>
                     <div class="dash-stat-label">Verified gross commission</div>
                     <div class="dash-stat-value success">₱{{ number_format($stats['total_commission'], 2) }}</div>
                     <div class="dash-stat-subtext success">Completed orders with verified remittances, before promotion costs</div>
                 </div>
 
                 <div class="dash-stat-card">
+                    <span class="workspace-stat-icon" aria-hidden="true"><x-shop-icon name="cart1" /></span>
                     <div class="dash-stat-label">Gross Merchandise Value</div>
                     <div class="dash-stat-value primary">₱{{ number_format($stats['gmv'], 2) }}</div>
                     <div class="dash-stat-subtext">Total transaction volume</div>
                 </div>
 
                 <div class="dash-stat-card">
+                    <span class="workspace-stat-icon" aria-hidden="true"><x-shop-icon name="shield" /></span>
                     <div class="dash-stat-label">Pending Verifications</div>
                     <div class="dash-stat-value warning">{{ $stats['pending_users'] }}</div>
                     <div class="dash-stat-subtext">Sellers and couriers awaiting review</div>
                 </div>
 
                 <a href="{{ route('admin.compliance.products.index') }}" class="dash-stat-card">
+                    <span class="workspace-stat-icon" aria-hidden="true"><x-shop-icon name="package1" /></span>
                     <div class="dash-stat-label">Product Reviews</div>
                     <div class="dash-stat-value warning">{{ $stats['pending_product_reviews'] }}</div>
                     <div class="dash-stat-subtext">New listings awaiting category and compliance review</div>
                 </a>
 
                 <div class="dash-stat-card">
+                    <span class="workspace-stat-icon" aria-hidden="true"><x-shop-icon name="delivery1" /></span>
                     <div class="dash-stat-label">Parcels in Transit</div>
                     <div class="dash-stat-value">{{ $stats['active_parcels'] }}</div>
                     <div class="dash-stat-subtext">Active courier deliveries</div>
@@ -162,6 +138,7 @@
 
                 <!-- Right: Quick Verification Queue -->
                 <div class="dash-panel">
+                    <x-workspace-distribution :values="$recentOrders->countBy('status')->all()" label="Orders by status" description="Status mix of the latest platform orders." />
                     <div class="dash-panel-header-row">
                         <h3 class="dash-panel-title dash-panel-title-compact">Pending Approvals</h3>
                         <a href="{{ route('admin.registrations.index') }}" class="dash-action-link">View All →</a>

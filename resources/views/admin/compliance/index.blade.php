@@ -6,23 +6,7 @@
 
 @section('content')
     <div class="dash-wrapper">
-        <aside class="dash-sidebar">
-            <div>
-                <div class="dash-profile-badge">
-                    <span class="dash-role-tag dash-role-admin">E-Commerce Admin</span>
-                    <h2 class="dash-profile-title">Product Compliance</h2>
-                    <p class="dash-profile-subtitle">Manual listing review and seller warnings</p>
-                </div>
-                <nav class="dash-nav">
-                    <a href="{{ route('admin.dashboard') }}" class="dash-nav-item">Platform Overview</a>
-                    <a href="{{ route('admin.registrations.index') }}" class="dash-nav-item">User Approvals</a>
-                    <a href="{{ route('admin.compliance.products.index') }}" class="dash-nav-item active">Product
-                        Compliance</a>
-                </nav>
-            </div>
-        </aside>
-
-        <main class="dash-main">
+<main class="dash-main">
             <div class="dash-header">
                 <div>
                     <h1 class="dash-title">Product compliance</h1>

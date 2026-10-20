@@ -9,15 +9,21 @@
 
 @section('content')
     <div class="buyer-account-page buyer-orders-layout">
-        @include('components.buyer-account-sidebar', ['activeSection' => 'purchases'])
 
         <main class="dash-main buyer-account-content buyer-orders-content">
             <div class="dash-header">
                 <div>
-                    <h1 class="dash-title">Order History & Activity</h1>
+                    <h1 class="dash-title">My purchases</h1>
                     <p class="dash-subtitle">Track parcel progress, confirm receipt, and review delivered purchases.</p>
                 </div>
             </div>
+
+            <section class="workspace-metrics" aria-label="Purchase summary">
+                <x-workspace-metric label="All orders" :value="$counts['all']" icon="cart1" detail="Your purchase history" />
+                <x-workspace-metric label="Preparing to ship" :value="$counts['to_ship']" icon="package1" detail="Placed, confirmed or being prepared" tone="warning" />
+                <x-workspace-metric label="To receive" :value="$counts['to_receive']" icon="delivery1" detail="Track your parcel and delivery" />
+                <x-workspace-metric label="Closed orders" :value="$counts['completed']" icon="checklist" detail="Completed, cancelled or returned" tone="success" />
+            </section>
 
             @if (session('success'))
                 <div class="dash-alert-success"><x-shop-icon name="checklist" /> {{ session('success') }}</div>
@@ -30,7 +36,19 @@
             @endif
 
             <div class="dash-panel">
-                <h2 class="courier-section-title">My Orders ({{ $orders->count() }})</h2>
+                <div class="workspace-orders-heading">
+                    <h2 class="dash-panel-title">Order history</h2>
+                    <form method="GET" action="{{ route('buyer.dashboard') }}" class="workspace-order-filter">
+                        <label for="dashboard-order-status">Status</label>
+                        <select name="status" id="dashboard-order-status">
+                            <option value="">All statuses</option>
+                            @foreach (\App\Enums\OrderStatus::cases() as $orderStatus)
+                                <option value="{{ $orderStatus->value }}" @selected(request('status') === $orderStatus->value)>{{ ucwords(strtolower(str_replace('_', ' ', $orderStatus->value))) }}</option>
+                            @endforeach
+                        </select>
+                        <button type="submit" class="dash-btn-sm dash-btn-outline">Filter</button>
+                    </form>
+                </div>
 
                 @forelse($orders as $order)
                     <div class="order-card u-extracted-dab43fb936">
@@ -144,6 +162,7 @@
                 @empty
                     <div class="dash-empty-box">You have not placed any orders yet.</div>
                 @endforelse
+                <div class="workspace-pagination">{{ $orders->links() }}</div>
             </div>
         </main>
     </div>

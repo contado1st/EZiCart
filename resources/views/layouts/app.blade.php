@@ -8,6 +8,11 @@
     };
     $isRoleWorkspaceRoute = request()->routeIs('courier.*', 'logistics.*');
     $workspaceLabel = auth()->user()?->role === 'courier' ? 'Courier workspace' : 'Logistics workspace';
+    $isDashboardWorkspace = auth()->check() && request()->routeIs(
+        'admin.*', 'seller.*', 'courier.*', 'logistics.*', 'logistics-admin.*',
+        'buyer.dashboard', 'buyer.orders.*', 'finance.*', 'parcel-transfers.*',
+        'account.profile.*', 'notifications.*'
+    );
 @endphp
 
 <!DOCTYPE html>
@@ -28,6 +33,10 @@
     <link rel="stylesheet" href="{{ asset('css/psgc-address.css') }}?v={{ filemtime(public_path('css/psgc-address.css')) }}">
     <!-- Dynamic Page Stylesheets -->
     @stack('styles')
+    @if ($isDashboardWorkspace)
+        <link rel="stylesheet" href="{{ asset('css/workspace.css') }}?v={{ filemtime(public_path('css/workspace.css')) }}">
+        <script src="{{ asset('js/workspace.js') }}?v={{ filemtime(public_path('js/workspace.js')) }}" defer></script>
+    @endif
     @vite('resources/js/app.js')
     <script src="{{ asset('js/password-visibility.js') }}?v={{ filemtime(public_path('js/password-visibility.js')) }}" defer></script>
     <script src="{{ asset('js/registration-name-inputs.js') }}?v={{ filemtime(public_path('js/registration-name-inputs.js')) }}" defer></script>
@@ -39,8 +48,13 @@
 <body @class([
     'landing-page' => request()->routeIs('home'),
     'role-workspace' => $isRoleWorkspaceRoute,
+    'dashboard-workspace' => $isDashboardWorkspace,
+    'workspace-logistics' => $isDashboardWorkspace && in_array(auth()->user()?->role, ['courier', 'sorting_center', 'logistics_admin'], true),
 ])>
 
+    @if ($isDashboardWorkspace)
+        @include('components.workspace-topbar')
+    @else
     <!-- Header / Navbar -->
     <header class="navbar{{ $isRoleWorkspaceRoute ? ' navbar--workspace' : '' }}">
             <div class="container navbar-container">
@@ -127,6 +141,7 @@
                 @endif
             </div>
         </header>
+    @endif
 
     <!-- Global Platform Announcements -->
     @php
@@ -160,12 +175,22 @@
     @endif
 
     <!-- Main Content Body -->
-    <main class="container main-content">
-        @yield('content')
-    </main>
+    @if ($isDashboardWorkspace)
+        <div class="workspace-frame">
+            @include('components.workspace-sidebar')
+            <button type="button" class="workspace-overlay" data-workspace-close aria-label="Close navigation" tabindex="-1" hidden></button>
+            <div class="workspace-page" id="workspace-content" tabindex="-1">
+                @yield('content')
+            </div>
+        </div>
+    @else
+        <main class="container main-content">
+            @yield('content')
+        </main>
+    @endif
 
     <!-- Footer -->
-    @unless ($isRoleWorkspaceRoute)
+    @unless ($isRoleWorkspaceRoute || $isDashboardWorkspace)
         <footer class="footer">
             <div class="container footer-text">
                 &copy; {{ date('Y') }} EZiCart Marketplace. All rights reserved.

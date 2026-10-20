@@ -23,20 +23,28 @@
 
     <section class="ops-stats ops-stats--priority" aria-label="Priority parcel queues">
         <div class="ops-stat ops-stat--action ops-stat--warning">
+            <span class="workspace-stat-icon" aria-hidden="true"><x-shop-icon name="delivery1" /></span>
             <span>Pickup arrivals</span>
             <strong>{{ $stats['inbound'] }}</strong>
+            <small class="workspace-stat-detail">Inbound to your sorting center</small>
         </div>
         <div class="ops-stat ops-stat--action">
+            <span class="workspace-stat-icon" aria-hidden="true"><x-shop-icon name="package1" /></span>
             <span>Awaiting sort</span>
             <strong>{{ $stats['at_center'] }}</strong>
+            <small class="workspace-stat-detail">Received and waiting to sort</small>
         </div>
         <div class="ops-stat ops-stat--action">
+            <span class="workspace-stat-icon" aria-hidden="true"><x-shop-icon name="checklist" /></span>
             <span>Ready for dispatch</span>
             <strong>{{ $stats['sorted'] }}</strong>
+            <small class="workspace-stat-detail">Parcels ready for a rider</small>
         </div>
         <div class="ops-stat ops-stat--action ops-stat--danger">
+            <span class="workspace-stat-icon" aria-hidden="true"><x-shop-icon name="warning" /></span>
             <span>Failed deliveries</span>
             <strong>{{ $stats['failed'] }}</strong>
+            <small class="workspace-stat-detail">Attempts requiring review</small>
         </div>
     </section>
 

@@ -7,29 +7,7 @@
 @section('content')
     <div class="dash-wrapper">
         <!-- Sidebar Navigation -->
-        <aside class="dash-sidebar">
-            <div>
-                <div class="dash-profile-badge">
-                    <span class="dash-role-tag">Seller Portal</span>
-                    <h2 class="dash-profile-title">{{ auth()->user()->business_name ?? 'My Store' }}</h2>
-                </div>
-                <nav class="dash-nav">
-                    <a href="{{ route('seller.dashboard') }}" class="dash-nav-item">
-                        <x-shop-icon name="diagram" /> Dashboard Overview
-                    </a>
-                    <a href="{{ route('seller.products.index') }}" class="dash-nav-item active">
-                        <x-shop-icon name="package1" /> Inventory Management
-                    </a>
-                </nav>
-            </div>
-
-            <form action="{{ route('logout') }}" method="POST">
-                @csrf
-                <button type="submit" class="dash-logout-btn"><x-shop-icon name="arrowback" /> Logout</button>
-            </form>
-        </aside>
-
-        <!-- Main Workspace -->
+<!-- Main Workspace -->
         <main class="dash-main">
             <div class="dash-header">
                 <div>

@@ -1,0 +1,89 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-21T00:00:00Z",
+  "title": "Design System: EZiCart authenticated workspaces",
+  "extensions": {
+    "colorMeta": {
+      "primary": { "role": "primary", "displayName": "Workspace rose", "tonalRamp": ["oklch(15% 0.08 5)", "oklch(27% 0.08 5)", "oklch(38% 0.08 5)", "oklch(49% 0.08 5)", "oklch(61% 0.08 5)", "oklch(72% 0.08 5)", "oklch(84% 0.08 5)", "oklch(95% 0.08 5)"] },
+      "logistics-primary": { "role": "secondary", "displayName": "Logistics wine", "tonalRamp": ["oklch(15% 0.05 350)", "oklch(27% 0.05 350)", "oklch(38% 0.05 350)", "oklch(49% 0.05 350)", "oklch(61% 0.05 350)", "oklch(72% 0.05 350)", "oklch(84% 0.05 350)", "oklch(95% 0.05 350)"] }
+    },
+    "typographyMeta": {
+      "headline": { "displayName": "Page heading", "purpose": "Workspace page titles; reduces at the smallest breakpoint." },
+      "metric": { "displayName": "Metric value", "purpose": "Tabular numbers; currency remains readable and may wrap." }
+    },
+    "shadows": [
+      { "name": "flat-panel", "value": "none", "purpose": "White metric cards and panels use borders instead of shadows." }
+    ],
+    "motion": [
+      { "name": "navigation-state", "value": "150ms ease", "purpose": "Navigation background and text color transitions." },
+      { "name": "mobile-drawer", "value": "180ms ease", "purpose": "Drawer transform and visibility; removed under reduced motion." }
+    ],
+    "breakpoints": [
+      { "name": "small-max", "value": "540px" },
+      { "name": "drawer-max", "value": "900px" },
+      { "name": "compact-desktop-max", "value": "1200px" },
+      { "name": "wide-min", "value": "1600px" }
+    ],
+    "evidence": {
+      "scope": "Authenticated workspaces only; excludes welcome, storefront, and authentication surfaces.",
+      "sources": ["public/css/workspace.css", "public/js/workspace.js", "resources/views/components/workspace-metric.blade.php", "resources/views/components/workspace-sidebar.blade.php", "resources/views/components/workspace-topbar.blade.php", "resources/views/layouts/app.blade.php"],
+      "verification": "Source extraction only. No screenshots or computed styles available.",
+      "tonalRamps": "Synthesized preview ramps only; not implemented CSS tokens or additional approved brand colors. Frontmatter owns the implemented color values."
+    }
+  },
+  "components": [
+    {
+      "name": "Primary action",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Compact accent action. Preview falls back to the normal role palette; workspace custom properties provide role variants.",
+      "html": "<button class=\"ds-primary\">View orders</button>",
+      "css": ".ds-primary{display:inline-flex;align-items:center;justify-content:center;gap:7px;min-height:36px;padding:8px 12px;border:1px solid var(--workspace-accent,#be2854);border-radius:7px;background:var(--workspace-accent,#be2854);color:#fff;font-family:'Instrument Sans',ui-sans-serif,system-ui,sans-serif;font-size:11px;font-weight:600;line-height:1.4;cursor:pointer}.ds-primary:hover{background:var(--workspace-accent-hover,#9f2046);border-color:var(--workspace-accent-hover,#9f2046)}.ds-primary:focus-visible{outline:2px solid var(--workspace-accent,#be2854);outline-offset:3px}.ds-primary:disabled{opacity:.5;cursor:not-allowed}"
+    },
+    {
+      "name": "Outline action",
+      "kind": "button",
+      "description": "Neutral secondary action from the shared dashboard control rules.",
+      "html": "<button class=\"ds-outline\">View details</button>",
+      "css": ".ds-outline{display:inline-flex;align-items:center;justify-content:center;gap:7px;min-height:36px;padding:8px 12px;border:1px solid #dfe2e9;border-radius:7px;background:#fff;color:var(--workspace-ink,#202634);font-family:'Instrument Sans',ui-sans-serif,system-ui,sans-serif;font-size:11px;font-weight:600;line-height:1.4;cursor:pointer}.ds-outline:focus-visible{outline:2px solid var(--workspace-accent,#be2854);outline-offset:3px}.ds-outline:disabled{opacity:.5;cursor:not-allowed}"
+    },
+    {
+      "name": "Text field",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "Shared operational field appearance; label wording here is preview content.",
+      "html": "<label class=\"ds-field\">Reference<input class=\"ds-input\" type=\"text\" placeholder=\"Enter reference\"></label>",
+      "css": ".ds-field{display:grid;gap:6px;color:#525e70;font-family:'Instrument Sans',ui-sans-serif,system-ui,sans-serif;font-size:11px;font-weight:500}.ds-input{max-width:100%;border:1px solid #dce0e8;border-radius:7px;background:#fff;color:var(--workspace-ink,#202634);padding:9px 11px;font:400 12px/1.5 'Instrument Sans',ui-sans-serif,system-ui,sans-serif}.ds-input::placeholder{color:#727c8c}.ds-input:focus-visible{outline:2px solid var(--workspace-accent,#be2854);outline-offset:3px}"
+    },
+    {
+      "name": "Active navigation link",
+      "kind": "nav",
+      "refersTo": "navigation-active",
+      "description": "Selected sidebar link. Icons in the application use the existing Shopicons component.",
+      "html": "<nav aria-label=\"Workspace preview\"><a class=\"ds-nav ds-selected\" href=\"#overview\" aria-current=\"page\">Overview</a><a class=\"ds-nav\" href=\"#orders\">Orders</a></nav>",
+      "css": ".ds-nav{display:flex;align-items:center;gap:12px;min-height:42px;margin:2px 0;padding:10px 12px;border-radius:8px;color:#535f72;font-family:'Instrument Sans',ui-sans-serif,system-ui,sans-serif;font-size:12px;font-weight:500;text-decoration:none;transition:background-color 150ms ease,color 150ms ease}.ds-nav:hover{background:#f0f1f6;color:var(--workspace-ink,#202634)}.ds-nav.ds-selected{background:var(--workspace-soft,#fff0f4);color:var(--workspace-accent,#be2854);font-weight:600}.ds-nav:focus-visible{outline:2px solid var(--workspace-accent,#be2854);outline-offset:3px}@media(prefers-reduced-motion:reduce){.ds-nav{transition:none}}"
+    },
+    {
+      "name": "Bordered panel",
+      "kind": "card",
+      "refersTo": "panel",
+      "description": "Flat white operational panel with a compact heading.",
+      "html": "<section class=\"ds-panel\"><h2 class=\"ds-panel-title\">Recent activity</h2><p class=\"ds-panel-copy\">Workspace content appears here.</p></section>",
+      "css": ".ds-panel{min-width:0;padding:22px;border:1px solid var(--workspace-line,#e7e9ef);border-radius:14px;background:#fff;box-shadow:none;font-family:'Instrument Sans',ui-sans-serif,system-ui,sans-serif}.ds-panel-title{margin:0 0 18px;color:var(--workspace-ink,#202634);font-size:14px;font-weight:650;line-height:1.5;letter-spacing:-.01em}.ds-panel-copy{margin:0;color:var(--workspace-muted,#657084);font-size:12px;line-height:1.6}@media(max-width:540px){.ds-panel{padding:17px;border-radius:12px}}"
+    },
+    {
+      "name": "Metric card",
+      "kind": "card",
+      "description": "Tabular metric value with supporting text; displayed zero is illustrative preview content.",
+      "html": "<article class=\"ds-metric\"><h2 class=\"ds-metric-label\">Orders</h2><strong class=\"ds-metric-value\">0</strong><p class=\"ds-metric-note\">Current workspace</p></article>",
+      "css": ".ds-metric{display:flex;flex-direction:column;min-height:138px;padding:20px;border:1px solid var(--workspace-line,#e7e9ef);border-radius:14px;background:#fff;box-shadow:none;font-family:'Instrument Sans',ui-sans-serif,system-ui,sans-serif}.ds-metric-label{margin:0;color:var(--workspace-muted,#657084);font-size:12px;font-weight:500;line-height:1.4}.ds-metric-value{margin-top:13px;color:var(--workspace-ink,#202634);font-size:28px;font-weight:650;letter-spacing:-.025em;line-height:1.25;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}.ds-metric-note{margin:8px 0 0;color:var(--workspace-muted,#657084);font-size:11px;line-height:1.5}@media(max-width:540px){.ds-metric{padding:16px;border-radius:12px;min-height:130px}.ds-metric-value{font-size:24px}}"
+    }
+  ],
+  "narrative": {
+    "overview": "The implemented dashboard frame uses a slim left sidebar, a compact utility topbar, metric cards, and clear white bordered panels. The shared frame supports scanning operational information while retaining each role's existing content and actions.",
+    "keyCharacteristics": ["Compact navigation and utility controls.", "Neutral panels with restrained role accents.", "Metric values and tables use tabular numerals.", "A collapsible desktop rail becomes a mobile drawer."],
+    "rules": [],
+    "dos": ["Do reuse the shared frame and its role palette for authenticated workspaces.", "Do preserve data, actions, workflows, and server role permissions.", "Do keep financial values readable and table overflow contained.", "Do preserve visible keyboard focus and reduced-motion behavior."],
+    "donts": ["Don't apply this dashboard system to welcome, storefront, or authentication surfaces.", "Don't replace module status meanings with the decorative role accent.", "Don't add dependencies, schema changes, or business workflow changes as styling side effects."]
+  }
+}

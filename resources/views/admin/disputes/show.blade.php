@@ -7,26 +7,7 @@
 
 @section('content')
     <div class="dash-wrapper">
-        <aside class="dash-sidebar">
-            <div>
-                <div class="dash-profile-badge">
-                    <span class="dash-role-tag dash-role-admin">E-Commerce Admin</span>
-                    <h2 class="dash-profile-title">{{ auth()->user()->first_name }} {{ auth()->user()->last_name }}</h2>
-                </div>
-                <nav class="dash-nav">
-                    <a href="{{ route('admin.dashboard') }}" class="dash-nav-item"><x-shop-icon name="diagram" /> Platform Overview</a>
-                    <a href="{{ route('admin.registrations.index') }}" class="dash-nav-item"><x-shop-icon name="shield" /> User Approvals</a>
-                    <a href="{{ route('admin.reports.index') }}" class="dash-nav-item"><x-shop-icon name="invoice" /> Financial & Commission</a>
-                    <a href="{{ route('admin.disputes.index') }}" class="dash-nav-item active"><x-shop-icon name="diagram" /> Dispute Arbitration</a>
-                </nav>
-            </div>
-            <form action="{{ route('logout') }}" method="POST">
-                @csrf
-                <button type="submit" class="dash-logout-btn"><x-shop-icon name="arrowback" /> Logout</button>
-            </form>
-        </aside>
-
-        <main class="dash-main">
+<main class="dash-main">
             <a href="{{ route('admin.disputes.index') }}" class="u-extracted-7fc4d6b00a">
                 ← Back to Disputes
             </a>
