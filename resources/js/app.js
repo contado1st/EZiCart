@@ -1,5 +1,8 @@
 import "./password-visibility.js";
 import "./registration-name-inputs.js";
+if (document.querySelector('form[data-decision]')) {
+    import('./interactions/decision-dialog.jsx');
+}
 import "@h2d2/shopicons/es/regular/account";
 import "@h2d2/shopicons/es/regular/arrowback";
 import "@h2d2/shopicons/es/regular/bell";

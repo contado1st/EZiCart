@@ -106,7 +106,7 @@
                                 <p role="status">Fulfillment on hold: payment verification is not configured for
                                     {{ $order->payment_method }}.</p>
                             @elseif ($order->status === 'PLACED')
-                                <form action="{{ route('seller.orders.updateStatus', $order->id) }}" method="POST">
+                                <form action="{{ route('seller.orders.updateStatus', $order->id) }}" method="POST" data-decision="seller.orders.updateStatus" data-decision-title="Update order status?" data-decision-message="Check the selected status. This updates the order workflow and may notify the buyer and delivery staff." data-decision-label="Update status" data-decision-tone="normal" onsubmit="return window.eziDecisionReady ? true : window.confirm(this.dataset.decisionMessage)">
                                     @csrf
                                     @method('PATCH')
                                     <input type="hidden" name="status" value="CONFIRMED">
@@ -115,14 +115,14 @@
                                     </button>
                                 </form>
                             @elseif($order->status === 'CONFIRMED')
-                                <form action="{{ route('seller.orders.updateStatus', $order->id) }}" method="POST">
+                                <form action="{{ route('seller.orders.updateStatus', $order->id) }}" method="POST" data-decision="seller.orders.updateStatus" data-decision-title="Update order status?" data-decision-message="Check the selected status. This updates the order workflow and may notify the buyer and delivery staff." data-decision-label="Update status" data-decision-tone="normal" onsubmit="return window.eziDecisionReady ? true : window.confirm(this.dataset.decisionMessage)">
                                     @csrf
                                     @method('PATCH')
                                     <input type="hidden" name="status" value="PREPARING">
                                     <button type="submit" class="dash-btn-sm dash-btn-primary">Start Preparing</button>
                                 </form>
                             @elseif($order->status === 'PREPARING')
-                                <form action="{{ route('seller.orders.updateStatus', $order->id) }}" method="POST">
+                                <form action="{{ route('seller.orders.updateStatus', $order->id) }}" method="POST" data-decision="seller.orders.updateStatus" data-decision-title="Update order status?" data-decision-message="Check the selected status. This updates the order workflow and may notify the buyer and delivery staff." data-decision-label="Update status" data-decision-tone="normal" onsubmit="return window.eziDecisionReady ? true : window.confirm(this.dataset.decisionMessage)">
                                     @csrf
                                     @method('PATCH')
                                     <input type="hidden" name="status" value="READY_FOR_PICKUP">
@@ -131,7 +131,7 @@
                                     </button>
                                 </form>
                             @elseif($order->status === 'READY_FOR_PICKUP' && $order->pickup_arrived_at && !$order->seller_handover_at)
-                                <form action="{{ route('seller.orders.confirmHandover', $order) }}" method="POST">
+                                <form action="{{ route('seller.orders.confirmHandover', $order) }}" method="POST" data-decision="seller.orders.confirmHandover" data-decision-title="Confirm physical handover?" data-decision-message="Continue only after you physically handed the parcel to the assigned rider." data-decision-label="Confirm handover" data-decision-tone="normal" onsubmit="return window.eziDecisionReady ? true : window.confirm(this.dataset.decisionMessage)">
                                     @csrf
                                     <label for="handover-rider-badge-{{ $order->id }}">Scan assigned rider badge
                                         QR/code</label>
@@ -147,7 +147,7 @@
                                 </form>
                             @elseif($order->status === 'RETURN_IN_TRANSIT')
                                 @if ($order->return_handed_to_seller_at)
-                                    <form action="{{ route('seller.orders.confirmReturn', $order) }}" method="POST">
+                                    <form action="{{ route('seller.orders.confirmReturn', $order) }}" method="POST" data-decision="seller.orders.confirmReturn" data-decision-title="Confirm returned parcel?" data-decision-message="Continue only after you physically received the returned parcel." data-decision-label="Confirm return" data-decision-tone="normal" onsubmit="return window.eziDecisionReady ? true : window.confirm(this.dataset.decisionMessage)">
                                         @csrf
                                         <label for="return-rider-badge-{{ $order->id }}">Scan return rider badge
                                             QR/code</label>

@@ -140,7 +140,7 @@
                                 @endif
 
                                 @if ($order->status === 'DELIVERED')
-                                    <form action="{{ route('buyer.orders.confirm', $order->id) }}" method="POST">
+                                    <form action="{{ route('buyer.orders.confirm', $order->id) }}" method="POST" data-decision="buyer.orders.confirm" data-decision-title="Confirm receipt?" data-decision-message="Confirm only after you have received the parcel and checked your items. This records your receipt of the order." data-decision-label="Confirm receipt" data-decision-tone="normal" onsubmit="return window.eziDecisionReady ? true : window.confirm(this.dataset.decisionMessage)">
                                         @csrf
                                         <button type="submit" class="dash-btn-sm dash-btn-success">
                                             Confirm Order Received
@@ -151,10 +151,9 @@
                                 @if ($order->pendingCancellation)
                                     <a class="dash-btn-sm" href="{{ route('buyer.orders.show', $order) }}">Cancellation pending</a>
                                 @elseif (in_array($order->status, ['PLACED', 'CONFIRMED', 'PREPARING'], true))
-                                    <form action="{{ route('buyer.orders.cancel', $order) }}" method="POST">
+                                    <form action="{{ route('buyer.orders.cancel', $order) }}" method="POST" data-decision="buyer.orders.cancel" data-decision-title="Request cancellation?" data-decision-message="The seller has 24 hours to respond before automatic approval. Cancellation is unavailable after physical pickup." data-decision-label="Request cancellation" data-decision-tone="danger" onsubmit="return window.eziDecisionReady ? true : window.confirm(this.dataset.decisionMessage)">
                                         @csrf
-                                        <button type="submit" class="dash-btn-sm"
-                                            onclick="return confirm('Request cancellation? The seller has 24 hours to respond before automatic approval.')">Request
+                                        <button type="submit" class="dash-btn-sm">Request
                                             cancellation</button>
                                     </form>
                                 @endif

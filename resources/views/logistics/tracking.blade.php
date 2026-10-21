@@ -102,7 +102,7 @@
                         {{ str_replace('_', ' ', $order->status) }}
                     </span>
                     @if ($order->status === 'DELIVERY_FAILED')
-                        <form method="POST" action="{{ route('logistics.orders.return', $order) }}" onsubmit="return confirm('Move this parcel to return handling?')">
+                        <form method="POST" action="{{ route('logistics.orders.return', $order) }}" data-decision="logistics.orders.return" data-decision-title="Start return handling?" data-decision-message="This moves the selected parcel into the return workflow. Check the reason first." data-decision-label="Start return" data-decision-tone="danger" onsubmit="return window.eziDecisionReady ? true : window.confirm(this.dataset.decisionMessage)">
                             @csrf
                             <button class="ops-btn ops-btn--danger" type="submit">Return to sender</button>
                         </form>

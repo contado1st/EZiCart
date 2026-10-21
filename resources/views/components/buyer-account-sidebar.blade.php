@@ -30,7 +30,7 @@
         <a href="{{ route('cart.index') }}">My cart</a>
     </nav>
 
-    <form action="{{ route('logout') }}" method="POST" class="buyer-account-sidebar-logout">
+    <form action="{{ route('logout') }}" method="POST" class="buyer-account-sidebar-logout" data-decision="logout" data-decision-title="Sign out?" data-decision-message="You will leave your current session. You can sign in again when you are ready." data-decision-label="Sign out" data-decision-tone="normal" onsubmit="return window.eziDecisionReady ? true : window.confirm(this.dataset.decisionMessage)">
         @csrf
         <button type="submit">Log out</button>
     </form>

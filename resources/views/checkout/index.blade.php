@@ -31,7 +31,7 @@
             <a href="{{ route('buyer.addresses.index') }}">Manage saved addresses</a>
         </form>
 
-        <form action="{{ route('checkout.process') }}" method="POST" class="checkout-layout">
+        <form action="{{ route('checkout.process') }}" method="POST" class="checkout-layout" data-decision="checkout.process" data-decision-title="Place this order?" data-decision-message="Review your delivery address, items and cash-on-delivery total before placing your order." data-decision-label="Place order" data-decision-tone="normal" onsubmit="return window.eziDecisionReady ? true : window.confirm(this.dataset.decisionMessage)">
             @csrf
             <input type="hidden" name="checkout_token" value="{{ $token }}">
             <input type="hidden" name="quote_hash" value="{{ $quote['hash'] }}">

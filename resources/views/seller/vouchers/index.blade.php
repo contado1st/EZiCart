@@ -118,7 +118,7 @@
                                         <td>
                                             <div class="voucher-actions">
                                                 <form action="{{ route('seller.vouchers.toggle', $voucher->id) }}"
-                                                    method="POST">
+                                                    method="POST" data-decision="seller.vouchers.toggle" data-decision-title="Change voucher availability?" data-decision-message="This changes whether buyers can use the selected voucher." data-decision-label="Change availability" data-decision-tone="normal" onsubmit="return window.eziDecisionReady ? true : window.confirm(this.dataset.decisionMessage)">
                                                     @csrf
                                                     @method('PATCH')
                                                     <button type="submit" class="dash-btn-sm u-extracted-e013d740bb">
@@ -126,8 +126,7 @@
                                                     </button>
                                                 </form>
                                                 <form action="{{ route('seller.vouchers.destroy', $voucher->id) }}"
-                                                    method="POST"
-                                                    onsubmit="return confirm('Delete this voucher permanently?');">
+                                                    method="POST" data-decision="seller.vouchers.destroy" data-decision-title="Delete this voucher?" data-decision-message="This permanently deletes the selected voucher." data-decision-label="Delete voucher" data-decision-tone="danger" onsubmit="return window.eziDecisionReady ? true : window.confirm(this.dataset.decisionMessage)">
                                                     @csrf
                                                     @method('DELETE')
                                                     <button type="submit"

@@ -88,7 +88,7 @@
                                         ₱{{ number_format($item['price'] * $item['quantity'], 2) }}
                                     </td>
                                     <td>
-                                        <form action="{{ route('cart.remove', $cartKey) }}" method="POST">
+                                        <form action="{{ route('cart.remove', $cartKey) }}" method="POST" data-decision="cart.remove" data-decision-title="Remove this item?" data-decision-message="This removes the item from your cart." data-decision-label="Remove item" data-decision-tone="danger" onsubmit="return window.eziDecisionReady ? true : window.confirm(this.dataset.decisionMessage)">
                                             @csrf
                                             @method('DELETE')
                                             <button type="submit" class="cart-btn-remove">Remove</button>

@@ -15,7 +15,7 @@
         <button class="dash-btn-sm" type="submit">Create platform voucher</button>
     </form>
     @forelse($vouchers as $voucher)<article class="dash-panel"><h2>{{ $voucher->code }}</h2><p>{{ $voucher->type }}: {{ $voucher->value }} · {{ $voucher->used_count }} uses · {{ $voucher->is_active ? 'Active' : 'Disabled' }}</p>
-        <form method="POST" action="{{ route('admin.vouchers.toggle', $voucher) }}">@csrf @method('PATCH')<button class="dash-btn-sm" type="submit">{{ $voucher->is_active ? 'Disable' : 'Enable' }} voucher</button></form>
+        <form method="POST" action="{{ route('admin.vouchers.toggle', $voucher) }}" data-decision="admin.vouchers.toggle" data-decision-title="Change platform voucher availability?" data-decision-message="This changes whether buyers can use the selected platform voucher." data-decision-label="Change availability" data-decision-tone="normal" onsubmit="return window.eziDecisionReady ? true : window.confirm(this.dataset.decisionMessage)">@csrf @method('PATCH')<button class="dash-btn-sm" type="submit">{{ $voucher->is_active ? 'Disable' : 'Enable' }} voucher</button></form>
     </article>@empty<p>No platform vouchers.</p>@endforelse{{ $vouchers->links() }}
 </main>
 @endsection

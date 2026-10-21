@@ -81,7 +81,7 @@
                     <h2 class="courier-section-title">Admin Decision</h2>
 
                     <form action="{{ route('admin.disputes.resolve', $dispute->id) }}" method="POST"
-                        class="u-extracted-dab43fb936">
+                        class="u-extracted-dab43fb936" data-decision="admin.disputes.resolve" data-decision-title="Resolve this dispute?" data-decision-message="Check the selected resolution and any financial consequences before recording the decision." data-decision-label="Record resolution" data-decision-tone="normal" onsubmit="return window.eziDecisionReady ? true : window.confirm(this.dataset.decisionMessage)">
                         @csrf
                         @method('PATCH')
 

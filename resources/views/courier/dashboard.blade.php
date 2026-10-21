@@ -172,13 +172,13 @@
                             <td data-label="Contents">{{ $order->items->count() }} item(s)</td>
                             <td data-label="Action">
                                 <div class="courier-actions">
-                                    <form method="POST" action="{{ route('courier.orders.claim', $order) }}">
+                                    <form method="POST" action="{{ route('courier.orders.claim', $order) }}" data-decision="courier.orders.claim" data-decision-title="Accept pickup?" data-decision-message="This accepts responsibility for the selected pickup. Check the parcel and service area." data-decision-label="Accept pickup" data-decision-tone="normal" onsubmit="return window.eziDecisionReady ? true : window.confirm(this.dataset.decisionMessage)">
                                         @csrf
                                         <button class="ops-btn ops-btn--primary" type="submit" @disabled($courier->status !== 'approved')>
                                             Accept assigned pickup
                                         </button>
                                     </form>
-                                    <form method="POST" action="{{ route('courier.orders.declinePickup', $order) }}">
+                                    <form method="POST" action="{{ route('courier.orders.declinePickup', $order) }}" data-decision="courier.orders.declinePickup" data-decision-title="Decline pickup?" data-decision-message="This returns the pickup for reassignment. Check your reason before continuing." data-decision-label="Decline pickup" data-decision-tone="danger" onsubmit="return window.eziDecisionReady ? true : window.confirm(this.dataset.decisionMessage)">
                                         @csrf
                                         <input type="text" name="reason" maxlength="500" placeholder="Reason (optional)" aria-label="Reason for declining pickup">
                                         <button class="ops-btn" type="submit" @disabled($courier->status !== 'approved')>
@@ -231,7 +231,7 @@
                             </td>
                             <td data-label="Claimed">{{ $order->pickup_claimed_at?->format('d M H:i') }}</td>
                             <td data-label="Next step">
-                                <form method="POST" action="{{ route('courier.orders.confirmPickup', $order) }}">
+                                <form method="POST" action="{{ route('courier.orders.confirmPickup', $order) }}" data-decision="courier.orders.confirmPickup" data-decision-title="Confirm physical pickup?" data-decision-message="Continue only after you physically received the parcel from the seller." data-decision-label="Confirm pickup" data-decision-tone="normal" onsubmit="return window.eziDecisionReady ? true : window.confirm(this.dataset.decisionMessage)">
                                     @csrf
                                     @if ($order->pickup_arrived_at && $order->seller_handover_at)
                                         <div class="ops-field">
@@ -327,7 +327,7 @@
                                 @endif
                             </td>
                             <td data-label="Action">
-                                <form method="POST" action="{{ route('courier.orders.confirmReturnDelivery', $order) }}" onsubmit="return confirm('Confirm that you physically handed this return parcel to the seller?')">
+                                <form method="POST" action="{{ route('courier.orders.confirmReturnDelivery', $order) }}" data-decision="courier.orders.confirmReturnDelivery" data-decision-title="Confirm return handover?" data-decision-message="Continue only after you physically handed the returned parcel to the seller." data-decision-label="Confirm handover" data-decision-tone="normal" onsubmit="return window.eziDecisionReady ? true : window.confirm(this.dataset.decisionMessage)">
                                     @csrf
                                     <div class="ops-field">
                                         <label for="return-parcel-{{ $order->id }}">Scan parcel label QR/code</label>
@@ -436,7 +436,7 @@
                             <td data-label="Delivery action">
                                 @if ($order->status === 'ASSIGNED_TO_RIDER')
                                     @if ($order->hub_released_at)
-                                        <form method="POST" action="{{ route('courier.orders.startDelivery', $order) }}">
+                                        <form method="POST" action="{{ route('courier.orders.startDelivery', $order) }}" data-decision="courier.orders.startDelivery" data-decision-title="Start delivery?" data-decision-message="This records that the parcel is going out for delivery." data-decision-label="Start delivery" data-decision-tone="normal" onsubmit="return window.eziDecisionReady ? true : window.confirm(this.dataset.decisionMessage)">
                                             @csrf
                                             <div class="ops-field">
                                                 <label for="start-parcel-reference-{{ $order->id }}">Parcel QR/code (optional manual handoff fallback)</label>
@@ -451,7 +451,7 @@
                                         <div class="ops-banner ops-banner--urgent">
                                             <span>Waiting for Logistics hub release</span>
                                         </div>
-                                        <form class="ops-form" method="POST" action="{{ route('courier.orders.declineDeliveryAssignment', $order) }}" onsubmit="return confirm('Decline this delivery assignment and return the parcel to dispatch?')">
+                                        <form class="ops-form" method="POST" action="{{ route('courier.orders.declineDeliveryAssignment', $order) }}" data-decision="courier.orders.declineDeliveryAssignment" data-decision-title="Decline delivery assignment?" data-decision-message="This returns the assignment to dispatch for review and reassignment." data-decision-label="Decline assignment" data-decision-tone="danger" onsubmit="return window.eziDecisionReady ? true : window.confirm(this.dataset.decisionMessage)">
                                             @csrf
                                             <div class="ops-field">
                                                 <label for="decline-reason-{{ $order->id }}">Reason (optional)</label>
@@ -465,7 +465,7 @@
                                 @else
                                     <details>
                                         <summary class="ops-btn ops-btn--primary">Complete delivery</summary>
-                                        <form class="ops-form" method="POST" action="{{ route('courier.orders.completeDelivery', $order) }}" enctype="multipart/form-data" onsubmit="return confirm('Confirm this parcel was delivered to the named recipient?')">
+                                        <form class="ops-form" method="POST" action="{{ route('courier.orders.completeDelivery', $order) }}" enctype="multipart/form-data" data-decision="courier.orders.completeDelivery" data-decision-title="Confirm successful delivery?" data-decision-message="Continue only after handing the parcel to the recipient and recording the required delivery evidence and COD details." data-decision-label="Confirm delivery" data-decision-tone="normal" onsubmit="return window.eziDecisionReady ? true : window.confirm(this.dataset.decisionMessage)">
                                             @csrf
                                             @method('PATCH')
                                             <div class="ops-field">
@@ -495,7 +495,7 @@
                                     </details>
                                     <details>
                                         <summary class="ops-btn ops-btn--danger">Record failed attempt</summary>
-                                        <form class="ops-form" method="POST" action="{{ route('courier.orders.failDelivery', $order) }}" onsubmit="return confirm('Record this delivery attempt as failed?')">
+                                        <form class="ops-form" method="POST" action="{{ route('courier.orders.failDelivery', $order) }}" data-decision="courier.orders.failDelivery" data-decision-title="Record failed delivery?" data-decision-message="Check the failure reason and evidence. This records a delivery attempt against the parcel." data-decision-label="Record failed attempt" data-decision-tone="danger" onsubmit="return window.eziDecisionReady ? true : window.confirm(this.dataset.decisionMessage)">
                                             @csrf
                                             @method('PATCH')
                                             <div class="ops-field">
@@ -542,7 +542,7 @@
         <div class="courier-badge-qr" role="img" aria-label="QR code for rider identification">
             {!! $badgeQr !!}
         </div>
-        <form method="POST" action="{{ route('courier.badge.rotate') }}" onsubmit="return confirm('Rotate this badge? Any printed copy of the old QR will stop identifying your badge.')">
+        <form method="POST" action="{{ route('courier.badge.rotate') }}" data-decision="courier.badge.rotate" data-decision-title="Replace your rider badge?" data-decision-message="Printed copies of the old QR code will stop identifying your badge." data-decision-label="Replace badge" data-decision-tone="normal" onsubmit="return window.eziDecisionReady ? true : window.confirm(this.dataset.decisionMessage)">
             @csrf
             <button class="ops-btn" type="submit">Rotate rider badge</button>
         </form>

@@ -90,7 +90,7 @@
                 <div class="ops-banner ops-banner--success">
                     <span>Logistics confirmed the hub release at {{ $order->hub_released_at->format('d M Y H:i') }}.</span>
                 </div>
-                <form class="ops-form" method="POST" action="{{ route('courier.orders.startDelivery', $order) }}">
+                <form class="ops-form" method="POST" action="{{ route('courier.orders.startDelivery', $order) }}" data-decision="courier.orders.startDelivery" data-decision-title="Start delivery?" data-decision-message="This records that the parcel is going out for delivery." data-decision-label="Start delivery" data-decision-tone="normal" onsubmit="return window.eziDecisionReady ? true : window.confirm(this.dataset.decisionMessage)">
                     @csrf
                     <div class="ops-field">
                         <label for="start-parcel-reference">Parcel QR/code (optional manual handoff fallback)</label>
@@ -103,7 +103,7 @@
                 <div class="ops-banner ops-banner--urgent">
                     <span>Waiting for Logistics to verify and release this parcel from the hub.</span>
                 </div>
-                <form class="ops-form" method="POST" action="{{ route('courier.orders.declineDeliveryAssignment', $order) }}" onsubmit="return confirm('Decline this delivery assignment and return the parcel to dispatch?')">
+                <form class="ops-form" method="POST" action="{{ route('courier.orders.declineDeliveryAssignment', $order) }}" data-decision="courier.orders.declineDeliveryAssignment" data-decision-title="Decline delivery assignment?" data-decision-message="This returns the assignment to dispatch for review and reassignment." data-decision-label="Decline assignment" data-decision-tone="danger" onsubmit="return window.eziDecisionReady ? true : window.confirm(this.dataset.decisionMessage)">
                     @csrf
                     <div class="ops-field">
                         <label for="assignment-decline-reason">Reason (optional)</label>
@@ -120,7 +120,7 @@
                 @if ($order->payment_method === 'COD')
                     <div class="ops-panel">
                         <h3>Complete delivery</h3>
-                        <form class="ops-form" method="POST" action="{{ route('courier.orders.completeDelivery', $order) }}" enctype="multipart/form-data" onsubmit="return confirm('Confirm this parcel was delivered?')">
+                        <form class="ops-form" method="POST" action="{{ route('courier.orders.completeDelivery', $order) }}" enctype="multipart/form-data" data-decision="courier.orders.completeDelivery" data-decision-title="Confirm successful delivery?" data-decision-message="Continue only after handing the parcel to the recipient and recording the required delivery evidence and COD details." data-decision-label="Confirm delivery" data-decision-tone="normal" onsubmit="return window.eziDecisionReady ? true : window.confirm(this.dataset.decisionMessage)">
                             @csrf
                             @method('PATCH')
                             <div class="ops-field">
@@ -154,7 +154,7 @@
 
                 <div class="ops-panel ops-panel--urgent">
                     <h3>Record failed attempt</h3>
-                    <form class="ops-form" method="POST" action="{{ route('courier.orders.failDelivery', $order) }}" onsubmit="return confirm('Record a failed delivery attempt?')">
+                    <form class="ops-form" method="POST" action="{{ route('courier.orders.failDelivery', $order) }}" data-decision="courier.orders.failDelivery" data-decision-title="Record failed delivery?" data-decision-message="Check the failure reason and evidence. This records a delivery attempt against the parcel." data-decision-label="Record failed attempt" data-decision-tone="danger" onsubmit="return window.eziDecisionReady ? true : window.confirm(this.dataset.decisionMessage)">
                         @csrf
                         @method('PATCH')
                         <div class="ops-field">

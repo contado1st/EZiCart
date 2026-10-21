@@ -50,7 +50,7 @@
                             <p>The code expired or is locked. Generate a new one before the courier arrives.</p>
                         @endif
                         @if ($order->delivery_code_used_at === null)
-                            <form method="POST" action="{{ route('buyer.orders.delivery-code.refresh', $order) }}">
+                            <form method="POST" action="{{ route('buyer.orders.delivery-code.refresh', $order) }}" data-decision="buyer.orders.delivery-code.refresh" data-decision-title="Replace the delivery code?" data-decision-message="The previous code will stop working. Share the replacement only when you receive your parcel." data-decision-label="Replace code" data-decision-tone="normal" onsubmit="return window.eziDecisionReady ? true : window.confirm(this.dataset.decisionMessage)">
                                 @csrf
                                 <button class="dash-btn-sm dash-btn-outline" type="submit">Generate a new delivery code</button>
                             </form>
@@ -122,7 +122,7 @@
                     @endif
 
                     @if ($order->status === 'DELIVERED')
-                        <form action="{{ route('buyer.orders.confirm', $order->id) }}" method="POST">
+                        <form action="{{ route('buyer.orders.confirm', $order->id) }}" method="POST" data-decision="buyer.orders.confirm" data-decision-title="Confirm receipt?" data-decision-message="Confirm only after you have received the parcel and checked your items. This records your receipt of the order." data-decision-label="Confirm receipt" data-decision-tone="normal" onsubmit="return window.eziDecisionReady ? true : window.confirm(this.dataset.decisionMessage)">
                             @csrf
                             <button type="submit" class="dash-btn-sm dash-btn-success">Confirm receipt</button>
                         </form>

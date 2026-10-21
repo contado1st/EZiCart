@@ -30,6 +30,7 @@
         if (mobile.matches && event.target.closest('a')) close();
     });
     document.addEventListener('keydown', event => {
+        if (event.defaultPrevented || document.querySelector('dialog[open]')) return;
         if (!mobile.matches || !document.body.classList.contains('workspace-nav-open')) return;
         if (event.key === 'Escape') close(true);
         if (event.key === 'Tab') {

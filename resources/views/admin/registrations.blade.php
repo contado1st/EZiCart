@@ -115,17 +115,17 @@
                             <!-- Action Forms -->
                             <td>
                                 <div class="action-buttons">
-                                    <form action="{{ route('admin.registrations.approve', $user->id) }}" method="POST">
+                                    <form action="{{ route('admin.registrations.approve', $user->id) }}" method="POST" data-decision="admin.registrations.approve" data-decision-title="Approve this account?" data-decision-message="Confirm that you reviewed the submitted credentials and that this account meets the approval requirements." data-decision-label="Approve account" data-decision-tone="normal" onsubmit="return window.eziDecisionReady ? true : window.confirm(this.dataset.decisionMessage)">
                                         @csrf
-                                        <button type="submit" onclick="return confirm('Approve this account?')"
+                                        <button type="submit"
                                             class="btn-approve">Approve</button>
                                     </form>
 
-                                    <form action="{{ route('admin.registrations.reject', $user->id) }}" method="POST">
+                                    <form action="{{ route('admin.registrations.reject', $user->id) }}" method="POST" data-decision="admin.registrations.reject" data-decision-title="Reject this application?" data-decision-message="Check the rejection reason before recording your decision." data-decision-label="Reject application" data-decision-tone="danger" onsubmit="return window.eziDecisionReady ? true : window.confirm(this.dataset.decisionMessage)">
                                         @csrf
                                         <label class="sr-only" for="rejection-reason-{{ $user->id }}">Reason for rejecting {{ $user->first_name }} {{ $user->last_name }}</label>
                                         <input id="rejection-reason-{{ $user->id }}" type="text" name="reason" maxlength="1000" minlength="5" placeholder="Reason required" required>
-                                        <button type="submit" onclick="return confirm('Reject this account?')"
+                                        <button type="submit"
                                             class="btn-reject">Reject</button>
                                     </form>
                                 </div>

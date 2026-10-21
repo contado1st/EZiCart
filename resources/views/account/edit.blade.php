@@ -43,7 +43,7 @@
 
                 <section class="buyer-account-panel buyer-password-panel" id="buyer-password" aria-labelledby="buyer-password-title">
                     <div class="buyer-account-panel-heading"><div><h2 id="buyer-password-title">Change password</h2><p>Use a unique password to protect your EZiCart account.</p></div></div>
-                    <form action="{{ route('account.password.update') }}" method="POST" class="buyer-account-password-form">
+                    <form action="{{ route('account.password.update') }}" method="POST" class="buyer-account-password-form" data-decision="account.password.update" data-decision-title="Change your password?" data-decision-message="Use the new password the next time you sign in. Check that you have entered it correctly." data-decision-label="Change password" data-decision-tone="normal" onsubmit="return window.eziDecisionReady ? true : window.confirm(this.dataset.decisionMessage)">
                         @csrf
                         @method('PATCH')
                         <div class="buyer-password-fields">
@@ -89,7 +89,7 @@
 
             <section class="dash-panel u-extracted-ebdbcd4a73">
                 <h2>Change password</h2>
-                <form action="{{ route('account.password.update') }}" method="POST">
+                <form action="{{ route('account.password.update') }}" method="POST" data-decision="account.password.update" data-decision-title="Change your password?" data-decision-message="Use the new password the next time you sign in. Check that you have entered it correctly." data-decision-label="Change password" data-decision-tone="normal" onsubmit="return window.eziDecisionReady ? true : window.confirm(this.dataset.decisionMessage)">
                     @csrf
                     @method('PATCH')
                     @foreach ([['current-password', 'Current password', 'current_password', 'current-password'], ['new-password', 'New password', 'password', 'new-password'], ['new-password-confirmation', 'Confirm new password', 'password_confirmation', 'new-password']] as [$id, $label, $name, $autocomplete])

@@ -25,7 +25,7 @@
                     @unless ($address->is_default)
                         <form action="{{ route('buyer.addresses.default', $address) }}" method="POST">@csrf @method('PATCH')<button type="submit" class="dash-btn-sm dash-btn-outline">Set as default</button></form>
                     @endunless
-                    <form action="{{ route('buyer.addresses.destroy', $address) }}" method="POST" onsubmit="return confirm('Remove this saved address? Existing orders will keep their original delivery details.')">@csrf @method('DELETE')<button type="submit" class="buyer-address-delete">Remove</button></form>
+                    <form action="{{ route('buyer.addresses.destroy', $address) }}" method="POST" data-decision="buyer.addresses.destroy" data-decision-title="Remove this address?" data-decision-message="This removes the saved address. Existing orders keep their original delivery details." data-decision-label="Remove address" data-decision-tone="danger" onsubmit="return window.eziDecisionReady ? true : window.confirm(this.dataset.decisionMessage)">@csrf @method('DELETE')<button type="submit" class="buyer-address-delete">Remove</button></form>
                 </div>
             </article>
         @empty

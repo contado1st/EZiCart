@@ -73,7 +73,7 @@
                                 </td>
                                 <td>
                                     <form method="POST"
-                                        action="{{ route('admin.compliance.products.review', $product) }}">
+                                        action="{{ route('admin.compliance.products.review', $product) }}" data-decision="admin.compliance.products.review" data-decision-title="Save compliance decision?" data-decision-message="Check the selected product decision and explanation. This can affect the listing availability." data-decision-label="Save decision" data-decision-tone="normal" onsubmit="return window.eziDecisionReady ? true : window.confirm(this.dataset.decisionMessage)">
                                         @csrf
                                         @method('PATCH')
                                         <div class="form-group"><label class="form-label"
@@ -90,7 +90,7 @@
                                         <button class="dash-btn-sm dash-btn-primary" type="submit">Save review</button>
                                     </form>
                                     <form method="POST" action="{{ route('admin.compliance.products.warn', $product) }}"
-                                        class="u-extracted-0cf8f93b0e">
+                                        class="u-extracted-0cf8f93b0e" data-decision="admin.compliance.products.warn" data-decision-title="Issue seller warning?" data-decision-message="Check your warning message before sending it to the seller." data-decision-label="Issue warning" data-decision-tone="normal" onsubmit="return window.eziDecisionReady ? true : window.confirm(this.dataset.decisionMessage)">
                                         @csrf
                                         <div class="form-group"><label class="form-label"
                                                 for="warning-{{ $product->id }}">Separate seller warning</label>

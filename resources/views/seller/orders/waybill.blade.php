@@ -6,6 +6,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Waybill - {{ $order->order_number }}</title>
     @vite('resources/css/seller/waybill.css')
+    <link rel="stylesheet" href="{{ asset('css/interaction-feedback.css') }}?v={{ filemtime(public_path('css/interaction-feedback.css')) }}">
+    @vite('resources/js/app.js')
 </head>
 
 <body class="waybill-body">
@@ -27,7 +29,7 @@
             <section class="waybill-actions-bar" aria-label="Replace parcel label">
                 <p>Current parcel label version: {{ $order->parcel_code_version }}. Replacing the code invalidates any
                     previously printed label.</p>
-                <form method="POST" action="{{ route('seller.orders.waybill.reprint', $order) }}">
+                <form method="POST" action="{{ route('seller.orders.waybill.reprint', $order) }}" data-decision="seller.orders.waybill.reprint" data-decision-title="Replace this parcel label?" data-decision-message="Replacing the label changes the parcel identification used for scanning. Use the new printed label for future handoffs." data-decision-label="Replace label" data-decision-tone="normal" onsubmit="return window.eziDecisionReady ? true : window.confirm(this.dataset.decisionMessage)">
                     @csrf
                     <label for="reprint-reason">Reason for replacement</label>
                     <input id="reprint-reason" name="reason" maxlength="500" required>

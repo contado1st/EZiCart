@@ -56,7 +56,7 @@
                                 </div>
                             </td>
                             <td>
-                                <form class="ops-form" method="POST" action="{{ route('logistics.orders.sort', $order) }}">
+                                <form class="ops-form" method="POST" action="{{ route('logistics.orders.sort', $order) }}" data-decision="logistics.orders.sort" data-decision-title="Confirm sorting?" data-decision-message="Check the parcel and selected sorting details before recording this update." data-decision-label="Confirm sorting" data-decision-tone="normal" onsubmit="return window.eziDecisionReady ? true : window.confirm(this.dataset.decisionMessage)">
                                     @csrf
                                     <button class="ops-btn ops-btn--primary" type="submit">Confirm area and sort</button>
                                 </form>

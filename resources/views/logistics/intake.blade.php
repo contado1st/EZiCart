@@ -125,7 +125,7 @@
                             </td>
                             <td>{{ $order->municipality }}, {{ $order->province }}</td>
                             <td>
-                                <form method="POST" action="{{ route('logistics.orders.receive', $order) }}">
+                                <form method="POST" action="{{ route('logistics.orders.receive', $order) }}" data-decision="logistics.orders.receive" data-decision-title="Confirm parcel intake?" data-decision-message="Continue only after the hub physically received and checked this parcel." data-decision-label="Confirm intake" data-decision-tone="normal" onsubmit="return window.eziDecisionReady ? true : window.confirm(this.dataset.decisionMessage)">
                                     @csrf
                                     <button class="ops-btn ops-btn--primary" type="submit">Confirm hub handoff</button>
                                 </form>

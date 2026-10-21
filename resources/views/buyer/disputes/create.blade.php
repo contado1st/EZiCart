@@ -24,7 +24,7 @@
             <div><strong>Total Value:</strong> ₱{{ number_format($order->total_amount, 2) }}</div>
         </div>
 
-        <form action="{{ route('buyer.orders.dispute.store', $order->id) }}" method="POST" enctype="multipart/form-data">
+        <form action="{{ route('buyer.orders.dispute.store', $order->id) }}" method="POST" enctype="multipart/form-data" data-decision="buyer.orders.dispute.store" data-decision-title="Submit this dispute?" data-decision-message="Check your reason and evidence before submitting this case for review." data-decision-label="Submit dispute" data-decision-tone="normal" onsubmit="return window.eziDecisionReady ? true : window.confirm(this.dataset.decisionMessage)">
             @csrf
 
             <div class="u-extracted-f267e3ca68">

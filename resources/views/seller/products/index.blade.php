@@ -78,8 +78,7 @@
                                     <div class="u-extracted-af0aae5706">
                                         <a href="{{ route('seller.products.edit', $product->id) }}"
                                             class="dash-btn-sm dash-btn-outline">Edit</a>
-                                        <form action="{{ route('seller.products.destroy', $product->id) }}" method="POST"
-                                            onsubmit="return confirm('Remove this product from your inventory?');">
+                                        <form action="{{ route('seller.products.destroy', $product->id) }}" method="POST" data-decision="seller.products.destroy" data-decision-title="Remove this product?" data-decision-message="This removes the product from your inventory. Review the selected product before continuing." data-decision-label="Remove product" data-decision-tone="danger" onsubmit="return window.eziDecisionReady ? true : window.confirm(this.dataset.decisionMessage)">
                                             @csrf
                                             @method('DELETE')
                                             <button type="submit" class="dash-btn-sm dash-btn-danger">Remove</button>

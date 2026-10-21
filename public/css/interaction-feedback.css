@@ -1,0 +1,140 @@
+/* Shared interaction language; colors inherit the active role workspace. */
+.dashboard-workspace {
+    --interaction-ease: cubic-bezier(.16, 1, .3, 1);
+    --interaction-focus: var(--workspace-accent, #be2854);
+}
+
+.dashboard-workspace :is(.dash-panel, .ops-panel, .feature-panel, .buyer-account-panel) {
+    border-color: var(--workspace-line);
+    background: #fff;
+    transition: border-color 150ms ease;
+}
+
+.dashboard-workspace :is(.dash-panel, .ops-panel, .feature-panel, .buyer-account-panel):focus-within {
+    border-color: color-mix(in srgb, var(--workspace-accent) 40%, var(--workspace-line));
+}
+
+.dashboard-workspace :is(.dash-btn-primary, .dash-btn-sm, .ops-btn, .feature-button),
+.dashboard-workspace table :is(button, .dash-btn-primary, .dash-btn-sm, .ops-btn, .feature-button) {
+    min-height: 40px;
+}
+
+.dashboard-workspace :is(input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="file"]), select, textarea) {
+    min-height: 40px;
+    border: 1px solid #dce0e8;
+    border-radius: 8px;
+    background-color: #fff;
+    color: var(--workspace-ink);
+    transition: border-color 150ms ease, background-color 150ms ease, box-shadow 150ms ease;
+}
+
+.dashboard-workspace :is(input, select, textarea):focus-visible {
+    border-color: var(--interaction-focus);
+    box-shadow: 0 0 0 3px var(--workspace-soft);
+}
+
+.dashboard-workspace :is(.form-group, .ops-field, .auth-field, .checkout-form-group):focus-within > label {
+    color: var(--interaction-focus);
+}
+
+.dashboard-workspace :is(input, select, textarea):user-invalid {
+    border-color: #b42343;
+    background-color: #fff8f9;
+}
+
+.dashboard-workspace :is(input, select, textarea):disabled {
+    background-color: var(--workspace-canvas);
+    color: var(--workspace-muted);
+    cursor: not-allowed;
+}
+
+.dashboard-workspace input[type="file"]::file-selector-button {
+    margin-right: 10px;
+    padding: 8px 12px;
+    border: 1px solid var(--workspace-line);
+    border-radius: 7px;
+    background: var(--workspace-soft);
+    color: var(--workspace-accent);
+    font: inherit;
+    cursor: pointer;
+}
+
+.dashboard-workspace :is(.dash-btn-primary, .dash-btn-sm, .ops-btn, .feature-button, .workspace-icon-button, .workspace-nav-link, .btn-approve, .btn-reject) {
+    transition: background-color 150ms ease, border-color 150ms ease, color 150ms ease, box-shadow 150ms ease, transform 100ms ease;
+}
+
+.dashboard-workspace :is(.dash-btn-primary, .dash-btn-sm, .ops-btn, .feature-button, .workspace-icon-button, .btn-approve, .btn-reject):active:not(:disabled) {
+    transform: translateY(1px);
+}
+
+.dashboard-workspace :is(.dash-alert-success, .ops-alert--success, .communications-notice[role="status"], .feature-feedback[role="status"]) {
+    animation: feedback-recorded 500ms ease-out both;
+}
+
+[data-decision-trigger-busy] {
+    cursor: progress;
+    opacity: .8;
+}
+
+[data-decision-trigger-busy]::after {
+    content: '';
+    display: inline-block;
+    flex-shrink: 0;
+    width: 13px;
+    height: 13px;
+    margin-left: 6px;
+    border: 2px solid currentColor;
+    border-right-color: transparent;
+    border-radius: 50%;
+    animation: decision-pending 700ms linear infinite;
+}
+
+html.decision-open { overflow: hidden; }
+.decision-dialog {
+    --decision-accent: var(--workspace-accent, #be2854);
+    --decision-soft: var(--workspace-soft, #fff0f4);
+    width: min(28rem, calc(100vw - 32px));
+    max-height: calc(100dvh - 32px);
+    margin: auto;
+    padding: 0;
+    border: 0;
+    border-radius: 16px;
+    background: #fff;
+    color: #202634;
+    box-shadow: 0 20px 60px rgb(32 38 52 / 24%);
+    font-family: "Instrument Sans", ui-sans-serif, system-ui, sans-serif;
+    overflow-y: auto;
+}
+.decision-dialog[open] { animation: decision-arrival 180ms cubic-bezier(.16, 1, .3, 1); }
+.decision-dialog::backdrop { background: rgb(25 30 44 / 48%); animation: decision-backdrop 150ms ease-out; }
+.decision-content { padding: 28px; }
+.decision-symbol { display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; background: var(--decision-soft); color: var(--decision-accent); border-radius: 12px; }
+.decision-dialog h2 { margin: 16px 0 0; font-size: 21px; font-weight: 650; letter-spacing: -.02em; line-height: 1.3; overflow-wrap: anywhere; }
+.decision-dialog p { margin: 12px 0 0; font-size: 14px; line-height: 1.6; color: #535f72; overflow-wrap: anywhere; }
+.decision-dialog .decision-selection { margin-top: 16px; padding: 8px 12px; border-radius: 8px; background: var(--decision-soft); color: var(--decision-accent); }
+.decision-actions { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 12px; padding: 16px 28px; border-top: 1px solid #e7e9ef; }
+.decision-actions button { min-height: 40px; padding: 9px 16px; border: 1px solid #dce0e8; border-radius: 8px; font: 600 13px/1.4 "Instrument Sans", ui-sans-serif, sans-serif; cursor: pointer; transition: background-color 150ms ease, border-color 150ms ease; }
+.decision-cancel { background: #fff; color: #394456; }
+.decision-cancel:hover { background: #f8f9fc; }
+.decision-actions .decision-confirm { background: var(--decision-accent); border-color: var(--decision-accent); color: #fff; }
+.decision-actions .decision-confirm:hover { background: var(--workspace-accent-hover, #9f2046); }
+.decision-actions .is-danger { background: #b42343; border-color: #b42343; }
+.decision-actions .is-danger:hover { background: #941c37; border-color: #941c37; }
+.decision-dialog :is(button, a):focus-visible { outline: 2px solid var(--decision-accent); outline-offset: 3px; }
+
+@keyframes decision-arrival { from { opacity: .5; transform: scale(.98); } to { opacity: 1; transform: scale(1); } }
+@keyframes decision-backdrop { from { background: rgb(25 30 44 / 0%); } to { background: rgb(25 30 44 / 48%); } }
+@keyframes decision-pending { to { transform: rotate(360deg); } }
+@keyframes feedback-recorded { from { background-color: var(--workspace-soft, #fff0f4); } }
+
+@media (max-width: 480px) {
+    .decision-content { padding: 22px; }
+    .decision-actions { padding: 16px 22px; }
+    .decision-actions button { flex: 1 1 120px; }
+}
+@media (prefers-reduced-motion: reduce) {
+    .decision-dialog[open], .decision-dialog::backdrop, [data-decision-trigger-busy]::after,
+    .dashboard-workspace :is(.dash-alert-success, .ops-alert--success, .communications-notice, .feature-feedback) { animation: none; }
+    .dashboard-workspace :is(.dash-btn-primary, .dash-btn-sm, .ops-btn, .feature-button, .workspace-icon-button, .btn-approve, .btn-reject):active:not(:disabled) { transform: none; }
+}
+@media print { #decision-dialog-root { display: none; } }

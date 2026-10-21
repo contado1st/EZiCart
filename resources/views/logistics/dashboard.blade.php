@@ -91,7 +91,7 @@
                                         <a class="ops-btn" href="{{ route('logistics.dispatch') }}">Scan recovered parcel</a>
                                     @elseif ($exception->order_status === 'ASSIGNED_TO_RIDER' && $exception->hub_released_at)
                                         <form method="POST"
-                                            action="{{ route('logistics.orders.recoverReleasedParcel', $exception->order_id) }}">
+                                            action="{{ route('logistics.orders.recoverReleasedParcel', $exception->order_id) }}" data-decision="logistics.orders.recoverReleasedParcel" data-decision-title="Confirm parcel recovery?" data-decision-message="Continue only after logistics physically received the parcel back from the assigned rider." data-decision-label="Confirm recovery" data-decision-tone="normal" onsubmit="return window.eziDecisionReady ? true : window.confirm(this.dataset.decisionMessage)">
                                             @csrf
                                             <button class="ops-btn ops-btn--primary" type="submit">Confirm physical hub recovery</button>
                                         </form>

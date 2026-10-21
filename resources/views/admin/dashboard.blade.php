@@ -114,7 +114,7 @@
                                             @if (in_array($order->status, ['PLACED', 'CONFIRMED', 'PREPARING', 'READY_FOR_PICKUP'], true) &&
                                                     $order->picked_up_at === null &&
                                                     $order->seller_handover_at === null)
-                                                <form action="{{ route('admin.orders.cancel', $order) }}" method="POST">
+                                                <form action="{{ route('admin.orders.cancel', $order) }}" method="POST" data-decision="admin.orders.cancel" data-decision-title="Cancel this order?" data-decision-message="Check the order and reason carefully before recording an administrative cancellation." data-decision-label="Cancel order" data-decision-tone="danger" onsubmit="return window.eziDecisionReady ? true : window.confirm(this.dataset.decisionMessage)">
                                                     @csrf
                                                     <label class="sr-only"
                                                         for="admin-cancel-reason-{{ $order->id }}">Cancellation reason
@@ -159,11 +159,11 @@
                                         class="dash-badge dash-badge-category dash-approval-badge">{{ ucfirst($pUser->role) }}</span>
                                 </div>
                                 <div class="dash-approval-actions">
-                                    <form action="{{ route('admin.registrations.approve', $pUser->id) }}" method="POST">
+                                    <form action="{{ route('admin.registrations.approve', $pUser->id) }}" method="POST" data-decision="admin.registrations.approve" data-decision-title="Approve this account?" data-decision-message="Confirm that you reviewed the submitted credentials and that this account meets the approval requirements." data-decision-label="Approve account" data-decision-tone="normal" onsubmit="return window.eziDecisionReady ? true : window.confirm(this.dataset.decisionMessage)">
                                         @csrf
                                         <button type="submit" class="dash-btn-sm dash-btn-success">Approve</button>
                                     </form>
-                                    <form action="{{ route('admin.registrations.reject', $pUser->id) }}" method="POST">
+                                    <form action="{{ route('admin.registrations.reject', $pUser->id) }}" method="POST" data-decision="admin.registrations.reject" data-decision-title="Reject this application?" data-decision-message="Check the rejection reason before recording your decision." data-decision-label="Reject application" data-decision-tone="danger" onsubmit="return window.eziDecisionReady ? true : window.confirm(this.dataset.decisionMessage)">
                                         @csrf
                                         <button type="submit" class="dash-btn-sm dash-btn-danger">Reject</button>
                                     </form>

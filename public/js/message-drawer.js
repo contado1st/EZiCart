@@ -10,7 +10,10 @@
         toggles.forEach(toggle => toggle.setAttribute('aria-expanded', 'false'));
         if (returnFocus?.isConnected) returnFocus.focus();
     };
-    const escape = event => { if (event.key === 'Escape' && !drawer.hidden) { event.preventDefault(); close(); } };
+    const escape = event => {
+        if (event.defaultPrevented || document.querySelector('dialog[open]')) return;
+        if (event.key === 'Escape' && !drawer.hidden) { event.preventDefault(); close(); }
+    };
     toggles.forEach(toggle => {
         toggle.hidden = false;
         toggle.setAttribute('aria-controls', drawer.id);

@@ -83,7 +83,7 @@
                                         @if ($user->status === 'suspended')
                                             @if ($user->suspension_previous_status === 'approved')
                                                 <form action="{{ route('admin.moderation.reactivate', $user->id) }}"
-                                                    method="POST">
+                                                    method="POST" data-decision="admin.moderation.reactivate" data-decision-title="Restore this account?" data-decision-message="Check the account review and intended status before restoring access." data-decision-label="Restore account" data-decision-tone="normal" onsubmit="return window.eziDecisionReady ? true : window.confirm(this.dataset.decisionMessage)">
                                                     @csrf
                                                     <button type="submit"
                                                         class="dash-btn-sm dash-btn-success">Reactivate</button>
@@ -91,7 +91,7 @@
                                             @else
                                                 <p class="text-muted-small">Prior status is unknown. Review the account before restoring it.</p>
                                                 <form action="{{ route('admin.moderation.reactivate', $user->id) }}"
-                                                    method="POST">
+                                                    method="POST" data-decision="admin.moderation.reactivate" data-decision-title="Restore this account?" data-decision-message="Check the account review and intended status before restoring access." data-decision-label="Restore account" data-decision-tone="normal" onsubmit="return window.eziDecisionReady ? true : window.confirm(this.dataset.decisionMessage)">
                                                     @csrf
                                                     <label class="form-label"
                                                         for="restore-status-{{ $user->id }}">Restore status after review</label>
@@ -107,13 +107,12 @@
                                             @endif
                                         @elseif ($user->status === 'approved')
                                             <form action="{{ route('admin.moderation.suspend', $user->id) }}"
-                                                method="POST" class="table-action-form">
+                                                method="POST" class="table-action-form" data-decision="admin.moderation.suspend" data-decision-title="Suspend this account?" data-decision-message="This restricts the account access and may affect its active work. Review the reason before continuing." data-decision-label="Suspend account" data-decision-tone="danger" onsubmit="return window.eziDecisionReady ? true : window.confirm(this.dataset.decisionMessage)">
                                                 @csrf
                                                 <input type="text" name="suspension_reason"
                                                     placeholder="Violation reason..."
                                                     class="controls-input u-extracted-637ac4c504" required>
-                                                <button type="submit" class="dash-btn-sm dash-btn-danger"
-                                                    onclick="return confirm('Suspend this user from platform access?');">Suspend</button>
+                                                <button type="submit" class="dash-btn-sm dash-btn-danger">Suspend</button>
                                             </form>
                                         @else
                                             <span class="text-muted-small">Registration review handles pending and rejected
