@@ -14,7 +14,7 @@ use App\Models\ParcelTrackingEvent;
 use App\Models\Product;
 use App\Models\User;
 use App\Notifications\AccountStatusNotification;
-use App\Notifications\OrderMessageNotification;
+use App\Notifications\DirectMessageNotification;
 use App\Notifications\OrderStatusNotification;
 use App\Notifications\OrderWorkflowNotification;
 use App\Notifications\PasswordRecoveryCodeNotification;
@@ -554,15 +554,23 @@ class LogisticsWorkflowTest extends TestCase
         Notification::fake();
         $order = $this->order();
 
-        $this->actingAsUser($order->seller)->post(route('seller.orders.messages.store', $order), ['body' => 'Your parcel is ready.'])
-            ->assertRedirect();
+        $this->actingAsUser($order->seller)->post(route('seller.orders.messages.store', $order), [
+            'recipient_id' => $order->buyer_id,
+            'body' => 'Your parcel is ready.',
+        ])->assertRedirect()->assertSessionHasNoErrors();
 
         $buyer = $order->buyer;
-        Notification::assertSentTo($buyer, OrderMessageNotification::class, function (OrderMessageNotification $notification) use ($buyer, $order): bool {
+        $this->assertDatabaseHas('direct_messages', [
+            'order_id' => $order->id, 'sender_id' => $order->seller_id,
+            'recipient_id' => $buyer->id, 'body' => 'Your parcel is ready.',
+        ]);
+        Notification::assertSentTo($buyer, DirectMessageNotification::class, function (DirectMessageNotification $notification) use ($buyer, $order): bool {
             return in_array('mail', $notification->via($buyer), true)
                 && in_array('database', $notification->via($buyer), true)
-                && $notification->toMail($buyer)->actionUrl === route('buyer.orders.messages.show', $order)
-                && $notification->toDatabase($buyer)['url'] === route('buyer.orders.messages.show', $order);
+                && $notification->message->order_id === $order->id
+                && $notification->message->recipient_id === $buyer->id
+                && $notification->toMail($buyer)->actionUrl === route('chat.show', $notification->message->conversation_id)
+                && $notification->toDatabase($buyer)['url'] === route('chat.show', $notification->message->conversation_id);
         });
     }
 
@@ -998,6 +1006,7 @@ class LogisticsWorkflowTest extends TestCase
 
     public function test_professor_order_flow_completes_from_seller_acceptance_through_buyer_confirmation(): void
     {
+        $this->freezeTime();
         Notification::fake();
         Storage::fake('private');
         $this->post(route('register.post'), [
@@ -1021,16 +1030,22 @@ class LogisticsWorkflowTest extends TestCase
         $admin = $this->user('admin', 'approved');
 
         $seller = $this->user('seller', 'approved');
-        $product = Product::query()->create([
-            'user_id' => $seller->id,
+        $this->actingAsUser($seller)->post(route('seller.products.store'), [
             'name' => 'Professor Flow Product',
             'description' => 'Approved test listing',
             'category' => 'Test',
             'price' => 100,
             'stock' => 3,
-            'is_archived' => false,
-        ]);
-        $product->forceFill(['compliance_status' => 'approved'])->save();
+        ])->assertRedirect(route('seller.products.index'))->assertSessionHasNoErrors();
+        $product = Product::query()->where('user_id', $seller->id)->where('name', 'Professor Flow Product')->firstOrFail();
+        $this->assertSame('pending_review', $product->compliance_status);
+        $this->actingAsUser($buyer)->get(route('product.show', $product))->assertNotFound();
+        $this->actingAsUser($admin)->patch(route('admin.compliance.products.review', $product), [
+            'compliance_status' => 'approved',
+            'compliance_note' => 'Listing reviewed for the complete purchase journey.',
+        ])->assertRedirect()->assertSessionHasNoErrors();
+        $this->assertSame('approved', $product->fresh()->compliance_status);
+        $this->actingAsUser($buyer)->get(route('product.show', $product))->assertOk()->assertSee($product->name);
         $this->post(route('cart.add', $product), ['quantity' => 1])->assertRedirect(route('cart.index'));
         $this->get(route('checkout.index'))->assertOk();
         $this->post(route('checkout.process'), [
@@ -1055,6 +1070,10 @@ class LogisticsWorkflowTest extends TestCase
         $this->assertSame(150.0, (float) $order->total_amount);
         $this->assertNull($order->delivery_courier_id);
         $this->assertNotSame('EZC-SPOOFED', $order->order_number);
+        $this->assertSame(2, $product->fresh()->stock);
+        $review = ['product_id' => $product->id, 'rating' => 5, 'comment' => 'Received the correct product in excellent condition.'];
+        $this->post(route('buyer.orders.review', $order), $review)->assertRedirect()->assertSessionHas('error', 'You can only review products from completed orders.');
+        $this->assertDatabaseCount('reviews', 0);
         Notification::assertSentTo($seller, OrderWorkflowNotification::class, fn (OrderWorkflowNotification $notification): bool => $notification->eventType === 'order_placed' && $notification->order->id === $order->id,
         );
         $center = $this->user('sorting_center', 'approved');
@@ -1147,6 +1166,18 @@ class LogisticsWorkflowTest extends TestCase
         $this->assertDatabaseHas('delivery_attempts', ['order_id' => $order->id, 'outcome' => 'delivered']);
         $this->assertDatabaseHas('delivery_assignments', ['order_id' => $order->id, 'rider_id' => $rider->id, 'status' => 'completed']);
         $this->assertDatabaseHas('parcel_tracking_events', ['order_id' => $order->id, 'event_type' => 'order_completed']);
+        $this->assertSame(2, $product->fresh()->stock);
+        $this->get(route('buyer.dashboard'))->assertOk()->assertSee('Write feedback (optional)...');
+        $this->post(route('buyer.orders.review', $order), $review)->assertRedirect()->assertSessionHas('success', 'Thank you! Your review and rating have been posted.');
+        $this->assertDatabaseHas('reviews', [
+            'order_id' => $order->id, 'product_id' => $product->id,
+            'buyer_id' => $buyer->id, 'rating' => 5, 'comment' => $review['comment'],
+        ]);
+        $this->get(route('buyer.dashboard'))->assertOk()->assertSee($review['comment']);
+        $this->get(route('product.show', $product))->assertOk()->assertSee($review['comment']);
+        $this->post(route('buyer.orders.review', $order), $review)->assertRedirect()->assertSessionHas('error', 'You have already reviewed this product for this order.');
+        $this->actingAsUser($this->user('buyer', 'approved'))->post(route('buyer.orders.review', $order), $review)->assertForbidden();
+        $this->assertDatabaseCount('reviews', 1);
     }
 
     public function test_buyer_registration_rejects_names_longer_than_the_supported_limit(): void
