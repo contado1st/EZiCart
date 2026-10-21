@@ -110,6 +110,64 @@
     gap: 16px;
 }
 
+/* Text may wrap inside cells, but action labels must retain whole words. */
+:is(.workspace-page, .main-content) :is(button, .dash-btn-sm, .dash-btn-primary, .ops-btn, .feature-button, .btn-primary, .btn-secondary) {
+    overflow-wrap: normal;
+    word-break: normal;
+    hyphens: none;
+}
+
+:is(.workspace-page, .main-content) :is(.dash-btn-sm, .dash-btn-primary, .ops-btn, .feature-button) {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    min-height: 36px;
+    min-inline-size: min-content;
+    flex-shrink: 0;
+    text-align: center;
+    vertical-align: middle;
+}
+
+:is(.workspace-page, .main-content) table :is(button, .dash-btn-sm, .dash-btn-primary, .ops-btn, .feature-button, .btn-primary, .btn-secondary) {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 36px;
+    box-sizing: border-box;
+    white-space: nowrap;
+    min-inline-size: max-content;
+    flex-shrink: 0;
+}
+
+:is(.workspace-page, .main-content) :is(.action-buttons, .dash-approval-actions, .voucher-actions, .courier-actions-wrap, .report-actions-group, .buyer-address-actions) {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+:is(.workspace-page, .main-content) :is(.action-buttons, .dash-approval-actions, .voucher-actions, .courier-actions-wrap, .report-actions-group, .buyer-address-actions, .courier-actions) > form {
+    margin: 0;
+    min-width: 0;
+}
+
+/* Inline input/action pairs wrap as controls, rather than squeezing the button. */
+:is(.workspace-page, .main-content) :is(.table-action-form, td > form:has(> button):has(> input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]))) {
+    display: flex;
+    align-items: flex-end;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+:is(.workspace-page, .main-content) :is(.table-action-form, td > form:has(> button)) > input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]):not([type="number"]):not([type="date"]):not([type="datetime-local"]) {
+    flex: 1 1 160px;
+    min-width: 120px;
+    min-height: 36px;
+    max-width: 100%;
+    box-sizing: border-box;
+}
+
 @media (max-width: 868px) {
     .main-content .cart-grid-layout {
         grid-template-columns: minmax(0, 1fr);
@@ -136,6 +194,11 @@
 
     .workspace-page .ops-table td {
         padding: 8px 10px;
+    }
+
+    .workspace-page .ops-table :is(button, .ops-btn) {
+        white-space: normal;
+        min-inline-size: min-content;
     }
 }
 

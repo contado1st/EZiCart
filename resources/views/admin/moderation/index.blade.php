@@ -107,7 +107,7 @@
                                             @endif
                                         @elseif ($user->status === 'approved')
                                             <form action="{{ route('admin.moderation.suspend', $user->id) }}"
-                                                method="POST" class="u-extracted-6d9d6fda77">
+                                                method="POST" class="table-action-form">
                                                 @csrf
                                                 <input type="text" name="suspension_reason"
                                                     placeholder="Violation reason..."
