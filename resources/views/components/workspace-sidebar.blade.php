@@ -88,6 +88,7 @@
             ],
         ],
     };
+    $navigation['Insights'] = [['analytics.index', 'diagram', 'Analytics', 'analytics.*']];
     $sidebarRole = match ($sidebarUser->role) {
         'admin', 'ecommerce_admin' => 'E-commerce admin',
         'logistics_admin' => 'Logistics admin',

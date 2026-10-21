@@ -10,6 +10,7 @@ use App\Http\Controllers\Admin\AdminModerationController;
 use App\Http\Controllers\Admin\AdminReportController;
 use App\Http\Controllers\Admin\LogisticsAdminController;
 use App\Http\Controllers\Admin\PlatformVoucherController;
+use App\Http\Controllers\AnalyticsController;
 use App\Http\Controllers\Auth\AuthController;
 use App\Http\Controllers\Auth\RiderActivationController;
 use App\Http\Controllers\Buyer\BuyerAddressController;
@@ -94,6 +95,10 @@ Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
 
 // 3. Protected Routes (Strictly Isolated by Role)
 Route::middleware(['auth', 'account.active', 'auth.session'])->group(function () {
+    Route::middleware('role:buyer,seller,courier,sorting_center,admin,ecommerce_admin,logistics_admin')->group(function () {
+        Route::get('/analytics', [AnalyticsController::class, 'index'])->name('analytics.index');
+        Route::get('/analytics/export', [AnalyticsController::class, 'export'])->middleware('throttle:10,1')->name('analytics.export');
+    });
     Route::get('/communication-counts', CommunicationCountController::class)->name('communications.counts');
     Route::middleware('role:buyer,seller,courier,sorting_center,admin,ecommerce_admin,logistics_admin')->group(function () {
         Route::get('/chat', ChatInboxController::class)->name('chat.index');

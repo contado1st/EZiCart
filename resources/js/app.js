@@ -3,6 +3,10 @@ import "./registration-name-inputs.js";
 if (document.querySelector('form[data-decision]')) {
     import('./interactions/decision-dialog.jsx');
 }
+if (document.querySelector('[data-analytics-charts]')) {
+    import('./analytics-charts.jsx');
+}
+document.querySelector('[data-analytics-print]')?.addEventListener('click', () => window.print());
 import "@h2d2/shopicons/es/regular/account";
 import "@h2d2/shopicons/es/regular/arrowback";
 import "@h2d2/shopicons/es/regular/bell";

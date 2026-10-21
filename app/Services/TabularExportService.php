@@ -19,22 +19,24 @@ class TabularExportService
     }
 
     /** A paginated text report using the PDF base font; no external renderer is required. */
-    public function pdf(array $lines): string
+    public function pdf(array $lines, array $graphicPages = []): string
     {
-        $pages = array_chunk($lines, 48);
+        $pages = array_merge($graphicPages, array_chunk($lines, 48));
         $objects = [1 => '<< /Type /Catalog /Pages 2 0 R >>', 3 => '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>'];
         $kids = [];
         foreach ($pages as $index => $page) {
             $pageId = 4 + $index * 2;
             $contentId = $pageId + 1;
             $kids[] = "$pageId 0 R";
-            $content = "BT /F1 10 Tf 40 800 Td 15 TL\n";
-            foreach ($page as $line) {
-                $line = iconv('UTF-8', 'Windows-1252//TRANSLIT//IGNORE', (string) $line);
-                $line = str_replace(['\\', '(', ')', "\r", "\n"], ['\\\\', '\\(', '\\)', ' ', ' '], $line);
-                $content .= "($line) Tj T*\n";
+            $content = is_string($page) ? $page : "BT /F1 10 Tf 40 800 Td 15 TL\n";
+            if (! is_string($page)) {
+                foreach ($page as $line) {
+                    $line = iconv('UTF-8', 'Windows-1252//TRANSLIT//IGNORE', (string) $line);
+                    $line = str_replace(['\\', '(', ')', "\r", "\n"], ['\\\\', '\\(', '\\)', ' ', ' '], $line);
+                    $content .= "($line) Tj T*\n";
+                }
+                $content .= 'ET';
             }
-            $content .= 'ET';
             $objects[$pageId] = "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R >> >> /Contents $contentId 0 R >>";
             $objects[$contentId] = '<< /Length '.strlen($content)." >>\nstream\n$content\nendstream";
         }

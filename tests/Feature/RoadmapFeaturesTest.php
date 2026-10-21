@@ -233,6 +233,24 @@ class RoadmapFeaturesTest extends TestCase
         $this->actingAsUser($this->user('seller'))->get(route('activity-logs.index'))->assertForbidden();
     }
 
+    public function test_activity_changes_show_readable_differences_and_preserve_recorded_data(): void
+    {
+        $admin = $this->user('ecommerce_admin');
+        $before = ['status' => 'PREPARING', 'nullable_field' => null, 'active' => false, 'unchanged' => 'same', 'nested' => ['a' => 1, 'b' => 2]];
+        $after = ['status' => 'READY_FOR_PICKUP', 'active' => true, 'new_field' => '<script>unsafe()</script>', 'unchanged' => 'same', 'nested' => ['b' => 2, 'a' => 1]];
+        app(AdministrativeAuditService::class)->record($admin, $admin, 'ready_for_pickup', $before, $after, 'Seller updated order fulfillment status.');
+        $audit = DB::table('administrative_audits')->first();
+
+        $this->actingAsUser($admin)->get(route('activity-logs.index'))->assertOk()
+            ->assertSee('View changes')->assertSee('Preparing')->assertSee('Ready For Pickup')
+            ->assertSee('Recorded reason')->assertSee('Only in before')->assertSee('Only in after')
+            ->assertSee('Not set (null)')->assertSee('Not recorded')->assertSee('2 unchanged fields')
+            ->assertSee('&lt;script&gt;unsafe()&lt;/script&gt;', false)->assertDontSee('<script>unsafe()</script>', false)
+            ->assertSee('View recorded snapshots (JSON)');
+        $this->assertSame($audit->previous_values, DB::table('administrative_audits')->value('previous_values'));
+        $this->assertSame($audit->new_values, DB::table('administrative_audits')->value('new_values'));
+    }
+
     public function test_full_refund_reverses_platform_subsidy_in_sales_report(): void
     {
         $order = $this->order(['status' => 'RETURNED_TO_SELLER', 'subtotal' => 100, 'discount_amount' => 20, 'platform_discount_amount' => 15, 'delivered_at' => now()->subDays(3)]);
