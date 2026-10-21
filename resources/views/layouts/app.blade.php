@@ -46,6 +46,7 @@
         <script src="{{ asset('js/workspace.js') }}?v={{ filemtime(public_path('js/workspace.js')) }}" defer></script>
     @endif
     <link rel="stylesheet" href="{{ asset('css/table-layout.css') }}?v={{ filemtime(public_path('css/table-layout.css')) }}">
+    <link rel="stylesheet" href="{{ asset('css/responsive-layout.css') }}?v={{ filemtime(public_path('css/responsive-layout.css')) }}">
     @vite('resources/js/app.js')
     <script src="{{ asset('js/password-visibility.js') }}?v={{ filemtime(public_path('js/password-visibility.js')) }}" defer></script>
     <script src="{{ asset('js/registration-name-inputs.js') }}?v={{ filemtime(public_path('js/registration-name-inputs.js')) }}" defer></script>

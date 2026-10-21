@@ -40,6 +40,6 @@
             else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
         }
     });
-    mobile.addEventListener('change', () => close());
+    mobile.addEventListener('change', () => close(sidebar.contains(document.activeElement)));
     close();
 })();
