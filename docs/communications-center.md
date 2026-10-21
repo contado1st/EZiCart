@@ -1,62 +1,92 @@
-# Communications center
+﻿# Communications center
 
-Implemented October 21, 2026. This surface extends the existing authenticated workspace with separate Messages and Notifications frames, using marketplace inbox patterns inspired by Shopee. It retains the workspace font and role palette through `--workspace-accent`, `--workspace-accent-hover`, and `--workspace-soft`. The global design documentation and tokens remain the authority for the surrounding workspace.
+Updated October 21, 2026. Messages are private conversations between exactly two users, alongside a separate Notifications feed. The existing drawer, sidebar, workspace typography, and commerce/logistics palettes are retained. `PRODUCT.md`, `DESIGN.md`, and `.impeccable/design.json` remain unchanged.
 
-## Entry points and access
+## Entry points and authorization
 
-The topbar chat entry opens `GET /chat` (`chat.index`); couriers also have a sidebar entry. The shared communications tabs link Messages and `GET /notifications` (`notifications.index`). Existing order message links continue to open the role-specific `*.orders.messages.show` route; sending uses the corresponding `*.orders.messages.store` route.
+The topbar chat icon and floating Messages button toggle the drawer. Workspace sidebar Chat/Messages entries open the full inbox. Shared communications tabs link Messages and Notifications.
 
-`/chat` supports the seven existing operational roles: `buyer`, `seller`, `courier`, `sorting_center`, `admin`, `ecommerce_admin`, and `logistics_admin`. Buyers and sellers list their own orders. Riders list orders for which they are the current pickup or delivery courier. Sorting centers list assigned orders and orders with their tracking involvement. Existing administrator access and per-thread participant authorization are retained. The interface does not create private buyer/seller/rider channels: each order has a shared conversation visible to its authorized participants.
+| Route | Behavior |
+| --- | --- |
+| `GET /chat` | Lists conversations containing the authenticated user. |
+| `GET /chat/contacts` | Lists authorized contacts. |
+| `POST /chat/start/{recipient}` | Creates or reopens the unique private conversation with that recipient. |
+| `GET /chat/conversations/{conversation}` | Opens history for one of its two participants. |
+| `POST /chat/conversations/{conversation}/messages` | Sends to the other participant after current contact authorization. |
 
-## Messages
+Supported roles are `buyer`, `seller`, `courier`, `sorting_center`, `admin`, `ecommerce_admin`, and `logistics_admin`. Contacts must be approved accounts. Contact eligibility includes current order participants, historical sorting centers recorded in parcel tracking, and sorting centers/riders linked through active service areas. Buyers can initiate pre-sale chats with sellers; sellers can reply once the pair's conversation exists. Commerce users can contact relevant commerce administrators, and operational logistics users can contact logistics administrators. Administrators can contact accounts in their managed role domains and other administrators.
 
-Desktop uses a conversation list beside the selected thread, with an empty selection panel on the inbox route. At widths of 760px and below, the inbox shows the list and a selected conversation shows the thread with an All conversations link. The list presents the partner, order number, actual latest message preview, and latest message date; orders without messages can start a conversation.
+Administrative role or order access does not grant access to another pair's private history. Reads and sends enforce participant membership on the server. Sending also rechecks current contact eligibility. Participants retain their own history if the relationship ends, while the composer becomes unavailable.
 
-Search matches an order number, seller business name, or buyer first name. Input is limited to 100 characters, and SQL wildcard characters are escaped so they are treated literally. The list paginates 15 orders per page and sorts by latest message, then order ID. Threads paginate 40 messages per page, presenting each page chronologically.
+Optional `order_id` context is authorized for both participants. It adds an order panel and role-appropriate View order link without creating another conversation. Each pair shares one private history across orders.
 
-The thread includes order context, a role-appropriate View order link, sender and role labels, timestamps, and distinct own/other message bubbles. The composer has a 2,000-character limit, a live counter, and Ctrl+Enter or Command+Enter submission. Sending redirects to the canonical role-specific thread URL so a message sent while viewing older history returns to the newest page. Refresh is manual.
+### Legacy order routes
 
-Message read state keeps the existing shared `read_at` behavior: opening a conversation marks unread messages from other senders as read. It is not a per-participant receipt. There is no realtime transport, presence, typing indicator, or delivery receipt.
+Existing role-specific `*.orders.messages.show` links open a recipient chooser for an authorized order. They no longer expose shared order history. The corresponding `*.orders.messages.store` POST requires `recipient_id`, checks both users' order access and contact eligibility, and sends one private message. It never broadcasts to order participants.
+
+Old `OrderConversation` and `OrderMessage` records remain stored, inaccessible through messaging routes and unmigrated. Group history is not copied into private conversations. Existing order-message notification links resolve through recipient selection.
+
+## Messages interface
+
+Desktop shows the conversation list beside a selected thread. At 760px and below, the inbox shows the list and a selected thread provides an All conversations link. Lists show the contact, real latest message preview and date, and recipient-specific unread count. New private chat opens the contact chooser.
+
+Inbox and contact search match names or business names, with a 100-character limit and literal SQL wildcard handling. The inbox paginates 15 conversations ordered by activity and ID; contacts paginate 20 people. Threads paginate 40 messages per page, presenting each page chronologically.
+
+The thread identifies the other participant and their role, with timestamps and own/other bubbles. The composer has a 2,000-character limit, live counter, and Ctrl+Enter or Command+Enter submission. Sending returns to the newest page, retaining optional order context and compact mode. Refresh is manual; there is no realtime transport, presence, or typing indicator.
+
+### Drawer
+
+The floating Messages button remains on the right; the buyer's For You entry remains on the left. The nonmodal `aside` closes through its toggle, close button, or Escape, including from the embedded inbox. Dismissal restores launcher focus; controls expose expanded state.
+
+The drawer loads `/chat?panel=1` once on first opening. Hiding the existing frame preserves its draft while the workspace page stays open. Compact mode uses the same private routes and authorization. Search, contacts, pagination, navigation, and successful sends retain `panel=1`. View order opens the parent window; Open full inbox remains available.
+
+### Read state and badges
+
+Messages badges count unread `DirectMessage` rows addressed to the current user. Only the selected recipient receives a `DirectMessageNotification`. Opening an authorized private conversation marks only messages addressed to that user read and clears only that user's direct-message notifications for the conversation. A sender opening history does not mark the recipient's messages read.
+
+Notifications badges count all of the user's unread notification records. Marking one or all notifications read does not mark direct messages read or reduce Messages counts. Legacy group-message notifications do not contribute to the new Messages count.
+
+Zero badges are hidden; values above 99 display `99+`, with full counts in accessible labels. Badges remain visible in collapsed navigation. Initial layout counts refresh through authenticated `GET /communication-counts` with `Cache-Control: private, no-store`. Polling runs every 30 seconds while visible, on focus/visibility changes, and after iframe loads. Failure preserves the last count.
 
 ## Notifications
 
-Notifications use a category sidebar and feed, with categories for all updates, orders, messages, stock, and account activity. All/Unread filters can be combined with a category. The feed paginates 20 notifications per page; displayed total and unread counts cover the account's notifications.
-
-Read operations use CSRF-protected POST routes:
+The existing feed retains all updates, orders, messages, stock, and account categories, combinable All/Unread filters, and 20-item pagination. Read operations use CSRF-protected POST routes:
 
 | Route | Behavior |
 | --- | --- |
 | `/notifications/{notification}/read` | Marks one owned notification read. |
-| `/notifications/read-all` | Marks all unread notifications for the account read. |
-| `/notifications/{notification}/open` | Marks an owned notification read and opens its safe internal destination. |
+| `/notifications/read-all` | Marks the account's unread notifications read. |
+| `/notifications/{notification}/open` | Marks an owned notification read and opens a safe internal destination. |
 
-Individual operations resolve notifications through the authenticated user's relationship. Opening an update accepts internal paths or URLs on the request/configured application host, then redirects using the path and query; unsafe destinations return to Notifications. On mobile, category navigation wraps above the feed and notification actions reflow beneath the content.
+Operations resolve through the authenticated user's notification relationship. Opening accepts internal paths or URLs on the request/configured application host, redirecting using path and query; unsafe destinations return to Notifications. A direct-message destination independently enforces private history authorization. Mobile categories wrap above the feed and actions reflow beneath content.
 
-## Implementation references
+## Implementation and operations
 
-- `resources/views/layouts/communications.blade.php`: shared heading, tabs, status, and validation feedback.
-- `resources/views/components/conversation-list.blade.php`: conversation search, previews, selection, and pagination.
-- `resources/views/orders/inbox.blade.php` and `messages.blade.php`: inbox selection and shared thread.
-- `resources/views/notifications/index.blade.php`: categories, filters, feed, and read actions.
-- `app/Services/MessagingInboxService.php`: actor-scoped list, search, ordering, and role-specific destinations.
-- `ChatInboxController`, `OrderMessageController`, and `NotificationController`: rendering and protected operations; `OrderConversation.latestMessage` supplies real previews.
-- `public/css/communications.css` and `public/js/communications.js`: scoped responsive styles and composer behavior. These assets are served directly by the shared layout; Vite entrypoints were not changed.
+- `app/Models/DirectConversation.php` and `DirectMessage.php`: immutable two-user pairs, messages, and recipient read timestamps. IDs are ordered before creation, with a unique pair key preventing duplicates systemwide.
+- `app/Services/DirectMessagingService.php`: contact rules, authorized creation, locked sending, optional order authorization, and sole-recipient notification delivery.
+- `MessagingInboxService`, `ChatInboxController`, and `DirectMessageController`: participant-scoped search, inbox, contacts, history, and private routes. `OrderMessageController` adapts legacy routes to recipient selection and private sending.
+- `CommunicationUnreadService`, `CommunicationCountController`, and `DirectMessageNotification`: recipient message counts and alerts, independent of notification read state.
+- `resources/views/orders/{inbox,contacts,messages}.blade.php`, shared communications layouts, and conversation-list components: inbox, recipient chooser, and private thread. Existing drawer, compact shell, navigation/count components, and notification feed remain in use.
+- `public/css/communications.css`, `message-drawer.css`, and `communication-badges.css`, with corresponding JavaScript: scoped styles, composer behavior, drawer controls, and polling. These assets are served directly; Vite entrypoints and dependencies are unchanged.
 
-The implementation adds no schema or dependency changes. Styles provide visible keyboard focus, labeled controls, wrapping for long content, and reduced-motion rules. Local differences in color, typography, and radius flagged by the design detector were reviewed as an extension of this workspace surface; they did not trigger a global token rewrite.
+The additive migration `database/migrations/2026_10_21_074125_create_direct_conversations_and_messages_tables.php` creates `direct_conversations` and `direct_messages`. It was applied successfully to the local database. Other environments must apply it before exposing private chat. Old group tables and records are retained. Existing transaction-aware notification delivery and queue configuration continue to apply.
+
+Styles inherit the established role palettes. Source provides labeled controls, visible focus, long-content wrapping, and reduced-motion rules. These are implementation descriptions, not visually verified results.
 
 ## Recorded checks and limits
 
-The following results were supplied by the implementation and review work; documentation inspection is not an additional test run.
+The implementation owner supplied these results; documentation inspection did not run checks:
 
 | Check | Result |
 | --- | --- |
-| Communications center and existing order messaging coverage | Passed: 10 tests, 108 assertions. |
-| Focused roadmap chat and logistics notification ownership coverage | Passed: 2 tests, 14 assertions. |
-| Regression for sending from older message history | Passed: 1 test, 11 assertions. |
-| Blade compilation | Passed. |
-| JavaScript syntax | Passed. |
-| CSS parsing | Passed, zero warnings. |
-| `npm run build` | Passed after the user authorized a retry. Existing optional `fontaine` warning remains. |
-| Browser and responsive visual review | Blocked: no enabled browser or app surfaces were available. |
+| Combined CommunicationsCenterTest and OrderMessagingTest | Passed: 17 tests, 168 assertions, including historical sorting-center and service-area coverage. |
+| Focused RoadmapFeaturesTest chat test | Passed: 1 test, 6 assertions; a separate run. |
+| Blade template compilation | Passed. |
+| Chat route listing | Passed: five chat routes confirmed. |
+| CSS parsing | Passed: zero warnings. |
+| `git diff --check` | Passed. |
+| PHP formatting | Pint applied to affected PHP. |
+| Browser and responsive visual review | Blocked: no enabled browser or app surfaces. |
+| npm build for private-chat public-asset changes | Not run. |
 
-The first review identified the older-history send redirect issue described above; it was fixed and covered by the regression check. The follow-up reviewer scored that finding resolved at code scope. Existing roadmap documentation is preserved in `docs/roadmap-implementation-report.md`.
+Fresh code review identified a historical sorting-center contact issue. It was corrected and the reviewer reported it resolved through source inspection. Earlier shared-chat, drawer, and badge test/build totals describe historical implementations and do not establish private-chat coverage. Live mail delivery and production worker operation were not verified by this documentation pass.

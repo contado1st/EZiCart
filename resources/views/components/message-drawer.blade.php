@@ -1,0 +1,5 @@
+<button class="message-drawer-launcher" type="button" data-message-drawer-toggle data-communication-label="Messages" aria-label="Messages{{ $communicationCounts['messages'] ? ', '.$communicationCounts['messages'].' unread' : '' }}" aria-controls="message-drawer" aria-expanded="false" hidden><x-shop-icon name="chat" /><span>Messages</span><x-communication-count kind="messages" :count="$communicationCounts['messages']" /></button>
+<aside id="message-drawer" class="message-drawer" aria-labelledby="message-drawer-title" hidden>
+    <header class="message-drawer-heading"><h2 id="message-drawer-title"><x-shop-icon name="chat" /> Messages</h2><div><a href="{{ route('chat.index') }}" title="Open full inbox" aria-label="Open full inbox"><x-shop-icon name="arrowback" /></a><button type="button" data-message-drawer-close aria-label="Collapse messages" title="Collapse messages"><x-shop-icon name="close" /></button></div></header>
+    <iframe class="message-drawer-frame" title="Your order messages" data-message-drawer-frame data-src="{{ route('chat.index', ['panel' => 1]) }}"></iframe>
+</aside>

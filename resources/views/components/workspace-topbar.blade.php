@@ -16,7 +16,7 @@
         'logistics_admin' => ['Hub transfers', 'parcel-transfers.index'],
         default => ['Review applications', 'admin.registrations.index'],
     };
-    $workspaceUnread = $workspaceUser->unreadNotifications()->count();
+    $workspaceUnread = $communicationCounts['notifications'];
 @endphp
 <a class="workspace-skip" href="#workspace-content">Skip to content</a>
 <header class="workspace-topbar">
@@ -36,10 +36,10 @@
             <time class="workspace-date" datetime="{{ now()->toDateString() }}">{{ now()->format('D, d M Y') }}</time>
             <a class="workspace-primary-action" href="{{ route($workspaceActionRoute) }}">{{ $workspaceAction }}<x-shop-icon name="arrowback" /></a>
             <span class="workspace-toolbar-divider" aria-hidden="true"></span>
-            <a class="workspace-icon-button" href="{{ route('chat.index') }}" aria-label="Messages" title="Messages"><x-shop-icon name="chat" /></a>
-            <a class="workspace-icon-button" href="{{ route('notifications.index') }}" aria-label="Notifications{{ $workspaceUnread ? ', '.$workspaceUnread.' unread' : '' }}" title="Notifications">
+            <a class="workspace-icon-button" href="{{ route('chat.index') }}" data-message-drawer-toggle data-communication-label="Messages" aria-label="Messages{{ $communicationCounts['messages'] ? ', '.$communicationCounts['messages'].' unread' : '' }}" title="Messages"><x-shop-icon name="chat" /><x-communication-count kind="messages" :count="$communicationCounts['messages']" /></a>
+            <a class="workspace-icon-button" href="{{ route('notifications.index') }}" data-communication-label="Notifications" aria-label="Notifications{{ $workspaceUnread ? ', '.$workspaceUnread.' unread' : '' }}" title="Notifications">
                 <x-shop-icon name="bell" />
-                @if ($workspaceUnread)<span class="workspace-unread" aria-hidden="true"></span>@endif
+                <x-communication-count kind="notifications" :count="$workspaceUnread" />
             </a>
             <a class="workspace-avatar" href="{{ route('account.profile.edit') }}" aria-label="Your profile" title="{{ $workspaceUser->first_name }} {{ $workspaceUser->last_name }}">
                 {{ mb_strtoupper(mb_substr($workspaceUser->first_name, 0, 1).mb_substr($workspaceUser->last_name, 0, 1)) }}

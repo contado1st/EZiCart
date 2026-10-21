@@ -117,3 +117,25 @@
 @media(max-width:760px) { .communications-brand { display: none; } .communications-heading h1 { font-size: 23px; } .communications-tabs { margin-bottom: 18px; } .messaging-frame { display: block; height: auto; min-height: 460px; } .messaging-frame--inbox .conversation-list { border: 0; min-height: 440px; max-height: 70dvh; } .messaging-frame--inbox .conversation-empty { display: none; } .messaging-frame--thread .conversation-list { display: none; } .conversation-thread { min-height: 580px; height: calc(100dvh - 230px); } .conversation-mobile-back { display: inline-flex; align-items: center; gap: 5px; margin-bottom: 12px; color: var(--connect-accent); text-decoration: none; font-size: 11px; } .conversation-mobile-back .shop-icon { width: 14px; height: 14px; } .conversation-thread-heading { padding: 16px; } .conversation-order-context { margin: 12px 16px 0; } .conversation-history { padding: 20px 16px; } .conversation-composer { padding: 14px 16px; } .conversation-bubble { max-width: 92%; } .notification-frame { grid-template-columns: minmax(0, 1fr); gap: 16px; } .notification-sidebar { display: flex; flex-wrap: wrap; gap: 6px; padding: 10px; } .notification-sidebar :is(h2, p) { display: none; } .notification-sidebar > a { padding: 8px 10px; margin: 0; font-size: 11px; } .notification-sidebar .shop-icon { width: 16px; height: 16px; } }
 @media(max-width:480px) { .notification-feed-heading { align-items: flex-start; padding: 18px 16px; } .notification-feed-heading .communications-text-link { font-size: 10px; } .notification-filters { padding-inline: 16px; } .notification-item { padding: 18px 16px; gap: 10px; flex-wrap: wrap; } .notification-item-icon { flex-basis: 34px; width: 34px; height: 34px; } .notification-item-copy { flex-basis: calc(100% - 44px); } .notification-item-actions { flex-direction: row; align-items: center; padding-left: 44px; } .conversation-order-context { flex-wrap: wrap; } .conversation-thread-heading h2 { font-size: 14px; } .communications-heading p { font-size: 12px; } }
 @media(prefers-reduced-motion:reduce) { .communications * { scroll-behavior: auto !important; transition: none !important; } }
+.communications-embedded { margin: 0; background: #fff; --workspace-accent: #be2854; --workspace-accent-hover: #9f2046; --workspace-soft: #fff0f4; }
+.communications-embedded--logistics { --workspace-accent: #71384f; --workspace-accent-hover: #57263b; --workspace-soft: #eee7f4; }
+.communications-embedded, .communications-embedded * { font-family: "Instrument Sans", ui-sans-serif, system-ui, sans-serif; }
+.communications-embedded .communications { height: 100dvh; overflow: hidden; }
+.communications-embedded :is(.communications-heading, .communications-tabs, .messaging-frame--inbox .conversation-empty, .messaging-frame--thread .conversation-list) { display: none; }
+.communications-embedded .messaging-frame { display: block; height: 100dvh; min-height: 0; border: 0; border-radius: 0; }
+.communications-embedded .messaging-frame--inbox .conversation-list { height: 100%; max-height: none; min-height: 0; border: 0; }
+.communications-embedded .conversation-thread { height: 100%; min-height: 0; }
+.communications-embedded .conversation-mobile-back { display: inline-flex; align-items: center; gap: 5px; margin-bottom: 10px; color: var(--workspace-accent); font-size: 11px; text-decoration: none; }
+.communications-embedded .conversation-mobile-back .shop-icon { width: 14px; height: 14px; }
+.communications-embedded .communications-notice { margin: 8px; }
+.communications-embedded .communications:has(> .communications-notice) { display: flex; flex-direction: column; }
+.communications-embedded .communications:has(> .communications-notice) .messaging-frame { flex: 1; min-height: 0; height: auto; }
+.conversation-contacts { background: #fff; border: 1px solid var(--connect-line); border-radius: 14px; overflow: auto; }
+.conversation-contact { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 16px 20px; border-bottom: 1px solid var(--connect-line); }
+.conversation-contact div { min-width: 0; overflow-wrap: anywhere; }
+.conversation-contact small { display: block; margin-top: 4px; text-transform: capitalize; }
+.conversation-contact button { flex-shrink: 0; padding: 8px 12px; border: 1px solid currentColor; border-radius: 8px; color: var(--connect-accent); background: transparent; }
+.conversation-contact button:hover { background: var(--connect-soft); }
+.conversation-contact button:focus-visible { outline: 2px solid var(--connect-accent); outline-offset: 3px; }
+.conversation-unread { background: var(--connect-accent); color: #fff; border-radius: 999px; padding: 3px 7px; font-size: 11px; font-weight: 700; }
+.communications-embedded .conversation-contacts { height: 100dvh; border: 0; border-radius: 0; }

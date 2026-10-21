@@ -2,11 +2,13 @@
 
 namespace Tests\Feature;
 
+use App\Models\Area;
+use App\Models\DirectConversation;
 use App\Models\Order;
 use App\Models\OrderConversation;
 use App\Models\ParcelTrackingEvent;
 use App\Models\User;
-use App\Notifications\OrderMessageNotification;
+use App\Notifications\DirectMessageNotification;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -26,80 +28,102 @@ class OrderMessagingTest extends TestCase
         $buyer = $this->user('buyer');
         $seller = $this->user('seller');
         $order = $this->order($buyer, $seller);
-        $otherBuyer = $this->user('buyer');
-        $rider = $this->user('courier');
-
-        $this->actingAsUser($buyer)->get(route('buyer.orders.messages.show', $order))->assertOk()->assertSee('No messages yet');
-        $this->post(route('buyer.orders.messages.store', $order), ['body' => '<script>alert(1)</script> Please confirm the order details.'])
-            ->assertRedirect()->assertSessionHas('success');
-
-        $conversation = OrderConversation::query()->where('order_id', $order->id)->firstOrFail();
-        $firstMessage = $conversation->messages()->firstOrFail();
-        $this->assertSame($buyer->id, $firstMessage->sender_id);
-        $this->assertSame(1, OrderConversation::query()->where('order_id', $order->id)->count());
-        $sellerNotification = $seller->notifications()->firstOrFail();
-        $this->assertSame($order->order_number, $sellerNotification->data['order_number']);
-        $this->assertStringNotContainsString('script', $sellerNotification->data['message']);
-
-        $this->actingAsUser($seller)->get(route('seller.orders.messages.show', $order))
-            ->assertOk()->assertSee('&lt;script&gt;', false)->assertDontSee('<script>alert(1)</script>', false);
-        $this->assertNotNull($firstMessage->fresh()->read_at);
-
-        $this->post(route('seller.orders.messages.store', $order), ['body' => 'Thanks, the order is confirmed.'])->assertRedirect();
-        $this->actingAsUser($buyer)->get(route('buyer.orders.messages.show', $order))->assertOk()->assertSee('Thanks, the order is confirmed.');
-        $this->assertNotNull($conversation->messages()->latest('id')->firstOrFail()->read_at);
-
-        $this->actingAsUser($otherBuyer)->get(route('buyer.orders.messages.show', $order))->assertForbidden();
-        $this->post(route('buyer.orders.messages.store', $order), ['body' => 'Unauthorized'])->assertForbidden();
-        $this->actingAsUser($rider)->post(route('buyer.orders.messages.store', $order), ['body' => 'Unassigned couriers cannot read this thread.'])->assertForbidden();
+        $this->actingAsUser($buyer)->get(route('buyer.orders.messages.show', $order))->assertOk()->assertSee('Choose a contact');
+        $this->postJson(route('buyer.orders.messages.store', $order), ['body' => 'Missing recipient'])->assertJsonValidationErrors('recipient_id');
+        $this->post(route('buyer.orders.messages.store', $order), ['recipient_id' => $seller->id, 'body' => '<script>alert(1)</script> Please confirm.'])->assertRedirect();
+        $conversation = DirectConversation::firstOrFail();
+        $message = $conversation->messages()->firstOrFail();
+        $this->assertSame($seller->id, $message->recipient_id);
+        $this->assertSame(1, $seller->notifications()->count());
+        $this->actingAsUser($seller)->get(route('chat.show', $conversation))->assertOk()->assertSee('&lt;script&gt;', false)->assertDontSee('<script>alert(1)</script>', false);
+        $this->assertNotNull($message->fresh()->read_at);
+        $this->post(route('chat.store', $conversation), ['body' => 'Order confirmed.'])->assertRedirect();
+        $this->actingAsUser($buyer)->get(route('chat.show', $conversation))->assertOk()->assertSee('Order confirmed.');
+        foreach (['buyer', 'courier', 'admin', 'logistics_admin', 'sorting_center'] as $role) {
+            $this->actingAsUser($this->user($role))->get(route('chat.show', $conversation))->assertForbidden();
+            $this->post(route('chat.store', $conversation), ['body' => 'Unauthorized'])->assertForbidden();
+        }
     }
 
     public function test_assigned_courier_and_involved_logistics_user_can_coordinate_in_the_order_thread(): void
     {
         $buyer = $this->user('buyer');
         $seller = $this->user('seller');
-        $courier = $this->user('courier');
+        $rider = $this->user('courier');
         $center = $this->user('sorting_center');
-        $admin = $this->user('admin');
         $order = $this->order($buyer, $seller);
-        $order->forceFill([
-            'pickup_courier_id' => $courier->id,
-            'sorting_center_id' => $center->id,
-        ])->save();
-
-        $this->actingAsUser($courier)->get(route('courier.orders.messages.show', $order))->assertOk();
-        $this->post(route('courier.orders.messages.store', $order), ['body' => 'I have arrived for pickup.'])->assertRedirect();
-        $this->assertDatabaseHas('notifications', [
-            'notifiable_id' => $buyer->id,
-            'type' => OrderMessageNotification::class,
-        ]);
-        $this->assertDatabaseHas('notifications', [
-            'notifiable_id' => $seller->id,
-            'type' => OrderMessageNotification::class,
-        ]);
-        $centerNotification = $center->notifications()->firstOrFail();
-        $this->assertSame(route('logistics.orders.messages.show', $order), $centerNotification->data['url']);
-
-        $this->actingAsUser($center)->get(route('logistics.orders.messages.show', $order))
-            ->assertOk()->assertSee('I have arrived for pickup.');
-
+        $order->forceFill(['pickup_courier_id' => $rider->id, 'sorting_center_id' => $center->id])->save();
+        $this->actingAsUser($rider)->post(route('courier.orders.messages.store', $order), ['recipient_id' => $seller->id, 'body' => 'Private pickup details.'])->assertRedirect();
+        $private = DirectConversation::firstOrFail();
+        $this->assertSame(0, $buyer->notifications()->count());
+        $this->assertSame(0, $center->notifications()->count());
+        $this->assertSame(1, $seller->notifications()->where('type', DirectMessageNotification::class)->count());
+        $this->actingAsUser($center)->get(route('chat.show', $private))->assertForbidden();
+        $this->post(route('logistics.orders.messages.store', $order), ['recipient_id' => $rider->id, 'body' => 'Private hub update.'])->assertRedirect();
+        $this->assertSame(2, DirectConversation::count());
+        $this->actingAsUser($seller)->get(route('chat.show', $private))->assertOk()->assertDontSee('Private hub update.');
         $order->forceFill(['pickup_courier_id' => null])->save();
-        ParcelTrackingEvent::query()->create([
-            'order_id' => $order->id,
-            'actor_id' => $courier->id,
-            'event_type' => 'pickup_declined',
-            'status' => $order->status,
-            'notes' => 'Rider declined the pickup.',
-        ]);
-        $this->actingAsUser($courier)->get(route('courier.orders.messages.show', $order))->assertForbidden();
+        $this->actingAsUser($rider)->get(route('chat.show', $private))->assertOk()->assertSee('Private pickup details.')->assertSee('Messaging is unavailable');
+        $this->post(route('chat.store', $private), ['body' => 'No longer assigned'])->assertForbidden();
+    }
 
-        $unrelatedCenter = $this->user('sorting_center');
-        $this->actingAsUser($unrelatedCenter)->get(route('logistics.orders.messages.show', $order))->assertForbidden();
+    public function test_contact_policy_pair_reuse_and_inactive_accounts(): void
+    {
+        $buyer = $this->user('buyer');
+        $seller = $this->user('seller');
+        $rider = $this->user('courier');
+        $admin = $this->user('ecommerce_admin');
+        $logisticsAdmin = $this->user('logistics_admin');
+        $this->actingAsUser($buyer)->get(route('chat.contacts'))->assertOk();
+        $this->post(route('chat.start', $seller))->assertRedirect();
+        $conversation = DirectConversation::firstOrFail();
+        $this->actingAsUser($seller)->post(route('chat.start', $buyer))->assertRedirectToRoute('chat.show', $conversation);
+        $this->assertSame(1, DirectConversation::count());
+        $this->actingAsUser($buyer)->post(route('chat.start', $buyer))->assertForbidden();
+        $this->post(route('chat.start', $rider))->assertForbidden();
+        $this->post(route('chat.start', $logisticsAdmin))->assertForbidden();
+        $this->post(route('chat.start', $admin))->assertRedirect();
+        $this->actingAsUser($rider)->post(route('chat.start', $logisticsAdmin))->assertRedirect();
+        $this->post(route('chat.start', $admin))->assertForbidden();
+        $seller->forceFill(['status' => 'pending'])->save();
+        $this->actingAsUser($buyer)->post(route('chat.store', $conversation), ['body' => 'Inactive recipient'])->assertForbidden();
+        $this->get(route('chat.show', $conversation))->assertOk()->assertSee('Messaging is unavailable');
+    }
 
-        $this->actingAsUser($admin)->get(route('admin.orders.messages.show', $order))->assertOk();
-        $this->post(route('admin.orders.messages.store', $order), ['body' => 'Support is reviewing the delivery update.'])->assertRedirect();
-        $this->actingAsUser($seller)->get(route('seller.orders.messages.show', $order))
-            ->assertOk()->assertSee('Support is reviewing the delivery update.');
+    public function test_legacy_group_history_is_preserved_without_being_exposed_or_broadcast(): void
+    {
+        $buyer = $this->user('buyer');
+        $seller = $this->user('seller');
+        $order = $this->order($buyer, $seller);
+        $legacy = OrderConversation::create(['order_id' => $order->id]);
+        $legacy->messages()->create(['sender_id' => $buyer->id, 'body' => 'Legacy shared secret.']);
+        $this->actingAsUser($buyer)->get(route('buyer.orders.messages.show', $order))->assertOk()->assertDontSee('Legacy shared secret.');
+        $this->post(route('chat.start', $seller))->assertRedirect();
+        $conversation = DirectConversation::firstOrFail();
+        $this->get(route('chat.show', $conversation))->assertOk()->assertDontSee('Legacy shared secret.');
+        $this->assertDatabaseHas('order_messages', ['body' => 'Legacy shared secret.']);
+        $unrelated = $this->order($this->user('buyer'), $this->user('seller'));
+        $this->post(route('chat.store', $conversation), ['body' => 'Forged order', 'order_id' => $unrelated->id])->assertForbidden();
+        $this->assertSame(0, $conversation->messages()->count());
+        $this->postJson(route('chat.store', $conversation), ['body' => str_repeat('a', 2001)])->assertJsonValidationErrors('body');
+    }
+
+    public function test_service_area_riders_and_previous_sorting_centers_remain_related_contacts(): void
+    {
+        $center = $this->user('sorting_center');
+        $rider = $this->user('courier');
+        $area = Area::create(['name' => 'Test service area', 'code' => 'DM-AREA', 'is_active' => true, 'sorting_center_id' => $center->id]);
+        $rider->serviceAreas()->attach($area->id, ['is_active' => true, 'is_primary' => true]);
+        $this->actingAsUser($center)->post(route('chat.start', $rider))->assertRedirect();
+        $pair = DirectConversation::firstOrFail();
+        $this->actingAsUser($rider)->post(route('chat.start', $center))->assertRedirectToRoute('chat.show', $pair);
+        $buyer = $this->user('buyer');
+        $seller = $this->user('seller');
+        $order = $this->order($buyer, $seller);
+        ParcelTrackingEvent::create(['order_id' => $order->id, 'actor_id' => $center->id, 'event_type' => 'received', 'status' => $order->status]);
+        $this->actingAsUser($buyer)->post(route('chat.start', $center))->assertRedirect();
+        $this->actingAsUser($center)->post(route('chat.start', $seller))->assertRedirect();
+        $this->post(route('chat.start', $this->user('buyer')))->assertForbidden();
     }
 
     private function actingAsUser(User $user): static

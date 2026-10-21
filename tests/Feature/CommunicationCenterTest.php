@@ -3,11 +3,10 @@
 namespace Tests\Feature;
 
 use App\Models\Order;
-use App\Models\OrderConversation;
-use App\Models\OrderMessage;
 use App\Models\User;
 use App\Notifications\OrderMessageNotification;
 use App\Notifications\OrderStatusNotification;
+use App\Services\DirectMessagingService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Str;
 use Tests\TestCase;
@@ -27,30 +26,28 @@ class CommunicationCenterTest extends TestCase
         $order = $this->order();
         $rider = $this->user('courier');
         $order->forceFill(['delivery_courier_id' => $rider->id])->save();
-        $other = $this->order();
-        foreach ([$order->buyer, $order->seller, $rider] as $actor) {
-            $this->signIn($actor)->get(route('chat.index'))->assertOk()->assertSee($order->order_number)->assertDontSee($other->order_number)->assertSee('All conversations');
-            $this->get(route('chat.index', ['q' => $other->order_number]))->assertOk()->assertViewHas('threads', fn ($threads) => $threads->total() === 0);
+        $conversation = app(DirectMessagingService::class)->start($order->buyer, $order->seller);
+        foreach ([$order->buyer, $order->seller] as $actor) {
+            $this->signIn($actor)->get(route('chat.index'))->assertOk()->assertViewHas('threads', fn ($threads) => $threads->total() === 1)->assertSee('All conversations');
+            $this->get(route('chat.index', ['q' => 'unmatched-name']))->assertOk()->assertViewHas('threads', fn ($threads) => $threads->total() === 0);
         }
-        $order->forceFill(['delivery_courier_id' => null])->save();
-        $this->signIn($rider)->get(route('chat.index'))->assertOk()->assertDontSee($order->order_number);
-        $this->get(route('courier.orders.messages.show', $order))->assertForbidden();
+        $this->signIn($rider)->get(route('chat.index'))->assertOk()->assertViewHas('threads', fn ($threads) => $threads->total() === 0);
+        $this->get(route('chat.show', $conversation))->assertForbidden();
     }
 
     public function test_conversation_preview_is_latest_message_and_history_is_paginated_and_escaped(): void
     {
         $order = $this->order();
-        $conversation = OrderConversation::create(['order_id' => $order->id]);
+        $conversation = app(DirectMessagingService::class)->start($order->buyer, $order->seller);
         foreach (range(1, 42) as $number) {
-            OrderMessage::create(['conversation_id' => $conversation->id, 'sender_id' => $order->seller_id, 'body' => 'Message number '.$number]);
+            $conversation->messages()->create(['sender_id' => $order->seller_id, 'recipient_id' => $order->buyer_id, 'body' => 'Message number '.$number]);
         }
-        $this->signIn($order->buyer)->get(route('buyer.orders.messages.show', $order))->assertOk()
+        $this->signIn($order->buyer)->get(route('chat.show', $conversation))->assertOk()
             ->assertViewHas('messages', fn ($messages) => $messages->total() === 42 && $messages->count() === 40 && $messages->first()->body === 'Message number 3' && $messages->last()->body === 'Message number 42');
-        $this->get(route('buyer.orders.messages.show', [$order, 'messages_page' => 2]))->assertOk()->assertViewHas('messages', fn ($messages) => $messages->count() === 2 && $messages->first()->body === 'Message number 1');
-        $this->get(route('chat.index'))->assertOk()->assertViewHas('threads', fn ($threads) => $threads->first()->conversation->latestMessage->body === 'Message number 42');
-        $this->from(route('buyer.orders.messages.show', [$order, 'messages_page' => 2]))
-            ->post(route('buyer.orders.messages.store', $order), ['body' => '<script>unsafe()</script>'])->assertRedirectToRoute('buyer.orders.messages.show', $order);
-        $this->get(route('buyer.orders.messages.show', $order))->assertOk()->assertSee('&lt;script&gt;unsafe()&lt;/script&gt;', false)->assertDontSee('<script>unsafe()</script>', false);
+        $this->get(route('chat.show', [$conversation, 'messages_page' => 2]))->assertOk()->assertViewHas('messages', fn ($messages) => $messages->count() === 2);
+        $this->get(route('chat.index'))->assertOk()->assertViewHas('threads', fn ($threads) => $threads->first()->latestMessage->body === 'Message number 42');
+        $this->post(route('chat.store', $conversation), ['body' => '<script>unsafe()</script>'])->assertRedirectToRoute('chat.show', $conversation);
+        $this->get(route('chat.show', $conversation))->assertOk()->assertSee('&lt;script&gt;unsafe()&lt;/script&gt;', false)->assertDontSee('<script>unsafe()</script>', false);
     }
 
     public function test_invalid_search_and_blank_messages_are_rejected(): void
@@ -111,6 +108,61 @@ class CommunicationCenterTest extends TestCase
         $this->get(route('chat.index'))->assertRedirectToRoute('login');
         $this->get(route('notifications.index'))->assertRedirectToRoute('login');
         $this->post(route('notifications.read-all'))->assertRedirectToRoute('login');
+        $this->get(route('communications.counts'))->assertRedirectToRoute('login');
+    }
+
+    public function test_unread_badges_count_each_recipients_alerts_and_clear_only_the_opened_thread(): void
+    {
+        $order = $this->order();
+        $rider = $this->user('courier');
+        $order->forceFill(['delivery_courier_id' => $rider->id])->save();
+        $conversation = app(DirectMessagingService::class)->start($order->seller, $order->buyer);
+        $this->signIn($order->seller)->post(route('chat.store', $conversation), ['body' => 'Please confirm the delivery details.'])->assertRedirect();
+        $this->notification($order->buyer, 'An order status update');
+        $this->signIn($order->buyer)->get(route('communications.counts'))->assertExactJson(['messages' => 1, 'notifications' => 2]);
+        $this->get(route('chat.index'))->assertOk()->assertSee('aria-label="Messages, 1 unread"', false);
+        $this->post(route('notifications.read-all'))->assertRedirect();
+        $this->get(route('communications.counts'))->assertExactJson(['messages' => 1, 'notifications' => 0]);
+        $this->get(route('chat.show', [$conversation, 'panel' => 1]))->assertOk();
+        $this->get(route('communications.counts'))->assertExactJson(['messages' => 0, 'notifications' => 0]);
+        $this->signIn($rider)->get(route('communications.counts'))->assertExactJson(['messages' => 0, 'notifications' => 0]);
+    }
+
+    public function test_reading_one_conversation_keeps_other_message_badges_unread(): void
+    {
+        $order = $this->order();
+        $other = $this->order();
+        $other->forceFill(['buyer_id' => $order->buyer_id])->save();
+        $service = app(DirectMessagingService::class);
+        $first = $service->start($order->seller, $order->buyer);
+        $second = $service->start($other->seller, $order->buyer);
+        $this->signIn($order->seller)->post(route('chat.store', $first), ['body' => 'First order message.'])->assertRedirect();
+        $this->signIn($other->seller)->post(route('chat.store', $second), ['body' => 'Other order message.'])->assertRedirect();
+        $this->signIn($order->buyer)->get(route('communications.counts'))->assertExactJson(['messages' => 2, 'notifications' => 2]);
+        $this->get(route('chat.show', $first))->assertOk();
+        $this->get(route('communications.counts'))->assertExactJson(['messages' => 1, 'notifications' => 1]);
+    }
+
+    public function test_message_drawer_is_available_to_signed_in_users_and_loads_a_compact_inbox(): void
+    {
+        $order = $this->order();
+        $conversation = app(DirectMessagingService::class)->start($order->buyer, $order->seller);
+        $this->signIn($order->buyer)->get(route('home'))->assertOk()->assertSee('id="message-drawer"', false)->assertSee('data-message-drawer-toggle', false);
+        $this->get(route('chat.index', ['panel' => 1]))->assertOk()->assertSee('communications-embedded', false)
+            ->assertDontSee('workspace-topbar', false)->assertDontSee('id="message-drawer"', false)
+            ->assertSee(route('chat.show', [$conversation, 'panel' => 1]));
+        $this->get(route('chat.show', [$conversation, 'panel' => 1, 'order_id' => $order->id]))->assertOk()
+            ->assertSee('name="panel" value="1"', false)->assertSee('target="_top"', false)->assertDontSee('workspace-topbar', false);
+    }
+
+    public function test_sending_in_the_drawer_preserves_compact_mode_and_existing_permissions(): void
+    {
+        $order = $this->order();
+        $conversation = app(DirectMessagingService::class)->start($order->buyer, $order->seller);
+        $this->signIn($order->buyer)->post(route('chat.store', $conversation), ['body' => 'Sent from the side panel.', 'panel' => 1])
+            ->assertRedirectToRoute('chat.show', [$conversation, 'panel' => 1]);
+        $this->assertDatabaseHas('direct_messages', ['sender_id' => $order->buyer_id, 'recipient_id' => $order->seller_id, 'body' => 'Sent from the side panel.']);
+        $this->signIn($this->user('courier'))->get(route('chat.show', [$conversation, 'panel' => 1]))->assertForbidden();
     }
 
     private function signIn(User $user): static

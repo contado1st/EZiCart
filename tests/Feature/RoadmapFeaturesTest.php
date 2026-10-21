@@ -14,6 +14,7 @@ use App\Models\RefundExecution;
 use App\Models\User;
 use App\Services\AdministrativeAuditService;
 use App\Services\CheckoutPricingService;
+use App\Services\DirectMessagingService;
 use App\Services\OrderTransitionService;
 use App\Services\SalesReportService;
 use App\Services\StockSubscriptionService;
@@ -83,7 +84,8 @@ class RoadmapFeaturesTest extends TestCase
     {
         $order = $this->order();
         $other = $this->order();
-        $this->actingAsUser($order->buyer)->get(route('chat.index'))->assertOk()->assertSee($order->order_number)->assertDontSee($other->order_number);
+        $conversation = app(DirectMessagingService::class)->start($order->buyer, $order->seller);
+        $this->actingAsUser($order->buyer)->get(route('chat.index'))->assertOk()->assertViewHas('threads', fn ($threads) => $threads->count() === 1 && $threads->first()->id === $conversation->id)->assertDontSee($other->order_number);
         $this->actingAsUser($this->user('courier'))->get(route('chat.index'))->assertOk()->assertDontSee($order->order_number)->assertDontSee($other->order_number);
     }
 

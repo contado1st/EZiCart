@@ -58,6 +58,7 @@
         'logistics_admin' => [
             'Logistics management' => [
                 ['logistics-admin.dashboard', 'diagram', 'Control tower', 'logistics-admin.dashboard'],
+                ['chat.index', 'chat', 'Chat', 'chat.*'],
                 ['logistics-admin.dashboard#applications', 'shield', 'Applications', ''],
                 ['logistics-admin.dashboard#service-areas', 'location', 'Service areas', ''],
                 ['coverage.index', 'location', 'Coverage & shipping', 'coverage.*'],
@@ -71,6 +72,7 @@
         default => [
             'Marketplace' => [
                 ['admin.dashboard', 'diagram', 'Overview', 'admin.dashboard'],
+                ['chat.index', 'chat', 'Chat', 'chat.*'],
                 ['admin.registrations.index', 'shield', 'User approvals', 'admin.registrations.*'],
                 ['admin.compliance.products.index', 'package1', 'Product compliance', 'admin.compliance.*'],
                 ['admin.disputes.index', 'warning', 'Disputes', 'admin.disputes.*'],
@@ -103,12 +105,12 @@
                         [$destinationRoute, $destinationAnchor] = array_pad(explode('#', $destination, 2), 2, null);
                         $isActive = $pattern !== '' && request()->routeIs($pattern);
                     @endphp
-                    <a href="{{ route($destinationRoute) }}{{ $destinationAnchor ? '#'.$destinationAnchor : '' }}" @class(['workspace-nav-link', 'is-active' => $isActive]) @if ($isActive) aria-current="page" @endif title="{{ $label }}" aria-label="{{ $label }}"><x-shop-icon :name="$icon" /><span class="workspace-nav-label">{{ $label }}</span></a>
+                    <a href="{{ route($destinationRoute) }}{{ $destinationAnchor ? '#'.$destinationAnchor : '' }}" @class(['workspace-nav-link', 'is-active' => $isActive]) @if ($isActive) aria-current="page" @endif title="{{ $label }}" @if($destinationRoute === 'chat.index') data-communication-label="{{ $label }}" aria-label="{{ $label }}{{ $communicationCounts['messages'] ? ', '.$communicationCounts['messages'].' unread' : '' }}" @else aria-label="{{ $label }}" @endif><x-shop-icon :name="$icon" /><span class="workspace-nav-label">{{ $label }}</span>@if($destinationRoute === 'chat.index')<x-communication-count kind="messages" :count="$communicationCounts['messages']" />@endif</a>
                 @endforeach
             </div>
         @endforeach
         <div class="workspace-nav-group"><p class="workspace-nav-heading">Account</p>
-            <a href="{{ route('notifications.index') }}" @class(['workspace-nav-link', 'is-active' => request()->routeIs('notifications.*')]) title="Notifications"><x-shop-icon name="bell" /><span class="workspace-nav-label">Notifications</span></a>
+            <a href="{{ route('notifications.index') }}" @class(['workspace-nav-link', 'is-active' => request()->routeIs('notifications.*')]) title="Notifications" data-communication-label="Notifications" aria-label="Notifications{{ $communicationCounts['notifications'] ? ', '.$communicationCounts['notifications'].' unread' : '' }}"><x-shop-icon name="bell" /><span class="workspace-nav-label">Notifications</span><x-communication-count kind="notifications" :count="$communicationCounts['notifications']" /></a>
             <a href="{{ route('account.profile.edit') }}" @class(['workspace-nav-link', 'is-active' => request()->routeIs('account.profile.*')]) title="Account & profile"><x-shop-icon name="settings" /><span class="workspace-nav-label">Account & profile</span></a>
             @if ($sidebarUser->role === 'buyer')
                 <a href="{{ route('buyer.addresses.index') }}" @class(['workspace-nav-link', 'is-active' => request()->routeIs('buyer.addresses.*')]) title="Addresses" @if (request()->routeIs('buyer.addresses.*')) aria-current="page" @endif><x-shop-icon name="location" /><span class="workspace-nav-label">Addresses</span></a>

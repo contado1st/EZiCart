@@ -2,10 +2,9 @@
 
 namespace App\Services;
 
+use App\Models\DirectConversation;
 use App\Models\Order;
-use App\Models\OrderMessage;
 use App\Models\User;
-use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 
 class MessagingInboxService
@@ -14,30 +13,20 @@ class MessagingInboxService
     {
         $filters = $request->validate(['q' => ['nullable', 'string', 'max:100']]);
         $actor = $request->user();
-        $query = Order::query();
-        if (! $actor->isCommerceAdmin() && ! $actor->isLogisticsAdmin()) {
-            $query->where(function (Builder $orders) use ($actor) {
-                match ($actor->role) {
-                    'buyer' => $orders->where('buyer_id', $actor->id),
-                    'seller' => $orders->where('seller_id', $actor->id),
-                    'courier' => $orders->where('pickup_courier_id', $actor->id)->orWhere('delivery_courier_id', $actor->id),
-                    'sorting_center' => $orders->where('sorting_center_id', $actor->id)->orWhereHas('trackingEvents', fn ($events) => $events->where('actor_id', $actor->id)),
-                    default => abort(403),
-                };
-            });
-        }
+        $query = DirectConversation::query()->forUser($actor);
         if (filled($filters['q'] ?? null)) {
             $pattern = '%'.strtr(trim($filters['q']), ['!' => '!!', '%' => '!%', '_' => '!_']).'%';
-            $query->where(fn ($orders) => $orders->whereRaw("order_number LIKE ? ESCAPE '!'", [$pattern])
-                ->orWhereHas('seller', fn ($sellers) => $sellers->whereRaw("business_name LIKE ? ESCAPE '!'", [$pattern]))
-                ->orWhereHas('buyer', fn ($buyers) => $buyers->whereRaw("first_name LIKE ? ESCAPE '!'", [$pattern])));
+            $query->where(function ($q) use ($pattern, $actor) {
+                foreach (['firstUser', 'secondUser'] as $relation) {
+                    $q->orWhereHas($relation, fn ($user) => $user->whereKeyNot($actor->id)->where(fn ($names) => $names
+                        ->whereRaw("first_name LIKE ? ESCAPE '!'", [$pattern])->orWhereRaw("last_name LIKE ? ESCAPE '!'", [$pattern])->orWhereRaw("business_name LIKE ? ESCAPE '!'", [$pattern])));
+                }
+            });
         }
 
-        return $query->with(['seller:id,business_name,first_name,last_name', 'buyer:id,first_name,last_name', 'conversation.latestMessage.sender'])
-            ->addSelect(['last_message_at' => OrderMessage::query()->select('order_messages.created_at')
-                ->join('order_conversations', 'order_conversations.id', '=', 'order_messages.conversation_id')
-                ->whereColumn('order_conversations.order_id', 'orders.id')->latest('order_messages.id')->limit(1)])
-            ->orderByDesc('last_message_at')->orderByDesc('orders.id')->paginate(15, ['*'], 'threads_page')->withQueryString();
+        return $query->with(['firstUser', 'secondUser', 'latestMessage.sender'])
+            ->withCount(['messages as unread_count' => fn ($q) => $q->where('recipient_id', $actor->id)->whereNull('read_at')])
+            ->latest('updated_at')->latest('id')->paginate(15, ['*'], 'threads_page')->withQueryString();
     }
 
     public function routePrefix(User $actor): string

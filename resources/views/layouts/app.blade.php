@@ -11,7 +11,7 @@
     $isDashboardWorkspace = auth()->check() && request()->routeIs(
         'admin.*', 'seller.*', 'courier.*', 'logistics.*', 'logistics-admin.*',
         'buyer.dashboard', 'buyer.orders.*', 'buyer.addresses.*', 'finance.*', 'parcel-transfers.*',
-        'account.profile.*', 'notifications.*', 'buyer.for-you*', 'buyer.stock.*', 'chat.index', 'sales-reports.*', 'activity-logs.*', 'coverage.*'
+        'account.profile.*', 'notifications.*', 'buyer.for-you*', 'buyer.stock.*', 'chat.*', 'sales-reports.*', 'activity-logs.*', 'coverage.*'
     );
 @endphp
 
@@ -33,6 +33,12 @@
     <link rel="stylesheet" href="{{ asset('css/psgc-address.css') }}?v={{ filemtime(public_path('css/psgc-address.css')) }}">
     <!-- Dynamic Page Stylesheets -->
     @stack('styles')
+    @if(auth()->check())
+        <link rel="stylesheet" href="{{ asset('css/communication-badges.css') }}?v={{ filemtime(public_path('css/communication-badges.css')) }}">
+        <script src="{{ asset('js/communication-badges.js') }}?v={{ filemtime(public_path('js/communication-badges.js')) }}" data-communication-count-url="{{ route('communications.counts') }}" defer></script>
+        <link rel="stylesheet" href="{{ asset('css/message-drawer.css') }}?v={{ filemtime(public_path('css/message-drawer.css')) }}">
+        <script src="{{ asset('js/message-drawer.js') }}?v={{ filemtime(public_path('js/message-drawer.js')) }}" defer></script>
+    @endif
     <link rel="stylesheet" href="{{ asset('css/roadmap-features.css') }}?v={{ filemtime(public_path('css/roadmap-features.css')) }}">
     <script src="{{ asset('js/order-deadlines.js') }}?v={{ filemtime(public_path('js/order-deadlines.js')) }}" defer></script>
     @if ($isDashboardWorkspace)
@@ -193,10 +199,9 @@
     @endif
 
     <!-- Footer -->
-    @if (auth()->check() && in_array(auth()->user()->role, ['buyer', 'seller'], true) && !$isDashboardWorkspace)
+    @if (auth()->user()?->role === 'buyer' && !$isDashboardWorkspace)
         <nav class="marketplace-chat-dock" aria-label="Shopping shortcuts">
             @if (auth()->user()->role === 'buyer')<a href="{{ route('buyer.for-you') }}">For you</a>@endif
-            <a href="{{ route('chat.index') }}"><x-shop-icon name="chat" /> Chat</a>
         </nav>
     @endif
     @unless ($isRoleWorkspaceRoute || $isDashboardWorkspace)
@@ -206,6 +211,10 @@
             </div>
         </footer>
     @endunless
+
+    @if(auth()->check() && in_array(auth()->user()->role, ['buyer', 'seller', 'courier', 'sorting_center', 'admin', 'ecommerce_admin', 'logistics_admin'], true))
+        @include('components.message-drawer')
+    @endif
 
 </body>
 

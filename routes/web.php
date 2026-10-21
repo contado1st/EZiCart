@@ -20,8 +20,10 @@ use App\Http\Controllers\Buyer\DiscoveryController;
 use App\Http\Controllers\Buyer\DisputeController;
 use App\Http\Controllers\Buyer\ReviewController;
 use App\Http\Controllers\ChatInboxController;
+use App\Http\Controllers\CommunicationCountController;
 use App\Http\Controllers\Courier\AssignmentAcceptanceController;
 use App\Http\Controllers\Courier\CourierController;
+use App\Http\Controllers\DirectMessageController;
 use App\Http\Controllers\FinancialController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\Logistics\CoverageController;
@@ -92,7 +94,14 @@ Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
 
 // 3. Protected Routes (Strictly Isolated by Role)
 Route::middleware(['auth', 'account.active', 'auth.session'])->group(function () {
-    Route::get('/chat', ChatInboxController::class)->middleware('role:buyer,seller,courier,sorting_center,admin,ecommerce_admin,logistics_admin')->name('chat.index');
+    Route::get('/communication-counts', CommunicationCountController::class)->name('communications.counts');
+    Route::middleware('role:buyer,seller,courier,sorting_center,admin,ecommerce_admin,logistics_admin')->group(function () {
+        Route::get('/chat', ChatInboxController::class)->name('chat.index');
+        Route::get('/chat/contacts', [DirectMessageController::class, 'contacts'])->name('chat.contacts');
+        Route::post('/chat/start/{recipient}', [DirectMessageController::class, 'start'])->middleware('throttle:operational-action')->name('chat.start');
+        Route::get('/chat/conversations/{conversation}', [DirectMessageController::class, 'show'])->name('chat.show');
+        Route::post('/chat/conversations/{conversation}/messages', [DirectMessageController::class, 'store'])->middleware('throttle:operational-action')->name('chat.store');
+    });
     Route::get('/sales-reports', SalesReportController::class)->middleware('role:seller,admin,ecommerce_admin')->name('sales-reports.index');
     Route::get('/activity-logs', ActivityLogController::class)->middleware('role:admin,ecommerce_admin,logistics_admin')->name('activity-logs.index');
     Route::get('/logistics-coverage', [CoverageController::class, 'index'])->middleware('role:sorting_center,logistics_admin')->name('coverage.index');

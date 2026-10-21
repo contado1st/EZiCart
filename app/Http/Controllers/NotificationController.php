@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Notifications\DirectMessageNotification;
 use App\Notifications\OrderMessageNotification;
 use App\Notifications\OrderStatusNotification;
 use App\Notifications\OrderWorkflowNotification;
@@ -24,10 +25,10 @@ class NotificationController extends Controller
                 $messageType = OrderMessageNotification::class;
                 $stockType = StockAvailabilityNotification::class;
                 match ($filters['category']) {
-                    'messages' => $query->where('type', $messageType),
+                    'messages' => $query->whereIn('type', [$messageType, DirectMessageNotification::class]),
                     'stock' => $query->where('type', $stockType),
                     'orders' => $query->whereIn('type', [OrderWorkflowNotification::class, OrderStatusNotification::class]),
-                    'account' => $query->whereNotIn('type', [$messageType, $stockType, OrderWorkflowNotification::class, OrderStatusNotification::class]),
+                    'account' => $query->whereNotIn('type', [$messageType, DirectMessageNotification::class, $stockType, OrderWorkflowNotification::class, OrderStatusNotification::class]),
                 };
             })->latest()->paginate(20)->withQueryString();
 

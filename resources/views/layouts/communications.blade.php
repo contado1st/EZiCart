@@ -1,4 +1,4 @@
-@extends('layouts.app')
+@extends(request()->boolean('panel') && !request()->routeIs('notifications.*') ? 'layouts.message-panel' : 'layouts.app')
 @push('styles')
     <link rel="stylesheet" href="{{ asset('css/communications.css') }}?v={{ filemtime(public_path('css/communications.css')) }}">
     <script src="{{ asset('js/communications.js') }}?v={{ filemtime(public_path('js/communications.js')) }}" defer></script>

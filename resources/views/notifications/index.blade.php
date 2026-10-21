@@ -15,7 +15,7 @@
         @forelse($notifications as $notification)
             @php
                 $notificationIcon = match($notification->type) {
-                    \App\Notifications\OrderMessageNotification::class => 'chat',
+                    \App\Notifications\OrderMessageNotification::class, \App\Notifications\DirectMessageNotification::class => 'chat',
                     \App\Notifications\StockAvailabilityNotification::class => 'bell',
                     \App\Notifications\OrderStatusNotification::class, \App\Notifications\OrderWorkflowNotification::class => 'package1',
                     default => 'account',
