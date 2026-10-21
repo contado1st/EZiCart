@@ -14,6 +14,7 @@ function Trend({ data, commercial }) {
     const current = data[Math.min(active, data.length - 1)];
     const labels = { orders: 'Orders placed', completed: 'Completed orders', delivered: 'Orders with recorded delivery', net: 'Net seller sales (PHP)' };
     return <section className="analytics-chart analytics-trend"><header><div><h2>Performance over time</h2><p>Current recorded outcomes grouped by order placement date.</p></div><label className="analytics-chart-select">Measure<select value={metric} onChange={event => { setMetric(event.target.value); setActive(0); }}>{Object.entries(labels).filter(([key]) => commercial || key !== 'net').map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label></header>
+        <p className="analytics-print-measure">Measure: {labels[metric]}</p>
         <svg className="analytics-line-chart" viewBox="0 0 720 290" role="img" tabIndex="0" aria-label={`${labels[metric]}. Use left and right arrow keys to inspect periods.`} onKeyDown={event => { if (event.key === 'ArrowRight' || event.key === 'ArrowLeft') { event.preventDefault(); setActive(index => Math.max(0, Math.min(data.length - 1, index + (event.key === 'ArrowRight' ? 1 : -1)))); } }}>
             {[0, .25, .5, .75, 1].map(fraction => <g key={fraction}><line x1="48" y1={y(maximum * fraction)} x2="688" y2={y(maximum * fraction)} stroke="#e7e9ef" strokeDasharray="3 5"/><text x="40" y={y(maximum * fraction) + 4} textAnchor="end">{new Intl.NumberFormat('en', { notation: 'compact', maximumFractionDigits: 1 }).format(maximum * fraction)}</text></g>)}
             <path key={metric} className="analytics-trend-line" d={path} fill="none" stroke="currentColor" strokeWidth="3" pathLength="1"/>
@@ -41,7 +42,7 @@ function Ranking({ groups }) {
     const maximum = Math.max(1, ...rows.map(row => Number(row[valueKey]) || 0));
     return <section className="analytics-chart analytics-ranking"><header><div><h2>Performance ranking</h2><p>Top ten by the measure shown; exports contain all rows.</p></div><label className="analytics-chart-select">Breakdown<select value={selected} onChange={event => setSelected(event.target.value)}>{groups.map(item => <option key={item.key} value={item.key}>{item.title}</option>)}</select></label></header>
         {rows.length ? <ol>{rows.map((row, index) => <li key={`${selected}-${index}`}><div><span>{String(Object.values(row)[0])}</span><strong>{number(row[valueKey], valueKey.endsWith('PHP'))}</strong></div><div className="analytics-bar-track"><span className="analytics-bar" style={{ width: `${Math.max(0, Number(row[valueKey]) / maximum * 100)}%` }}/></div></li>)}</ol> : <p className="analytics-empty">No qualifying records for this breakdown.</p>}
-        <p className="analytics-chart-caption">Measure: {valueKey}. Rankings describe this measure only.</p>
+        <p className="analytics-chart-caption">Breakdown: {group?.title}. Measure: {valueKey}. Rankings describe this measure only.</p>
     </section>;
 }
 

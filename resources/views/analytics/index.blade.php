@@ -9,10 +9,12 @@
     $chartData = ['trend' => $report['trend'], 'statuses' => $report['statuses'], 'commercial' => $report['commercial'], 'groups' => collect($report['sections'])->whereIn('key', ['products', 'categories', 'sellers', 'locations'])->map(fn ($section) => ['key' => $section['key'], 'title' => $section['title'], 'rows' => array_slice($section['rows'], 0, 10)])->values()->all()];
 @endphp
 <div class="analytics-page">
+    <div class="analytics-print-brand">EZiCart · Analytics report</div>
     <header class="analytics-heading"><div><h1>{{ $report['title'] }}</h1><p>{{ $report['filters']['from'] }} — {{ $report['filters']['to'] }} · {{ $report['timezone'] }} · PHP</p></div>
         <div class="analytics-actions"><button type="button" data-analytics-print><x-shop-icon name="print" /> Print charts</button>
         @foreach(['xlsx' => 'Excel workbook', 'csv' => 'CSV', 'pdf' => 'Full PDF report'] as $extension => $label)<a href="{{ route('analytics.export', [...$report['filters'], 'format' => $extension]) }}"><x-shop-icon name="note" /> {{ $label }}</a>@endforeach</div>
     </header>
+    <p class="analytics-print-scope">Chart summary · {{ \Illuminate\Support\Str::headline($report['role']) }} workspace. @foreach(collect($report['filters'])->except(['from', 'to', 'comparison', 'interval'])->filter(fn ($value) => $value !== null && $value !== '') as $key => $value){{ \Illuminate\Support\Str::headline($key) }}: {{ $value }}; @endforeach Full source records are included in the Excel, CSV and PDF downloads.</p>
     @include('components.feature-feedback')
     <form class="analytics-filters" method="GET" action="{{ route('analytics.index') }}" data-analytics-filter>
         <div class="analytics-filter-main">
@@ -44,9 +46,9 @@
     <div data-analytics-charts><p class="analytics-chart-loading" role="status">Loading interactive charts. All figures are available in the tables below.</p></div>
     <script type="application/json" id="analytics-chart-data">@json($chartData)</script>
     @if(count($report['insights']))<section class="analytics-observations"><h2>Observations to review</h2>@foreach($report['insights'] as $insight)<p><strong>{{ $insight['Metric'] }}:</strong> {{ $insight['Observation'] }}</p>@endforeach</section>@endif
-    <section class="analytics-section"><header><h2>Trend data</h2><p>Weekly and quarterly labels identify the group containing each selected date.</p></header><div class="analytics-table-scroll"><table><thead><tr><th scope="col">Period</th><th scope="col">Orders</th><th scope="col">Completed</th><th scope="col">Recorded delivery</th>@if($report['commercial'])<th scope="col">Net seller sales PHP</th>@endif</tr></thead><tbody>@foreach($report['trend'] as $point)<tr><td>{{ $point['period'] }}</td><td>{{ $point['orders'] }}</td><td>{{ $point['completed'] }}</td><td>{{ $point['delivered'] }}</td>@if($report['commercial'])<td>{{ number_format($point['net'], 2) }}</td>@endif</tr>@endforeach</tbody></table></div></section>
+    <section class="analytics-section analytics-detail-section"><header><h2>Trend data</h2><p>Weekly and quarterly labels identify the group containing each selected date.</p></header><div class="analytics-table-scroll"><table><thead><tr><th scope="col">Period</th><th scope="col">Orders</th><th scope="col">Completed</th><th scope="col">Recorded delivery</th>@if($report['commercial'])<th scope="col">Net seller sales PHP</th>@endif</tr></thead><tbody>@foreach($report['trend'] as $point)<tr><td>{{ $point['period'] }}</td><td>{{ $point['orders'] }}</td><td>{{ $point['completed'] }}</td><td>{{ $point['delivered'] }}</td>@if($report['commercial'])<td>{{ number_format($point['net'], 2) }}</td>@endif</tr>@endforeach</tbody></table></div></section>
     @foreach($report['sections'] as $section)
-        <section class="analytics-section" id="analytics-{{ $section['key'] }}"><header><h2>{{ $section['title'] }}</h2><p>{{ number_format(count($section['rows'])) }} {{ $section['key'] === 'orders' ? 'orders in this report' : 'rows' }}. @if($section['key'] !== 'orders' && count($section['rows']) > 20)Showing the first 20; exports include every row.@endif</p></header>
+        <section class="analytics-section analytics-detail-section" id="analytics-{{ $section['key'] }}"><header><h2>{{ $section['title'] }}</h2><p>{{ number_format(count($section['rows'])) }} {{ $section['key'] === 'orders' ? 'orders in this report' : 'rows' }}. @if($section['key'] !== 'orders' && count($section['rows']) > 20)Showing the first 20; exports include every row.@endif</p></header>
             <div class="analytics-table-scroll">@if(count($section['rows']))
             <table><thead><tr>@foreach(array_keys($section['rows'][0]) as $heading)<th scope="col">{{ $heading }}</th>@endforeach</tr></thead><tbody>
             @foreach($section['key'] === 'orders' ? $orders : array_slice($section['rows'], 0, 20) as $row)<tr>@foreach($row as $heading => $value)<td>{{ is_float($value) ? number_format($value, 2) : $value }}</td>@endforeach</tr>@endforeach
@@ -54,6 +56,7 @@
             @if($section['key'] === 'orders'){{ $orders->links() }}@endif
         </section>
     @endforeach
-    <section class="analytics-definitions"><h2>Definitions and data coverage</h2><ul>@foreach($report['notes'] as $note)<li>{{ $note }}</li>@endforeach</ul><p>Exports contain all permitted source rows, comparisons, filters and definitions. “Print charts” prints the displayed dashboard; use the full PDF or Excel report for all rows.</p></section>
+    <section class="analytics-definitions analytics-detail-section"><h2>Definitions and data coverage</h2><ul>@foreach($report['notes'] as $note)<li>{{ $note }}</li>@endforeach</ul><p>Exports contain all permitted source rows, comparisons, filters and definitions. “Print charts” prints the chart summary; use the full PDF or Excel report for all rows.</p></section>
+    <p class="analytics-print-scope">Reporting basis: orders placed during the selected period, using their latest recorded state. Net seller sales is not profit. Unavailable metrics are not estimated.</p>
 </div>
 @endsection

@@ -6,11 +6,11 @@ Seeded on 2026-10-22. Start with an approved product and place the order manuall
 
 | Sign-in role | Email | Password |
 | --- | --- | --- |
-| Buyer | buyer@ezicart.com | Password123! |
-| Seller | seller@ezicart.com | Password123! |
-| Pickup and delivery rider | courier@ezicart.com | Password123! |
-| Sorting hub | sorting@ezicart.com | Password123! |
-| Marketplace admin, if needed | admin@ezicart.com | Password123! |
+| Buyer | `buyer@ezicart.com` | Password123! |
+| Seller | `seller@ezicart.com` | Password123! |
+| Pickup and delivery rider | `courier@ezicart.com` | Password123! |
+| Sorting hub | `sorting@ezicart.com` | Password123! |
+| Marketplace admin, if needed | `admin@ezicart.com` | Password123! |
 
 These existing local accounts and their password hashes were preserved; the seeder confirmed the password above matches all five accounts. Use separate browser profiles/private sessions, or log out between roles.
 

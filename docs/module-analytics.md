@@ -41,15 +41,15 @@ React SVG charts load only for the analytics surface. The trend offers a measure
 
 Metric cards use an adaptive grid. Charts start in two columns, with ranking across the full width. At a workspace container width of 850 px they stack; at 500 px panel padding tightens and export controls wrap across the available width. Tables scroll inside their panels. Native labeled controls and visible workspace focus styles support keyboard use.
 
-Aggregate sections display the first 20 rows with an explicit export notice. Source orders paginate at 25 rows. Exports contain all permitted rows, independent of displayed pagination. “Print charts” prints the displayed dashboard; the interface directs users to full PDF or Excel for the complete report.
+Aggregate sections display the first 20 rows with an explicit export notice. Source orders paginate at 25 rows. Exports contain all permitted rows, independent of displayed pagination. “Print charts” produces a chart summary with reporting metadata, active filters, metrics, selected graph measures and observations. Detail tables and navigation are excluded from this print view; use the full PDF or Excel for all source rows.
 
 ## Exports and privacy
 
 All formats contain report metadata, current/comparison metrics, filters, trends, every report section and source order, definitions, and observations.
 
-- CSV combines named sections into one UTF-8 download and uses the existing safe CSV serializer.
-- Excel is an actual OOXML `.xlsx` workbook with separate section sheets, typed numeric cells, inline strings, frozen first rows, and no generated formulas. It requires PHP `ZipArchive`; temporary workbook files are removed after use.
-- PDF begins with vector summary graphs and selected headline metrics, then includes all tabular sections as wrapped text across pages. Its cover shows up to six statuses; the full status section follows. Text lines wrap at 50 characters to contain wide names. The PDF serializer uses Windows-1252 transliteration, so unsupported Unicode may lose fidelity.
+- CSV combines named sections into one UTF-8 download with a report-section column, consistent column counts, metadata and explicit table headings. Amounts use two decimal places; changes are percentage points under the `Change %` heading. Typed negative numbers remain numeric; formula-like text is escaped using the shared serializer. CSV is plain text and cannot carry colors, column widths or print layout. Import identifiers as text when opening CSV in spreadsheet software to retain leading zeros.
+- Excel is an actual OOXML `.xlsx` workbook with separate section sheets, report/period/timezone/comparison metadata, wine-colored table headings, alternating row fills, wrapped text and widths based on formatted values. Currency, counts, hours, percentages and source dates use typed values with appropriate number formats; identifiers retain their identity. Seven heading rows freeze above the table; each worksheet has filters, repeated print headings, landscape A4 setup and page-number footers. Missing values are labeled explicitly, and comparison values say `Not compared` when comparison is disabled. It requires PHP `ZipArchive`; temporary workbook files are removed after use. No generated formulas are used.
+- PDF begins with a portrait vector graph summary and selected headline metrics. Landscape detail pages use aligned tables, alternating rows, repeated report/table headings and page counts. Tables wider than seven columns split into horizontal panels that repeat the first identifier column; every permitted row and column is retained. Long text wraps using measured Helvetica widths, and rows that fit on a fresh page are kept together. Its cover shows up to six statuses; the full status section follows. The PDF serializer uses Windows-1252 transliteration, so unsupported Unicode may lose fidelity.
 
 Page and download responses use `Cache-Control: private, no-store`; downloads also use `nosniff`. Generation is recorded through `AdministrativeAuditService` as `analytics_report_exported`, with format and filters. Reports do not publish share links or introduce background collection.
 
@@ -69,4 +69,10 @@ A synthetic PDF and workbook were inspected with Poppler/pypdf and openpyxl: the
 
 Authenticated browser visual review was unavailable. Responsive layout, motion, and accessibility descriptions above record source behavior rather than verified rendered screens.
 
-Implementation sources: `app/Services/AnalyticsService.php`, `app/Services/AnalyticsExportService.php`, `app/Http/Controllers/AnalyticsController.php`, `config/analytics.php`, `resources/views/analytics/index.blade.php`, `resources/js/analytics-charts.jsx`, and `public/css/analytics.css`.
+## Export formatting revision — 2026-10-22
+
+The revised layouts preserve AnalyticsService calculations, role restrictions, filters, and full export coverage. No dependency, schema or business workflow was changed. AnalyticsPdfService owns table layout; the shared PDF serializer now supports bold text and per-page dimensions while retaining its default text-report interface.
+
+Validation: the analytics and formatting suites passed 11 tests / 228 assertions. Existing sales and full-refund regression checks passed 3 tests / 22 assertions across two focused runs. The production build and Blade compilation passed. Synthetic exports were opened with openpyxl and pypdf; the workbook's numeric/percentage styles, frozen panes and repeated print headings were verified. Workbook summary/product previews and PDF summary, long-name, continuation and final-definition pages received visual inspection. The 60-order PDF retained the last order in both horizontal panels. No connected browser was available to inspect the browser print dialog; print behavior is source-reviewed rather than browser-verified.
+
+Implementation sources: `app/Services/AnalyticsService.php`, `app/Services/AnalyticsExportService.php`, `app/Services/AnalyticsPdfService.php`, `app/Services/TabularExportService.php`, `app/Http/Controllers/AnalyticsController.php`, `config/analytics.php`, `resources/views/analytics/index.blade.php`, `resources/js/analytics-charts.jsx`, and `public/css/analytics.css`.
