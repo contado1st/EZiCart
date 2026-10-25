@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\User;
 use DOMDocument;
+use DOMElement;
 use DOMXPath;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Blade;
@@ -20,7 +21,9 @@ class LoadingProfileTest extends TestCase
         $dom = new DOMDocument;
         @$dom->loadHTML($response->getContent());
         $xpath = new DOMXPath($dom);
+        /** @var DOMElement|null $root */
         $root = $xpath->query('//*[@data-page-loading]')->item(0);
+        $this->assertInstanceOf(DOMElement::class, $root);
         $this->assertSame('login', $root->getAttribute('data-loading-current'));
         $this->assertTrue($root->hasAttribute('hidden'));
         $this->assertMatchesRegularExpression('/^[a-f0-9]{16}$/', $root->getAttribute('data-loading-scope'));
