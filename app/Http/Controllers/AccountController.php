@@ -2,15 +2,15 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\User;
+use App\Services\BuyerAddressService;
+use App\Services\PsgcAddressService;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Str;
-use App\Services\PsgcAddressService;
-use App\Services\BuyerAddressService;
-use App\Models\User;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rules\Password as PasswordRule;
 
 class AccountController extends Controller
@@ -18,12 +18,14 @@ class AccountController extends Controller
     public function edit(BuyerAddressService $addressBook): View
     {
         $user = $this->authenticatedUser()->load('serviceAreas');
+        $followedShops = collect();
         if ($user->role === 'buyer') {
             $addressBook->importProfileAddress($user);
             $user->loadCount('addresses');
+            $followedShops = $user->followedShops()->where('role', 'seller')->where('status', 'approved')->orderByPivot('created_at', 'desc')->paginate(6, ['users.*'], 'shops_page')->withQueryString();
         }
 
-        return view('account.edit', compact('user'));
+        return view('account.edit', compact('user', 'followedShops'));
     }
 
     public function update(Request $request, PsgcAddressService $psgcAddressService, BuyerAddressService $addressBook): RedirectResponse

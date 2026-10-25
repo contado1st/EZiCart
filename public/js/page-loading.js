@@ -32,7 +32,7 @@
         if (width < 100) return;
         const boxes = [];
         const seen = new Set();
-        const selectors = 'h1, h2, h3, label, input:not([type="hidden"]), select, textarea, button, img, th, td, .dash-subtitle, .analytics-heading p, .product-gallery-box, .analytics-line-chart, .analytics-status-layout svg, .analytics-bar-track';
+        const selectors = 'h1, h2, h3, label, input:not([type="hidden"]), select, textarea, button, img, th, td, .dash-subtitle, .analytics-heading p, .product-gallery-box, .profile-cover, .profile-avatar, .analytics-line-chart, .analytics-status-layout svg, .analytics-bar-track';
         for (const node of content.querySelectorAll(selectors)) {
             if (boxes.length >= 100) break;
             if (node.closest('[hidden], [aria-hidden="true"]')) continue;
@@ -40,7 +40,7 @@
             if (rect.width < 3 || rect.height < 3 || rect.bottom <= bounds.top || rect.top >= window.innerHeight) continue;
             const tag = node.tagName;
             if (['TD', 'TH'].includes(tag) && node.querySelector('input, select, button, img')) continue;
-            const block = ['INPUT', 'SELECT', 'TEXTAREA', 'BUTTON', 'IMG', 'svg'].includes(tag) || node.classList.contains('product-gallery-box') || node.classList.contains('analytics-bar-track');
+            const block = ['INPUT', 'SELECT', 'TEXTAREA', 'BUTTON', 'IMG', 'svg'].includes(tag) || ['product-gallery-box', 'profile-cover', 'profile-avatar', 'analytics-bar-track'].some(name => node.classList.contains(name));
             let left = rect.left; let top = rect.top; let boxWidth = rect.width;
             let height = block ? rect.height : Math.min(rect.height, tag === 'H1' ? 28 : 14);
             if (!block && document.createRange) {
@@ -54,7 +54,7 @@
             const w = Math.min(Math.round(boxWidth), Math.floor(width - x));
             height = Math.round(height);
             if (w < 3 || height < 3 || x >= width) continue;
-            const box = [x, y, w, height, block ? 8 : 4];
+            const box = [x, y, w, height, node.classList.contains('profile-avatar') ? Math.min(w, height) / 2 : (block ? 8 : 4)];
             const key = box.join(',');
             if (!seen.has(key)) { boxes.push(box); seen.add(key); }
         }
@@ -81,7 +81,7 @@
             if (saved && saved.shape === overlay.dataset.loadingVariant && Date.now() - saved.at < 1800000
                 && Math.abs(saved.width - width) <= 8 && Math.abs(saved.viewport - window.innerWidth) <= 8
                 && Array.isArray(saved.boxes) && saved.boxes.length >= 3 && saved.boxes.length <= 100
-                && saved.boxes.every((b) => Array.isArray(b) && b.length === 5 && b.every(Number.isFinite) && b[0] >= 0 && b[1] >= 0 && b[1] < 4000 && b[2] >= 3 && b[3] >= 3 && b[3] < 3000 && b[0] + b[2] <= width + 1 && b[4] >= 0 && b[4] <= 20)) {
+                && saved.boxes.every((b) => Array.isArray(b) && b.length === 5 && b.every(Number.isFinite) && b[0] >= 0 && b[1] >= 0 && b[1] < 4000 && b[2] >= 3 && b[3] >= 3 && b[3] < 3000 && b[0] + b[2] <= width + 1 && b[4] >= 0 && b[4] <= 300)) {
                 const shape = document.createElement('div');
                 shape.className = 'ezi-skeleton';
                 saved.boxes.forEach(([x, y, w, h, radius]) => {
@@ -132,6 +132,7 @@
     const variant = (url) => {
         const route = routes.find((route) => route.match.test(url.pathname));
         if (route) return route.shape;
+        if (/^\/shops\/[^/]+\/?$/.test(url.pathname)) return 'shop';
         if (/^\/product\/[^/]+\/?$/.test(url.pathname)) return 'product';
         if (/^\/checkout\/?$/.test(url.pathname)) return 'checkout';
         if (/^\/cart\/?$/.test(url.pathname)) return 'cart';

@@ -6,7 +6,7 @@
 
 <aside class="buyer-account-sidebar" aria-label="My Account navigation">
     <div class="buyer-account-person">
-        <span class="buyer-account-avatar" aria-hidden="true">{{ mb_strtoupper(mb_substr($buyer->first_name, 0, 1) . mb_substr($buyer->last_name, 0, 1)) }}</span>
+        <x-profile-avatar :user="$buyer" class="buyer-account-avatar" aria-hidden="true" />
         <div>
             <strong>{{ $buyer->first_name }} {{ $buyer->last_name }}</strong>
             <a href="{{ route('account.profile.edit') }}#buyer-profile">Edit profile</a>

@@ -111,6 +111,7 @@
             </div>
         @endforeach
         <div class="workspace-nav-group"><p class="workspace-nav-heading">Account</p>
+            @if($sidebarUser->role === 'seller' && $sidebarUser->status === 'approved')<a class="workspace-nav-link" href="{{ route('shops.show', $sidebarUser) }}" title="View my shop"><x-shop-icon name="package1" /><span class="workspace-nav-label">View my shop</span></a>@endif
             <a href="{{ route('notifications.index') }}" @class(['workspace-nav-link', 'is-active' => request()->routeIs('notifications.*')]) title="Notifications" data-communication-label="Notifications" aria-label="Notifications{{ $communicationCounts['notifications'] ? ', '.$communicationCounts['notifications'].' unread' : '' }}"><x-shop-icon name="bell" /><span class="workspace-nav-label">Notifications</span><x-communication-count kind="notifications" :count="$communicationCounts['notifications']" /></a>
             <a href="{{ route('account.profile.edit') }}" @class(['workspace-nav-link', 'is-active' => request()->routeIs('account.profile.*')]) title="Account & profile"><x-shop-icon name="settings" /><span class="workspace-nav-label">Account & profile</span></a>
             @if ($sidebarUser->role === 'buyer')
@@ -120,7 +121,7 @@
         </div>
     </nav>
     <div class="workspace-sidebar-footer">
-        <a href="{{ route('account.profile.edit') }}" class="workspace-user-link"><span class="workspace-avatar">{{ mb_strtoupper(mb_substr($sidebarUser->first_name, 0, 1).mb_substr($sidebarUser->last_name, 0, 1)) }}</span><span class="workspace-nav-label"><strong>{{ $sidebarUser->first_name }} {{ $sidebarUser->last_name }}</strong><small>{{ $sidebarRole }}</small></span></a>
+        <a href="{{ route('account.profile.edit') }}" class="workspace-user-link"><span class="workspace-avatar"><x-profile-avatar :user="$sidebarUser" /></span><span class="workspace-nav-label"><strong>{{ $sidebarUser->first_name }} {{ $sidebarUser->last_name }}</strong><small>{{ $sidebarRole }}</small></span></a>
         <form action="{{ route('logout') }}" method="POST" data-decision="logout" data-decision-title="Sign out?" data-decision-message="You will leave your current session. You can sign in again when you are ready." data-decision-label="Sign out" data-decision-tone="normal" onsubmit="return window.eziDecisionReady ? true : window.confirm(this.dataset.decisionMessage)">@csrf<button type="submit" class="workspace-icon-button" title="Sign out" aria-label="Sign out"><x-shop-icon name="arrowback" /></button></form>
     </div>
 </aside>

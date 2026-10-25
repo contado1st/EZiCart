@@ -1,4 +1,7 @@
 @extends('layouts.app')
+@push('styles')
+    <script src="{{ asset('js/profiles.js') }}?v={{ filemtime(public_path('js/profiles.js')) }}" defer></script>
+@endpush
 
 @if ($user->role === 'buyer')
     @push('styles')
@@ -19,6 +22,9 @@
 
                 @if (session('success'))<div class="buyer-account-notice" role="status">{{ session('success') }}</div>@endif
                 @if ($errors->any())<div class="buyer-account-notice buyer-account-notice--error" role="alert">{{ $errors->first() }}</div>@endif
+
+                @include('account.appearance')
+                @if($followedShops->total())<section class="profile-followed" id="following-shops"><h2>Shops you follow</h2><p>Your followed active shops, most recent first.</p><div>@foreach($followedShops as $followedShop)<a href="{{ route('shops.show', $followedShop) }}"><x-profile-avatar :user="$followedShop" /><span>{{ $followedShop->profile_display_name ?: $followedShop->business_name }}</span><x-shop-icon name="arrowback" /></a>@endforeach</div>{{ $followedShops->fragment('following-shops')->links() }}</section>@endif
 
                 <section class="buyer-account-panel" id="buyer-profile" aria-labelledby="buyer-profile-title">
                     <div class="buyer-account-panel-heading"><div><h2 id="buyer-profile-title">Profile details</h2><p>Update the name and contact details connected to your account.</p></div></div>
@@ -62,6 +68,9 @@
             <p>Update your contact and profile details. Your role, approval status, and uploaded documents can’t be changed here.</p>
 
             @if (session('success'))<div class="form-notice">{{ session('success') }}</div>@endif
+
+            @if($errors->any())<p class="profile-field-error" role="alert">{{ $errors->first() }}</p>@endif
+            @include('account.appearance')
 
             <section class="dash-panel u-extracted-ebdbcd4a73">
                 <h2>Profile and contact details</h2>

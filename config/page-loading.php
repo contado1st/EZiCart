@@ -3,6 +3,8 @@
 return [
     // Ordered by specificity; GET route names describe the destination rather than the outgoing action.
     'profiles' => [
+        'shop' => ['shops.show'],
+        'profile' => ['account.profile.edit'],
         'product' => ['product.show'],
         'checkout' => ['checkout.index'],
         'cart' => ['cart.index'],

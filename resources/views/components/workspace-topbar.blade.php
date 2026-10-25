@@ -42,7 +42,7 @@
                 <x-communication-count kind="notifications" :count="$workspaceUnread" />
             </a>
             <a class="workspace-avatar" href="{{ route('account.profile.edit') }}" aria-label="Your profile" title="{{ $workspaceUser->first_name }} {{ $workspaceUser->last_name }}">
-                {{ mb_strtoupper(mb_substr($workspaceUser->first_name, 0, 1).mb_substr($workspaceUser->last_name, 0, 1)) }}
+                <x-profile-avatar :user="$workspaceUser" />
             </a>
         </div>
     </div>

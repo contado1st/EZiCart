@@ -49,7 +49,7 @@
                 <p class="catalog-result-range">Showing {{ $products->firstItem() }}–{{ $products->lastItem() }} of {{ number_format($products->total()) }} products</p>
                 <div class="catalog-product-grid">
                     @foreach ($products as $product)
-                        <a class="catalog-product" href="{{ route('product.show', $product) }}">
+                        <article class="catalog-product"><a class="catalog-product-main" href="{{ route('product.show', $product) }}">
                             <div class="catalog-product-image">@if ($product->image_path)<img src="{{ asset('storage/'.$product->image_path) }}" alt="{{ $product->name }}" width="400" height="400" loading="lazy" decoding="async">@else<span class="catalog-image-placeholder"><x-shop-icon name="package1" /><span>Product image unavailable</span></span>@endif</div>
                             <div class="catalog-product-content">
                                 <span class="catalog-product-category">{{ $product->category }}</span>
@@ -59,7 +59,7 @@
                                 <div class="catalog-product-store">{{ $product->seller?->business_name ?: $product->seller?->first_name ?: 'EZiCart seller' }}</div>
                                 @if ($product->seller?->province)<div class="catalog-product-location"><x-shop-icon name="location" /><span>{{ $product->seller->province }}</span></div>@endif
                             </div>
-                        </a>
+                        </a>@if($product->seller?->role === 'seller' && $product->seller?->status === 'approved')<a class="catalog-shop-link" href="{{ route('shops.show', $product->seller) }}">Visit shop <x-shop-icon name="arrowback" /></a>@endif</article>
                     @endforeach
                 </div>
                 <div class="catalog-pagination">{{ $products->links() }}</div>

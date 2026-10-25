@@ -31,6 +31,7 @@
     <link rel="stylesheet"
         href="{{ asset('css/navigation-fallback.css') }}?v={{ filemtime(public_path('css/navigation-fallback.css')) }}">
     <link rel="stylesheet" href="{{ asset('css/psgc-address.css') }}?v={{ filemtime(public_path('css/psgc-address.css')) }}">
+    <link rel="stylesheet" href="{{ asset('css/profiles.css') }}?v={{ filemtime(public_path('css/profiles.css')) }}">
     <!-- Dynamic Page Stylesheets -->
     @stack('styles')
     @if(auth()->check())

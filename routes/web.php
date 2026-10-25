@@ -32,6 +32,7 @@ use App\Http\Controllers\Logistics\LogisticsController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\OrderMessageController;
 use App\Http\Controllers\ParcelTransferController;
+use App\Http\Controllers\ProfileAppearanceController;
 use App\Http\Controllers\PsgcAddressController;
 use App\Http\Controllers\SalesReportController;
 use App\Http\Controllers\SearchController;
@@ -43,6 +44,7 @@ use App\Http\Controllers\Seller\SellerController;
 use App\Http\Controllers\Seller\SellerOrderController;
 use App\Http\Controllers\Seller\SellerReportController;
 use App\Http\Controllers\Seller\SellerVoucherController;
+use App\Http\Controllers\SellerShopController;
 use Illuminate\Support\Facades\Route;
 
 // 1. Public Marketplace & Browsing Routes
@@ -51,6 +53,8 @@ Route::get('/search', [SearchController::class, 'index'])->name('search.index');
 Route::view('/terms', 'legal.terms')->name('terms');
 Route::view('/privacy', 'legal.privacy')->name('privacy');
 Route::get('/product/{product}', [HomeController::class, 'showProduct'])->name('product.show');
+Route::get('/shops/{seller}', [SellerShopController::class, 'show'])->whereNumber('seller')->name('shops.show');
+Route::get('/profiles/{user}/media/{type}', [ProfileAppearanceController::class, 'media'])->whereNumber('user')->whereIn('type', ['avatar', 'banner'])->name('profiles.media');
 Route::get('/psgc-addresses', PsgcAddressController::class)->middleware('throttle:120,1')->name('psgc.addresses');
 
 // 2. Guest Authentication & Registration Routes
@@ -132,6 +136,8 @@ Route::middleware(['auth', 'account.active', 'auth.session'])->group(function ()
     Route::post('/notifications/{notification}/read', [NotificationController::class, 'markRead'])->name('notifications.read');
     Route::get('/account/documents/{type}', [SecureDocumentController::class, 'ownDocument'])->name('account.documents.show');
     Route::get('/account', [AccountController::class, 'edit'])->name('account.profile.edit');
+    Route::patch('/account/appearance', [ProfileAppearanceController::class, 'update'])->middleware('throttle:operational-action')->name('account.appearance.update');
+    Route::post('/shops/{seller}/follow', [SellerShopController::class, 'follow'])->middleware(['role:buyer', 'throttle:operational-action'])->whereNumber('seller')->name('shops.follow');
     Route::patch('/account', [AccountController::class, 'update'])->middleware('throttle:operational-action')->name('account.profile.update');
     Route::patch('/account/password', [AccountController::class, 'updatePassword'])->middleware('throttle:10,1')->name('account.password.update');
     Route::get('/delivery-attempts/{attempt}/proof', [SecureDocumentController::class, 'deliveryProof'])->name('delivery-attempts.proof');

@@ -1,6 +1,8 @@
 @props(['variant' => 'dashboard'])
 <div {{ $attributes->class(['ezi-skeleton'])->merge(['aria-hidden' => 'true']) }}>
-    @if($variant === 'table-body')
+    @if(in_array($variant, ['shop', 'profile'], true))
+        <div class="ezi-skeleton-image ezi-skeleton-hero"></div><div class="ezi-skeleton-profile-identity"><span class="ezi-skeleton-avatar"></span><div><span class="ezi-skeleton-bar ezi-skeleton-title"></span><span class="ezi-skeleton-bar ezi-skeleton-short"></span></div></div>@if($variant === 'shop')<div class="ezi-skeleton-metrics">@for($i = 0; $i < 4; $i++)<div><span class="ezi-skeleton-bar"></span><span class="ezi-skeleton-bar ezi-skeleton-value"></span></div>@endfor</div><x-loading-skeleton variant="catalog" />@else<x-loading-skeleton variant="form-block" />@endif
+    @elseif($variant === 'table-body')
         <div class="ezi-skeleton-table">@for($i = 0; $i < 6; $i++)<div>@for($j = 0; $j < 4; $j++)<span class="ezi-skeleton-bar"></span>@endfor</div>@endfor</div>
     @elseif($variant === 'form-block')
         <div class="ezi-skeleton-panel"><span class="ezi-skeleton-bar ezi-skeleton-title"></span>@for($i = 0; $i < 4; $i++)<div class="ezi-skeleton-field"><span class="ezi-skeleton-bar ezi-skeleton-short"></span><span class="ezi-skeleton-input"></span></div>@endfor<span class="ezi-skeleton-input ezi-skeleton-button"></span></div>

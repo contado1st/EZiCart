@@ -87,6 +87,8 @@ class User extends Authenticatable implements AuthenticatableContract
     protected $hidden = [
         'password',
         'remember_token',
+        'profile_avatar_path',
+        'profile_banner_path',
     ];
 
     /**
@@ -114,6 +116,16 @@ class User extends Authenticatable implements AuthenticatableContract
     public function products(): HasMany
     {
         return $this->hasMany(Product::class);
+    }
+
+    public function shopFollowers(): BelongsToMany
+    {
+        return $this->belongsToMany(self::class, 'shop_follows', 'seller_id', 'buyer_id')->withTimestamps();
+    }
+
+    public function followedShops(): BelongsToMany
+    {
+        return $this->belongsToMany(self::class, 'shop_follows', 'buyer_id', 'seller_id')->withTimestamps();
     }
 
     /**

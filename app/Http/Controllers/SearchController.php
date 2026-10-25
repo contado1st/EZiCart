@@ -34,7 +34,7 @@ class SearchController extends Controller
         $provinces = User::query()->whereHas('products', fn (Builder $products) => $products->availableForMarketplace())
             ->whereNotNull('province')->where('province', '<>', '')->distinct()->orderBy('province')->pluck('province');
 
-        $query = $base->with('seller:id,business_name,first_name,municipality,province')
+        $query = $base->with('seller:id,business_name,first_name,municipality,province,role,status')
             ->withAvg('reviews as catalog_rating', 'rating')->withCount('reviews as catalog_review_count');
 
         if ($searchTerm !== '') {
