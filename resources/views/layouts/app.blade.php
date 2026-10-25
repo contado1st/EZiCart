@@ -48,6 +48,8 @@
     <link rel="stylesheet" href="{{ asset('css/table-layout.css') }}?v={{ filemtime(public_path('css/table-layout.css')) }}">
     <link rel="stylesheet" href="{{ asset('css/responsive-layout.css') }}?v={{ filemtime(public_path('css/responsive-layout.css')) }}">
     <link rel="stylesheet" href="{{ asset('css/interaction-feedback.css') }}?v={{ filemtime(public_path('css/interaction-feedback.css')) }}">
+    <link rel="stylesheet" href="{{ asset('css/loading-skeleton.css') }}?v={{ filemtime(public_path('css/loading-skeleton.css')) }}">
+    <script src="{{ asset('js/page-loading.js') }}?v={{ filemtime(public_path('js/page-loading.js')) }}" defer></script>
     @vite('resources/js/app.js')
     <script src="{{ asset('js/password-visibility.js') }}?v={{ filemtime(public_path('js/password-visibility.js')) }}" defer></script>
     <script src="{{ asset('js/registration-name-inputs.js') }}?v={{ filemtime(public_path('js/registration-name-inputs.js')) }}" defer></script>
@@ -58,6 +60,7 @@
 
 <body @class([
     'landing-page' => request()->routeIs('home'),
+    'loading-editorial' => request()->routeIs('home') && !auth()->check(),
     'catalog-search-page' => request()->routeIs('search.index'),
     'role-workspace' => $isRoleWorkspaceRoute,
     'dashboard-workspace' => $isDashboardWorkspace,
@@ -191,12 +194,12 @@
         <div class="workspace-frame">
             @include('components.workspace-sidebar')
             <button type="button" class="workspace-overlay" data-workspace-close aria-label="Close navigation" tabindex="-1" hidden></button>
-            <div class="workspace-page" id="workspace-content" tabindex="-1">
+            <div class="workspace-page" id="workspace-content" tabindex="-1" data-page-content>
                 @yield('content')
             </div>
         </div>
     @else
-        <main class="container main-content">
+        <main class="container main-content" data-page-content>
             @yield('content')
         </main>
     @endif
@@ -219,6 +222,7 @@
         @include('components.message-drawer')
     @endif
 
+    <x-page-loading />
 </body>
 
 </html>

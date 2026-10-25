@@ -6,9 +6,12 @@
     <title>@yield('title', 'Messages | EZiCart')</title>
     @vite('resources/css/shared/app.css')
     @vite('resources/js/app.js')
+    <link rel="stylesheet" href="{{ asset('css/loading-skeleton.css') }}?v={{ filemtime(public_path('css/loading-skeleton.css')) }}">
+    <script src="{{ asset('js/page-loading.js') }}?v={{ filemtime(public_path('js/page-loading.js')) }}" defer></script>
     @stack('styles')
 </head>
 <body @class(['communications-embedded', 'communications-embedded--logistics' => in_array(auth()->user()?->role, ['courier', 'sorting_center', 'logistics_admin'], true)])>
-    @yield('content')
+    <div data-page-content>@yield('content')</div>
+    <x-page-loading />
 </body>
 </html>
