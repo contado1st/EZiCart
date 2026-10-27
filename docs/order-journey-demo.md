@@ -1,5 +1,7 @@
 # One complete order demo
 
+For the full walkthrough **starting with seller product creation**, follow [Complete seller-to-buyer demonstration and audit](full-order-flow-demo-audit.md). The setup was expanded on 2026-10-27 to align the buyer, seller, rider and hub at 45 Market Road, San Roque, Majayjay, Laguna 4005 and link the rider to that hub.
+
 ## Prepared local data
 
 Seeded on 2026-10-22. Start with an approved product and place the order manually; there is no pre-created demo order, delivery proof or review.
@@ -12,7 +14,7 @@ Seeded on 2026-10-22. Start with an approved product and place the order manuall
 | Sorting hub | `sorting@ezicart.com` | Password123! |
 | Marketplace admin, if needed | `admin@ezicart.com` | Password123! |
 
-These existing local accounts and their password hashes were preserved; the seeder confirmed the password above matches all five accounts. Use separate browser profiles/private sessions, or log out between roles.
+These existing local accounts and their password hashes were preserved; the seeder confirms whether the password above matches all five accounts. Open a fresh blank browser tab and type the site address for each role to obtain independent tab sessions.
 
 - Product: **EZiCart Demo Everyday Tote Bag**, product **#12** in this local database.
 - Seller: Sarah Essentials Store.
@@ -39,7 +41,7 @@ These existing local accounts and their password hashes were preserved; the seed
 12. **Rider:** record the recipient, enter/scan that buyer delivery code, enter the **exact order total** collected as COD, and upload a demonstration delivery-proof image/PDF. Mark delivery complete.
 13. **Buyer:** confirm receipt after checking the parcel. On the buyer dashboard, submit the product rating and comment. The order is completed and the review appears on the product page.
 
-The approved listing skips product creation/compliance review during this demonstration, as requested. The seller can inspect it in Products. Editing its name, description, category or image will require compliance review again; an admin must approve it before purchase.
+This shortcut demonstration begins with an approved listing. For product creation and compliance review, use the full walkthrough linked above. The seller can inspect the existing shortcut in Products. Editing its name, description, category or image will require compliance review again; an admin must approve it before purchase.
 
 Normal seller response/preparation deadlines, rider capacity, custody checks and delivery-code expiration still apply. If the demo is paused, resume promptly or use the existing recovery actions shown by the application. Refresh the delivery code from the buyer order page if it expires.
 
@@ -49,6 +51,6 @@ Normal seller response/preparation deadlines, rider capacity, custody checks and
 php artisan db:seed --class=OrderJourneyDemoSeeder
 ```
 
-This dedicated local/testing seeder requires the existing approved seeded accounts. It does not invoke DatabaseSeeder, reset passwords, change existing account statuses, reset product stock, delete orders, replace another hub's routing, or complete workflow steps. Re-running it preserves progress; it is not a demo reset command. Conflicting routing/coverage/location ownership causes the transaction to stop.
+This dedicated local/testing seeder requires the existing approved seeded accounts. It aligns the four demo profiles and their named demo delivery address, verifies their email timestamps, links the courier to the hub, and ensures active coverage. It does not invoke DatabaseSeeder, reset passwords, change existing account statuses, reset product stock, delete orders, replace another hub's routing, or complete workflow steps. Re-running it preserves progress; it is not a demo reset command. Conflicting routing/coverage/location ownership causes the transaction to stop.
 
-Tests: `OrderJourneyDemoSeederTest` passed **2 tests / 26 assertions**, covering checkout readiness, repeatability, preservation of existing default addresses/passwords/stock, and rollback on conflicting hub ownership. PHP formatting and whitespace checks passed. No browser walkthrough was performed for this seed run.
+Tests: `OrderJourneyDemoSeederTest` passed **2 tests / 39 assertions**, covering shared geography/ownership, checkout readiness, repeatability, inactive membership reactivation, preservation of existing default addresses/passwords/stock, and rollback on conflicting hub ownership. PHP formatting and whitespace checks passed. No browser walkthrough was performed for this seed run.

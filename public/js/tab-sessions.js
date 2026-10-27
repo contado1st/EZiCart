@@ -19,8 +19,8 @@
         const fromUrl = url.searchParams.get(parameter);
         if (valid(fromUrl)) {
             sessionStorage.setItem(storageKey, fromUrl.toLowerCase());
-            url.searchParams.delete(parameter);
-            history.replaceState(history.state, '', url.href);
+            // Native refresh, history and downloads must keep selecting this
+            // tab's HttpOnly session cookie before JavaScript can execute.
             return fromUrl.toLowerCase();
         }
 
