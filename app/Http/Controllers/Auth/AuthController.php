@@ -207,7 +207,11 @@ class AuthController extends Controller
         ]);
 
         $account = User::query()->whereRaw('LOWER(TRIM(email)) = ?', [$credentials['email']])->first();
-        if (! $account || ! Auth::attempt(['email' => $account->email, 'password' => $credentials['password']], $request->boolean('remember'))) {
+        // The remember-me cookie is shared across browser tabs. Tab-isolated
+        // sessions must rely on their own session cookie instead.
+        $remember = ! $request->query('__tab') && $request->boolean('remember');
+
+        if (! $account || ! Auth::attempt(['email' => $account->email, 'password' => $credentials['password']], $remember)) {
             return back()->withErrors(['email' => 'The provided credentials do not match our records.'])->onlyInput('email');
         }
 

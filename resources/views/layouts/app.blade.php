@@ -52,6 +52,7 @@
     <link rel="stylesheet" href="{{ asset('css/loading-skeleton.css') }}?v={{ filemtime(public_path('css/loading-skeleton.css')) }}">
     <script src="{{ asset('js/page-loading.js') }}?v={{ filemtime(public_path('js/page-loading.js')) }}" defer></script>
     @vite('resources/js/app.js')
+    <script src="{{ asset('js/tab-sessions.js') }}?v={{ filemtime(public_path('js/tab-sessions.js')) }}" defer></script>
     <script src="{{ asset('js/password-visibility.js') }}?v={{ filemtime(public_path('js/password-visibility.js')) }}" defer></script>
     <script src="{{ asset('js/registration-name-inputs.js') }}?v={{ filemtime(public_path('js/registration-name-inputs.js')) }}" defer></script>
     <script src="{{ asset('js/email-input-constraint.js') }}?v={{ filemtime(public_path('js/email-input-constraint.js')) }}" defer></script>
