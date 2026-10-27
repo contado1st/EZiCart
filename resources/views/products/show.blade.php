@@ -13,17 +13,14 @@
 
         <div class="product-show-layout">
             <!-- Product Image Preview -->
-            <div class="product-gallery-box">
-                @if ($product->image_path)
-                    <img src="{{ asset('storage/' . $product->image_path) }}" alt="{{ $product->name }}"
-                        class="product-gallery-img">
-                @else
-                    <div class="product-gallery-placeholder"><x-shop-icon name="package1" /></div>
-                @endif
-            </div>
+            <x-product-gallery :product="$product" />
 
             <!-- Product Purchase Information -->
             <div class="product-info-column">
+                @if (auth()->user()?->role === 'buyer')
+                    <form method="POST" action="{{ route('buyer.stock.watch', $product) }}">@csrf<button class="feature-button" type="submit"><x-shop-icon name="bell" /> Watch stock availability</button></form>
+                    <a href="{{ route('buyer.stock.index') }}">Manage stock alerts</a>
+                @endif
                 <div>
                     <span class="product-badge">{{ $product->category }}</span>
                     <h1 class="product-detail-title">{{ $product->name }}</h1>
@@ -47,7 +44,7 @@
                     <div class="product-seller-card">
                         <div class="product-seller-label">Sold By</div>
                         <div class="product-seller-name">
-                            {{ $product->seller->business_name ?? 'EZiCart Verified Merchant' }}</div>
+                            @if($product->seller->role === 'seller' && $product->seller->status === 'approved')<a href="{{ route('shops.show', $product->seller) }}">{{ $product->seller->profile_display_name ?: $product->seller->business_name }}</a>@else{{ $product->seller->business_name ?? 'EZiCart Merchant' }}@endif</div>
                         <div class="product-seller-location">
                             Location: {{ $product->seller->municipality ?? 'Majayjay' }},
                             {{ $product->seller->province ?? 'Laguna' }}

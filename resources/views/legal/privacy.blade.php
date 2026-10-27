@@ -14,6 +14,7 @@
         <p>Information is used to create and protect accounts, verify email addresses, review seller and logistics applications, coordinate orders and deliveries, prevent fraud, and meet operational or legal obligations. Email is verified during registration. Mobile number format and uniqueness are checked, but mobile ownership is not verified by SMS.</p>
 
         <h2>Access, retention, and security</h2>
+        <p>For signed-in buyers, viewed products from the last 90 days and delivered or completed purchase categories help personalize the For you page. You can clear your browsing history from that page; eligible purchases can still inform recommendations. Product stock alerts are optional and can be removed from Stock alerts in your account.</p>
         <p>Private application documents are available only through authorized application routes. Information is retained while needed for the account, application, transactions, and applicable obligations. EZiCart uses access controls and other safeguards, but no online service can promise absolute security.</p>
 
         <h2>Your choices and contact</h2>

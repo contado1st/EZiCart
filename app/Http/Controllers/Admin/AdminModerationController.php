@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use App\Notifications\AccountStatusNotification;
+use App\Services\AdministrativeAuditService;
 use App\Services\LogisticsExceptionService;
 use App\Services\TransactionAwareNotificationSender;
 use Illuminate\Http\RedirectResponse;
@@ -13,12 +14,14 @@ use Illuminate\Support\Facades\DB;
 
 class AdminModerationController extends Controller
 {
+    public function __construct(private AdministrativeAuditService $audits) {}
+
     public function index(Request $request)
     {
         $role = $request->query('role');
         $search = $request->query('search');
 
-        $users = User::whereNotIn('role', ['admin'])
+        $users = User::whereIn('role', $this->authenticatedUser()->managedAccountRoles())
             ->withCount([
                 'pickupDeliveries as active_pickups_count' => fn ($query) => $query->where('status', 'READY_FOR_PICKUP')
                     ->whereNotNull('pickup_claimed_at')->whereNull('seller_handover_at'),
@@ -41,6 +44,7 @@ class AdminModerationController extends Controller
 
     public function suspend(Request $request, User $user, TransactionAwareNotificationSender $notifications, LogisticsExceptionService $exceptions): RedirectResponse
     {
+        abort_unless($this->authenticatedUser()->canManageAccount($user), 403);
         abort_unless($user->role !== 'admin' && $user->status === 'approved', 422, 'Only approved accounts can be suspended here.');
 
         $validated = $request->validate([
@@ -62,6 +66,7 @@ class AdminModerationController extends Controller
                 $exceptions->openForRiderSuspension($lockedUser, $request->user(), $validated['suspension_reason']);
             }
             $notifications->send($lockedUser, new AccountStatusNotification('suspended', $validated['suspension_reason']));
+            $this->audits->record($this->authenticatedUser(), $lockedUser, 'account_suspended', ['status' => 'approved'], ['status' => 'suspended'], $validated['suspension_reason']);
         });
 
         return back()->with('success', "Account {$user->email} has been suspended.");
@@ -69,6 +74,7 @@ class AdminModerationController extends Controller
 
     public function reactivate(Request $request, User $user, TransactionAwareNotificationSender $notifications): RedirectResponse
     {
+        abort_unless($this->authenticatedUser()->canManageAccount($user), 403);
         $validated = $request->validate([
             'restored_status' => ['nullable', 'in:approved,pending,rejected'],
         ]);
@@ -92,6 +98,7 @@ class AdminModerationController extends Controller
                 'suspended_at' => null,
             ])->save();
             $notifications->send($lockedUser, new AccountStatusNotification($restoredStatus));
+            $this->audits->record($this->authenticatedUser(), $lockedUser, 'account_reactivated', ['status' => 'suspended'], ['status' => $restoredStatus], 'Restored to recorded prior account state.');
 
             return $restoredStatus;
         });

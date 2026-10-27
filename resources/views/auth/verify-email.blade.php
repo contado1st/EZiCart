@@ -7,26 +7,26 @@
 @section('title', 'Verify Your Email | EZiCart')
 
 @section('content')
-    @php($isLoginOtp = ($verificationMode ?? 'registration') === 'login')
+    @php($isPasswordReset = ($verificationMode ?? 'registration') === 'password-reset')
     <main class="auth-page">
         <section class="auth-shell auth-shell--verify" aria-labelledby="auth-title">
             <aside class="auth-aside">
                 <a class="auth-brand" href="{{ route('home') }}" aria-label="EZiCart home">EZiCart<span>.</span></a>
                 <div class="auth-aside-copy">
                     <p class="auth-kicker">Account Security</p>
-                    <h1>One last step.</h1>
-                    <p>{{ $isLoginOtp ? 'Confirm it is you before we open your account.' : 'Verify your email address to protect your account and start using EZiCart.' }}</p>
+                    <h1>{{ $isPasswordReset ? 'Recover your account.' : 'One last step.' }}</h1>
+                    <p>{{ $isPasswordReset ? 'Confirm it is you before choosing a new password.' : 'Verify your email address to protect your account and start using EZiCart.' }}</p>
                 </div>
                 <p class="auth-aside-foot">Philippine commerce, verified and secured.</p>
             </aside>
 
             <div class="auth-content">
                 <div class="auth-mobile-brand"><a class="auth-brand" href="{{ route('home') }}">EZiCart<span>.</span></a></div>
-                <h2 id="auth-title">{{ $isLoginOtp ? 'Verify Your Sign In' : 'Verify Your Email' }}</h2>
+                <h2 id="auth-title">{{ $isPasswordReset ? 'Verify Password Recovery' : 'Verify Your Email' }}</h2>
                 <p class="auth-intro">
-                    {{ $isLoginOtp ? 'We sent a 6-digit sign-in code to' : "We've sent a 6-digit verification code to" }}
+                    {{ $isPasswordReset ? 'We sent a 6-digit password recovery code to' : "We've sent a 6-digit verification code to" }}
                     <span class="auth-target-email">{{ $email ?: 'your registered email address' }}</span>.
-                    {{ $isLoginOtp ? 'Enter it to finish signing in.' : 'Enter the code below to complete verification.' }}
+                    {{ $isPasswordReset ? 'Enter it to verify your identity and continue resetting your password.' : 'Enter the code below to complete verification.' }}
                 </p>
 
                 {{-- Status & Error Messages --}}
@@ -47,10 +47,10 @@
                 @endif
 
                 {{-- OTP Verification Form --}}
-                <form action="{{ $isLoginOtp ? route('login.otp.verify') : route('verification.verify') }}" method="POST" class="auth-form" id="verify-form" novalidate>
+                <form action="{{ $isPasswordReset ? route('password.otp.verify') : route('verification.verify') }}" method="POST" class="auth-form" id="verify-form" novalidate>
                     @csrf
                     
-                    @if ($email && ! $isLoginOtp)
+                    @if ($email && ! $isPasswordReset)
                         <input type="hidden" name="email" id="verify-email" value="{{ $email }}">
                     @elseif (! $email)
                         <div class="auth-field">
@@ -87,11 +87,11 @@
 
                 {{-- Resend OTP Section with Cooldown Timer --}}
                 <div class="auth-resend">
-                    <form action="{{ $isLoginOtp ? route('login.otp.resend') : route('verification.resend') }}" method="POST" id="resend-form">
+                    <form action="{{ $isPasswordReset ? route('password.otp.resend') : route('verification.resend') }}" method="POST" id="resend-form">
                         @csrf
-                        @unless ($isLoginOtp)
+                        @if (! $isPasswordReset)
                             <input type="hidden" name="email" id="resend-email" value="{{ $email }}">
-                        @endunless
+                        @endif
                         <p class="auth-help" style="margin-bottom: 0.5rem;">Didn’t receive the code? Check your spam folder or resend.</p>
                         <button type="submit" id="resend-btn" @disabled($cooldownSeconds > 0)>
                             <span id="resend-btn-text">
@@ -105,7 +105,7 @@
                     </form>
                 </div>
 
-                <p class="auth-switch">{{ $isLoginOtp ? 'Need to start over?' : 'Already verified or need another account?' }} <a href="{{ route('login') }}">Back to sign in</a></p>
+                <p class="auth-switch">{{ $isPasswordReset ? 'Need to start over?' : 'Already verified or need another account?' }} <a href="{{ $isPasswordReset ? route('password.request') : route('login') }}">{{ $isPasswordReset ? 'Back to password recovery' : 'Back to sign in' }}</a></p>
             </div>
         </section>
     </main>

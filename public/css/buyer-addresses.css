@@ -1,0 +1,48 @@
+.buyer-address-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr));
+    gap: 20px;
+}
+.buyer-address-card { display: flex; flex-direction: column; min-width: 0; }
+.buyer-address-card-heading { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 20px; }
+.buyer-address-card-heading h2 { margin: 0; font-size: 16px; font-weight: 600; }
+.buyer-address-default { display: inline-flex; width: fit-content; padding: 4px 8px; border-radius: 5px; font-size: 11px; color: var(--workspace-accent, #be2854); background: var(--workspace-soft, #fff0f4); }
+.buyer-address-summary { font-size: 13px; line-height: 1.8; color: var(--workspace-ink, #202634); overflow-wrap: anywhere; }
+.buyer-address-summary > strong { display: block; font-weight: 600; }
+.buyer-address-summary > span { color: var(--workspace-muted, #657084); }
+.buyer-address-summary address { margin-top: 8px; font-style: normal; color: var(--workspace-muted, #657084); }
+.buyer-address-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 22px; }
+.buyer-address-card .buyer-address-actions { padding-top: 18px; margin-top: auto; }
+.buyer-address-actions form { margin: 0; }
+.buyer-address-delete { min-height: 36px; padding: 8px 10px; border: 0; border-radius: 7px; background: transparent; color: #b82a43; font-size: 12px; cursor: pointer; }
+.buyer-address-delete:hover { background: #fff0f2; }
+.buyer-address-empty { grid-column: 1 / -1; padding: 36px; text-align: center; }
+.buyer-address-empty > .shop-icon { width: 32px; height: 32px; color: var(--workspace-accent, #be2854); }
+.buyer-address-empty h2 { margin: 12px 0 8px; font-size: 18px; font-weight: 600; }
+.buyer-address-empty p { margin: 0 0 20px; color: var(--workspace-muted, #657084); font-size: 13px; }
+.buyer-address-help { margin-top: 20px; font-size: 12px; line-height: 1.7; color: var(--workspace-muted, #657084); }
+.buyer-address-form-panel { max-width: 900px; }
+.buyer-address-form { display: grid; gap: 24px; }
+.buyer-address-form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
+.buyer-address-field { display: flex; flex-direction: column; gap: 8px; }
+.buyer-address-field label { font-size: 12px; font-weight: 600; }
+.buyer-address-field input { width: 100%; min-height: 42px; padding: 10px 12px; border: 1px solid #dce0e8; border-radius: 7px; font-size: 13px; }
+.buyer-address-field small { color: var(--workspace-muted, #657084); font-size: 11px; }
+.buyer-address-checkbox { display: flex; align-items: center; gap: 9px; font-size: 13px; cursor: pointer; }
+.buyer-address-checkbox input { width: 17px; height: 17px; accent-color: var(--workspace-accent, #be2854); }
+.buyer-address-error { padding: 14px 18px; border: 1px solid #f0c7ce; border-radius: 8px; background: #fff3f5; color: #9f2046; font-size: 12px; line-height: 1.7; margin-bottom: 20px; }
+.buyer-address-error ul { padding-left: 18px; margin-top: 6px; }
+.checkout-address-picker { display: flex; align-items: flex-end; flex-wrap: wrap; gap: 12px; padding: 20px; margin-bottom: 24px; border: 1px solid #e7e9ef; border-radius: 12px; background: #fff; }
+.checkout-address-picker > div { display: grid; gap: 8px; flex: 1 1 260px; }
+.checkout-address-picker label { font-size: 13px; font-weight: 600; }
+.checkout-address-picker select { min-height: 42px; width: 100%; padding: 10px 12px; border: 1px solid #dce0e8; border-radius: 7px; background: #fff; font-size: 13px; }
+.checkout-address-picker button { min-height: 42px; padding: 10px 18px; border: 0; border-radius: 7px; background: #be2854; color: #fff; font-size: 13px; font-weight: 600; cursor: pointer; }
+.checkout-address-picker a, .checkout-saved-address a { color: #a62149; font-size: 12px; text-underline-offset: 3px; }
+.checkout-saved-address { margin-bottom: 24px; padding-bottom: 20px; border-bottom: 1px solid #e7e9ef; }
+.checkout-saved-address .buyer-address-summary { margin-block: 12px; }
+.checkout-address-picker :is(select, button, a):focus-visible { outline: 2px solid #be2854; outline-offset: 3px; }
+@media (max-width: 600px) {
+    .buyer-address-form-grid { grid-template-columns: minmax(0, 1fr); }
+    .buyer-address-actions { gap: 10px; }
+    .checkout-address-picker { padding: 16px; }
+}

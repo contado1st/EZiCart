@@ -24,7 +24,7 @@ class AdminComplianceController extends Controller
         ]);
 
         $products = Product::query()
-            ->with(['seller', 'complianceEvents.actor'])
+            ->with(['seller', 'media', 'complianceEvents.actor'])
             ->withCount(['complianceEvents as warning_count' => fn (Builder $query) => $query->whereIn('action', ['flagged', 'warning_issued'])])
             ->when(
                 $validated['status'] ?? null,

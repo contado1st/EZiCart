@@ -8,29 +8,7 @@
 @section('content')
     <div class="dash-wrapper">
         <!-- Sidebar -->
-        <aside class="dash-sidebar">
-            <div>
-                <div class="dash-profile-badge">
-                    <span class="dash-role-tag">Seller Portal</span>
-                    <h2 class="dash-profile-title">{{ auth()->user()->business_name ?? 'My Store' }}</h2>
-                    <p class="dash-profile-subtitle">{{ auth()->user()->line_of_business ?? 'Merchant' }}</p>
-                </div>
-
-                <nav class="dash-nav">
-                    <a href="{{ route('seller.dashboard') }}" class="dash-nav-item"><x-shop-icon name="diagram" /> Dashboard</a>
-                    <a href="{{ route('seller.products.index') }}" class="dash-nav-item"><x-shop-icon name="package1" /> Products</a>
-                    <a href="{{ route('seller.orders.index') }}" class="dash-nav-item"><x-shop-icon name="invoice" /> Orders & Waybills</a>
-                    <a href="{{ route('seller.vouchers.index') }}" class="dash-nav-item active"><x-shop-icon name="voucher" /> Promotional Vouchers</a>
-                </nav>
-            </div>
-
-            <form action="{{ route('logout') }}" method="POST">
-                @csrf
-                <button type="submit" class="dash-logout-btn"><x-shop-icon name="arrowback" /> Logout</button>
-            </form>
-        </aside>
-
-        <!-- Main Workspace -->
+<!-- Main Workspace -->
         <main class="dash-main">
             <div class="dash-header">
                 <div>
@@ -140,7 +118,7 @@
                                         <td>
                                             <div class="voucher-actions">
                                                 <form action="{{ route('seller.vouchers.toggle', $voucher->id) }}"
-                                                    method="POST">
+                                                    method="POST" data-decision="seller.vouchers.toggle" data-decision-title="Change voucher availability?" data-decision-message="This changes whether buyers can use the selected voucher." data-decision-label="Change availability" data-decision-tone="normal" onsubmit="return window.eziDecisionReady ? true : window.confirm(this.dataset.decisionMessage)">
                                                     @csrf
                                                     @method('PATCH')
                                                     <button type="submit" class="dash-btn-sm u-extracted-e013d740bb">
@@ -148,8 +126,7 @@
                                                     </button>
                                                 </form>
                                                 <form action="{{ route('seller.vouchers.destroy', $voucher->id) }}"
-                                                    method="POST"
-                                                    onsubmit="return confirm('Delete this voucher permanently?');">
+                                                    method="POST" data-decision="seller.vouchers.destroy" data-decision-title="Delete this voucher?" data-decision-message="This permanently deletes the selected voucher." data-decision-label="Delete voucher" data-decision-tone="danger" onsubmit="return window.eziDecisionReady ? true : window.confirm(this.dataset.decisionMessage)">
                                                     @csrf
                                                     @method('DELETE')
                                                     <button type="submit"

@@ -1,12 +1,18 @@
 @php
     $roleDashboardRoute = match (auth()->user()?->role) {
-        'admin' => 'admin.dashboard',
+        'admin', 'ecommerce_admin' => 'admin.dashboard',
+        'logistics_admin' => 'logistics-admin.dashboard',
         'courier' => 'courier.dashboard',
         'sorting_center' => 'logistics.dashboard',
         default => null,
     };
     $isRoleWorkspaceRoute = request()->routeIs('courier.*', 'logistics.*');
     $workspaceLabel = auth()->user()?->role === 'courier' ? 'Courier workspace' : 'Logistics workspace';
+    $isDashboardWorkspace = auth()->check() && request()->routeIs(
+        'admin.*', 'seller.*', 'courier.*', 'logistics.*', 'logistics-admin.*',
+        'buyer.dashboard', 'buyer.orders.*', 'buyer.addresses.*', 'finance.*', 'parcel-transfers.*',
+        'account.profile.*', 'notifications.*', 'buyer.for-you*', 'buyer.stock.*', 'chat.*', 'sales-reports.*', 'activity-logs.*', 'coverage.*', 'analytics.*'
+    );
 @endphp
 
 <!DOCTYPE html>
@@ -25,9 +31,28 @@
     <link rel="stylesheet"
         href="{{ asset('css/navigation-fallback.css') }}?v={{ filemtime(public_path('css/navigation-fallback.css')) }}">
     <link rel="stylesheet" href="{{ asset('css/psgc-address.css') }}?v={{ filemtime(public_path('css/psgc-address.css')) }}">
+    <link rel="stylesheet" href="{{ asset('css/profiles.css') }}?v={{ filemtime(public_path('css/profiles.css')) }}">
     <!-- Dynamic Page Stylesheets -->
     @stack('styles')
+    @if(auth()->check())
+        <link rel="stylesheet" href="{{ asset('css/communication-badges.css') }}?v={{ filemtime(public_path('css/communication-badges.css')) }}">
+        <script src="{{ asset('js/communication-badges.js') }}?v={{ filemtime(public_path('js/communication-badges.js')) }}" data-communication-count-url="{{ route('communications.counts') }}" defer></script>
+        <link rel="stylesheet" href="{{ asset('css/message-drawer.css') }}?v={{ filemtime(public_path('css/message-drawer.css')) }}">
+        <script src="{{ asset('js/message-drawer.js') }}?v={{ filemtime(public_path('js/message-drawer.js')) }}" defer></script>
+    @endif
+    <link rel="stylesheet" href="{{ asset('css/roadmap-features.css') }}?v={{ filemtime(public_path('css/roadmap-features.css')) }}">
+    <script src="{{ asset('js/order-deadlines.js') }}?v={{ filemtime(public_path('js/order-deadlines.js')) }}" defer></script>
+    @if ($isDashboardWorkspace)
+        <link rel="stylesheet" href="{{ asset('css/workspace.css') }}?v={{ filemtime(public_path('css/workspace.css')) }}">
+        <script src="{{ asset('js/workspace.js') }}?v={{ filemtime(public_path('js/workspace.js')) }}" defer></script>
+    @endif
+    <link rel="stylesheet" href="{{ asset('css/table-layout.css') }}?v={{ filemtime(public_path('css/table-layout.css')) }}">
+    <link rel="stylesheet" href="{{ asset('css/responsive-layout.css') }}?v={{ filemtime(public_path('css/responsive-layout.css')) }}">
+    <link rel="stylesheet" href="{{ asset('css/interaction-feedback.css') }}?v={{ filemtime(public_path('css/interaction-feedback.css')) }}">
+    <link rel="stylesheet" href="{{ asset('css/loading-skeleton.css') }}?v={{ filemtime(public_path('css/loading-skeleton.css')) }}">
+    <script src="{{ asset('js/page-loading.js') }}?v={{ filemtime(public_path('js/page-loading.js')) }}" defer></script>
     @vite('resources/js/app.js')
+    <script src="{{ asset('js/tab-sessions.js') }}?v={{ filemtime(public_path('js/tab-sessions.js')) }}" defer></script>
     <script src="{{ asset('js/password-visibility.js') }}?v={{ filemtime(public_path('js/password-visibility.js')) }}" defer></script>
     <script src="{{ asset('js/registration-name-inputs.js') }}?v={{ filemtime(public_path('js/registration-name-inputs.js')) }}" defer></script>
     <script src="{{ asset('js/email-input-constraint.js') }}?v={{ filemtime(public_path('js/email-input-constraint.js')) }}" defer></script>
@@ -37,9 +62,16 @@
 
 <body @class([
     'landing-page' => request()->routeIs('home'),
+    'loading-editorial' => request()->routeIs('home') && !auth()->check(),
+    'catalog-search-page' => request()->routeIs('search.index'),
     'role-workspace' => $isRoleWorkspaceRoute,
+    'dashboard-workspace' => $isDashboardWorkspace,
+    'workspace-logistics' => $isDashboardWorkspace && in_array(auth()->user()?->role, ['courier', 'sorting_center', 'logistics_admin'], true),
 ])>
 
+    @if ($isDashboardWorkspace)
+        @include('components.workspace-topbar')
+    @else
     <!-- Header / Navbar -->
     <header class="navbar{{ $isRoleWorkspaceRoute ? ' navbar--workspace' : '' }}">
             <div class="container navbar-container">
@@ -53,8 +85,8 @@
                     <p class="navbar-workspace-label">{{ $workspaceLabel }}</p>
                 @elseif (!$roleDashboardRoute)
                     <div class="search-wrapper">
-                        <form action="{{ route('home') }}" method="GET" class="search-form">
-                            <input type="text" name="search" value="{{ request('search') }}"
+                        <form action="{{ route('search.index') }}" method="GET" class="search-form" role="search">
+                            <input type="search" name="search" value="{{ request('search') }}" maxlength="150" aria-label="Search products and shops"
                                 placeholder="Search for products, shops and more" class="search-input">
                             <button type="submit" class="search-button">
                                 Search
@@ -78,7 +110,7 @@
                             <span><x-shop-icon name="cart2" /> Cart</span>
                             @if (session('cart') && count(session('cart')) > 0)
                                 <span class="cart-count-badge">
-                                    {{ array_sum(array_column(session('cart'), 'quantity')) }}
+                                    {{ count(session('cart')) }}
                                 </span>
                             @endif
                         </a>
@@ -86,17 +118,22 @@
 
                     @auth
                         @if (auth()->user()->role !== 'buyer')
-                            <a href="{{ route('notifications.index') }}" class="nav-link">Notifications
+                            <a href="{{ route('notifications.index') }}" class="nav-link"><x-shop-icon name="bell" /> Notifications
                                 @if (auth()->user()->unreadNotifications()->exists())
                                     <span class="cart-count-badge">{{ auth()->user()->unreadNotifications()->count() }}</span>
                                 @endif
                             </a>
                             <a href="{{ route('account.profile.edit') }}" class="nav-link">Account</a>
                         @endif
+                        @if (in_array(auth()->user()->role, ['buyer', 'seller', 'courier', 'admin', 'ecommerce_admin', 'logistics_admin'], true))
+                            <a href="{{ route('finance.index') }}" class="nav-link">Financial records</a>
+                        @endif
                         @if (auth()->user()->role === 'seller')
                             <a href="{{ route('seller.dashboard') }}" class="btn-primary nav-btn-compact">Dashboard</a>
-                        @elseif(auth()->user()->role === 'admin')
+                        @elseif(auth()->user()->isCommerceAdmin())
                             <a href="{{ route('admin.dashboard') }}" class="btn-primary nav-btn-compact">Admin Panel</a>
+                        @elseif(auth()->user()->isLogisticsAdmin())
+                            <a href="{{ route('logistics-admin.dashboard') }}" class="btn-primary nav-btn-compact">Logistics control tower</a>
                         @elseif(auth()->user()->role === 'courier')
                             <a href="{{ route('courier.dashboard') }}" class="btn-primary nav-btn-compact">Deliveries</a>
                         @elseif(auth()->user()->role === 'sorting_center')
@@ -109,7 +146,7 @@
                             </a>
                         @endif
 
-                        <form action="{{ route('logout') }}" method="POST" class="logout-form-inline">
+                        <form action="{{ route('logout') }}" method="POST" class="logout-form-inline" data-decision="logout" data-decision-title="Sign out?" data-decision-message="You will leave your current session. You can sign in again when you are ready." data-decision-label="Sign out" data-decision-tone="normal" onsubmit="return window.eziDecisionReady ? true : window.confirm(this.dataset.decisionMessage)">
                             @csrf
                             <button type="submit" class="nav-link btn-logout">Logout</button>
                         </form>
@@ -121,6 +158,7 @@
                 @endif
             </div>
         </header>
+    @endif
 
     <!-- Global Platform Announcements -->
     @php
@@ -154,12 +192,27 @@
     @endif
 
     <!-- Main Content Body -->
-    <main class="container main-content">
-        @yield('content')
-    </main>
+    @if ($isDashboardWorkspace)
+        <div class="workspace-frame">
+            @include('components.workspace-sidebar')
+            <button type="button" class="workspace-overlay" data-workspace-close aria-label="Close navigation" tabindex="-1" hidden></button>
+            <div class="workspace-page" id="workspace-content" tabindex="-1" data-page-content>
+                @yield('content')
+            </div>
+        </div>
+    @else
+        <main class="container main-content" data-page-content>
+            @yield('content')
+        </main>
+    @endif
 
     <!-- Footer -->
-    @unless ($isRoleWorkspaceRoute)
+    @if (auth()->user()?->role === 'buyer' && !$isDashboardWorkspace)
+        <nav class="marketplace-chat-dock" aria-label="Shopping shortcuts">
+            @if (auth()->user()->role === 'buyer')<a href="{{ route('buyer.for-you') }}">For you</a>@endif
+        </nav>
+    @endif
+    @unless ($isRoleWorkspaceRoute || $isDashboardWorkspace)
         <footer class="footer">
             <div class="container footer-text">
                 &copy; {{ date('Y') }} EZiCart Marketplace. All rights reserved.
@@ -167,6 +220,11 @@
         </footer>
     @endunless
 
+    @if(auth()->check() && in_array(auth()->user()->role, ['buyer', 'seller', 'courier', 'sorting_center', 'admin', 'ecommerce_admin', 'logistics_admin'], true))
+        @include('components.message-drawer')
+    @endif
+
+    <x-page-loading />
 </body>
 
 </html>

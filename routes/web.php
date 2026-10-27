@@ -1,51 +1,73 @@
 <?php
 
 use App\Http\Controllers\AccountController;
+use App\Http\Controllers\Admin\ActivityLogController;
 use App\Http\Controllers\Admin\AdminAnnouncementController;
 use App\Http\Controllers\Admin\AdminComplianceController;
 use App\Http\Controllers\Admin\AdminController;
 use App\Http\Controllers\Admin\AdminDisputeController;
 use App\Http\Controllers\Admin\AdminModerationController;
 use App\Http\Controllers\Admin\AdminReportController;
+use App\Http\Controllers\Admin\LogisticsAdminController;
+use App\Http\Controllers\Admin\PlatformVoucherController;
+use App\Http\Controllers\AnalyticsController;
 use App\Http\Controllers\Auth\AuthController;
 use App\Http\Controllers\Auth\RiderActivationController;
+use App\Http\Controllers\Buyer\BuyerAddressController;
 use App\Http\Controllers\Buyer\BuyerController;
 use App\Http\Controllers\Buyer\CartController;
 use App\Http\Controllers\Buyer\CheckoutController;
+use App\Http\Controllers\Buyer\DiscoveryController;
 use App\Http\Controllers\Buyer\DisputeController;
 use App\Http\Controllers\Buyer\ReviewController;
+use App\Http\Controllers\ChatInboxController;
+use App\Http\Controllers\CommunicationCountController;
+use App\Http\Controllers\Courier\AssignmentAcceptanceController;
 use App\Http\Controllers\Courier\CourierController;
+use App\Http\Controllers\DirectMessageController;
+use App\Http\Controllers\FinancialController;
 use App\Http\Controllers\HomeController;
+use App\Http\Controllers\Logistics\CoverageController;
 use App\Http\Controllers\Logistics\LogisticsController;
 use App\Http\Controllers\NotificationController;
-use App\Http\Controllers\PsgcAddressController;
 use App\Http\Controllers\OrderMessageController;
+use App\Http\Controllers\ParcelTransferController;
+use App\Http\Controllers\ProfileAppearanceController;
+use App\Http\Controllers\PsgcAddressController;
+use App\Http\Controllers\SalesReportController;
+use App\Http\Controllers\SearchController;
 use App\Http\Controllers\SecureDocumentController;
+use App\Http\Controllers\Seller\CancellationController;
 use App\Http\Controllers\Seller\ProductController;
+use App\Http\Controllers\Seller\ReturnInspectionController;
 use App\Http\Controllers\Seller\SellerController;
 use App\Http\Controllers\Seller\SellerOrderController;
 use App\Http\Controllers\Seller\SellerReportController;
 use App\Http\Controllers\Seller\SellerVoucherController;
+use App\Http\Controllers\SellerShopController;
 use Illuminate\Support\Facades\Route;
 
 // 1. Public Marketplace & Browsing Routes
 Route::get('/', [HomeController::class, 'index'])->name('home');
+Route::get('/search', [SearchController::class, 'index'])->name('search.index');
 Route::view('/terms', 'legal.terms')->name('terms');
 Route::view('/privacy', 'legal.privacy')->name('privacy');
 Route::get('/product/{product}', [HomeController::class, 'showProduct'])->name('product.show');
+Route::get('/shops/{seller}', [SellerShopController::class, 'show'])->whereNumber('seller')->name('shops.show');
+Route::get('/profiles/{user}/media/{type}', [ProfileAppearanceController::class, 'media'])->whereNumber('user')->whereIn('type', ['avatar', 'banner'])->name('profiles.media');
 Route::get('/psgc-addresses', PsgcAddressController::class)->middleware('throttle:120,1')->name('psgc.addresses');
 
 // 2. Guest Authentication & Registration Routes
 Route::middleware('guest')->group(function () {
     Route::get('/login', [AuthController::class, 'showLoginForm'])->name('login');
     Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:auth-login')->name('login.post');
-    Route::get('/login/verify', [AuthController::class, 'showLoginOtp'])->name('login.otp.notice');
-    Route::post('/login/verify', [AuthController::class, 'verifyLoginOtp'])->middleware('throttle:email-verification')->name('login.otp.verify');
-    Route::post('/login/verify/resend', [AuthController::class, 'resendLoginOtp'])->middleware('throttle:email-verification-resend')->name('login.otp.resend');
     Route::get('/forgot-password', [AuthController::class, 'showForgotPasswordForm'])->name('password.request');
     Route::post('/forgot-password', [AuthController::class, 'sendPasswordResetLink'])->middleware('throttle:password-reset-link')->name('password.email');
-    Route::get('/reset-password/{token}', [AuthController::class, 'showResetPasswordForm'])->name('password.reset');
-    Route::post('/reset-password', [AuthController::class, 'resetPassword'])->middleware('throttle:password-reset')->name('password.update');
+    Route::get('/forgot-password/verify', [AuthController::class, 'showPasswordResetOtp'])->name('password.otp.notice');
+    Route::post('/forgot-password/verify', [AuthController::class, 'verifyPasswordResetOtp'])->middleware('throttle:email-verification')->name('password.otp.verify');
+    Route::post('/forgot-password/verify/resend', [AuthController::class, 'resendPasswordResetOtp'])->middleware('throttle:email-verification-resend')->name('password.otp.resend');
+    Route::get('/forgot-password/reset', [AuthController::class, 'showResetPasswordForm'])->name('password.reset.form');
+    Route::post('/forgot-password/reset', [AuthController::class, 'resetPassword'])->middleware('throttle:password-reset')->name('password.update');
 
     Route::get('/register', [AuthController::class, 'showRegisterForm'])->name('register');
     Route::post('/register', [AuthController::class, 'register'])->middleware('throttle:registration')->name('register.post');
@@ -77,17 +99,66 @@ Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
 
 // 3. Protected Routes (Strictly Isolated by Role)
 Route::middleware(['auth', 'account.active', 'auth.session'])->group(function () {
+    Route::middleware('role:buyer,seller,courier,sorting_center,admin,ecommerce_admin,logistics_admin')->group(function () {
+        Route::get('/analytics', [AnalyticsController::class, 'index'])->name('analytics.index');
+        Route::get('/analytics/export', [AnalyticsController::class, 'export'])->middleware('throttle:10,1')->name('analytics.export');
+    });
+    Route::get('/communication-counts', CommunicationCountController::class)->name('communications.counts');
+    Route::middleware('role:buyer,seller,courier,sorting_center,admin,ecommerce_admin,logistics_admin')->group(function () {
+        Route::get('/chat', ChatInboxController::class)->name('chat.index');
+        Route::get('/chat/contacts', [DirectMessageController::class, 'contacts'])->name('chat.contacts');
+        Route::post('/chat/start/{recipient}', [DirectMessageController::class, 'start'])->middleware('throttle:operational-action')->name('chat.start');
+        Route::get('/chat/conversations/{conversation}', [DirectMessageController::class, 'show'])->name('chat.show');
+        Route::post('/chat/conversations/{conversation}/messages', [DirectMessageController::class, 'store'])->middleware('throttle:operational-action')->name('chat.store');
+    });
+    Route::get('/sales-reports', SalesReportController::class)->middleware('role:seller,admin,ecommerce_admin')->name('sales-reports.index');
+    Route::get('/activity-logs', ActivityLogController::class)->middleware('role:admin,ecommerce_admin,logistics_admin')->name('activity-logs.index');
+    Route::get('/logistics-coverage', [CoverageController::class, 'index'])->middleware('role:sorting_center,logistics_admin')->name('coverage.index');
+    Route::post('/logistics-coverage', [CoverageController::class, 'store'])->middleware(['role:sorting_center,logistics_admin', 'throttle:operational-action'])->name('coverage.store');
+    Route::patch('/logistics-coverage/riders/{rider}', [CoverageController::class, 'vehicle'])->middleware(['role:sorting_center,logistics_admin', 'throttle:operational-action'])->name('coverage.vehicle');
+    Route::patch('/logistics-coverage/shipping', [CoverageController::class, 'shipping'])->middleware(['role:logistics_admin', 'throttle:operational-action'])->name('coverage.shipping');
+    Route::post('/courier/orders/{order}/accept-assignment', AssignmentAcceptanceController::class)->middleware(['role:courier', 'throttle:operational-action'])->name('courier.orders.accept-assignment');
+    Route::post('/seller/orders/{order}/cancellation', CancellationController::class)->middleware(['role:seller', 'throttle:operational-action'])->name('seller.orders.cancellation');
+    Route::middleware('role:buyer')->prefix('buyer')->name('buyer.')->group(function () {
+        Route::get('/for-you', [DiscoveryController::class, 'index'])->name('for-you');
+        Route::delete('/for-you/history', [DiscoveryController::class, 'reset'])->name('for-you.reset');
+        Route::get('/stock-alerts', [DiscoveryController::class, 'stock'])->name('stock.index');
+        Route::post('/stock-alerts/{product}', [DiscoveryController::class, 'watch'])->middleware('throttle:operational-action')->name('stock.watch');
+        Route::delete('/stock-alerts/{product}', [DiscoveryController::class, 'unwatch'])->name('stock.unwatch');
+    });
+    Route::get('/parcel-transfers', [ParcelTransferController::class, 'index'])->middleware('role:sorting_center,logistics_admin')->name('parcel-transfers.index');
+    Route::post('/parcel-transfers/{transfer}/release', [ParcelTransferController::class, 'release'])->middleware(['role:sorting_center', 'throttle:operational-action'])->name('parcel-transfers.release');
+    Route::post('/parcel-transfers/{transfer}/receive', [ParcelTransferController::class, 'receive'])->middleware(['role:sorting_center', 'throttle:operational-action'])->name('parcel-transfers.receive');
+    Route::post('/parcel-transfers/{transfer}/cancel', [ParcelTransferController::class, 'cancel'])->middleware(['role:logistics_admin', 'throttle:operational-action'])->name('parcel-transfers.cancel');
     Route::get('/notifications', [NotificationController::class, 'index'])->name('notifications.index');
+    Route::post('/notifications/read-all', [NotificationController::class, 'markAllRead'])->name('notifications.read-all');
+    Route::post('/notifications/{notification}/open', [NotificationController::class, 'open'])->name('notifications.open');
     Route::post('/notifications/{notification}/read', [NotificationController::class, 'markRead'])->name('notifications.read');
     Route::get('/account/documents/{type}', [SecureDocumentController::class, 'ownDocument'])->name('account.documents.show');
     Route::get('/account', [AccountController::class, 'edit'])->name('account.profile.edit');
+    Route::patch('/account/appearance', [ProfileAppearanceController::class, 'update'])->middleware('throttle:operational-action')->name('account.appearance.update');
+    Route::post('/shops/{seller}/follow', [SellerShopController::class, 'follow'])->middleware(['role:buyer', 'throttle:operational-action'])->whereNumber('seller')->name('shops.follow');
     Route::patch('/account', [AccountController::class, 'update'])->middleware('throttle:operational-action')->name('account.profile.update');
     Route::patch('/account/password', [AccountController::class, 'updatePassword'])->middleware('throttle:10,1')->name('account.password.update');
     Route::get('/delivery-attempts/{attempt}/proof', [SecureDocumentController::class, 'deliveryProof'])->name('delivery-attempts.proof');
+    Route::middleware('role:buyer,seller,courier,admin,ecommerce_admin,logistics_admin')->group(function () {
+        Route::get('/finance', [FinancialController::class, 'index'])->name('finance.index');
+        Route::get('/finance/evidence/{type}/{record}', [FinancialController::class, 'evidence'])->name('finance.evidence');
+    });
+    Route::post('/finance/orders/{order}/remittance', [FinancialController::class, 'remittance'])->middleware(['role:courier', 'throttle:operational-action'])->name('finance.remittance');
+    Route::post('/finance/orders/{order}/verify-remittance', [FinancialController::class, 'verifyRemittance'])->middleware(['role:logistics_admin', 'throttle:operational-action'])->name('finance.remittance.verify');
+    Route::post('/finance/orders/{order}/payout', [FinancialController::class, 'requestPayout'])->middleware(['role:seller', 'throttle:operational-action'])->name('finance.payout.request');
+    Route::post('/finance/orders/{order}/fund-subsidy', [FinancialController::class, 'fundSubsidy'])->middleware(['role:admin,ecommerce_admin', 'throttle:operational-action'])->name('finance.subsidy');
+    Route::post('/finance/refunds/{refund}/execute', [FinancialController::class, 'refund'])->middleware(['role:admin,ecommerce_admin', 'throttle:operational-action'])->name('finance.refund.execute');
+    Route::post('/finance/payouts/{payout}/approve', [FinancialController::class, 'approvePayout'])->middleware(['role:admin,ecommerce_admin', 'throttle:operational-action'])->name('finance.payout.approve');
+    Route::post('/finance/payouts/{payout}/settle', [FinancialController::class, 'settlePayout'])->middleware(['role:admin,ecommerce_admin', 'throttle:operational-action'])->name('finance.payout.settle');
+    Route::post('/seller/disputes/{dispute}/replacement', [FinancialController::class, 'replacement'])->middleware(['role:seller', 'throttle:operational-action'])->name('seller.replacements.store');
 
     // Buyer-Only Routes
     Route::middleware(['role:buyer'])->group(function () {
         Route::prefix('buyer')->name('buyer.')->group(function () {
+            Route::resource('addresses', BuyerAddressController::class)->except('show')->whereNumber('address');
+            Route::patch('/addresses/{address}/default', [BuyerAddressController::class, 'makeDefault'])->whereNumber('address')->middleware('throttle:operational-action')->name('addresses.default');
             Route::get('/dashboard', [BuyerController::class, 'dashboard'])->name('dashboard');
             Route::get('/orders/{order}', [BuyerController::class, 'showOrder'])->name('orders.show');
             Route::post('/orders/{order}/delivery-code/refresh', [BuyerController::class, 'refreshDeliveryCode'])->middleware('throttle:operational-action')->name('orders.delivery-code.refresh');
@@ -131,6 +202,7 @@ Route::middleware(['auth', 'account.active', 'auth.session'])->group(function ()
         Route::post('/orders/{order}/schedule-pickup', [SellerOrderController::class, 'schedulePickup'])->middleware('throttle:pickup-schedule')->name('orders.schedulePickup');
         Route::post('/orders/{order}/confirm-handover', [SellerOrderController::class, 'confirmHandover'])->middleware('throttle:operational-action')->name('orders.confirmHandover');
         Route::post('/orders/{order}/confirm-return', [SellerOrderController::class, 'confirmReturn'])->middleware('throttle:operational-action')->name('orders.confirmReturn');
+        Route::post('/orders/{order}/return-inspection', [ReturnInspectionController::class, 'store'])->middleware('throttle:operational-action')->name('orders.return-inspection');
         Route::get('/orders/{order}/waybill', [SellerOrderController::class, 'waybill'])->name('orders.waybill');
         Route::post('/orders/{order}/waybill/reprint', [SellerOrderController::class, 'reprintWaybill'])->middleware('throttle:operational-action')->name('orders.waybill.reprint');
 
@@ -162,7 +234,7 @@ Route::middleware(['auth', 'account.active', 'auth.session'])->group(function ()
     });
 
     // Logistics / Sorting Center Routes
-    Route::middleware(['role:sorting_center'])->prefix('logistics')->name('logistics.')->group(function () {
+    Route::middleware(['role:sorting_center', 'parcel.available'])->prefix('logistics')->name('logistics.')->group(function () {
         Route::get('/dashboard', [LogisticsController::class, 'dashboard'])->name('dashboard');
         Route::get('/intake', [LogisticsController::class, 'intake'])->name('intake');
         Route::get('/pickup-requests', [LogisticsController::class, 'pickupRequests'])->name('pickupRequests');
@@ -202,8 +274,25 @@ Route::middleware(['auth', 'account.active', 'auth.session'])->group(function ()
         Route::get('/riders/{user}/documents/{type}', [SecureDocumentController::class, 'userDocument'])->name('riders.documents.show');
     });
 
-    // Admin-Only Routes
-    Route::middleware(['role:admin'])->prefix('admin')->name('admin.')->group(function () {
+    Route::middleware(['role:logistics_admin'])->prefix('logistics-admin')->name('logistics-admin.')->group(function () {
+        Route::get('/', [LogisticsAdminController::class, 'index'])->name('dashboard');
+        Route::post('/users/{user}/approve', [AdminController::class, 'approve'])->middleware('throttle:operational-action')->name('users.approve');
+        Route::post('/users/{user}/reject', [AdminController::class, 'reject'])->middleware('throttle:operational-action')->name('users.reject');
+        Route::post('/users/{user}/suspend', [AdminModerationController::class, 'suspend'])->middleware('throttle:operational-action')->name('users.suspend');
+        Route::post('/users/{user}/reactivate', [AdminModerationController::class, 'reactivate'])->middleware('throttle:operational-action')->name('users.reactivate');
+        Route::get('/users/{user}/documents/{type}', [SecureDocumentController::class, 'userDocument'])->name('users.documents');
+        Route::patch('/areas/{area}', [LogisticsAdminController::class, 'assignArea'])->middleware('throttle:operational-action')->name('areas.assign');
+        Route::post('/orders/{order}/pickup', [LogisticsAdminController::class, 'reassignPickup'])->middleware('throttle:operational-action')->name('orders.pickup');
+        Route::post('/orders/{order}/transfer', [ParcelTransferController::class, 'plan'])->middleware('throttle:operational-action')->name('orders.transfer');
+        Route::get('/orders/{order}/messages', [OrderMessageController::class, 'show'])->name('orders.messages.show');
+        Route::post('/orders/{order}/messages', [OrderMessageController::class, 'store'])->middleware('throttle:operational-action')->name('orders.messages.store');
+    });
+
+    // Marketplace administration. Legacy admin accounts retain this domain only.
+    Route::middleware(['role:admin,ecommerce_admin'])->prefix('admin')->name('admin.')->group(function () {
+        Route::get('/vouchers', [PlatformVoucherController::class, 'index'])->name('vouchers.index');
+        Route::post('/vouchers', [PlatformVoucherController::class, 'store'])->middleware('throttle:operational-action')->name('vouchers.store');
+        Route::patch('/vouchers/{voucher}', [PlatformVoucherController::class, 'toggle'])->middleware('throttle:operational-action')->name('vouchers.toggle');
         Route::get('/dashboard', [AdminController::class, 'dashboard'])->name('dashboard');
         Route::get('/orders/{order}/messages', [OrderMessageController::class, 'show'])->name('orders.messages.show');
         Route::post('/orders/{order}/messages', [OrderMessageController::class, 'store'])->middleware('throttle:operational-action')->name('orders.messages.store');

@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -16,6 +17,15 @@ class Product extends Model
         'price', 'stock', 'image_path', 'is_archived',
     ];
 
+    public function scopeAvailableForMarketplace(Builder $query): Builder
+    {
+        return $query->where('compliance_status', 'approved')
+            ->where('is_archived', false)
+            ->where('stock', '>', 0)
+            ->where(fn (Builder $products) => $products->whereDoesntHave('variations')
+                ->orWhereHas('variations', fn (Builder $variations) => $variations->where('is_active', true)->where('stock', '>', 0)));
+    }
+
     public function seller(): BelongsTo
     {
         return $this->belongsTo(User::class, 'user_id');
@@ -24,6 +34,11 @@ class Product extends Model
     public function variations(): HasMany
     {
         return $this->hasMany(ProductVariation::class);
+    }
+
+    public function media(): HasMany
+    {
+        return $this->hasMany(ProductMedia::class)->orderBy('sort_order')->orderBy('id');
     }
 
     public function reviews(): HasMany

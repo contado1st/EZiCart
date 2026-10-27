@@ -7,26 +7,7 @@
 
 @section('content')
     <div class="dash-wrapper">
-        <aside class="dash-sidebar">
-            <div>
-                <div class="dash-profile-badge">
-                    <span class="dash-role-tag dash-role-admin">Super Admin</span>
-                    <h2 class="dash-profile-title">{{ auth()->user()->first_name }} {{ auth()->user()->last_name }}</h2>
-                </div>
-                <nav class="dash-nav">
-                    <a href="{{ route('admin.dashboard') }}" class="dash-nav-item"><x-shop-icon name="diagram" /> Platform Overview</a>
-                    <a href="{{ route('admin.registrations.index') }}" class="dash-nav-item"><x-shop-icon name="shield" /> User Approvals</a>
-                    <a href="{{ route('admin.reports.index') }}" class="dash-nav-item"><x-shop-icon name="invoice" /> Financial & Commission</a>
-                    <a href="{{ route('admin.disputes.index') }}" class="dash-nav-item active"><x-shop-icon name="diagram" /> Dispute Arbitration</a>
-                </nav>
-            </div>
-            <form action="{{ route('logout') }}" method="POST">
-                @csrf
-                <button type="submit" class="dash-logout-btn"><x-shop-icon name="arrowback" /> Logout</button>
-            </form>
-        </aside>
-
-        <main class="dash-main">
+<main class="dash-main">
             <a href="{{ route('admin.disputes.index') }}" class="u-extracted-7fc4d6b00a">
                 ← Back to Disputes
             </a>
@@ -100,7 +81,7 @@
                     <h2 class="courier-section-title">Admin Decision</h2>
 
                     <form action="{{ route('admin.disputes.resolve', $dispute->id) }}" method="POST"
-                        class="u-extracted-dab43fb936">
+                        class="u-extracted-dab43fb936" data-decision="admin.disputes.resolve" data-decision-title="Resolve this dispute?" data-decision-message="Check the selected resolution and any financial consequences before recording the decision." data-decision-label="Record resolution" data-decision-tone="normal" onsubmit="return window.eziDecisionReady ? true : window.confirm(this.dataset.decisionMessage)">
                         @csrf
                         @method('PATCH')
 

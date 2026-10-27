@@ -9,10 +9,12 @@ use App\Models\AreaMunicipality;
 use App\Models\DeliveryAttempt;
 use App\Models\Order;
 use App\Models\ParcelTrackingEvent;
+use App\Models\ParcelTransfer;
 use App\Models\User;
 use App\Notifications\AccountStatusNotification;
 use App\Notifications\OrderWorkflowNotification;
 use App\Notifications\RiderActivationNotification;
+use App\Services\LogisticsCoverageService;
 use App\Services\LogisticsExceptionService;
 use App\Services\OrderAreaService;
 use App\Services\OrderTransitionService;
@@ -31,9 +33,9 @@ use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
-use Illuminate\Validation\Rules\Password as PasswordRule;
 use Illuminate\View\View;
 use Symfony\Component\HttpKernel\Exception\HttpException;
 use Throwable;
@@ -98,36 +100,36 @@ class LogisticsController extends Controller
         try {
             $rider = DB::transaction(function () use ($validated, $operator, $storedPaths): User {
                 $rider = User::query()->forceCreate([
-                'first_name' => trim($validated['first_name']),
-                'last_name' => trim($validated['last_name']),
-                'email' => $validated['email'],
-                'canonical_email' => $validated['email'],
-                'password' => Hash::make(Str::random(64)),
-                'contact_no' => $validated['contact_no'],
-                'canonical_mobile' => $validated['contact_no'],
-                'birthday' => $validated['birthday'],
-                'age' => Carbon::parse($validated['birthday'])->age,
-                'vehicle_type' => $validated['vehicle_type'],
-                'plate_number' => $validated['plate_number'],
-                'canonical_plate' => $validated['canonical_plate'],
-                'license_number' => $validated['license_number'],
-                'canonical_license_number' => $validated['canonical_license_number'],
-                'license_expires_at' => $validated['license_expires_at'],
-                'license_path' => $storedPaths[0],
-                'or_cr_path' => $storedPaths[1],
-                'role' => 'courier',
-                'status' => 'pending_activation',
-                'logistics_owner_id' => $operator->id,
-                'province' => $operator->province,
-                'municipality' => $operator->municipality,
-                'barangay' => $operator->barangay,
-                'street_address' => $operator->street_address,
-            ]);
+                    'first_name' => trim($validated['first_name']),
+                    'last_name' => trim($validated['last_name']),
+                    'email' => $validated['email'],
+                    'canonical_email' => $validated['email'],
+                    'password' => Hash::make(Str::random(64)),
+                    'contact_no' => $validated['contact_no'],
+                    'canonical_mobile' => $validated['contact_no'],
+                    'birthday' => $validated['birthday'],
+                    'age' => Carbon::parse($validated['birthday'])->age,
+                    'vehicle_type' => $validated['vehicle_type'],
+                    'plate_number' => $validated['plate_number'],
+                    'canonical_plate' => $validated['canonical_plate'],
+                    'license_number' => $validated['license_number'],
+                    'canonical_license_number' => $validated['canonical_license_number'],
+                    'license_expires_at' => $validated['license_expires_at'],
+                    'license_path' => $storedPaths[0],
+                    'or_cr_path' => $storedPaths[1],
+                    'role' => 'courier',
+                    'status' => 'pending_activation',
+                    'logistics_owner_id' => $operator->id,
+                    'province' => $operator->province,
+                    'municipality' => $operator->municipality,
+                    'barangay' => $operator->barangay,
+                    'street_address' => $operator->street_address,
+                ]);
 
                 return $rider;
             });
         } catch (QueryException $exception) {
-            \Illuminate\Support\Facades\Storage::disk('private')->delete($storedPaths);
+            Storage::disk('private')->delete($storedPaths);
             if (User::query()->where('canonical_email', $validated['email'])->exists()) {
                 throw ValidationException::withMessages(['email' => 'This email address is already linked to an account.']);
             }
@@ -143,7 +145,7 @@ class LogisticsController extends Controller
 
             throw $exception;
         } catch (Throwable $exception) {
-            \Illuminate\Support\Facades\Storage::disk('private')->delete($storedPaths);
+            Storage::disk('private')->delete($storedPaths);
             throw $exception;
         }
 
@@ -177,6 +179,7 @@ class LogisticsController extends Controller
 
         try {
             $rider->notify(new RiderActivationNotification($token));
+
             return true;
         } catch (Throwable $exception) {
             Log::warning('Rider activation email could not be dispatched.', ['rider_id' => $rider->id]);
@@ -290,7 +293,7 @@ class LogisticsController extends Controller
             abort_unless($lockedOrder->pickup_claimed_at === null || $previousRider?->status === 'suspended', 422, 'The accepted pickup must be released by its unavailable rider before reassignment.');
             abort_if($previousRider?->id === $rider->id, 422, 'Choose a different rider for reassignment.');
 
-            $lockedOrder->forceFill(['pickup_courier_id' => $rider->id])->save();
+            $lockedOrder->forceFill(['pickup_courier_id' => $rider->id, 'pickup_claimed_at' => null])->save();
             if ($previousRider !== null) {
                 DB::table('logistics_exceptions')
                     ->where('order_id', $lockedOrder->id)
@@ -614,6 +617,7 @@ class LogisticsController extends Controller
                 $orderId = $order->id;
                 $locationId = $location->id;
                 abort_unless((int) $order->sorting_center_id === $operator->id, 403, 'This parcel belongs to another sorting center.');
+                abort_if(ParcelTransfer::query()->where('active_order_id', $order->id)->where('status', 'IN_TRANSIT')->exists(), 422, 'A transfer parcel cannot be stored at its former hub while in transit.');
                 abort_unless($order->status === 'SORTED' || ($order->status === 'AT_SORTING_CENTER' && in_array($location->type, ['RECEIVING', 'EXCEPTION'], true)), 422, 'This parcel cannot be placed at a location in its current stage.');
                 abort_unless($location->type === 'EXCEPTION' || $location->area_id === null || (int) $location->area_id === (int) $order->destination_area_id, 422, 'The location area does not match this parcel route. Use an exception location for misrouted parcels.');
 
@@ -687,6 +691,9 @@ class LogisticsController extends Controller
         }
 
         $removed = DB::transaction(function () use ($order, $location, $operator, $method, $request): bool {
+            $lockedOrder = Order::query()->whereKey($order->id)->lockForUpdate()->firstOrFail();
+            abort_unless((int) $lockedOrder->sorting_center_id === $operator->id, 403, 'This parcel belongs to another sorting center.');
+            abort_if(ParcelTransfer::query()->where('active_order_id', $order->id)->where('status', 'IN_TRANSIT')->exists(), 422, 'This parcel is in transit between hubs.');
             $placement = DB::table('parcel_placements')->where('order_id', $order->id)->where('location_id', $location->id)
                 ->where('active_order_id', $order->id)->whereNull('removed_at')->lockForUpdate()->first();
             if ($placement === null) {
@@ -882,6 +889,7 @@ class LogisticsController extends Controller
         $rules = [
             'delivery_courier_id' => ['required', 'integer', 'exists:users,id'],
             'scheduled_at' => ['nullable', 'date', 'after:now'],
+            'coverage_override_reason' => ['nullable', 'string', 'min:5', 'max:500'],
         ];
         $validated = $request->validate($rules);
         $operator = $this->authenticatedUser();
@@ -901,6 +909,7 @@ class LogisticsController extends Controller
             abort_if($rider->status === 'suspended', 422, 'Suspended riders cannot receive parcels.');
             abort_unless($lockedOrder->destination_area_id !== null, 422, 'Sort this parcel into a destination area before dispatch.');
             abort_unless($rider->serviceAreas()->whereKey($lockedOrder->destination_area_id)->exists(), 422, 'The rider is not assigned to this destination area.');
+            app(LogisticsCoverageService::class)->assertRider($lockedOrder, $rider, $validated['coverage_override_reason'] ?? null);
             $activeDeliveries = Order::query()
                 ->where('delivery_courier_id', $rider->id)
                 ->activeCourierWorkload()
@@ -909,6 +918,9 @@ class LogisticsController extends Controller
             abort_if($activeDeliveries >= max(1, (int) config('logistics.maximum_active_deliveries_per_rider', 10)), 422, 'This rider is at the active delivery capacity limit.');
 
             $scheduleNote = isset($validated['scheduled_at']) ? ' Next attempt scheduled for '.Carbon::parse($validated['scheduled_at'])->format('M j, Y g:i A').'.' : '';
+            if (filled($validated['coverage_override_reason'] ?? null)) {
+                $scheduleNote .= ' Coverage override: '.$validated['coverage_override_reason'];
+            }
             $transitions->transition($lockedOrder, $operator, OrderStatus::AssignedToRider, 'rider_assigned', $lockedOrder->delivery_area, "Assigned to {$rider->first_name} {$rider->last_name}.{$scheduleNote}", [
                 'delivery_courier_id' => $rider->id,
                 'assigned_at' => now(),
@@ -1033,6 +1045,7 @@ class LogisticsController extends Controller
             abort_unless($lockedOrder->status === OrderStatus::AssignedToRider->value, 422, 'Assign this parcel before releasing it to a rider.');
             abort_unless($lockedOrder->payment_method === 'COD', 422, 'This parcel is on hold until payment verification is configured.');
             abort_unless($lockedOrder->delivery_courier_id !== null && $lockedOrder->hub_released_at === null, 422, 'This parcel has already been released or has no assigned rider.');
+            $this->recordAcceptanceAtHandoff($lockedOrder);
 
             $rider = User::query()->whereKey($lockedOrder->delivery_courier_id)->lockForUpdate()->firstOrFail();
             abort_unless($rider->role === 'courier' && $rider->status === 'approved', 422, 'Only an approved rider can receive a hub release.');
@@ -1120,6 +1133,7 @@ class LogisticsController extends Controller
                 foreach ($orders as $order) {
                     $this->assertHubAccess($order, $operator);
                     abort_unless($order->status === OrderStatus::AssignedToRider->value && $order->payment_method === 'COD' && $order->delivery_courier_id === $lockedRider->id && $order->hub_released_at === null, 422, 'Every selected parcel must be assigned to this rider, fulfillable, and not yet released.');
+                    $this->recordAcceptanceAtHandoff($order);
                     abort_unless($this->riderBelongsToHub($lockedRider, $operator) || ! $this->isMultiHubOperation(), 422, 'The rider is not assigned to this hub.');
                     abort_unless($order->destination_area_id !== null && $lockedRider->serviceAreas()->whereKey($order->destination_area_id)->exists(), 422, 'The assigned rider no longer serves every selected parcel destination.');
                     DB::table('scan_events')->insert([
@@ -1199,6 +1213,15 @@ class LogisticsController extends Controller
             ]);
 
         return back()->with('success', "Parcel {$order->order_number} recovered at the hub and returned to dispatch.");
+    }
+
+    private function recordAcceptanceAtHandoff(Order $order): void
+    {
+        $assignment = $order->deliveryAssignments()->where('status', 'active')->where('rider_id', $order->delivery_courier_id)->lockForUpdate()->first();
+        if ($assignment && ! $assignment->accepted_at) {
+            abort_if($assignment->assigned_at->copy()->addMinutes((int) config('commerce.rider_acceptance_minutes', 15))->lte(now()), 422, 'The rider acceptance deadline expired. Reassign this parcel before hub handoff.');
+            $assignment->update(['accepted_at' => now()]);
+        }
     }
 
     public function riders(RiderBadgeService $badges, QrCodeService $qrCodes): View
@@ -1630,6 +1653,7 @@ class LogisticsController extends Controller
     {
         abort_unless($operator->role === 'sorting_center' && $operator->status === 'approved', 403);
         abort_unless($order->sorting_center_id === null || (int) $order->sorting_center_id === $operator->id, 403, 'This parcel belongs to another sorting center.');
+        abort_if(ParcelTransfer::query()->where('active_order_id', $order->id)->where('status', 'IN_TRANSIT')->exists(), 422, 'This parcel is in transit between hubs.');
 
         $areaHubId = $order->destination_area_id === null
             ? null

@@ -8,7 +8,6 @@ use App\Notifications\EmailVerificationCodeNotification;
 use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
-use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Notification;
@@ -378,7 +377,7 @@ class RegistrationFlowTest extends TestCase
     /**
      * Scenario 10: A buyer can log in immediately after email verification.
      */
-    public function test_buyer_must_verify_login_otp_after_email_verification(): void
+    public function test_buyer_can_log_in_immediately_after_email_verification(): void
     {
         Notification::fake();
         $buyer = User::query()->forceCreate([
@@ -395,31 +394,12 @@ class RegistrationFlowTest extends TestCase
         $this->post(route('login.post'), [
             'email' => $buyer->email,
             'password' => 'Password@2026',
-        ])->assertRedirect(route('login.otp.notice'));
-
-        $this->assertGuest();
-        $this->get(route('login.otp.notice'))
-            ->assertOk()
-            ->assertSee('Verify Your Sign In')
-            ->assertSee($buyer->email);
-        $code = null;
-        Notification::assertSentTo($buyer, EmailVerificationCodeNotification::class, function ($notification) use (&$code) {
-            $code = $notification->code;
-
-            return strlen($code) === 6 && ctype_digit($code);
-        });
-
-        $this->post(route('login.otp.verify'), ['code' => '000000'])
-            ->assertSessionHasErrors('code');
-        $this->assertGuest();
-
-        $this->post(route('login.otp.verify'), ['code' => $code])
-            ->assertRedirect(route('buyer.dashboard'));
-
+        ])->assertRedirect(route('buyer.dashboard'));
         $this->assertAuthenticatedAs($buyer);
+        Notification::assertSentToTimes($buyer, EmailVerificationCodeNotification::class, 0);
     }
 
-    public function test_seeded_buyer_and_seller_can_log_in_without_login_otp(): void
+    public function test_seeded_buyer_and_seller_can_log_in_without_otp(): void
     {
         Notification::fake();
 
@@ -476,7 +456,7 @@ class RegistrationFlowTest extends TestCase
         $this->assertNotNull($admin->fresh()->email_verified_at);
     }
 
-    public function test_login_otp_expires_and_does_not_authenticate_the_buyer(): void
+    public function test_buyer_can_log_in_without_an_email_code(): void
     {
         Notification::fake();
         $buyer = User::query()->forceCreate([
@@ -493,16 +473,11 @@ class RegistrationFlowTest extends TestCase
         $this->post(route('login.post'), [
             'email' => $buyer->email,
             'password' => 'Password@2026',
-        ])->assertRedirect(route('login.otp.notice'));
+        ])->assertRedirect(route('buyer.dashboard'));
 
-        Carbon::setTestNow(now()->addMinutes(6));
-        $this->post(route('login.otp.verify'), ['code' => '123456'])
-            ->assertRedirect(route('login'));
-
-        $this->assertGuest();
-        Carbon::setTestNow();
+        $this->assertAuthenticatedAs($buyer);
+        Notification::assertSentToTimes($buyer, EmailVerificationCodeNotification::class, 0);
     }
-
 
     /**
      * Scenario 11: An unverified buyer cannot log in.
@@ -600,20 +575,9 @@ class RegistrationFlowTest extends TestCase
         $this->post(route('login.post'), [
             'email' => $seller->email,
             'password' => 'Password@2026',
-        ])->assertRedirect(route('login.otp.notice'));
-
-        $this->assertGuest();
-        $code = null;
-        Notification::assertSentTo($seller, EmailVerificationCodeNotification::class, function ($notification) use (&$code) {
-            $code = $notification->code;
-
-            return strlen($code) === 6 && ctype_digit($code);
-        });
-
-        $this->post(route('login.otp.verify'), ['code' => $code])
-            ->assertRedirect(route('seller.dashboard'));
-
+        ])->assertRedirect(route('seller.dashboard'));
         $this->assertAuthenticatedAs($seller);
+        Notification::assertNothingSent();
     }
 
     /**

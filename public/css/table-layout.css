@@ -1,0 +1,213 @@
+/* Shared density for application data tables. Keep mobile operations cards intact. */
+.workspace-page:has(table) {
+    padding: 20px;
+}
+
+.main-content:has(table) {
+    width: 100%;
+    max-width: none;
+    margin: 0;
+    padding: 20px;
+}
+
+:is(.workspace-page, .main-content) > :is(div, main, section):has(table) {
+    width: 100%;
+    max-width: none;
+    margin: 0;
+    padding: 0;
+}
+
+/* Remove inherited reading-width caps only from ancestors of actual tables. */
+:is(.workspace-page, .main-content) :is(div, main, section):has(table) {
+    min-width: 0;
+    max-width: none;
+}
+
+:is(.workspace-page, .main-content) :is(.dash-header, .ops-heading, .admin-header-row, .cart-header-row),
+.workspace-page .feature-page:has(table) > header {
+    margin-bottom: 16px;
+    gap: 12px;
+    flex-wrap: wrap;
+    align-items: flex-start;
+}
+
+.workspace-page :is(.dash-panel, .ops-panel):has(table) {
+    padding: 16px;
+}
+
+.workspace-page :is(.dash-panel-title, .ops-panel > h2):has(~ :is(.dash-table-wrapper, .ops-table-wrap)) {
+    margin-bottom: 12px;
+}
+
+:is(.workspace-page, .main-content) :is(.admin-table-wrapper, .dash-table-wrapper, .ops-table-wrap, .feature-table-scroll, .cart-items-card) {
+    max-width: 100%;
+    min-width: 0;
+    overflow-x: auto;
+    scrollbar-width: thin;
+    scrollbar-color: var(--workspace-line, #dce0e8) transparent;
+}
+
+:is(.workspace-page, .main-content) :is(.admin-table, .dash-table, .ops-table, .feature-table, .cart-table) {
+    width: 100%;
+    min-width: 0;
+    table-layout: auto;
+    border-collapse: collapse;
+    font-variant-numeric: tabular-nums;
+}
+
+:is(.workspace-page, .main-content) :is(.admin-table, .dash-table, .ops-table, .feature-table, .cart-table) :is(th, td) {
+    padding: 10px 12px;
+    vertical-align: top;
+    line-height: 1.5;
+    white-space: normal;
+    overflow-wrap: anywhere;
+}
+
+:is(.workspace-page, .main-content) :is(.admin-table, .dash-table, .ops-table, .feature-table, .cart-table) th {
+    text-align: left;
+}
+
+:is(.workspace-page, .main-content) :is(.admin-table, .dash-table, .ops-table, .feature-table, .cart-table) td[colspan] {
+    padding-block: 20px;
+}
+
+.workspace-page .admin-table .action-buttons {
+    justify-content: flex-start;
+    align-items: flex-start;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.workspace-page .admin-table .action-buttons form {
+    margin: 0;
+}
+
+.workspace-page .admin-table .action-buttons form:last-child {
+    display: flex;
+    align-items: flex-start;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.workspace-page .admin-table .action-buttons input {
+    flex: 1 1 140px;
+    width: 140px;
+    min-width: 0;
+    max-width: 100%;
+    min-height: 32px;
+    padding: 6px 8px;
+    border: 1px solid var(--workspace-line);
+    border-radius: 6px;
+    background: #fff;
+}
+
+.workspace-page .admin-table :is(.btn-approve, .btn-reject) {
+    min-height: 32px;
+}
+
+.main-content .cart-grid-layout {
+    grid-template-columns: minmax(0, 1fr) minmax(260px, 340px);
+    gap: 16px;
+}
+
+/* Text may wrap inside cells, but action labels must retain whole words. */
+:is(.workspace-page, .main-content) :is(button, .dash-btn-sm, .dash-btn-primary, .ops-btn, .feature-button, .btn-primary, .btn-secondary) {
+    overflow-wrap: normal;
+    word-break: normal;
+    hyphens: none;
+}
+
+:is(.workspace-page, .main-content) :is(.dash-btn-sm, .dash-btn-primary, .ops-btn, .feature-button) {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    min-height: 36px;
+    min-inline-size: min-content;
+    flex-shrink: 0;
+    text-align: center;
+    vertical-align: middle;
+}
+
+:is(.workspace-page, .main-content) table :is(button, .dash-btn-sm, .dash-btn-primary, .ops-btn, .feature-button, .btn-primary, .btn-secondary) {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 36px;
+    box-sizing: border-box;
+    white-space: nowrap;
+    min-inline-size: max-content;
+    flex-shrink: 0;
+}
+
+:is(.workspace-page, .main-content) :is(.action-buttons, .dash-approval-actions, .voucher-actions, .courier-actions-wrap, .report-actions-group, .buyer-address-actions) {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+:is(.workspace-page, .main-content) :is(.action-buttons, .dash-approval-actions, .voucher-actions, .courier-actions-wrap, .report-actions-group, .buyer-address-actions, .courier-actions) > form {
+    margin: 0;
+    min-width: 0;
+}
+
+/* Inline input/action pairs wrap as controls, rather than squeezing the button. */
+:is(.workspace-page, .main-content) :is(.table-action-form, td > form:has(> button):has(> input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]))) {
+    display: flex;
+    align-items: flex-end;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+:is(.workspace-page, .main-content) :is(.table-action-form, td > form:has(> button)) > input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]):not([type="number"]):not([type="date"]):not([type="datetime-local"]) {
+    flex: 1 1 160px;
+    min-width: 120px;
+    min-height: 36px;
+    max-width: 100%;
+    box-sizing: border-box;
+}
+
+@media (max-width: 868px) {
+    .main-content .cart-grid-layout {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+
+@media (max-width: 700px) {
+    .workspace-page:has(table), .main-content:has(table) {
+        padding: 16px 12px;
+    }
+
+    .workspace-page :is(.dash-panel, .ops-panel):has(table) {
+        padding: 12px;
+    }
+
+    :is(.workspace-page, .main-content) :is(.admin-table, .dash-table, .feature-table, .cart-table) {
+        min-width: 640px;
+    }
+
+    /* The logistics stylesheet already turns these rows into labeled cards. */
+    .workspace-page .ops-table-wrap {
+        overflow: visible;
+    }
+
+    .workspace-page .ops-table td {
+        padding: 8px 10px;
+    }
+
+    .workspace-page .ops-table :is(button, .ops-btn) {
+        white-space: normal;
+        min-inline-size: min-content;
+    }
+}
+
+@media print {
+    .workspace-page:has(table), .main-content:has(table) {
+        padding: 0;
+    }
+
+    :is(.workspace-page, .main-content) :is(.admin-table, .dash-table, .feature-table, .cart-table) {
+        min-width: 0;
+    }
+}

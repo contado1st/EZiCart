@@ -7,28 +7,7 @@
 
 @section('content')
     <div class="dash-wrapper">
-        <aside class="dash-sidebar">
-            <div>
-                <div class="dash-profile-badge">
-                    <span class="dash-role-tag dash-role-admin">Super Admin</span>
-                    <h2 class="dash-profile-title">{{ auth()->user()->first_name }} {{ auth()->user()->last_name }}</h2>
-                </div>
-                <nav class="dash-nav">
-                    <a href="{{ route('admin.dashboard') }}" class="dash-nav-item"><x-shop-icon name="diagram" /> Platform Overview</a>
-                    <a href="{{ route('admin.registrations.index') }}" class="dash-nav-item"><x-shop-icon name="shield" /> User Approvals</a>
-                    <a href="{{ route('admin.reports.index') }}" class="dash-nav-item"><x-shop-icon name="invoice" /> Financial & Commission</a>
-                    <a href="{{ route('admin.disputes.index') }}" class="dash-nav-item"><x-shop-icon name="diagram" /> Dispute Arbitration</a>
-                    <a href="{{ route('admin.announcements.index') }}" class="dash-nav-item"><x-shop-icon name="megaphone" /> Announcements</a>
-                    <a href="{{ route('admin.moderation.index') }}" class="dash-nav-item active"><x-shop-icon name="close" /> Account Moderation</a>
-                </nav>
-            </div>
-            <form action="{{ route('logout') }}" method="POST">
-                @csrf
-                <button type="submit" class="dash-logout-btn"><x-shop-icon name="arrowback" /> Logout</button>
-            </form>
-        </aside>
-
-        <main class="dash-main">
+<main class="dash-main">
             <div class="dash-header">
                 <div>
                     <h1 class="dash-title">Platform Account Moderation & Governance</h1>
@@ -49,9 +28,7 @@
                         <select name="role" class="controls-select u-extracted-de2395bfe6">
                             <option value="">All Roles</option>
                             <option value="seller" {{ $role === 'seller' ? 'selected' : '' }}>Sellers</option>
-                            <option value="courier" {{ $role === 'courier' ? 'selected' : '' }}>Couriers</option>
                             <option value="buyer" {{ $role === 'buyer' ? 'selected' : '' }}>Buyers</option>
-                            <option value="sorting_center" {{ $role === 'sorting_center' ? 'selected' : '' }}>Hubs</option>
                         </select>
                         <button type="submit" class="dash-btn-sm dash-btn-primary">Filter</button>
                     </form>
@@ -106,7 +83,7 @@
                                         @if ($user->status === 'suspended')
                                             @if ($user->suspension_previous_status === 'approved')
                                                 <form action="{{ route('admin.moderation.reactivate', $user->id) }}"
-                                                    method="POST">
+                                                    method="POST" data-decision="admin.moderation.reactivate" data-decision-title="Restore this account?" data-decision-message="Check the account review and intended status before restoring access." data-decision-label="Restore account" data-decision-tone="normal" onsubmit="return window.eziDecisionReady ? true : window.confirm(this.dataset.decisionMessage)">
                                                     @csrf
                                                     <button type="submit"
                                                         class="dash-btn-sm dash-btn-success">Reactivate</button>
@@ -114,7 +91,7 @@
                                             @else
                                                 <p class="text-muted-small">Prior status is unknown. Review the account before restoring it.</p>
                                                 <form action="{{ route('admin.moderation.reactivate', $user->id) }}"
-                                                    method="POST">
+                                                    method="POST" data-decision="admin.moderation.reactivate" data-decision-title="Restore this account?" data-decision-message="Check the account review and intended status before restoring access." data-decision-label="Restore account" data-decision-tone="normal" onsubmit="return window.eziDecisionReady ? true : window.confirm(this.dataset.decisionMessage)">
                                                     @csrf
                                                     <label class="form-label"
                                                         for="restore-status-{{ $user->id }}">Restore status after review</label>
@@ -130,13 +107,12 @@
                                             @endif
                                         @elseif ($user->status === 'approved')
                                             <form action="{{ route('admin.moderation.suspend', $user->id) }}"
-                                                method="POST" class="u-extracted-6d9d6fda77">
+                                                method="POST" class="table-action-form" data-decision="admin.moderation.suspend" data-decision-title="Suspend this account?" data-decision-message="This restricts the account access and may affect its active work. Review the reason before continuing." data-decision-label="Suspend account" data-decision-tone="danger" onsubmit="return window.eziDecisionReady ? true : window.confirm(this.dataset.decisionMessage)">
                                                 @csrf
                                                 <input type="text" name="suspension_reason"
                                                     placeholder="Violation reason..."
                                                     class="controls-input u-extracted-637ac4c504" required>
-                                                <button type="submit" class="dash-btn-sm dash-btn-danger"
-                                                    onclick="return confirm('Suspend this user from platform access?');">Suspend</button>
+                                                <button type="submit" class="dash-btn-sm dash-btn-danger">Suspend</button>
                                             </form>
                                         @else
                                             <span class="text-muted-small">Registration review handles pending and rejected

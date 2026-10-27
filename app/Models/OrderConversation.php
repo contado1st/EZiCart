@@ -5,6 +5,8 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Support\Collection;
 
 class OrderConversation extends Model
 {
@@ -20,8 +22,13 @@ class OrderConversation extends Model
         return $this->hasMany(OrderMessage::class, 'conversation_id')->orderBy('created_at')->orderBy('id');
     }
 
-    /** @return \Illuminate\Support\Collection<int, \App\Models\User> */
-    public function participants(): \Illuminate\Support\Collection
+    public function latestMessage(): HasOne
+    {
+        return $this->hasOne(OrderMessage::class, 'conversation_id')->latestOfMany();
+    }
+
+    /** @return Collection<int, User> */
+    public function participants(): Collection
     {
         return $this->order->messageParticipants();
     }

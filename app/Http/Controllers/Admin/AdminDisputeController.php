@@ -6,6 +6,7 @@ use App\Enums\OrderStatus;
 use App\Http\Controllers\Controller;
 use App\Models\Dispute;
 use App\Models\Order;
+use App\Services\OrderFinancialService;
 use App\Services\OrderTransitionService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -32,14 +33,14 @@ class AdminDisputeController extends Controller
         return view('admin.disputes.show', compact('dispute'));
     }
 
-    public function resolve(Request $request, Dispute $dispute, OrderTransitionService $transitions)
+    public function resolve(Request $request, Dispute $dispute, OrderTransitionService $transitions, OrderFinancialService $finances)
     {
         $validated = $request->validate([
             'status' => 'required|in:UNDER_REVIEW,REFUND_APPROVED,REPLACEMENT_APPROVED,REJECTED,RESOLVED',
             'admin_notes' => 'required|string|max:1500',
         ]);
 
-        DB::transaction(function () use ($dispute, $validated, $transitions, $request): void {
+        DB::transaction(function () use ($dispute, $validated, $transitions, $request, $finances): void {
             $order = Order::query()->whereKey($dispute->order_id)->lockForUpdate()->firstOrFail();
             $lockedDispute = Dispute::query()->whereKey($dispute->id)->lockForUpdate()->firstOrFail();
 
@@ -74,6 +75,9 @@ class AdminDisputeController extends Controller
                 'resolved_at' => $final ? now() : null,
                 'resolved_by' => $final ? $request->user()->id : null,
             ])->save();
+            if ($status === 'REFUND_APPROVED') {
+                $finances->authorizeRefund($lockedDispute, $request->user());
+            }
         });
 
         return redirect()->route('admin.disputes.show', $dispute->id)->with('success', 'Dispute case updated successfully.');

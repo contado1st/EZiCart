@@ -1,8 +1,18 @@
 import "./password-visibility.js";
 import "./registration-name-inputs.js";
+if (document.querySelector('form[data-decision]')) {
+    import('./interactions/decision-dialog.jsx');
+}
+if (document.querySelector('[data-analytics-charts]')) {
+    import('./analytics-charts.jsx');
+}
+document.querySelector('[data-analytics-print]')?.addEventListener('click', () => window.print());
+import "@h2d2/shopicons/es/regular/account";
 import "@h2d2/shopicons/es/regular/arrowback";
+import "@h2d2/shopicons/es/regular/bell";
 import "@h2d2/shopicons/es/regular/cart1";
 import "@h2d2/shopicons/es/regular/cart2";
+import "@h2d2/shopicons/es/regular/chat";
 import "@h2d2/shopicons/es/regular/checklist";
 import "@h2d2/shopicons/es/regular/close";
 import "@h2d2/shopicons/es/regular/delivery1";
@@ -19,8 +29,10 @@ import "@h2d2/shopicons/es/regular/package1";
 import "@h2d2/shopicons/es/regular/phone";
 import "@h2d2/shopicons/es/regular/print";
 import "@h2d2/shopicons/es/regular/settings";
+import "@h2d2/shopicons/es/regular/search";
 import "@h2d2/shopicons/es/regular/shield";
 import "@h2d2/shopicons/es/regular/smileypositive";
+import "@h2d2/shopicons/es/regular/star";
 import "@h2d2/shopicons/es/regular/voucher";
 import "@h2d2/shopicons/es/regular/warning";
 

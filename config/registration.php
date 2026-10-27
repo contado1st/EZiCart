@@ -6,6 +6,7 @@ return [
     'registration_per_email_per_minute' => (int) env('REGISTRATION_PER_EMAIL_PER_MINUTE', 10),
     'registration_per_ip_per_minute' => (int) env('REGISTRATION_PER_IP_PER_MINUTE', 100),
     'demo_password' => env('DEMO_USER_PASSWORD'),
+    'logistics_admin_email' => env('LOGISTICS_ADMIN_EMAIL', 'logistics.admin@ezicart.com'),
     'seller_categories' => [
         'Beauty & Personal Care',
         'Home & Living',

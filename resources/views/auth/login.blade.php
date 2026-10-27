@@ -52,7 +52,7 @@
                         </div>
                         @error('password')<span class="auth-field-error">{{ $message }}</span>@enderror
                     </div>
-                    <label class="auth-check"><input type="checkbox" name="remember" value="1" @checked(old('remember'))><span>Keep me signed in on this device</span></label>
+                    <label class="auth-check"><input type="checkbox" name="remember" value="1" @checked(old('remember'))><span>{{ request()->query('__tab') ? 'Keep this tab signed in' : 'Keep me signed in on this device' }}</span></label>
                     <button class="auth-submit" type="submit">Sign in</button>
                 </form>
                 <p class="auth-switch">New to EZiCart? <a href="{{ route('register') }}">Create a buyer account</a></p>

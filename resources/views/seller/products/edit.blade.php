@@ -18,6 +18,7 @@
             <form action="{{ route('seller.products.update', $product->id) }}" method="POST" enctype="multipart/form-data">
                 @csrf
                 @method('PUT')
+                @if($errors->any())<div class="product-media-validation" role="alert"><strong>Check your product details and media.</strong><ul>@foreach($errors->all() as $error)<li>{{ $error }}</li>@endforeach</ul><p>Please select new upload files again after correcting errors.</p></div>@endif
 
                 <div class="form-group">
                     <label class="form-label">Product Name *</label>
@@ -36,14 +37,16 @@
                         </select>
                     </div>
                     <div class="form-group">
-                        <label class="form-label">Update Product Image</label>
-                        <input type="file" name="image" class="form-control" accept="image/*">
+                        <label class="form-label" for="cover-image">Replace cover image</label>
+                        <input id="cover-image" type="file" name="image" class="form-control" accept="image/jpeg,image/png,image/webp">
                         @if ($product->image_path)
                             <span class="text-muted-small u-extracted-c97152cfd7">Current:
                                 {{ basename($product->image_path) }}</span>
                         @endif
                     </div>
                 </div>
+
+                @include('seller.products.media-fields')
 
                 <div class="form-grid">
                     <div class="form-group">

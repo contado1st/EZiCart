@@ -37,7 +37,7 @@
             </div>
         </div>
 
-        <form id="batch-release-form" class="ops-form" method="POST" action="{{ route('logistics.dispatch.releaseBatch') }}">
+        <form id="batch-release-form" class="ops-form" method="POST" action="{{ route('logistics.dispatch.releaseBatch') }}" data-decision="logistics.dispatch.releaseBatch" data-decision-title="Release selected parcels?" data-decision-message="Verify every selected parcel and the assigned rider before confirming the physical batch handover." data-decision-label="Release selected parcels" data-decision-tone="normal" onsubmit="return window.eziDecisionReady ? true : window.confirm(this.dataset.decisionMessage)">
             @csrf
             <div class="ops-field">
                 <label for="batch-rider-badge">Assigned rider badge QR/code</label>
@@ -165,8 +165,7 @@
                                             Hub handoff is complete. Confirm physical recovery before dispatching this parcel to another rider.
                                         </div>
                                         <form method="POST"
-                                            action="{{ route('logistics.orders.recoverReleasedParcel', $order) }}"
-                                            onsubmit="return confirm('Confirm that Logistics physically received this parcel back from the assigned rider?')">
+                                            action="{{ route('logistics.orders.recoverReleasedParcel', $order) }}" data-decision="logistics.orders.recoverReleasedParcel" data-decision-title="Confirm parcel recovery?" data-decision-message="Continue only after logistics physically received the parcel back from the assigned rider." data-decision-label="Confirm recovery" data-decision-tone="normal" onsubmit="return window.eziDecisionReady ? true : window.confirm(this.dataset.decisionMessage)">
                                             @csrf
                                             <button class="ops-btn ops-btn--primary" type="submit">Record parcel recovered at hub</button>
                                         </form>
@@ -188,7 +187,7 @@
                                         @else
                                             <div class="ops-muted">No rider matches this area and capacity right now.</div>
                                         @endif
-                                        <form class="ops-form" method="POST" action="{{ route('logistics.orders.assignRider', $order) }}">
+                                        <form class="ops-form" method="POST" action="{{ route('logistics.orders.assignRider', $order) }}" data-decision="logistics.orders.assignRider" data-decision-title="Assign delivery rider?" data-decision-message="Check the selected rider and destination before recording this assignment." data-decision-label="Assign rider" data-decision-tone="normal" onsubmit="return window.eziDecisionReady ? true : window.confirm(this.dataset.decisionMessage)">
                                             @csrf
                                             <div class="ops-field">
                                                 <label for="rider-{{ $order->id }}">Approved rider · workload</label>
@@ -207,6 +206,7 @@
                                                     @endforeach
                                                 </select>
                                             </div>
+                                            <label class="ops-field">Backup / coverage override reason (when using a non-primary rider)<input name="coverage_override_reason" minlength="5" maxlength="500"></label>
                                             <button class="ops-btn ops-btn--primary" type="submit">
                                                 {{ $order->delivery_courier_id ? 'Reassign' : 'Assign' }}
                                             </button>
@@ -217,7 +217,7 @@
                                             <div class="ops-muted">
                                                 Hub release recorded {{ $order->hub_released_at->format('d M Y H:i') }}.
                                             </div>
-                                            <form method="POST" action="{{ route('logistics.orders.return', $order) }}">
+                                            <form method="POST" action="{{ route('logistics.orders.return', $order) }}" data-decision="logistics.orders.return" data-decision-title="Start return handling?" data-decision-message="This moves the selected parcel into the return workflow. Check the reason first." data-decision-label="Start return" data-decision-tone="danger" onsubmit="return window.eziDecisionReady ? true : window.confirm(this.dataset.decisionMessage)">
                                                 @csrf
                                                 <button class="ops-btn ops-btn--danger" type="submit">Start seller return</button>
                                             </form>
@@ -231,7 +231,7 @@
                                                     {!! $assignedRider->badge_qr !!}
                                                 </div>
                                             @endif
-                                            <form method="POST" action="{{ route('logistics.orders.releaseToRider', $order) }}">
+                                            <form method="POST" action="{{ route('logistics.orders.releaseToRider', $order) }}" data-decision="logistics.orders.releaseToRider" data-decision-title="Release parcel to rider?" data-decision-message="Continue only after verifying the assigned rider and physically handing over the parcel." data-decision-label="Confirm release" data-decision-tone="normal" onsubmit="return window.eziDecisionReady ? true : window.confirm(this.dataset.decisionMessage)">
                                                 @csrf
                                                 <div class="ops-field">
                                                     <label for="rider-badge-{{ $order->id }}">Scan assigned rider badge QR/code</label>

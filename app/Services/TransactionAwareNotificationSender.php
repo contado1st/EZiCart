@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Jobs\DeliverNotificationChannels;
 use App\Models\User;
 use Illuminate\Notifications\Notification;
 use Illuminate\Support\Facades\DB;
@@ -31,7 +32,7 @@ class TransactionAwareNotificationSender
             if ($afterCommitChannels !== []) {
                 DB::afterCommit(function () use ($recipient, $notification, $afterCommitChannels): void {
                     try {
-                        NotificationFacade::sendNow($recipient, $notification, $afterCommitChannels);
+                        DeliverNotificationChannels::dispatch($recipient, $notification, $afterCommitChannels);
                     } catch (Throwable $exception) {
                         report($exception);
                     }

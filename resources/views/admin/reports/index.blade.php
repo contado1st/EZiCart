@@ -8,31 +8,13 @@
 @section('content')
     <div class="dash-wrapper">
         <!-- Sidebar -->
-        <aside class="dash-sidebar">
-            <div>
-                <div class="dash-profile-badge">
-                    <span class="dash-role-tag dash-role-admin">Super Admin</span>
-                    <h2 class="dash-profile-title">{{ auth()->user()->first_name }} {{ auth()->user()->last_name }}</h2>
-                </div>
-                <nav class="dash-nav">
-                    <a href="{{ route('admin.dashboard') }}" class="dash-nav-item"><x-shop-icon name="diagram" /> Platform Overview</a>
-                    <a href="{{ route('admin.registrations.index') }}" class="dash-nav-item"><x-shop-icon name="shield" /> User Approvals</a>
-                    <a href="{{ route('admin.reports.index') }}" class="dash-nav-item active"><x-shop-icon name="invoice" /> Financial & Commission</a>
-                </nav>
-            </div>
-            <form action="{{ route('logout') }}" method="POST">
-                @csrf
-                <button type="submit" class="dash-logout-btn"><x-shop-icon name="arrowback" /> Logout</button>
-            </form>
-        </aside>
-
-        <!-- Main Workspace -->
+<!-- Main Workspace -->
         <main class="dash-main">
             <div class="dash-header">
                 <div>
                     <h1 class="dash-title">Platform Commission & Sales Summary</h1>
-                    <p class="dash-subtitle">Analyze platform-wide transaction volume and verify 10% commission fee
-                        receipts.</p>
+                    <a class="dash-btn-sm dash-btn-primary" href="{{ route('sales-reports.index') }}">Itemized reports, CSV and PDF</a>
+                    <p class="dash-subtitle">Review completed order values, verified cash receipts, and recorded external settlements.</p>
                 </div>
             </div>
 
@@ -60,17 +42,17 @@
             <!-- Metric Summary Cards -->
             <div class="report-summary-banner">
                 <div class="report-summary-card">
-                    <div class="report-summary-title">Total GMV Settled</div>
+                    <div class="report-summary-title">Completed order value</div>
                     <div class="report-summary-value">₱{{ number_format($stats['total_gmv'], 2) }}</div>
                 </div>
 
                 <div class="report-summary-card">
-                    <div class="report-summary-title">Net Product Volume</div>
+                    <div class="report-summary-title">Product value before discounts</div>
                     <div class="report-summary-value">₱{{ number_format($stats['product_sales'], 2) }}</div>
                 </div>
 
                 <div class="report-summary-card">
-                    <div class="report-summary-title">Platform Revenue (10%)</div>
+                    <div class="report-summary-title">Verified gross commission</div>
                     <div class="report-summary-value report-summary-profit">
                         ₱{{ number_format($stats['total_commission'], 2) }}</div>
                 </div>
@@ -83,7 +65,9 @@
 
             <!-- Ledger Table -->
             <div class="dash-panel report-table-section">
-                <h2 class="report-table-title">Commission Ledger ({{ $completedOrders->count() }})</h2>
+                <p>Verified remittances: ₱{{ number_format($stats['verified_remittances'], 2) }} · Executed refunds: ₱{{ number_format($stats['executed_refunds'], 2) }} · Settled payouts: ₱{{ number_format($stats['settled_payouts'], 2) }} · Funded platform promotions: ₱{{ number_format($stats['funded_promotions'], 2) }}.</p>
+                <p>Gross commission reflects currently completed, non-refunded orders with remittances verified during the selected dates. Promotion funding is an additional platform cost.</p>
+                <h2 class="report-table-title">Booked order commissions ({{ $completedOrders->total() }})</h2>
 
                 <div class="dash-table-wrapper">
                     <table class="dash-table">
@@ -117,6 +101,7 @@
                             @endforelse
                         </tbody>
                     </table>
+                    {{ $completedOrders->links() }}
                 </div>
             </div>
         </main>

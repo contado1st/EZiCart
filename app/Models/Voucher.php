@@ -20,6 +20,7 @@ class Voucher extends Model
         'used_count',
         'expires_at',
         'is_active',
+        'max_discount',
     ];
 
     protected $casts = [
@@ -56,9 +57,9 @@ class Voucher extends Model
     public function calculateDiscount(float $subtotal): float
     {
         if ($this->type === 'percent') {
-            return round(($subtotal * ($this->value / 100)), 2);
+            return min($subtotal, $this->max_discount ?? $subtotal, round(($subtotal * ($this->value / 100)), 2));
         }
 
-        return min($this->value, $subtotal);
+        return min($this->value, $this->max_discount ?? $subtotal, $subtotal);
     }
 }

@@ -5,15 +5,40 @@ namespace App\Models;
 use Database\Factories\UserFactory;
 use Illuminate\Contracts\Auth\Authenticatable as AuthenticatableContract;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 
 class User extends Authenticatable implements AuthenticatableContract
 {
+    public function isCommerceAdmin(): bool
+    {
+        return in_array($this->role, ['admin', 'ecommerce_admin'], true);
+    }
+
+    public function isLogisticsAdmin(): bool
+    {
+        return $this->role === 'logistics_admin';
+    }
+
+    public function managedAccountRoles(): array
+    {
+        return $this->isCommerceAdmin() ? ['buyer', 'seller'] : ($this->isLogisticsAdmin() ? ['courier', 'sorting_center'] : []);
+    }
+
+    public function canManageAccount(User $subject): bool
+    {
+        return $this->status === 'approved' && in_array($subject->role, $this->managedAccountRoles(), true);
+    }
+
+    public function administrationDashboardRoute(): ?string
+    {
+        return $this->isCommerceAdmin() ? 'admin.dashboard' : ($this->isLogisticsAdmin() ? 'logistics-admin.dashboard' : null);
+    }
+
     /** @use HasFactory<UserFactory> */
     use HasFactory, Notifiable;
 
@@ -62,6 +87,8 @@ class User extends Authenticatable implements AuthenticatableContract
     protected $hidden = [
         'password',
         'remember_token',
+        'profile_avatar_path',
+        'profile_banner_path',
     ];
 
     /**
@@ -91,6 +118,16 @@ class User extends Authenticatable implements AuthenticatableContract
         return $this->hasMany(Product::class);
     }
 
+    public function shopFollowers(): BelongsToMany
+    {
+        return $this->belongsToMany(self::class, 'shop_follows', 'seller_id', 'buyer_id')->withTimestamps();
+    }
+
+    public function followedShops(): BelongsToMany
+    {
+        return $this->belongsToMany(self::class, 'shop_follows', 'buyer_id', 'seller_id')->withTimestamps();
+    }
+
     /**
      * Vouchers created by this seller.
      */
@@ -107,6 +144,11 @@ class User extends Authenticatable implements AuthenticatableContract
     public function buyerOrders(): HasMany
     {
         return $this->hasMany(Order::class, 'buyer_id');
+    }
+
+    public function addresses(): HasMany
+    {
+        return $this->hasMany(BuyerAddress::class);
     }
 
     /**

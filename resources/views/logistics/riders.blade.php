@@ -85,7 +85,7 @@
                                 @endif
                             </td>
                             <td>
-                                <form method="POST" action="{{ route('logistics.riders.areas.update', $rider) }}">
+                                <form method="POST" action="{{ route('logistics.riders.areas.update', $rider) }}" data-decision="logistics.riders.areas.update" data-decision-title="Change rider service areas?" data-decision-message="Check the selected areas before updating the rider coverage." data-decision-label="Save service areas" data-decision-tone="normal" onsubmit="return window.eziDecisionReady ? true : window.confirm(this.dataset.decisionMessage)">
                                     @csrf
                                     @method('PATCH')
                                     <label class="sr-only" for="rider-areas-{{ $rider->id }}">Service areas</label>
@@ -143,7 +143,7 @@
                                         <button class="ops-btn" type="submit">Resend activation</button>
                                     </form>
                                 @elseif($rider->status === 'approved')
-                                    <form class="ops-form" method="POST" action="{{ route('logistics.riders.suspend', $rider) }}">
+                                    <form class="ops-form" method="POST" action="{{ route('logistics.riders.suspend', $rider) }}" data-decision="logistics.riders.suspend" data-decision-title="Suspend this account?" data-decision-message="This restricts the account access and may affect its active work. Review the reason before continuing." data-decision-label="Suspend account" data-decision-tone="danger" onsubmit="return window.eziDecisionReady ? true : window.confirm(this.dataset.decisionMessage)">
                                         @csrf
                                         <div class="ops-field">
                                             <input name="reason" required maxlength="500" aria-label="Suspension reason" placeholder="Reason for suspension…">
@@ -152,7 +152,7 @@
                                     </form>
                                 @elseif($rider->status === 'suspended')
                                     @if ($rider->suspension_source === 'logistics' && $rider->suspension_previous_status === 'approved')
-                                        <form method="POST" action="{{ route('logistics.riders.reactivate', $rider) }}">
+                                        <form method="POST" action="{{ route('logistics.riders.reactivate', $rider) }}" data-decision="logistics.riders.reactivate" data-decision-title="Restore this account?" data-decision-message="Check the account review and intended status before restoring access." data-decision-label="Restore account" data-decision-tone="normal" onsubmit="return window.eziDecisionReady ? true : window.confirm(this.dataset.decisionMessage)">
                                             @csrf
                                             <button class="ops-btn" type="submit">Reactivate</button>
                                         </form>

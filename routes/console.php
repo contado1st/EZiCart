@@ -9,3 +9,6 @@ Artisan::command('inspire', function () {
 })->purpose('Display an inspiring quote');
 
 Schedule::command('accounts:prune-unverified')->daily()->withoutOverlapping();
+Schedule::command('orders:expire-seller-deadlines')->everyFifteenMinutes()->withoutOverlapping();
+Schedule::command('logistics:alert-aging-parcels')->hourly()->withoutOverlapping();
+Schedule::command('commerce:process-automation')->everyMinute()->withoutOverlapping();

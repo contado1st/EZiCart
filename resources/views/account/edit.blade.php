@@ -1,4 +1,7 @@
 @extends('layouts.app')
+@push('styles')
+    <script src="{{ asset('js/profiles.js') }}?v={{ filemtime(public_path('js/profiles.js')) }}" defer></script>
+@endpush
 
 @if ($user->role === 'buyer')
     @push('styles')
@@ -20,6 +23,9 @@
                 @if (session('success'))<div class="buyer-account-notice" role="status">{{ session('success') }}</div>@endif
                 @if ($errors->any())<div class="buyer-account-notice buyer-account-notice--error" role="alert">{{ $errors->first() }}</div>@endif
 
+                @include('account.appearance')
+                @if($followedShops->total())<section class="profile-followed" id="following-shops"><h2>Shops you follow</h2><p>Your followed active shops, most recent first.</p><div>@foreach($followedShops as $followedShop)<a href="{{ route('shops.show', $followedShop) }}"><x-profile-avatar :user="$followedShop" /><span>{{ $followedShop->profile_display_name ?: $followedShop->business_name }}</span><x-shop-icon name="arrowback" /></a>@endforeach</div>{{ $followedShops->fragment('following-shops')->links() }}</section>@endif
+
                 <section class="buyer-account-panel" id="buyer-profile" aria-labelledby="buyer-profile-title">
                     <div class="buyer-account-panel-heading"><div><h2 id="buyer-profile-title">Profile details</h2><p>Update the name and contact details connected to your account.</p></div></div>
                     <form action="{{ route('account.profile.update') }}" method="POST" class="buyer-account-form">
@@ -34,7 +40,7 @@
                         </div>
 
                         <div class="buyer-account-address" id="buyer-addresses">
-                            <div class="buyer-account-panel-heading"><div><h2>Delivery address</h2><p>Choose an address from the location lists or enter the details manually.</p></div></div>
+                            <div class="buyer-account-panel-heading"><div><h2>Default delivery address</h2><p>Editing this location also updates your default saved address.</p></div><a href="{{ route('buyer.addresses.index') }}">Manage saved addresses ({{ $user->addresses_count }})</a></div>
                             @include('components.psgc-address-fields', ['prefix' => 'account-address', 'address' => $user, 'postalRequired' => false])
                         </div>
                         <button class="buyer-account-save" type="submit">Save profile</button>
@@ -43,7 +49,7 @@
 
                 <section class="buyer-account-panel buyer-password-panel" id="buyer-password" aria-labelledby="buyer-password-title">
                     <div class="buyer-account-panel-heading"><div><h2 id="buyer-password-title">Change password</h2><p>Use a unique password to protect your EZiCart account.</p></div></div>
-                    <form action="{{ route('account.password.update') }}" method="POST" class="buyer-account-password-form">
+                    <form action="{{ route('account.password.update') }}" method="POST" class="buyer-account-password-form" data-decision="account.password.update" data-decision-title="Change your password?" data-decision-message="Use the new password the next time you sign in. Check that you have entered it correctly." data-decision-label="Change password" data-decision-tone="normal" onsubmit="return window.eziDecisionReady ? true : window.confirm(this.dataset.decisionMessage)">
                         @csrf
                         @method('PATCH')
                         <div class="buyer-password-fields">
@@ -62,6 +68,9 @@
             <p>Update your contact and profile details. Your role, approval status, and uploaded documents can’t be changed here.</p>
 
             @if (session('success'))<div class="form-notice">{{ session('success') }}</div>@endif
+
+            @if($errors->any())<p class="profile-field-error" role="alert">{{ $errors->first() }}</p>@endif
+            @include('account.appearance')
 
             <section class="dash-panel u-extracted-ebdbcd4a73">
                 <h2>Profile and contact details</h2>
@@ -89,7 +98,7 @@
 
             <section class="dash-panel u-extracted-ebdbcd4a73">
                 <h2>Change password</h2>
-                <form action="{{ route('account.password.update') }}" method="POST">
+                <form action="{{ route('account.password.update') }}" method="POST" data-decision="account.password.update" data-decision-title="Change your password?" data-decision-message="Use the new password the next time you sign in. Check that you have entered it correctly." data-decision-label="Change password" data-decision-tone="normal" onsubmit="return window.eziDecisionReady ? true : window.confirm(this.dataset.decisionMessage)">
                     @csrf
                     @method('PATCH')
                     @foreach ([['current-password', 'Current password', 'current_password', 'current-password'], ['new-password', 'New password', 'password', 'new-password'], ['new-password-confirmation', 'Confirm new password', 'password_confirmation', 'new-password']] as [$id, $label, $name, $autocomplete])

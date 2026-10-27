@@ -1,0 +1,218 @@
+/* Adapt to usable page width, including when the sidebar is expanded. */
+.workspace-page {
+    container: workspace-main / inline-size;
+}
+
+.main-content {
+    container: application-main / inline-size;
+    min-width: 0;
+}
+
+:is(.workspace-page, .main-content) :is(.dash-main, .ops-main, .dash-panel, .ops-panel, .feature-panel, .checkout-card, .checkout-summary-card, .buyer-account-panel) {
+    min-width: 0;
+}
+
+:is(.workspace-page, .main-content) :is(input, select, textarea) {
+    max-width: 100%;
+    box-sizing: border-box;
+}
+
+:is(.workspace-page, .main-content) :is(.dash-header, .ops-heading, .admin-header-row, .cart-header-row, .filter-bar-flex, .report-filter-form, .report-actions-group, .workspace-order-filter) {
+    flex-wrap: wrap;
+    gap: 12px;
+}
+
+:is(.workspace-page, .main-content) :is(.dash-header, .ops-heading, .admin-header-row, .cart-header-row) > div {
+    min-width: 0;
+}
+
+.workspace-page :is(h1, h2, h3, .workspace-metric-heading, .dash-stat-label) {
+    overflow-wrap: anywhere;
+}
+
+.workspace-page .filter-bar-flex > form {
+    display: flex;
+    align-items: flex-end;
+    flex-wrap: wrap;
+    gap: 8px;
+    min-width: 0;
+}
+
+.workspace-page .filter-bar-flex > form > :is(input, select) {
+    flex: 1 1 160px;
+    min-width: 0;
+}
+
+.workspace-page .workspace-metrics,
+.workspace-page .dash-stats-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.workspace-page .ops-stats {
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 180px), 1fr));
+}
+
+.workspace-page .dash-workflow-grid {
+    grid-template-columns: minmax(0, 2fr) minmax(260px, 1fr);
+}
+
+.workspace-page .ops-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.workspace-page .workspace-admin-grid {
+    grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+}
+
+.workspace-page .controls-grid {
+    grid-template-columns: minmax(240px, 1fr) minmax(0, 2fr);
+}
+
+.workspace-page .workspace-account-grid {
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 230px), 1fr));
+}
+
+.workspace-breadcrumb strong {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.workspace-toolbar-actions {
+    flex-shrink: 0;
+}
+
+@container workspace-main (max-width: 1000px) {
+    .workspace-page :is(.workspace-metrics, .dash-stats-grid) {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@container workspace-main (max-width: 850px) {
+    .workspace-page :is(.dash-workflow-grid, .ops-grid, .workspace-admin-grid, .controls-grid) {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+
+@container workspace-main (max-width: 760px) {
+    .workspace-page .messaging-frame {
+        display: block;
+        height: auto;
+        min-height: 0;
+    }
+    .workspace-page .messaging-frame--inbox .conversation-list {
+        border: 0;
+        min-height: 320px;
+        max-height: 70dvh;
+    }
+    .workspace-page .messaging-frame--inbox .conversation-empty,
+    .workspace-page .messaging-frame--thread .conversation-list {
+        display: none;
+    }
+    .workspace-page .conversation-thread {
+        min-height: 400px;
+        height: max(400px, calc(100dvh - 240px));
+    }
+    .workspace-page .conversation-mobile-back {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        margin-bottom: 12px;
+        color: var(--connect-accent);
+        text-decoration: none;
+        font-size: 11px;
+    }
+    .workspace-page .notification-frame {
+        grid-template-columns: minmax(0, 1fr);
+    }
+    .workspace-page .notification-item {
+        flex-wrap: wrap;
+    }
+    .workspace-page .notification-sidebar {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        padding: 10px;
+    }
+    .workspace-page .notification-sidebar :is(h2, p) {
+        display: none;
+    }
+    .workspace-page .notification-sidebar > a {
+        padding: 8px 10px;
+        margin: 0;
+    }
+}
+
+@container workspace-main (max-width: 540px) {
+    .workspace-page :is(.buyer-account-form-grid, .buyer-account-page .auth-grid) {
+        grid-template-columns: minmax(0, 1fr);
+    }
+    .workspace-page :is(.buyer-account-form-grid, .buyer-account-page .auth-grid) > * {
+        grid-column: auto;
+        min-width: 0;
+    }
+    .workspace-page :is(.workspace-orders-heading, .communications-heading, .conversation-thread-heading) {
+        flex-wrap: wrap;
+        gap: 12px;
+    }
+}
+
+@media (max-width: 540px) and (min-height: 551px) {
+    .dashboard-workspace .message-drawer {
+        top: calc(var(--workspace-header-height) + 12px);
+    }
+}
+
+@container workspace-main (max-width: 420px) {
+    .workspace-page :is(.workspace-metrics, .dash-stats-grid) {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+
+@container application-main (max-width: 800px) {
+    .main-content :is(.checkout-layout, .cart-grid-layout) {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+
+@container application-main (max-width: 540px) {
+    .main-content .checkout-form-grid {
+        grid-template-columns: minmax(0, 1fr);
+    }
+    .main-content .checkout-form-grid > * {
+        grid-column: auto;
+        min-width: 0;
+    }
+}
+
+@media (max-width: 900px) {
+    .workspace-sidebar {
+        width: min(270px, calc(100vw - 24px));
+    }
+}
+
+@media (max-width: 540px) {
+    body.dashboard-workspace {
+        --workspace-header-height: 104px;
+    }
+    .workspace-topbar {
+        grid-template-columns: 128px minmax(0, 1fr);
+    }
+    .workspace-brand, .workspace-toolbar {
+        align-self: start;
+        height: 56px;
+    }
+    .workspace-toolbar {
+        padding-left: 0;
+    }
+    .workspace-primary-action {
+        position: absolute;
+        inset: auto 12px 8px;
+        min-height: 32px;
+        white-space: normal;
+        text-align: center;
+    }
+    .dashboard-workspace :is(section[id], article[id]) {
+        scroll-margin-top: 120px;
+    }
+}
