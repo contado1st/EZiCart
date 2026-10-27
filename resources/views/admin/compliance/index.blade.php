@@ -52,6 +52,7 @@
                                     <div>{{ $product->category }}</div>
                                     <div class="text-muted-small">{{ $product->description }}</div><span
                                         class="dash-badge dash-badge-archived">{{ str_replace('_', ' ', ucfirst($product->compliance_status)) }}</span>
+                                    <details class="product-compliance-media"><summary>Review photos &amp; video</summary><x-product-gallery :product="$product" compact /></details>
                                 </td>
                                 <td>{{ $product->seller?->business_name ?? $product->seller?->first_name }}<div
                                         class="text-muted-small">Seller category:

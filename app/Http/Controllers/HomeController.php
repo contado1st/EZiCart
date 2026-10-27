@@ -57,7 +57,7 @@ class HomeController extends Controller
     {
         abort_if($product->compliance_status !== 'approved' || $product->is_archived || $product->stock <= 0, 404);
 
-        $product->load(['seller', 'variations' => fn ($query) => $query->where('is_active', true)]);
+        $product->load(['seller', 'media', 'variations' => fn ($query) => $query->where('is_active', true)]);
         abort_if($product->variations()->exists() && $product->variations->isEmpty(), 404);
 
         if ($request->user()?->role === 'buyer') {

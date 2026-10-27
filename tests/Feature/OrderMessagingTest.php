@@ -10,6 +10,7 @@ use App\Models\ParcelTrackingEvent;
 use App\Models\User;
 use App\Notifications\DirectMessageNotification;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Notification;
 use Tests\TestCase;
 
 class OrderMessagingTest extends TestCase
@@ -88,6 +89,34 @@ class OrderMessagingTest extends TestCase
         $seller->forceFill(['status' => 'pending'])->save();
         $this->actingAsUser($buyer)->post(route('chat.store', $conversation), ['body' => 'Inactive recipient'])->assertForbidden();
         $this->get(route('chat.show', $conversation))->assertOk()->assertSee('Messaging is unavailable');
+    }
+
+    public function test_seller_and_commerce_admin_can_use_the_embedded_conversation_with_tab_session_support(): void
+    {
+        Notification::fake();
+        $seller = $this->user('seller');
+        $admin = $this->user('admin');
+        $this->actingAsUser($seller)->post(route('chat.start', $admin), ['panel' => 1])->assertRedirect();
+        $conversation = DirectConversation::firstOrFail();
+
+        $this->get(route('chat.show', [$conversation, 'panel' => 1]))->assertOk()
+            ->assertSee('communications-embedded', false)
+            ->assertSee(asset('js/tab-sessions.js'), false)
+            ->assertSee('Send message');
+        $this->post(route('chat.store', $conversation), ['panel' => 1, 'body' => 'Seller asks the shop administrator.'])
+            ->assertRedirectToRoute('chat.show', [$conversation, 'panel' => 1]);
+        Notification::assertSentTo($admin, DirectMessageNotification::class);
+
+        $this->actingAsUser($admin)->get(route('chat.show', [$conversation, 'panel' => 1]))->assertOk()
+            ->assertSee('Seller asks the shop administrator.')->assertSee(asset('js/tab-sessions.js'), false);
+        $this->post(route('chat.store', $conversation), ['panel' => 1, 'body' => 'Shop administrator replies privately.'])
+            ->assertRedirectToRoute('chat.show', [$conversation, 'panel' => 1]);
+        Notification::assertSentTo($seller, DirectMessageNotification::class);
+        $this->actingAsUser($seller)->get(route('chat.show', [$conversation, 'panel' => 1]))->assertOk()
+            ->assertSee('Shop administrator replies privately.');
+
+        $this->actingAsUser($this->user('buyer'))->get(route('chat.show', [$conversation, 'panel' => 1]))->assertForbidden();
+        $this->assertSame(2, $conversation->messages()->count());
     }
 
     public function test_legacy_group_history_is_preserved_without_being_exposed_or_broadcast(): void

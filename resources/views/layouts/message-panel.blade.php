@@ -6,6 +6,7 @@
     <title>@yield('title', 'Messages | EZiCart')</title>
     @vite('resources/css/shared/app.css')
     @vite('resources/js/app.js')
+    <script src="{{ asset('js/tab-sessions.js') }}?v={{ filemtime(public_path('js/tab-sessions.js')) }}" defer></script>
     <link rel="stylesheet" href="{{ asset('css/loading-skeleton.css') }}?v={{ filemtime(public_path('css/loading-skeleton.css')) }}">
     <script src="{{ asset('js/page-loading.js') }}?v={{ filemtime(public_path('js/page-loading.js')) }}" defer></script>
     @stack('styles')

@@ -13,14 +13,7 @@
 
         <div class="product-show-layout">
             <!-- Product Image Preview -->
-            <div class="product-gallery-box">
-                @if ($product->image_path)
-                    <img src="{{ asset('storage/' . $product->image_path) }}" alt="{{ $product->name }}"
-                        class="product-gallery-img">
-                @else
-                    <div class="product-gallery-placeholder"><x-shop-icon name="package1" /></div>
-                @endif
-            </div>
+            <x-product-gallery :product="$product" />
 
             <!-- Product Purchase Information -->
             <div class="product-info-column">
