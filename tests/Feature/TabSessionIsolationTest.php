@@ -83,7 +83,10 @@ class TabSessionIsolationTest extends TestCase
     {
         Route::middleware('web')->get('/__test/tab-bootstrap', fn () => response('The page should not render yet.', 200));
 
-        $response = $this->withHeader('Accept', 'text/html,application/xhtml+xml')
+        $response = $this->withHeaders([
+            'Accept' => 'text/html,application/xhtml+xml',
+            'Sec-Fetch-Dest' => 'document',
+        ])
             ->get('/__test/tab-bootstrap?filter=products');
 
         $response->assertRedirect();

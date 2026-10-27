@@ -323,8 +323,8 @@ class AuthController extends Controller
         }
 
         $user = filled($challenge['user_id'] ?? null) ? User::query()->find($challenge['user_id']) : null;
+        $code = (string) random_int(100000, 999999);
         try {
-            $code = (string) random_int(100000, 999999);
             $user?->notify(new PasswordRecoveryCodeNotification($code));
         } catch (\Throwable $exception) {
             report($exception);

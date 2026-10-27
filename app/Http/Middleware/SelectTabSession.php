@@ -18,7 +18,9 @@ class SelectTabSession
         $baseCookie = (string) config('session.cookie');
 
         if (! is_string($token) || ! preg_match('/\A[a-f0-9]{32}\z/i', $token)) {
-            if ($request->isMethodSafe() && str_contains((string) $request->header('Accept'), 'text/html')) {
+            if ($request->isMethodSafe()
+                && $request->header('Sec-Fetch-Dest') === 'document'
+                && str_contains((string) $request->header('Accept'), 'text/html')) {
                 return redirect()->to($request->fullUrlWithQuery(['__tab' => bin2hex(random_bytes(16))]));
             }
 
