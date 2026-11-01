@@ -1,7 +1,7 @@
 <?php
 
 return [
-    'driver' => env('HASH_DRIVER', 'argon2id'),
+    'driver' => env('HASH_DRIVER', defined('PASSWORD_ARGON2ID') ? 'argon2id' : 'bcrypt'),
     'bcrypt' => [
         'rounds' => env('BCRYPT_ROUNDS', 12),
         'verify' => false,

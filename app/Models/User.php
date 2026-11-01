@@ -215,4 +215,9 @@ class User extends Authenticatable implements AuthenticatableContract
     {
         return $this->status === 'suspended';
     }
+
+    public function apiTokens(): HasMany
+    {
+        return $this->hasMany(ApiToken::class);
+    }
 }
