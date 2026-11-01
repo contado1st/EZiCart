@@ -2,16 +2,103 @@
 .dashboard-workspace {
     --interaction-ease: cubic-bezier(.16, 1, .3, 1);
     --interaction-focus: var(--workspace-accent, #be2854);
+    --workspace-frame-pink: #dc557f;
+    --workspace-frame-inner: #f2d5df;
+    --workspace-frame-secondary: #efb6c8;
+    --workspace-frame-neutral: #d7dbe3;
 }
 
 .dashboard-workspace :is(.dash-panel, .ops-panel, .feature-panel, .buyer-account-panel) {
-    border-color: var(--workspace-line);
+    border: 3px solid var(--workspace-frame-pink);
+    box-shadow: inset 0 0 0 1px var(--workspace-frame-inner);
     background: #fff;
     transition: border-color 150ms ease;
 }
 
 .dashboard-workspace :is(.dash-panel, .ops-panel, .feature-panel, .buyer-account-panel):focus-within {
-    border-color: color-mix(in srgb, var(--workspace-accent) 40%, var(--workspace-line));
+    border-color: var(--workspace-frame-pink);
+}
+
+/* Carry the same double edge across dashboard cards and data tables. */
+.dashboard-workspace :is(
+    .dash-stat-card,
+    .ops-stat,
+    .workspace-metric,
+    .order-card,
+    .dash-approval-card,
+    .courier-failed-alert-card,
+    .courier-hero-card,
+    .buyer-address-card,
+    .cart-items-card,
+    .cart-summary-card,
+    .checkout-card,
+    .checkout-summary-card,
+    .report-summary-card,
+    .report-table-section
+) {
+    border: 2px solid var(--workspace-frame-secondary);
+    box-shadow: inset 0 0 0 1px var(--workspace-frame-neutral);
+}
+
+.dashboard-workspace :is(
+    .admin-table-wrapper,
+    .dash-table-wrapper,
+    .ops-table-wrap,
+    .feature-table-scroll
+) {
+    border: 1px solid var(--workspace-frame-secondary);
+    border-radius: 10px;
+    box-shadow: inset 0 0 0 1px var(--workspace-frame-neutral);
+}
+
+.dashboard-workspace :is(
+    .admin-table,
+    .dash-table,
+    .ops-table,
+    .feature-table,
+    .cart-table
+) {
+    border: 1px solid var(--workspace-frame-inner);
+    border-collapse: separate;
+    border-spacing: 0;
+    border-radius: 7px;
+}
+
+/* Workspace hierarchy: make the next role-specific task easy to spot first. */
+.dashboard-workspace :is(.dash-title, .ops-heading h1) {
+    color: var(--workspace-ink);
+}
+
+.dashboard-workspace :is(.dash-panel-title, .ops-panel > h2, .ops-panel > summary) {
+    padding-bottom: 11px;
+    margin-bottom: 14px;
+    border-bottom: 1px solid #eceef2;
+}
+
+.dashboard-workspace :is(.ops-panel > h2, .ops-panel > summary) {
+    font-size: 15px;
+}
+
+.dashboard-workspace :is(.ops-panel--urgent, .ops-alert--error, .logistics-triage-banner) {
+    border-color: var(--workspace-frame-pink);
+    box-shadow: inset 0 0 0 1px var(--workspace-frame-inner), 0 5px 18px rgb(54 36 45 / 5%);
+}
+
+.dashboard-workspace :is(.ops-stat--action, .dash-stat-card:has(.dash-stat-subtext.danger), .workspace-metric--warning, .workspace-metric--danger) {
+    border-color: var(--workspace-frame-pink);
+}
+
+.dashboard-workspace :is(.dash-table, .ops-table, .admin-table, .feature-table, .cart-table) th {
+    color: #515b6b;
+    background: #f6f7fa;
+}
+
+.dashboard-workspace :is(.dash-table, .ops-table, .admin-table, .feature-table, .cart-table) tbody tr:hover {
+    background: #fff8fa;
+}
+
+.dashboard-workspace :is(.ops-table, .dash-table, .admin-table) td[data-label="Action"] {
+    min-width: 168px;
 }
 
 .dashboard-workspace :is(.dash-btn-primary, .dash-btn-sm, .ops-btn, .feature-button),

@@ -17,6 +17,24 @@
     box-sizing: border-box;
 }
 
+/* Separate stacked frames and form actions without adding gaps to card grids. */
+.workspace-page :is(.dash-main, .ops-main, .workflow-admin-page, .feature-page, .buyer-account-content) > :is(.dash-panel, .ops-panel, .feature-panel, .buyer-account-panel) + :is(.dash-panel, .ops-panel, .feature-panel, .buyer-account-panel) {
+    margin-block-start: 16px;
+}
+
+.workspace-page .workflow-admin-page :is(article, .workspace-account-grid article) > form:not([hidden]):has(> label) {
+    display: flex;
+    align-items: flex-end;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.workspace-page .workflow-admin-page :is(article, .workspace-account-grid article) > form > label {
+    display: grid;
+    gap: 6px;
+    min-width: 0;
+}
+
 :is(.workspace-page, .main-content) :is(.dash-header, .ops-heading, .admin-header-row, .cart-header-row, .filter-bar-flex, .report-filter-form, .report-actions-group, .workspace-order-filter) {
     flex-wrap: wrap;
     gap: 12px;

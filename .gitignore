@@ -26,3 +26,6 @@ _ide_helper.php
 Homestead.json
 Homestead.yaml
 Thumbs.db
+
+# Local screenshot evidence and demo fixture seeder
+/local-task-evidence/
