@@ -62,7 +62,7 @@
                                         ({{ ucfirst($order->pickupCourier->status) }})
                                     </div>
                                 @endif
-                                <form class="ops-form" method="POST" action="{{ route('logistics.orders.assignPickup', $order) }}">
+                                <form class="ops-form" method="POST" action="{{ route('logistics.orders.assignPickup', $order) }}" data-decision="logistics.orders.assignPickup" data-decision-title="Assign pickup rider?" data-decision-message="Check the selected rider and pickup details before assigning this parcel." data-decision-label="Assign pickup" data-decision-tone="normal" onsubmit="return window.eziDecisionReady ? true : window.confirm(this.dataset.decisionMessage)">
                                     @csrf
                                     <div class="ops-field">
                                         <label for="pickup-rider-{{ $order->id }}">

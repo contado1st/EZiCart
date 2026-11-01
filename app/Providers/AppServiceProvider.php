@@ -2,12 +2,14 @@
 
 namespace App\Providers;
 
+use App\Services\CommunicationUnreadService;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Str;
+use Illuminate\View\View;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -18,6 +20,11 @@ class AppServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
+        \Illuminate\Support\Facades\View::composer('layouts.app', function (View $view): void {
+            $user = auth()->user();
+            $view->with('communicationCounts', $user ? app(CommunicationUnreadService::class)->counts($user) : ['messages' => 0, 'notifications' => 0]);
+        });
+
         RateLimiter::for('auth-login', function (Request $request): array {
             $email = Str::lower($request->string('email')->trim()->toString());
             $ip = $request->ip();
@@ -48,10 +55,16 @@ class AppServiceProvider extends ServiceProvider
             ];
         });
 
-        RateLimiter::for('registration', function (Request $request): Limit {
+        RateLimiter::for('registration', function (Request $request): array {
             $routeName = $request->route()?->getName() ?? $request->path();
+            $email = Str::lower(trim((string) $request->input('email')));
 
-            return Limit::perMinute(5)->by($routeName.'|'.$request->ip());
+            return [
+                Limit::perMinute((int) config('registration.registration_per_email_per_minute', 10))
+                    ->by($routeName.'|'.$request->ip().'|'.($email !== '' ? $email : 'missing-email')),
+                Limit::perMinute((int) config('registration.registration_per_ip_per_minute', 100))
+                    ->by($routeName.'|ip:'.$request->ip()),
+            ];
         });
 
         RateLimiter::for('email-verification', function (Request $request): Limit {
@@ -80,7 +93,7 @@ class AppServiceProvider extends ServiceProvider
             return Limit::perMinute(20)->by($identity.'|'.$routeName);
         });
 
-        if (str_starts_with(config('app.url'), 'https://')) {
+        if (app()->isProduction() && str_starts_with(config('app.url'), 'https://')) {
             URL::forceScheme('https');
         }
     }

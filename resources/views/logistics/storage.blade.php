@@ -63,7 +63,7 @@
     <section class="ops-panel">
         <h2>Cycle count verification</h2>
         <p class="ops-muted">Scan the location label, then enter one parcel QR/code per line. The system validates the scanned set against active hub placements.</p>
-        <form class="ops-form" method="POST" action="{{ route('logistics.storage.cycle-count') }}">
+        <form class="ops-form" method="POST" action="{{ route('logistics.storage.cycle-count') }}" data-decision="logistics.storage.cycle-count" data-decision-title="Save inventory count?" data-decision-message="Check the recorded counts and discrepancies before saving this storage audit." data-decision-label="Save count" data-decision-tone="normal" onsubmit="return window.eziDecisionReady ? true : window.confirm(this.dataset.decisionMessage)">
             @csrf
             <div class="ops-field">
                 <label for="count_location">Location QR or code</label>

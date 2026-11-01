@@ -6,26 +6,9 @@
 @endpush
 
 @section('content')
+    @include('components.order-deadlines', ['order' => $order])
     <div class="dash-wrapper">
-        <aside class="dash-sidebar">
-            <div>
-                <div class="dash-profile-badge">
-                    <span class="dash-role-tag">Buyer Portal</span>
-                    <h2 class="dash-profile-title">{{ auth()->user()->first_name }} {{ auth()->user()->last_name }}</h2>
-                    <p class="dash-profile-subtitle">Order details</p>
-                </div>
-                <nav class="dash-nav">
-                    <a href="{{ route('buyer.dashboard') }}" class="dash-nav-item active">My Orders</a>
-                    <a href="{{ route('cart.index') }}" class="dash-nav-item">View Cart</a>
-                </nav>
-            </div>
-            <form action="{{ route('logout') }}" method="POST">
-                @csrf
-                <button type="submit" class="dash-logout-btn">Logout</button>
-            </form>
-        </aside>
-
-        <main class="dash-main">
+<main class="dash-main">
             <div class="dash-header">
                 <div>
                     <h1 class="dash-title">Order {{ $order->order_number }}</h1>
@@ -34,6 +17,12 @@
                 </div>
                 <a href="{{ route('buyer.dashboard') }}" class="dash-btn-sm dash-btn-outline">Back to orders</a>
             </div>
+
+            @if($order->purchase)
+                <section class="dash-panel"><h2>Purchase #{{ $order->purchase->id }}</h2><p>Purchase total: ₱{{ number_format($order->purchase->total_cents / 100, 2) }}</p>
+                    @foreach($order->purchase->orders as $sibling)<p><a href="{{ route('buyer.orders.show', $sibling) }}">{{ $sibling->order_number }}</a> — {{ $sibling->seller->business_name ?? 'Merchant' }}{{ $sibling->replacement_for_order_id ? ' (replacement shipment)' : '' }}</p>@endforeach
+                </section>
+            @endif
 
             <section class="dash-panel">
                 <div class="order-card-header">
@@ -61,7 +50,7 @@
                             <p>The code expired or is locked. Generate a new one before the courier arrives.</p>
                         @endif
                         @if ($order->delivery_code_used_at === null)
-                            <form method="POST" action="{{ route('buyer.orders.delivery-code.refresh', $order) }}">
+                            <form method="POST" action="{{ route('buyer.orders.delivery-code.refresh', $order) }}" data-decision="buyer.orders.delivery-code.refresh" data-decision-title="Replace the delivery code?" data-decision-message="The previous code will stop working. Share the replacement only when you receive your parcel." data-decision-label="Replace code" data-decision-tone="normal" onsubmit="return window.eziDecisionReady ? true : window.confirm(this.dataset.decisionMessage)">
                                 @csrf
                                 <button class="dash-btn-sm dash-btn-outline" type="submit">Generate a new delivery code</button>
                             </form>
@@ -133,7 +122,7 @@
                     @endif
 
                     @if ($order->status === 'DELIVERED')
-                        <form action="{{ route('buyer.orders.confirm', $order->id) }}" method="POST">
+                        <form action="{{ route('buyer.orders.confirm', $order->id) }}" method="POST" data-decision="buyer.orders.confirm" data-decision-title="Confirm receipt?" data-decision-message="Confirm only after you have received the parcel and checked your items. This records your receipt of the order." data-decision-label="Confirm receipt" data-decision-tone="normal" onsubmit="return window.eziDecisionReady ? true : window.confirm(this.dataset.decisionMessage)">
                             @csrf
                             <button type="submit" class="dash-btn-sm dash-btn-success">Confirm receipt</button>
                         </form>

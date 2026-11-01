@@ -2,7 +2,11 @@
     $prefix = $prefix ?? 'address';
     $address = $address ?? null;
     $postalRequired = $postalRequired ?? false;
-    $addressMode = old('address_mode', 'psgc');
+    $addressOptional = $addressOptional ?? false;
+    $allowManual = $allowManual ?? true;
+    $addressMode = $allowManual
+        ? old('address_mode', $addressOptional ? '' : 'psgc')
+        : 'psgc';
     $selected = [
         'region' => old('region', $address?->region ?? ''),
         'province' => old('province', $address?->province ?? ''),
@@ -19,16 +23,16 @@
 
     <fieldset class="address-entry-choice" aria-describedby="{{ $prefix }}-address-choice-help">
         <legend>How would you like to enter the location?</legend>
-        <label for="{{ $prefix }}-mode-psgc"><input id="{{ $prefix }}-mode-psgc" type="radio" name="address_mode" value="psgc" data-address-mode-choice @checked($addressMode === 'psgc') required> Choose from location lists</label>
-        <label for="{{ $prefix }}-mode-manual"><input id="{{ $prefix }}-mode-manual" type="radio" name="address_mode" value="manual" data-address-mode-choice @checked($addressMode === 'manual') required> Enter address manually</label>
+        <label for="{{ $prefix }}-mode-psgc"><input id="{{ $prefix }}-mode-psgc" type="radio" name="address_mode" value="psgc" data-address-mode-choice @checked($addressMode === 'psgc') @unless ($addressOptional) required @endunless> Choose from location lists</label>
+        @if ($allowManual)<label for="{{ $prefix }}-mode-manual"><input id="{{ $prefix }}-mode-manual" type="radio" name="address_mode" value="manual" data-address-mode-choice @checked($addressMode === 'manual') @unless ($addressOptional) required @endunless> Enter address manually</label>@endif
     </fieldset>
-    <p class="auth-help" id="{{ $prefix }}-address-choice-help">Manual entry is available immediately while lists load. Use the official area names for accurate delivery routing.</p>
+    <p class="auth-help" id="{{ $prefix }}-address-choice-help">@if ($allowManual)Manual entry is available immediately while lists load. Use the official area names for accurate delivery routing.@else Choose each location from the official list so delivery areas can be validated.@endif</p>
 
     <div data-psgc-address-panel>
     <div class="auth-grid">
         <div class="auth-field">
             <label for="{{ $prefix }}-region">Region</label>
-            <select id="{{ $prefix }}-region" name="region_code" data-address-select="region" required>
+            <select id="{{ $prefix }}-region" name="region_code" data-address-select="region" @unless ($addressOptional) required @endunless>
                 <option value="">Loading regions…</option>
             </select>
             @error('region_code')<span class="auth-field-error">{{ $message }}</span>@enderror
@@ -36,7 +40,7 @@
         </div>
         <div class="auth-field">
             <label for="{{ $prefix }}-province">Province</label>
-            <select id="{{ $prefix }}-province" name="province_code" data-address-select="province" disabled required>
+            <select id="{{ $prefix }}-province" name="province_code" data-address-select="province" disabled @unless ($addressOptional) required @endunless>
                 <option value="">Choose a region first</option>
             </select>
             @error('province_code')<span class="auth-field-error">{{ $message }}</span>@enderror
@@ -44,7 +48,7 @@
         </div>
         <div class="auth-field">
             <label for="{{ $prefix }}-municipality">City / Municipality</label>
-            <select id="{{ $prefix }}-municipality" name="municipality_code" data-address-select="municipality" disabled required>
+            <select id="{{ $prefix }}-municipality" name="municipality_code" data-address-select="municipality" disabled @unless ($addressOptional) required @endunless>
                 <option value="">Choose a province first</option>
             </select>
             @error('municipality_code')<span class="auth-field-error">{{ $message }}</span>@enderror
@@ -52,7 +56,7 @@
         </div>
         <div class="auth-field">
             <label for="{{ $prefix }}-barangay">Barangay</label>
-            <select id="{{ $prefix }}-barangay" name="barangay_code" data-address-select="barangay" disabled required>
+            <select id="{{ $prefix }}-barangay" name="barangay_code" data-address-select="barangay" disabled @unless ($addressOptional) required @endunless>
                 <option value="">Choose a city / municipality first</option>
             </select>
             @error('barangay_code')<span class="auth-field-error">{{ $message }}</span>@enderror
@@ -61,7 +65,7 @@
     </div>
     </div>
 
-    <div class="auth-grid" data-manual-address-panel hidden>
+    @if ($allowManual)<div class="auth-grid" data-manual-address-panel hidden>
         @foreach (['region' => 'Region', 'province' => 'Province', 'municipality' => 'City / Municipality', 'barangay' => 'Barangay'] as $name => $label)
             <div class="auth-field">
                 <label for="{{ $prefix }}-manual-{{ $name }}">{{ $label }}</label>
@@ -69,7 +73,7 @@
                 @error('manual_'.$name)<span class="auth-field-error">{{ $message }}</span>@enderror
             </div>
         @endforeach
-    </div>
+    </div>@endif
 
     <div class="auth-grid" data-address-lines>
         <div class="auth-field">
@@ -80,7 +84,7 @@
         </div>
         <div class="auth-field">
             <label for="{{ $prefix }}-street">Street / subdivision</label>
-            <input id="{{ $prefix }}-street" name="street_address" value="{{ old('street_address', $address?->street_address ?? '') }}" maxlength="255" autocomplete="address-line2">
+            <input id="{{ $prefix }}-street" name="street_address" value="{{ old('street_address', $address?->street_address ?? '') }}" maxlength="255" autocomplete="address-line2" @if ($postalRequired) required @endif>
             <small class="auth-help">Enter the street, subdivision, or purok. Leave blank if there isn’t one.</small>
             @error('street_address')<span class="auth-field-error">{{ $message }}</span>@enderror
         </div>

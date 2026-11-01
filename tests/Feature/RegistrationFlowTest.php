@@ -8,8 +8,8 @@ use App\Notifications\EmailVerificationCodeNotification;
 use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
-use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
@@ -22,6 +22,12 @@ class RegistrationFlowTest extends TestCase
     {
         parent::setUp();
         $this->withoutVite();
+        Http::fake([
+            'psgc.cloud/api/v2/regions' => Http::response(['data' => [['code' => '1300000000', 'name' => 'National Capital Region (NCR)']]]),
+            'psgc.cloud/api/v2/regions/1300000000/provinces' => Http::response(['data' => []]),
+            'psgc.cloud/api/v2/regions/1300000000/cities-municipalities' => Http::response(['data' => [['code' => '1376000000', 'name' => 'Quezon City']]]),
+            'psgc.cloud/api/v2/cities-municipalities/1376000000/barangays' => Http::response(['data' => [['code' => '1376000001', 'name' => 'Commonwealth']]]),
+        ]);
     }
 
     /**
@@ -35,7 +41,7 @@ class RegistrationFlowTest extends TestCase
             'first_name' => 'José Miguel',
             'email' => '  BUYER@example.com  ',
             'contact_no' => '+639171234567',
-        ]))->assertRedirect(route('verification.notice', ['email' => 'buyer@example.com']));
+        ]))->assertRedirect(route('verification.notice'));
 
         $user = User::query()->where('email', 'buyer@example.com')->firstOrFail();
         $this->assertSame('buyer', $user->role);
@@ -96,20 +102,19 @@ class RegistrationFlowTest extends TestCase
             'line_of_business' => 'Home & Living',
             'seller_type' => 'Corporation',
             'tin' => '123-456-789-000',
-            'address_mode' => 'manual',
-            'manual_region' => 'National Capital Region (NCR)',
-            'manual_province' => 'Metro Manila',
-            'manual_municipality' => 'Quezon City',
-            'manual_barangay' => 'Commonwealth',
+            'address_mode' => 'psgc',
+            'region_code' => '1300000000',
+            'province_code' => 'NCR',
+            'municipality_code' => '1376000000',
+            'barangay_code' => '1376000001',
             'street_address' => 'Blk 12 Lot 8',
             'postal_code' => '1121',
             'id_document' => UploadedFile::fake()->create('id.pdf', 500, 'application/pdf'),
-            'bir_form_2303' => UploadedFile::fake()->create('bir.pdf', 500, 'application/pdf'),
-            'sec_certificate' => UploadedFile::fake()->create('sec.pdf', 500, 'application/pdf'),
+            'business_permit' => UploadedFile::fake()->create('permit.pdf', 500, 'application/pdf'),
             'password' => 'Seller-Pass@2026',
             'password_confirmation' => 'Seller-Pass@2026',
             'terms' => '1',
-        ])->assertRedirect(route('verification.notice', ['email' => 'seller@example.com']));
+        ])->assertRedirect(route('verification.notice'));
 
         $seller = User::query()->where('email', 'seller@example.com')->firstOrFail();
         $this->assertSame('seller', $seller->role);
@@ -117,11 +122,42 @@ class RegistrationFlowTest extends TestCase
         $this->assertNull($seller->email_verified_at);
 
         Storage::disk('private')->assertExists($seller->id_path);
-        Storage::disk('private')->assertExists($seller->sec_certificate_path);
-        Storage::disk('private')->assertExists($seller->bir_certificate_path);
+        Storage::disk('private')->assertExists($seller->permit_path);
+        $this->assertNull($seller->bir_certificate_path);
+        $this->assertNull($seller->sec_certificate_path);
 
         $this->assertDatabaseHas('email_verification_codes', ['user_id' => $seller->id]);
         Notification::assertSentTo($seller, EmailVerificationCodeNotification::class);
+    }
+
+    public function test_seller_registration_requires_a_valid_id_and_business_permit(): void
+    {
+        Storage::fake('private');
+
+        $this->post(route('register.seller.post'), [
+            'first_name' => 'Alex',
+            'last_name' => 'Seller',
+            'email' => 'seller.without.permit@example.com',
+            'contact_no' => '09123456789',
+            'birthday' => '1990-01-01',
+            'shop_name' => 'Alex Store',
+            'line_of_business' => 'Home & Living',
+            'seller_type' => 'Individual',
+            'tin' => '123-456-789-001',
+            'address_mode' => 'psgc',
+            'region_code' => '1300000000',
+            'province_code' => 'NCR',
+            'municipality_code' => '1376000000',
+            'barangay_code' => '1376000001',
+            'street_address' => '14 Market Road',
+            'postal_code' => '1121',
+            'id_document' => UploadedFile::fake()->create('id.pdf', 500, 'application/pdf'),
+            'password' => 'Seller-Pass@2026',
+            'password_confirmation' => 'Seller-Pass@2026',
+            'terms' => '1',
+        ])->assertSessionHasErrors('business_permit');
+
+        $this->assertDatabaseMissing('users', ['email' => 'seller.without.permit@example.com']);
     }
 
     /**
@@ -140,11 +176,11 @@ class RegistrationFlowTest extends TestCase
             'business_name' => 'Bilis Hatid Express Inc.',
             'sec_registration_no' => 'CS202012345',
             'tin' => '234-567-890-000',
-            'address_mode' => 'manual',
-            'manual_region' => 'National Capital Region (NCR)',
-            'manual_province' => 'Metro Manila',
-            'manual_municipality' => 'Pasig City',
-            'manual_barangay' => 'Kapitolyo',
+            'address_mode' => 'psgc',
+            'region_code' => '1300000000',
+            'province_code' => 'NCR',
+            'municipality_code' => '1376000000',
+            'barangay_code' => '1376000001',
             'street_address' => 'Unit 5B, 88 West Capitol Drive',
             'postal_code' => '1603',
             'contact_position' => 'Operations Manager',
@@ -156,7 +192,7 @@ class RegistrationFlowTest extends TestCase
             'password' => 'Logistics-Pass@2026',
             'password_confirmation' => 'Logistics-Pass@2026',
             'terms' => '1',
-        ])->assertRedirect(route('verification.notice', ['email' => 'operations@example.com']));
+        ])->assertRedirect(route('verification.notice'));
 
         $company = User::query()->where('email', 'operations@example.com')->firstOrFail();
         $this->assertSame('sorting_center', $company->role);
@@ -343,6 +379,7 @@ class RegistrationFlowTest extends TestCase
      */
     public function test_buyer_can_log_in_immediately_after_email_verification(): void
     {
+        Notification::fake();
         $buyer = User::query()->forceCreate([
             'first_name' => 'Verified',
             'last_name' => 'Buyer',
@@ -358,8 +395,43 @@ class RegistrationFlowTest extends TestCase
             'email' => $buyer->email,
             'password' => 'Password@2026',
         ])->assertRedirect(route('buyer.dashboard'));
-
         $this->assertAuthenticatedAs($buyer);
+        Notification::assertSentToTimes($buyer, EmailVerificationCodeNotification::class, 0);
+    }
+
+    public function test_seeded_buyer_and_seller_can_log_in_without_otp(): void
+    {
+        Notification::fake();
+
+        foreach ([
+            ['email' => 'buyer@ezicart.com', 'role' => 'buyer'],
+            ['email' => 'seller@ezicart.com', 'role' => 'seller'],
+        ] as $account) {
+            $dashboardUrl = $account['role'] === 'seller'
+                ? route('seller.dashboard')
+                : route('buyer.dashboard');
+
+            $user = User::query()->forceCreate([
+                'first_name' => 'Seeded',
+                'last_name' => ucfirst($account['role']),
+                'email' => $account['email'],
+                'contact_no' => '09121112233',
+                'password' => Hash::make('Password@2026'),
+                'role' => $account['role'],
+                'status' => 'approved',
+                'email_verified_at' => now(),
+            ]);
+
+            $this->post(route('login.post'), [
+                'email' => $account['email'],
+                'password' => 'Password@2026',
+            ])->assertRedirect($dashboardUrl);
+
+            $this->assertAuthenticatedAs($user);
+            $this->post(route('logout'));
+        }
+
+        Notification::assertNothingSent();
     }
 
     public function test_existing_approved_admin_can_log_in_immediately_without_email_verification(): void
@@ -384,6 +456,28 @@ class RegistrationFlowTest extends TestCase
         $this->assertNotNull($admin->fresh()->email_verified_at);
     }
 
+    public function test_buyer_can_log_in_without_an_email_code(): void
+    {
+        Notification::fake();
+        $buyer = User::query()->forceCreate([
+            'first_name' => 'Expired',
+            'last_name' => 'Buyer',
+            'email' => 'buyer.expired@example.com',
+            'contact_no' => '09121112235',
+            'password' => Hash::make('Password@2026'),
+            'role' => 'buyer',
+            'status' => 'approved',
+            'email_verified_at' => now(),
+        ]);
+
+        $this->post(route('login.post'), [
+            'email' => $buyer->email,
+            'password' => 'Password@2026',
+        ])->assertRedirect(route('buyer.dashboard'));
+
+        $this->assertAuthenticatedAs($buyer);
+        Notification::assertSentToTimes($buyer, EmailVerificationCodeNotification::class, 0);
+    }
 
     /**
      * Scenario 11: An unverified buyer cannot log in.
@@ -404,7 +498,7 @@ class RegistrationFlowTest extends TestCase
         $this->post(route('login.post'), [
             'email' => $buyer->email,
             'password' => 'Password@2026',
-        ])->assertRedirect(route('verification.notice', ['email' => $buyer->email]))
+        ])->assertRedirect(route('verification.notice'))
             ->assertSessionHas('error');
 
         $this->assertGuest();
@@ -465,6 +559,7 @@ class RegistrationFlowTest extends TestCase
      */
     public function test_approved_seller_can_log_in(): void
     {
+        Notification::fake();
         $seller = User::query()->forceCreate([
             'first_name' => 'Approved',
             'last_name' => 'Seller',
@@ -481,8 +576,8 @@ class RegistrationFlowTest extends TestCase
             'email' => $seller->email,
             'password' => 'Password@2026',
         ])->assertRedirect(route('seller.dashboard'));
-
         $this->assertAuthenticatedAs($seller);
+        Notification::assertNothingSent();
     }
 
     /**

@@ -16,19 +16,19 @@
 
         @if (session('success'))
             <div class="alert-success u-extracted-f0b24eea08">
-                ✅ {{ session('success') }}
+                <x-shop-icon name="checklist" /> {{ session('success') }}
             </div>
         @endif
 
         @if (session('error'))
             <div class="u-extracted-a243a89dcf">
-                ⚠️ {{ session('error') }}
+                <x-shop-icon name="warning" /> {{ session('error') }}
             </div>
         @endif
 
         @if (empty($cart))
             <div class="cart-empty-state">
-                <div class="cart-empty-icon">🛒</div>
+                <div class="cart-empty-icon"><x-shop-icon name="cart2" /></div>
                 <h2 class="cart-empty-title">Your cart is empty</h2>
                 <p class="cart-empty-desc">You haven't added any products to your shopping cart yet.</p>
                 <a href="{{ route('home') }}" class="btn-primary u-extracted-8bbe2fd3f8">
@@ -58,7 +58,7 @@
                                                 <img src="{{ asset('storage/' . $item['image_path']) }}"
                                                     alt="{{ $item['name'] }}" class="cart-product-img">
                                             @else
-                                                <div class="cart-product-placeholder">📦</div>
+                                                <div class="cart-product-placeholder"><x-shop-icon name="package1" /></div>
                                             @endif
                                             <div>
                                                 <a href="{{ route('product.show', $item['product_id']) }}"
@@ -88,7 +88,7 @@
                                         ₱{{ number_format($item['price'] * $item['quantity'], 2) }}
                                     </td>
                                     <td>
-                                        <form action="{{ route('cart.remove', $cartKey) }}" method="POST">
+                                        <form action="{{ route('cart.remove', $cartKey) }}" method="POST" data-decision="cart.remove" data-decision-title="Remove this item?" data-decision-message="This removes the item from your cart." data-decision-label="Remove item" data-decision-tone="danger" onsubmit="return window.eziDecisionReady ? true : window.confirm(this.dataset.decisionMessage)">
                                             @csrf
                                             @method('DELETE')
                                             <button type="submit" class="cart-btn-remove">Remove</button>

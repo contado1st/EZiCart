@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Product;
+use App\Services\ProductRecommendationService;
 use Illuminate\Http\Request;
 
 class HomeController extends Controller
@@ -10,7 +11,8 @@ class HomeController extends Controller
     public function index(Request $request)
     {
         $roleDashboardRoute = match ($request->user()?->role) {
-            'admin' => 'admin.dashboard',
+            'admin', 'ecommerce_admin' => 'admin.dashboard',
+            'logistics_admin' => 'logistics-admin.dashboard',
             'courier' => 'courier.dashboard',
             'sorting_center' => 'logistics.dashboard',
             default => null,
@@ -28,9 +30,7 @@ class HomeController extends Controller
             ['name' => 'Groceries', 'icon' => "\u{1F6D2}"],
         ];
 
-        $query = Product::where('compliance_status', 'approved')
-            ->where('is_archived', false)
-            ->where('stock', '>', 0)
+        $query = Product::query()->availableForMarketplace()
             ->with('seller');
 
         // Filter by category
@@ -53,11 +53,16 @@ class HomeController extends Controller
         return view($view, compact('categories', 'products'));
     }
 
-    public function showProduct(Product $product)
+    public function showProduct(Request $request, Product $product, ProductRecommendationService $recommendations)
     {
         abort_if($product->compliance_status !== 'approved' || $product->is_archived || $product->stock <= 0, 404);
 
-        $product->load('seller');
+        $product->load(['seller', 'media', 'variations' => fn ($query) => $query->where('is_active', true)]);
+        abort_if($product->variations()->exists() && $product->variations->isEmpty(), 404);
+
+        if ($request->user()?->role === 'buyer') {
+            $recommendations->recordView($request->user(), $product);
+        }
 
         return view('products.show', compact('product'));
     }

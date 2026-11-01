@@ -55,6 +55,7 @@ class OrderStatusNotification extends Notification
             'seller' => ['seller.orders.show', [$this->order->id]],
             'courier' => ['courier.orders.show', [$this->order->id]],
             'sorting_center' => ['logistics.tracking', ['search' => $this->order->order_number]],
+            'logistics_admin' => ['logistics-admin.dashboard', []],
             default => ['admin.dashboard', []],
         };
 

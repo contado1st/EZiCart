@@ -8,43 +8,11 @@
     <div class="dash-wrapper">
 
         <!-- Sidebar Navigation -->
-        <aside class="dash-sidebar">
-            <div>
-                <!-- Store Profile Header -->
-                <div class="dash-profile-badge">
-                    <span class="dash-role-tag">Seller Portal</span>
-                    <h2 class="dash-profile-title">{{ auth()->user()->business_name ?? 'My Store' }}</h2>
-                    <p class="dash-profile-subtitle">{{ auth()->user()->line_of_business ?? 'General Retail' }}</p>
-                </div>
-
-                <!-- Navigation Links -->
-                <nav class="dash-nav">
-                    <a href="{{ route('seller.dashboard') }}" class="dash-nav-item active">
-                        📊 Dashboard Overview
-                    </a>
-                    <a href="{{ route('seller.products.index') }}" class="dash-nav-item">
-                        📦 Inventory Management
-                    </a>
-                    <a href="{{ route('seller.orders.index') }}" class="dash-nav-item">
-                        🛍️ Order Management
-                    </a>
-                </nav>
-            </div>
-
-            <!-- Logout Form -->
-            <form action="{{ route('logout') }}" method="POST">
-                @csrf
-                <button type="submit" class="dash-logout-btn">
-                    🚪 Logout
-                </button>
-            </form>
-        </aside>
-
-        <!-- Main Workspace -->
+<!-- Main Workspace -->
         <main class="dash-main">
             <div class="dash-header">
                 <div>
-                    <h1 class="dash-title">Welcome back, {{ auth()->user()->first_name }} 👋</h1>
+                    <h1 class="dash-title">Welcome back, {{ auth()->user()->first_name }} <x-shop-icon name="smileypositive" /></h1>
                     <p class="dash-subtitle">Here is what is happening with your store today.</p>
                 </div>
                 <div>
@@ -57,24 +25,28 @@
             <!-- Metric Stat Cards -->
             <div class="dash-stats-grid">
                 <div class="dash-stat-card">
+                    <span class="workspace-stat-icon" aria-hidden="true"><x-shop-icon name="money" /></span>
                     <div class="dash-stat-label">Net Sales</div>
                     <div class="dash-stat-value">₱{{ number_format($stats['total_sales'], 2) }}</div>
                     <div class="dash-stat-subtext success">Real-time fulfilled revenue</div>
                 </div>
 
                 <div class="dash-stat-card">
+                    <span class="workspace-stat-icon" aria-hidden="true"><x-shop-icon name="cart1" /></span>
                     <div class="dash-stat-label">Pending Orders</div>
                     <div class="dash-stat-value primary">{{ $stats['pending_orders'] }}</div>
                     <div class="dash-stat-subtext">Requires packing & waybill</div>
                 </div>
 
                 <div class="dash-stat-card">
+                    <span class="workspace-stat-icon" aria-hidden="true"><x-shop-icon name="warning" /></span>
                     <div class="dash-stat-label">Low Stock Alerts</div>
                     <div class="dash-stat-value danger">{{ $stats['low_stock'] }}</div>
                     <div class="dash-stat-subtext danger">Items need restock (&lt; 10 units)</div>
                 </div>
 
                 <div class="dash-stat-card">
+                    <span class="workspace-stat-icon" aria-hidden="true"><x-shop-icon name="star" /></span>
                     <div class="dash-stat-label">Store Rating</div>
                     <div class="dash-stat-value warning">⭐ {{ $stats['rating'] }}</div>
                     <div class="dash-stat-subtext">Based on customer feedback</div>
@@ -110,23 +82,24 @@
                         </div>
                     @empty
                         <div class="dash-empty-box">
-                            📦 No active orders yet. Orders from buyers will appear here for packing, waybill generation,
+                            <x-shop-icon name="package1" /> No active orders yet. Orders from buyers will appear here for packing, waybill generation,
                             and rider pickup scheduling.
                         </div>
                     @endforelse
                 </div>
 
                 <div class="dash-panel">
+                    <x-workspace-distribution :values="$recentOrders->countBy('status')->all()" label="Orders by status" description="Your latest orders at a glance." />
                     <h3 class="dash-panel-title">Seller Actions</h3>
                     <div class="dash-action-list">
                         <a href="{{ route('seller.products.create') }}" class="dash-action-btn">
-                            ➕ Add Product / Set Discounts
+                            <x-shop-icon name="checklist" /> Add Product / Set Discounts
                         </a>
                         <a href="{{ route('seller.products.index') }}" class="dash-action-btn">
-                            📋 View All Inventory & Stock
+                            <x-shop-icon name="checklist" /> View All Inventory & Stock
                         </a>
                         <a href="{{ route('seller.orders.index') }}" class="dash-action-btn">
-                            🛍️ Process Orders & Print Waybills
+                            <x-shop-icon name="cart1" /> Process Orders & Print Waybills
                         </a>
                     </div>
                 </div>

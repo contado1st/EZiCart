@@ -16,13 +16,11 @@
 
                 <form action="{{ route('password.update') }}" method="POST" class="auth-form">
                     @csrf
-                    <input type="hidden" name="token" value="{{ $token }}">
                     <div class="auth-field">
-                        <label for="email">Email address</label>
-                        <input id="email" type="email" name="email" value="{{ old('email', $email) }}" required autocomplete="email">
-                        @error('email')
-                            <span class="auth-field-error">{{ $message }}</span>
-                        @enderror
+                        <p class="auth-intro">Set a new password for {{ $email }}.</p>
+                        @if ($errors->any())
+                            <div class="auth-message auth-message--error" role="alert">{{ $errors->first() }}</div>
+                        @endif
                     </div>
                     <div class="auth-field">
                         <label for="password">New password</label>

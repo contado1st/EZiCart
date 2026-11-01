@@ -5,27 +5,21 @@
 @endpush
 
 @section('content')
+    @include('components.order-deadlines', ['order' => $order])
     <div class="dash-wrapper">
-        <aside class="dash-sidebar">
-            <div>
-                <div class="dash-profile-badge">
-                    <span class="dash-role-tag">Seller Portal</span>
-                    <h2 class="dash-profile-title">{{ auth()->user()->business_name ?? 'My Store' }}</h2>
-                    <p class="dash-profile-subtitle">Order management</p>
+<main class="dash-main">
+            @if (session('success'))
+                <p role="status">{{ session('success') }}</p>
+            @endif
+            @if ($errors->any())
+                <div role="alert">
+                    @foreach ($errors->all() as $message)
+                        <p>{{ $message }}</p>
+                    @endforeach
                 </div>
-                <nav class="dash-nav">
-                    <a href="{{ route('seller.dashboard') }}" class="dash-nav-item">Dashboard</a>
-                    <a href="{{ route('seller.products.index') }}" class="dash-nav-item">Inventory</a>
-                    <a href="{{ route('seller.orders.index') }}" class="dash-nav-item active">Orders</a>
-                </nav>
-            </div>
-            <form action="{{ route('logout') }}" method="POST">
-                @csrf
-                <button type="submit" class="dash-logout-btn">Logout</button>
-            </form>
-        </aside>
-
-        <main class="dash-main">
+            @endif
+            @if($order->status === 'PLACED' && $order->seller_response_due_at)<p role="status">Confirm by {{ $order->seller_response_due_at->format('M d, Y h:i A') }}.</p>@endif
+            @if(in_array($order->status, ['CONFIRMED', 'PREPARING'], true) && $order->preparation_due_at)<p role="status">Finish preparation by {{ $order->preparation_due_at->format('M d, Y h:i A') }}.</p>@endif
             <div class="dash-header">
                 <div>
                     <h1 class="dash-title">Order {{ $order->order_number }}</h1>
@@ -85,28 +79,28 @@
                     @if ($order->payment_method !== 'COD' && in_array($order->status, ['PLACED', 'CONFIRMED', 'PREPARING', 'READY_FOR_PICKUP'], true))
                         <span>Fulfillment is on hold until payment verification is configured.</span>
                     @elseif ($order->status === 'PLACED')
-                        <form action="{{ route('seller.orders.updateStatus', $order->id) }}" method="POST">
+                        <form action="{{ route('seller.orders.updateStatus', $order->id) }}" method="POST" data-decision="seller.orders.updateStatus" data-decision-title="Update order status?" data-decision-message="Check the selected status. This updates the order workflow and may notify the buyer and delivery staff." data-decision-label="Update status" data-decision-tone="normal" onsubmit="return window.eziDecisionReady ? true : window.confirm(this.dataset.decisionMessage)">
                             @csrf
                             @method('PATCH')
                             <input type="hidden" name="status" value="CONFIRMED">
                             <button type="submit" class="dash-btn-sm dash-btn-primary">Accept order</button>
                         </form>
                     @elseif($order->status === 'CONFIRMED')
-                        <form action="{{ route('seller.orders.updateStatus', $order->id) }}" method="POST">
+                        <form action="{{ route('seller.orders.updateStatus', $order->id) }}" method="POST" data-decision="seller.orders.updateStatus" data-decision-title="Update order status?" data-decision-message="Check the selected status. This updates the order workflow and may notify the buyer and delivery staff." data-decision-label="Update status" data-decision-tone="normal" onsubmit="return window.eziDecisionReady ? true : window.confirm(this.dataset.decisionMessage)">
                             @csrf
                             @method('PATCH')
                             <input type="hidden" name="status" value="PREPARING">
                             <button type="submit" class="dash-btn-sm dash-btn-primary">Start preparing</button>
                         </form>
                     @elseif($order->status === 'PREPARING')
-                        <form action="{{ route('seller.orders.updateStatus', $order->id) }}" method="POST">
+                        <form action="{{ route('seller.orders.updateStatus', $order->id) }}" method="POST" data-decision="seller.orders.updateStatus" data-decision-title="Update order status?" data-decision-message="Check the selected status. This updates the order workflow and may notify the buyer and delivery staff." data-decision-label="Update status" data-decision-tone="normal" onsubmit="return window.eziDecisionReady ? true : window.confirm(this.dataset.decisionMessage)">
                             @csrf
                             @method('PATCH')
                             <input type="hidden" name="status" value="READY_FOR_PICKUP">
                             <button type="submit" class="dash-btn-sm dash-btn-primary">Mark ready for pickup</button>
                         </form>
                     @elseif($order->status === 'READY_FOR_PICKUP' && ! $order->pickup_requested_at)
-                        <form action="{{ route('seller.orders.schedulePickup', $order) }}" method="POST" class="order-schedule-form">
+                        <form action="{{ route('seller.orders.schedulePickup', $order) }}" method="POST" class="order-schedule-form" data-decision="seller.orders.schedulePickup" data-decision-title="Schedule pickup?" data-decision-message="Confirm the selected pickup details before requesting a rider." data-decision-label="Schedule pickup" data-decision-tone="normal" onsubmit="return window.eziDecisionReady ? true : window.confirm(this.dataset.decisionMessage)">
                             @csrf
                             <label for="pickup-scheduled-for">Pickup date and time</label>
                             <input id="pickup-scheduled-for" type="datetime-local" name="pickup_scheduled_for" min="{{ now()->addMinutes(15)->format('Y-m-d\\TH:i') }}" required>
@@ -124,7 +118,7 @@
                     @elseif($order->status === 'READY_FOR_PICKUP' && $order->pickup_requested_at && ! $order->pickup_arrived_at)
                         <p>Pickup requested for {{ $order->pickup_scheduled_for?->format('M d, Y h:i A') }} · {{ $order->pickup_window }}. Waiting for Logistics to assign a rider.</p>
                     @elseif($order->status === 'READY_FOR_PICKUP' && $order->pickup_arrived_at && ! $order->seller_handover_at)
-                        <form action="{{ route('seller.orders.confirmHandover', $order) }}" method="POST">
+                        <form action="{{ route('seller.orders.confirmHandover', $order) }}" method="POST" data-decision="seller.orders.confirmHandover" data-decision-title="Confirm physical handover?" data-decision-message="Continue only after you physically handed the parcel to the assigned rider." data-decision-label="Confirm handover" data-decision-tone="normal" onsubmit="return window.eziDecisionReady ? true : window.confirm(this.dataset.decisionMessage)">
                             @csrf
                             <label for="handover-rider-badge">Scan assigned rider badge QR/code</label>
                             <input id="handover-rider-badge" name="rider_badge" data-qr-input required maxlength="100" placeholder="EZR:…" autocomplete="off">
@@ -135,7 +129,7 @@
                         </form>
                     @elseif($order->status === 'RETURN_IN_TRANSIT')
                         @if ($order->return_handed_to_seller_at)
-                            <form action="{{ route('seller.orders.confirmReturn', $order) }}" method="POST">
+                            <form action="{{ route('seller.orders.confirmReturn', $order) }}" method="POST" data-decision="seller.orders.confirmReturn" data-decision-title="Confirm returned parcel?" data-decision-message="Continue only after you physically received the returned parcel." data-decision-label="Confirm return" data-decision-tone="normal" onsubmit="return window.eziDecisionReady ? true : window.confirm(this.dataset.decisionMessage)">
                                 @csrf
                                 <label for="return-rider-badge">Scan return rider badge QR/code</label>
                                 <input id="return-rider-badge" name="rider_badge" data-qr-input required maxlength="100" placeholder="EZR:…" autocomplete="off">
@@ -148,8 +142,8 @@
                             <span class="text-muted-small">Awaiting courier handoff</span>
                         @endif
                     @endif
-                    @if (in_array($order->status, ['PLACED', 'CONFIRMED', 'PREPARING', 'READY_FOR_PICKUP'], true) && $order->picked_up_at === null && $order->seller_handover_at === null)
-                        <form action="{{ route('seller.orders.cancel', $order) }}" method="POST" class="order-schedule-form">
+                    @if (!$order->pendingCancellation && in_array($order->status, ['PLACED', 'CONFIRMED', 'PREPARING', 'READY_FOR_PICKUP'], true) && $order->picked_up_at === null && $order->seller_handover_at === null)
+                        <form action="{{ route('seller.orders.cancel', $order) }}" method="POST" class="order-schedule-form" data-decision="seller.orders.cancel" data-decision-title="Cancel this order?" data-decision-message="Review the order and cancellation reason before continuing." data-decision-label="Cancel order" data-decision-tone="danger" onsubmit="return window.eziDecisionReady ? true : window.confirm(this.dataset.decisionMessage)">
                             @csrf
                             <label for="seller-cancel-reason">Reason for cancelling</label>
                             <textarea id="seller-cancel-reason" name="reason" maxlength="500" required></textarea>
@@ -158,6 +152,18 @@
                     @endif
                 </div>
             </section>
+            @if($order->status === 'RETURNED_TO_SELLER' && $order->restock_inspected_at === null && $order->inventory_restored_at === null)
+                <section class="dash-panel"><h2>Inspect returned items</h2>
+                    <form method="POST" action="{{ route('seller.orders.return-inspection', $order) }}" data-decision="seller.orders.return-inspection" data-decision-title="Submit return inspection?" data-decision-message="Check the inspection outcome and evidence before recording this return assessment." data-decision-label="Submit inspection" data-decision-tone="normal" onsubmit="return window.eziDecisionReady ? true : window.confirm(this.dataset.decisionMessage)">@csrf
+                        <label>Inspection result<select name="restock" required><option value="">Choose a result</option><option value="1">All items are sellable — restock</option><option value="0">Items are damaged or unsuitable — exclude from stock</option></select></label>
+                        <label>Inspection notes<textarea name="reason" required minlength="5" maxlength="500"></textarea></label><button class="dash-btn-sm" type="submit">Record inspection</button>
+                    </form>
+                </section>
+            @endif
+            @if($order->dispute?->status === 'REPLACEMENT_APPROVED' && $order->status === 'RETURNED_TO_SELLER')
+                <form method="POST" action="{{ route('seller.replacements.store', $order->dispute) }}" data-decision="seller.replacements.store" data-decision-title="Create replacement shipment?" data-decision-message="Review the replacement items and delivery details before creating the shipment." data-decision-label="Create replacement" data-decision-tone="normal" onsubmit="return window.eziDecisionReady ? true : window.confirm(this.dataset.decisionMessage)">@csrf<button class="dash-btn-sm" type="submit">Create approved no-charge replacement</button></form>
+            @endif
+            <a href="{{ route('finance.index') }}" class="dash-btn-sm">Order financial records</a>
         </main>
     </div>
 @endsection

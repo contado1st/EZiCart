@@ -48,6 +48,8 @@ class OrderMessageNotification extends Notification
             'seller' => ['seller.orders.messages.show', [$this->order->id]],
             'courier' => ['courier.orders.messages.show', [$this->order->id]],
             'sorting_center' => ['logistics.orders.messages.show', [$this->order->id]],
+            'admin', 'ecommerce_admin' => ['admin.orders.messages.show', [$this->order->id]],
+            'logistics_admin' => ['logistics-admin.orders.messages.show', [$this->order->id]],
             default => ['notifications.index', []],
         };
 

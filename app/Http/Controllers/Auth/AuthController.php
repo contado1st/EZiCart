@@ -6,16 +6,18 @@ use App\Http\Controllers\Controller;
 use App\Models\EmailVerificationCode;
 use App\Models\User;
 use App\Notifications\EmailVerificationCodeNotification;
+use App\Notifications\PasswordRecoveryCodeNotification;
 use App\Services\PsgcAddressService;
+use App\Services\RegistrationIdentityService;
 use Carbon\Carbon;
 use Illuminate\Auth\Events\PasswordReset;
+use Illuminate\Contracts\View\View;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Facades\Password;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
@@ -24,8 +26,15 @@ use Illuminate\Validation\ValidationException;
 
 class AuthController extends Controller
 {
+    private const TIN_FORMAT_ERROR = 'TIN must contain exactly 12 digits in the format 000-000-000-000.';
+
+    private const MOBILE_FORMAT_ERROR = 'Mobile number must contain exactly 11 digits in the format 09XXXXXXXXX, or use the equivalent +63 format.';
+
+    private const MOBILE_DUPLICATE_ERROR = 'This mobile number is already in use.';
+
     public function __construct(
         private readonly PsgcAddressService $psgcAddressService,
+        private readonly RegistrationIdentityService $registrationIdentity,
     ) {}
 
     private const PHILIPPINE_REGIONS = [
@@ -42,7 +51,7 @@ class AuthController extends Controller
         'Region VIII (Eastern Visayas)',
         'Region IX (Zamboanga Peninsula)',
         'Region X (Northern Mindanao)',
-        'Region XI (Davao)',
+        'Region XI (Davao Region)',
         'Region XII (SOCCSKSARGEN)',
         'Region XIII (Caraga)',
         'Bangsamoro Autonomous Region in Muslim Mindanao (BARMM)',
@@ -62,60 +71,154 @@ class AuthController extends Controller
     {
         $validated = $request->validate(['email' => ['required', 'email', 'max:255']]);
         $email = Str::lower(trim($validated['email']));
-        Password::sendResetLink(['email' => $email]);
+        $request->session()->forget('password_reset_otp');
+        $user = User::query()->whereRaw('LOWER(TRIM(email)) = ?', [$email])->first();
+        $code = (string) random_int(100000, 999999);
+        $challengeUserId = null;
 
-        return back()->with('status', 'If an account matches that email address, a password reset link has been sent.');
+        if ($user !== null && $user->status === 'approved') {
+            try {
+                $user->notify(new PasswordRecoveryCodeNotification($code));
+                $challengeUserId = $user->id;
+            } catch (\Throwable $exception) {
+                report($exception);
+            }
+        }
+
+        $request->session()->put('password_reset_otp', [
+            'user_id' => $challengeUserId,
+            'email' => $email,
+            'code_hash' => Hash::make($code),
+            'expires_at' => now()->addMinutes(5)->timestamp,
+            'attempts' => 0,
+            'sent_at' => now()->timestamp,
+        ]);
+
+        return redirect()->route('password.otp.notice')
+            ->with('status', 'If an active account matches that email address, a password recovery code has been sent.');
     }
 
-    public function showResetPasswordForm(string $token)
+    public function showPasswordResetOtp(): RedirectResponse|View
     {
-        return view('auth.reset-password', ['token' => $token, 'email' => request()->query('email')]);
+        $challenge = session('password_reset_otp');
+        if (! is_array($challenge) || empty($challenge['email']) || empty($challenge['code_hash'])) {
+            return redirect()->route('password.request')->with('error', 'Enter your email address to request a recovery code.');
+        }
+
+        if (($challenge['expires_at'] ?? 0) < now()->timestamp) {
+            session()->forget('password_reset_otp');
+
+            return redirect()->route('password.request')->with('error', 'Your recovery code expired. Request a new one.');
+        }
+
+        return view('auth.verify-email', [
+            'email' => $challenge['email'],
+            'cooldownSeconds' => max(0, 60 - (now()->timestamp - (int) ($challenge['sent_at'] ?? 0))),
+            'verificationMode' => 'password-reset',
+        ]);
+    }
+
+    public function verifyPasswordResetOtp(Request $request): RedirectResponse
+    {
+        $validated = $request->validate(['code' => ['required', 'digits:6']]);
+        $challenge = $request->session()->get('password_reset_otp');
+        if (! is_array($challenge) || empty($challenge['email']) || empty($challenge['code_hash'])) {
+            return redirect()->route('password.request')->with('error', 'Request a recovery code before continuing.');
+        }
+
+        if (($challenge['expires_at'] ?? 0) < now()->timestamp || ($challenge['attempts'] ?? 0) >= 5) {
+            $request->session()->forget('password_reset_otp');
+
+            return redirect()->route('password.request')->with('error', 'Your recovery code expired or reached its attempt limit. Request a new one.');
+        }
+
+        if (! Hash::check($validated['code'], $challenge['code_hash'] ?? '')) {
+            $challenge['attempts'] = (int) $challenge['attempts'] + 1;
+            $request->session()->put('password_reset_otp', $challenge);
+
+            return back()->withErrors(['code' => 'That recovery code is incorrect. Please try again.']);
+        }
+
+        $user = filled($challenge['user_id'] ?? null) ? User::query()->find($challenge['user_id']) : null;
+        if ($user === null || $user->status !== 'approved' || Str::lower(trim($user->email)) !== $challenge['email']) {
+            $request->session()->forget('password_reset_otp');
+
+            return redirect()->route('password.request')->with('error', 'This account cannot reset its password right now.');
+        }
+
+        $challenge['verified_at'] = now()->timestamp;
+        $challenge['expires_at'] = now()->addMinutes(10)->timestamp;
+        unset($challenge['code_hash']);
+        $request->session()->regenerate();
+        $request->session()->put('password_reset_otp', $challenge);
+
+        return redirect()->route('password.reset.form');
+    }
+
+    public function showResetPasswordForm(): RedirectResponse|View
+    {
+        $challenge = session('password_reset_otp');
+        if (! is_array($challenge) || empty($challenge['verified_at']) || ($challenge['expires_at'] ?? 0) < now()->timestamp) {
+            session()->forget('password_reset_otp');
+
+            return redirect()->route('password.request')->with('error', 'Verify a recovery code before choosing a new password.');
+        }
+
+        return view('auth.reset-password', ['email' => $challenge['email']]);
     }
 
     public function resetPassword(Request $request): RedirectResponse
     {
-        $request->merge(['email' => Str::lower(trim((string) $request->input('email')))]);
-        $validated = $request->validate([
-            'token' => ['required', 'string'],
-            'email' => ['required', 'email', 'max:255'],
-            'password' => ['required', 'string', PasswordRule::min(8)->mixedCase()->numbers()->symbols(), 'confirmed'],
-        ]);
+        $challenge = $request->session()->get('password_reset_otp');
+        if (! is_array($challenge) || empty($challenge['verified_at']) || ($challenge['expires_at'] ?? 0) < now()->timestamp) {
+            $request->session()->forget('password_reset_otp');
 
-        $status = Password::reset(
-            $validated,
-            function (User $user, string $password): void {
-                $user->forceFill([
-                    'password' => Hash::make($password),
-                    'remember_token' => Str::random(60),
-                ])->save();
-                event(new PasswordReset($user));
-            },
-        );
-
-        if ($status === Password::PasswordReset) {
-            return redirect()->route('login')->with('success', 'Password reset successfully. You can now sign in.');
+            return redirect()->route('password.request')->with('error', 'Verify a recovery code before choosing a new password.');
         }
 
-        return back()->withInput($request->only('email'))->withErrors(['email' => __($status)]);
+        $validated = $request->validate([
+            'password' => ['required', 'string', PasswordRule::min(8)->max(128)->mixedCase()->numbers()->symbols(), 'confirmed'],
+        ]);
+
+        $user = filled($challenge['user_id'] ?? null) ? User::query()->find($challenge['user_id']) : null;
+        if ($user === null || $user->status !== 'approved' || Str::lower(trim($user->email)) !== $challenge['email']) {
+            $request->session()->forget('password_reset_otp');
+
+            return redirect()->route('password.request')->with('error', 'This account cannot reset its password right now.');
+        }
+
+        $user->forceFill([
+            'password' => Hash::make($validated['password']),
+            'remember_token' => Str::random(60),
+        ])->save();
+        event(new PasswordReset($user));
+        $request->session()->forget('password_reset_otp');
+        $request->session()->regenerate();
+
+        return redirect()->route('login')->with('success', 'Password reset successfully. You can now sign in.');
     }
 
     public function login(Request $request): RedirectResponse
     {
         $request->merge(['email' => Str::lower(trim((string) $request->input('email')))]);
         $credentials = $request->validate([
-            'email' => ['required', 'email', 'max:255'],
+            'email' => $this->emailRules(),
             'password' => ['required', 'string'],
         ]);
 
         $account = User::query()->whereRaw('LOWER(TRIM(email)) = ?', [$credentials['email']])->first();
-        if (! $account || ! Auth::attempt(['email' => $account->email, 'password' => $credentials['password']], $request->boolean('remember'))) {
+        // The remember-me cookie is shared across browser tabs. Tab-isolated
+        // sessions must rely on their own session cookie instead.
+        $remember = ! $request->query('__tab') && $request->boolean('remember');
+
+        if (! $account || ! Auth::attempt(['email' => $account->email, 'password' => $credentials['password']], $remember)) {
             return back()->withErrors(['email' => 'The provided credentials do not match our records.'])->onlyInput('email');
         }
 
         $user = $request->user();
 
         // 1. Admin accounts bypass OTP verification
-        if ($user->role === 'admin') {
+        if ($user->administrationDashboardRoute() !== null) {
             if ($user->status !== 'approved') {
                 Auth::logout();
                 $request->session()->invalidate();
@@ -130,7 +233,7 @@ class AuthController extends Controller
 
             $request->session()->regenerate();
 
-            return redirect()->intended(route('admin.dashboard'));
+            return redirect()->intended(route($user->administrationDashboardRoute()));
         }
 
         // 2. Email Verification Enforcement (unverified accounts must verify their email)
@@ -144,7 +247,7 @@ class AuthController extends Controller
                 'verification_email' => Str::lower(trim($user->email)),
             ]);
 
-            return redirect()->route('verification.notice', ['email' => $user->email])
+            return redirect()->route('verification.notice')
                 ->with('error', 'Your email address is not verified. Please enter the verification code sent to your email, or request a new code.');
         }
 
@@ -194,16 +297,54 @@ class AuthController extends Controller
             $user->forceFill(['email_verified_at' => now()])->save();
         }
 
-        // 6. Approved Accounts
+        // Approved accounts sign in with their password. Email codes are reserved for registration verification and password recovery.
         $request->session()->regenerate();
 
         return match ($user->role) {
             'seller' => redirect()->intended(route('seller.dashboard')),
-            'admin' => redirect()->intended(route('admin.dashboard')),
+            'admin', 'ecommerce_admin' => redirect()->intended(route('admin.dashboard')),
+            'logistics_admin' => redirect()->intended(route('logistics-admin.dashboard')),
             'courier' => redirect()->intended(route('courier.dashboard')),
             'sorting_center' => redirect()->intended(route('logistics.dashboard')),
             default => redirect()->intended(route('buyer.dashboard')),
         };
+    }
+
+    public function resendPasswordResetOtp(Request $request): RedirectResponse
+    {
+        $challenge = $request->session()->get('password_reset_otp');
+        if (! is_array($challenge) || empty($challenge['email']) || empty($challenge['code_hash'])) {
+            return redirect()->route('password.request')->with('error', 'Request a recovery code before continuing.');
+        }
+
+        $elapsed = now()->timestamp - (int) ($challenge['sent_at'] ?? 0);
+        if ($elapsed < 60) {
+            return back()->withErrors(['code' => 'Please wait '.(60 - $elapsed).' seconds before requesting another code.']);
+        }
+
+        $user = filled($challenge['user_id'] ?? null) ? User::query()->find($challenge['user_id']) : null;
+        $code = (string) random_int(100000, 999999);
+        try {
+            $user?->notify(new PasswordRecoveryCodeNotification($code));
+        } catch (\Throwable $exception) {
+            report($exception);
+            $user = null;
+        }
+
+        $challenge['user_id'] = $user?->id;
+        $challenge['code_hash'] = Hash::make($code);
+        $challenge['expires_at'] = now()->addMinutes(5)->timestamp;
+        $challenge['attempts'] = 0;
+        $challenge['sent_at'] = now()->timestamp;
+        unset($challenge['verified_at']);
+        $request->session()->put('password_reset_otp', $challenge);
+
+        return back()->with('success', 'A new password recovery code has been sent.');
+    }
+
+    private function minimumAgeDate(): string
+    {
+        return now()->subYearsNoOverflow(18)->toDateString();
     }
 
     public function logout(Request $request): RedirectResponse
@@ -224,10 +365,10 @@ class AuthController extends Controller
     {
         $this->normalizeIdentity($request);
         $validated = $request->validate($this->identityRules() + $this->psgcAddressRules(false, false) + [
-            'birthday' => ['required', 'date', 'before_or_equal:today', 'before:-18 years'],
-            'password' => ['required', 'string', PasswordRule::min(8)->mixedCase()->numbers()->symbols(), 'confirmed'],
+            'birthday' => ['required', 'date', 'before_or_equal:today', 'before_or_equal:'.$this->minimumAgeDate()],
+            'password' => ['required', 'string', PasswordRule::min(8)->max(128)->mixedCase()->numbers()->symbols(), 'confirmed'],
             'terms' => ['accepted'],
-        ]);
+        ], $this->registrationValidationMessages());
         $user = $this->createVerifiedAccount($validated, $this->resolveAddress($validated) + [
             'birthday' => $validated['birthday'],
             'age' => Carbon::parse($validated['birthday'])->age,
@@ -247,38 +388,45 @@ class AuthController extends Controller
     public function sellerRegister(Request $request): RedirectResponse
     {
         $this->normalizeIdentity($request);
+        $this->normalizeBusinessIdentifiers($request);
         $validated = $request->validate($this->identityRules() + $this->psgcAddressRules(true, true) + [
-            'shop_name' => ['required', 'string', 'min:3', 'max:30', 'unique:users,shop_name'],
-            'line_of_business' => ['required', 'string', 'max:100'],
+            'shop_name' => ['required', 'string', 'min:3', 'max:30'],
+            'canonical_shop_name' => ['required', 'string', 'max:30', Rule::unique('users', 'canonical_shop_name')],
+            'line_of_business' => ['required', 'string', Rule::in(config('registration.seller_categories'))],
             'seller_type' => ['required', 'in:Individual,Sole Proprietorship,Corporation'],
-            'tin' => ['required', 'regex:/^\d{3}-\d{3}-\d{3}-\d{3}$/', 'unique:users,tin'],
+            'tin' => ['required', 'regex:/^\d{3}-\d{3}-\d{3}-\d{3}$/'],
+            'canonical_tin' => ['required', 'digits:12', Rule::unique('users', 'canonical_tin')],
             'postal_code' => ['required', 'digits:4'],
             'id_document' => ['required', 'file', 'mimes:jpg,jpeg,png,pdf', 'max:5120'],
-            'dti_certificate' => ['required_if:seller_type,Sole Proprietorship', 'nullable', 'file', 'mimes:jpg,jpeg,png,pdf', 'max:5120'],
-            'bir_form_2303' => ['required_if:seller_type,Sole Proprietorship,Corporation', 'nullable', 'file', 'mimes:jpg,jpeg,png,pdf', 'max:5120'],
-            'sec_certificate' => ['required_if:seller_type,Corporation', 'nullable', 'file', 'mimes:jpg,jpeg,png,pdf', 'max:5120'],
-            'password' => ['required', 'string', PasswordRule::min(8)->mixedCase()->numbers()->symbols(), 'confirmed'],
+            'business_permit' => ['required', 'file', 'mimes:jpg,jpeg,png,pdf', 'max:5120'],
+            'password' => ['required', 'string', PasswordRule::min(8)->max(128)->mixedCase()->numbers()->symbols(), 'confirmed'],
             'terms' => ['accepted'],
-        ]);
+        ], $this->registrationValidationMessages(includeTinFormat: true));
         $address = $this->resolveAddress($validated);
-        $paths = [
+        $paths = array_filter([
             'id_path' => $request->file('id_document')->store('documents/ids', 'private'),
-            'permit_path' => $request->file('dti_certificate')?->store('documents/permits', 'private'),
-            'bir_certificate_path' => $request->file('bir_form_2303')?->store('documents/bir', 'private'),
-            'sec_certificate_path' => $request->file('sec_certificate')?->store('documents/sec', 'private'),
-        ];
+            'permit_path' => $request->file('business_permit')->store('documents/permits', 'private'),
+        ]);
 
-        $user = $this->createVerifiedAccount($validated, $paths + [
-            'business_name' => $validated['shop_name'],
-            'shop_name' => $validated['shop_name'],
-            'line_of_business' => $validated['line_of_business'],
-            'seller_type' => $validated['seller_type'],
-            'tin' => $validated['tin'],
-            ...$address,
-            'house_number' => $validated['house_number'] ?? null,
-            'street_address' => $validated['street_address'] ?? null,
-            'postal_code' => $validated['postal_code'] ?? null,
-        ], 'seller');
+        try {
+            $user = $this->createVerifiedAccount($validated, $paths + [
+                'business_name' => $validated['shop_name'],
+                'shop_name' => $validated['shop_name'],
+                'canonical_shop_name' => $validated['canonical_shop_name'],
+                'line_of_business' => $validated['line_of_business'],
+                'seller_type' => $validated['seller_type'],
+                'tin' => $validated['tin'],
+                'canonical_tin' => $validated['canonical_tin'],
+                ...$address,
+                'house_number' => $validated['house_number'] ?? null,
+                'street_address' => $validated['street_address'] ?? null,
+                'postal_code' => $validated['postal_code'] ?? null,
+            ], 'seller');
+        } catch (\Throwable $exception) {
+            Storage::disk('private')->delete(array_values($paths));
+
+            throw $exception;
+        }
 
         return $this->beginVerification($user);
     }
@@ -291,15 +439,14 @@ class AuthController extends Controller
     public function sortingCenterRegister(Request $request): RedirectResponse
     {
         $this->normalizeIdentity($request);
-        $request->merge([
-            'canonical_company_name' => Str::lower(trim((string) $request->input('business_name'))),
-            'sec_registration_no' => Str::upper(trim((string) $request->input('sec_registration_no'))),
-        ]);
+        $this->normalizeBusinessIdentifiers($request);
         $validated = $request->validate($this->identityRules() + $this->psgcAddressRules(true, true) + [
             'business_name' => ['required', 'string', 'min:3', 'max:150'],
             'canonical_company_name' => ['required', 'string', 'max:150', Rule::unique('users', 'canonical_company_name')],
-            'sec_registration_no' => ['required', 'regex:/^[A-Za-z]{2}\d{9}$/', 'unique:users,sec_registration_no'],
-            'tin' => ['required', 'regex:/^\d{3}-\d{3}-\d{3}-\d{3}$/', 'unique:users,tin'],
+            'sec_registration_no' => ['required', 'regex:/^[A-Za-z]{2}\d{9}$/'],
+            'canonical_sec_registration_no' => ['required', 'size:11', Rule::unique('users', 'canonical_sec_registration_no')],
+            'tin' => ['required', 'regex:/^\d{3}-\d{3}-\d{3}-\d{3}$/'],
+            'canonical_tin' => ['required', 'digits:12', Rule::unique('users', 'canonical_tin')],
             'postal_code' => ['required', 'digits:4'],
             'contact_position' => ['required', 'string', 'max:100'],
             'service_areas' => ['required', 'array', 'min:1'],
@@ -308,11 +455,11 @@ class AuthController extends Controller
             'bir_form_2303' => ['required', 'file', 'mimes:jpg,jpeg,png,pdf', 'max:5120'],
             'business_permit' => ['required', 'file', 'mimes:jpg,jpeg,png,pdf', 'max:5120'],
             'representative_id' => ['required', 'file', 'mimes:jpg,jpeg,png,pdf', 'max:5120'],
-            'password' => ['required', 'string', PasswordRule::min(8)->mixedCase()->numbers()->symbols(), 'confirmed'],
+            'password' => ['required', 'string', PasswordRule::min(8)->max(128)->mixedCase()->numbers()->symbols(), 'confirmed'],
             'terms' => ['accepted'],
-        ]);
+        ], $this->registrationValidationMessages(includeTinFormat: true));
         $address = $this->resolveAddress($validated);
-        $paths = [
+        $paths = array_filter([
             'id_path' => $request->file('representative_id')->store('documents/ids', 'private'),
             'sec_certificate_path' => $request->file('sec_certificate')->store('documents/sec', 'private'),
             'bir_certificate_path' => $request->file('bir_form_2303')->store('documents/bir', 'private'),
@@ -321,14 +468,22 @@ class AuthController extends Controller
             'service_areas' => array_values($validated['service_areas']),
             'canonical_company_name' => $validated['canonical_company_name'],
             'sec_registration_no' => Str::upper($validated['sec_registration_no']),
+            'canonical_sec_registration_no' => $validated['canonical_sec_registration_no'],
             'tin' => $validated['tin'],
+            'canonical_tin' => $validated['canonical_tin'],
             ...$address,
             'house_number' => $validated['house_number'] ?? null,
             'street_address' => $validated['street_address'] ?? null,
             'postal_code' => $validated['postal_code'] ?? null,
-        ];
+        ]);
 
-        $user = $this->createVerifiedAccount($validated, $paths, 'sorting_center');
+        try {
+            $user = $this->createVerifiedAccount($validated, $paths, 'sorting_center');
+        } catch (\Throwable $exception) {
+            Storage::disk('private')->delete(array_values($paths));
+
+            throw $exception;
+        }
 
         return $this->beginVerification($user);
     }
@@ -363,41 +518,35 @@ class AuthController extends Controller
         );
 
         $this->normalizeIdentity($request);
+        $this->normalizeBusinessIdentifiers($request);
         $commonRules = $this->identityRules($applicant);
-
-        if ($applicant->role === 'sorting_center') {
-            $request->merge([
-                'canonical_company_name' => Str::lower(trim((string) $request->input('business_name'))),
-                'sec_registration_no' => Str::upper(trim((string) $request->input('sec_registration_no'))),
-            ]);
-        }
 
         if ($applicant->role === 'seller') {
             $validated = $request->validate($commonRules + $this->psgcAddressRules(true, true) + [
-                'shop_name' => ['required', 'string', 'min:3', 'max:30', Rule::unique('users', 'shop_name')->ignore($applicant->id)],
-                'line_of_business' => ['required', 'string', 'max:100'],
+                'shop_name' => ['required', 'string', 'min:3', 'max:30'],
+                'canonical_shop_name' => ['required', 'string', 'max:30', Rule::unique('users', 'canonical_shop_name')->ignore($applicant->id)],
+                'line_of_business' => ['required', 'string', Rule::in(config('registration.seller_categories'))],
                 'seller_type' => ['required', 'in:Individual,Sole Proprietorship,Corporation'],
-                'tin' => ['required', 'regex:/^\d{3}-\d{3}-\d{3}-\d{3}$/', Rule::unique('users', 'tin')->ignore($applicant->id)],
+                'tin' => ['required', 'regex:/^\d{3}-\d{3}-\d{3}-\d{3}$/'],
+                'canonical_tin' => ['required', 'digits:12', Rule::unique('users', 'canonical_tin')->ignore($applicant->id)],
                 'postal_code' => ['required', 'digits:4'],
-                'id_document' => ['required', 'file', 'mimes:jpg,jpeg,png,pdf', 'max:5120'],
-                'dti_certificate' => ['required_if:seller_type,Sole Proprietorship', 'nullable', 'file', 'mimes:jpg,jpeg,png,pdf', 'max:5120'],
-                'bir_form_2303' => ['required_if:seller_type,Sole Proprietorship,Corporation', 'nullable', 'file', 'mimes:jpg,jpeg,png,pdf', 'max:5120'],
-                'sec_certificate' => ['required_if:seller_type,Corporation', 'nullable', 'file', 'mimes:jpg,jpeg,png,pdf', 'max:5120'],
+                'id_document' => [Rule::requiredIf(! $applicant->id_path), 'nullable', 'file', 'mimes:jpg,jpeg,png,pdf', 'max:5120'],
+                'business_permit' => [Rule::requiredIf(! $applicant->permit_path), 'nullable', 'file', 'mimes:jpg,jpeg,png,pdf', 'max:5120'],
                 'terms' => ['accepted'],
-            ]);
+            ], $this->registrationValidationMessages(includeTinFormat: true));
             $address = $this->resolveAddress($validated);
-            $newPaths = [
-                'id_path' => $request->file('id_document')->store('documents/ids', 'private'),
-                'permit_path' => $request->file('dti_certificate')?->store('documents/permits', 'private'),
-                'bir_certificate_path' => $request->file('bir_form_2303')?->store('documents/bir', 'private'),
-                'sec_certificate_path' => $request->file('sec_certificate')?->store('documents/sec', 'private'),
-            ];
+            $newPaths = array_filter([
+                'id_path' => $request->file('id_document')?->store('documents/ids', 'private'),
+                'permit_path' => $request->file('business_permit')?->store('documents/permits', 'private'),
+            ]);
             $details = [
                 'business_name' => $validated['shop_name'],
                 'shop_name' => $validated['shop_name'],
+                'canonical_shop_name' => $validated['canonical_shop_name'],
                 'line_of_business' => $validated['line_of_business'],
                 'seller_type' => $validated['seller_type'],
                 'tin' => $validated['tin'],
+                'canonical_tin' => $validated['canonical_tin'],
                 ...$address,
                 'house_number' => $validated['house_number'] ?? null,
                 'street_address' => $validated['street_address'] ?? null,
@@ -407,30 +556,34 @@ class AuthController extends Controller
             $validated = $request->validate($commonRules + $this->psgcAddressRules(true, true) + [
                 'business_name' => ['required', 'string', 'min:3', 'max:150'],
                 'canonical_company_name' => ['required', 'string', 'max:150', Rule::unique('users', 'canonical_company_name')->ignore($applicant->id)],
-                'sec_registration_no' => ['required', 'regex:/^[A-Za-z]{2}\d{9}$/', Rule::unique('users', 'sec_registration_no')->ignore($applicant->id)],
-                'tin' => ['required', 'regex:/^\d{3}-\d{3}-\d{3}-\d{3}$/', Rule::unique('users', 'tin')->ignore($applicant->id)],
+                'sec_registration_no' => ['required', 'regex:/^[A-Za-z]{2}\d{9}$/'],
+                'canonical_sec_registration_no' => ['required', 'size:11', Rule::unique('users', 'canonical_sec_registration_no')->ignore($applicant->id)],
+                'tin' => ['required', 'regex:/^\d{3}-\d{3}-\d{3}-\d{3}$/'],
+                'canonical_tin' => ['required', 'digits:12', Rule::unique('users', 'canonical_tin')->ignore($applicant->id)],
                 'postal_code' => ['required', 'digits:4'],
                 'contact_position' => ['required', 'string', 'max:100'],
                 'service_areas' => ['required', 'array', 'min:1'],
                 'service_areas.*' => ['required', 'string', Rule::in(self::PHILIPPINE_REGIONS)],
-                'sec_certificate' => ['required', 'file', 'mimes:jpg,jpeg,png,pdf', 'max:5120'],
-                'bir_form_2303' => ['required', 'file', 'mimes:jpg,jpeg,png,pdf', 'max:5120'],
-                'business_permit' => ['required', 'file', 'mimes:jpg,jpeg,png,pdf', 'max:5120'],
-                'representative_id' => ['required', 'file', 'mimes:jpg,jpeg,png,pdf', 'max:5120'],
+                'sec_certificate' => [Rule::requiredIf(! $applicant->sec_certificate_path), 'nullable', 'file', 'mimes:jpg,jpeg,png,pdf', 'max:5120'],
+                'bir_form_2303' => [Rule::requiredIf(! $applicant->bir_certificate_path), 'nullable', 'file', 'mimes:jpg,jpeg,png,pdf', 'max:5120'],
+                'business_permit' => [Rule::requiredIf(! $applicant->permit_path), 'nullable', 'file', 'mimes:jpg,jpeg,png,pdf', 'max:5120'],
+                'representative_id' => [Rule::requiredIf(! $applicant->id_path), 'nullable', 'file', 'mimes:jpg,jpeg,png,pdf', 'max:5120'],
                 'terms' => ['accepted'],
-            ]);
+            ], $this->registrationValidationMessages(includeTinFormat: true));
             $address = $this->resolveAddress($validated);
-            $newPaths = [
-                'id_path' => $request->file('representative_id')->store('documents/ids', 'private'),
-                'sec_certificate_path' => $request->file('sec_certificate')->store('documents/sec', 'private'),
-                'bir_certificate_path' => $request->file('bir_form_2303')->store('documents/bir', 'private'),
-                'permit_path' => $request->file('business_permit')->store('documents/permits', 'private'),
-            ];
+            $newPaths = array_filter([
+                'id_path' => $request->file('representative_id')?->store('documents/ids', 'private'),
+                'sec_certificate_path' => $request->file('sec_certificate')?->store('documents/sec', 'private'),
+                'bir_certificate_path' => $request->file('bir_form_2303')?->store('documents/bir', 'private'),
+                'permit_path' => $request->file('business_permit')?->store('documents/permits', 'private'),
+            ]);
             $details = [
                 'business_name' => $validated['business_name'],
                 'canonical_company_name' => $validated['canonical_company_name'],
                 'sec_registration_no' => Str::upper($validated['sec_registration_no']),
+                'canonical_sec_registration_no' => $validated['canonical_sec_registration_no'],
                 'tin' => $validated['tin'],
+                'canonical_tin' => $validated['canonical_tin'],
                 'contact_position' => $validated['contact_position'],
                 'service_areas' => array_values($validated['service_areas']),
                 ...$address,
@@ -447,7 +600,8 @@ class AuthController extends Controller
             $applicant->sec_certificate_path,
         ]);
 
-        DB::transaction(function () use ($applicant, $validated, $details, $newPaths): void {
+        $emailChanged = Str::lower(trim($applicant->email)) !== $validated['email'];
+        DB::transaction(function () use ($applicant, $validated, $details, $newPaths, $emailChanged): void {
             $applicant->forceFill(array_merge([
                 'first_name' => trim($validated['first_name']),
                 'middle_name' => filled($validated['middle_name'] ?? null) ? trim($validated['middle_name']) : null,
@@ -458,18 +612,22 @@ class AuthController extends Controller
                 'contact_no' => $validated['contact_no'],
                 'canonical_mobile' => $validated['contact_no'],
                 'terms_accepted_at' => now(),
-                'terms_version' => '2026-10',
+                'terms_version' => config('registration.policy_version'),
                 'privacy_accepted_at' => now(),
-                'privacy_version' => '2026-10',
-                'status' => 'pending',
+                'privacy_version' => config('registration.policy_version'),
+                'status' => $emailChanged ? 'unverified' : 'pending',
+                'email_verified_at' => $emailChanged ? null : $applicant->email_verified_at,
                 'approved_at' => null,
                 'approved_by' => null,
                 'rejection_reason' => null,
             ], $details, $newPaths))->save();
         });
 
+        $currentPaths = array_filter(array_values($applicant->fresh()->only([
+            'id_path', 'permit_path', 'bir_certificate_path', 'sec_certificate_path',
+        ])));
         foreach ($oldPaths as $path) {
-            if (! in_array($path, $newPaths, true)) {
+            if (! in_array($path, $currentPaths, true)) {
                 Storage::disk('private')->delete($path);
             }
         }
@@ -478,14 +636,19 @@ class AuthController extends Controller
         $request->session()->invalidate();
         $request->session()->regenerateToken();
 
+        if ($emailChanged) {
+            EmailVerificationCode::query()->where('user_id', $applicant->id)->delete();
+
+            return $this->beginVerification($applicant->fresh());
+        }
+
         return redirect()->route('login')->with('success', 'Your corrected application was resubmitted and is waiting for admin review.');
     }
 
     public function showEmailVerification(Request $request)
     {
         $sessionEmail = $request->session()->get('verification_email');
-        $queryEmail = $request->query('email');
-        $email = Str::lower(trim((string) ($sessionEmail ?: $queryEmail)));
+        $email = Str::lower(trim((string) $sessionEmail));
 
         $user = null;
         $cooldownSeconds = 0;
@@ -621,12 +784,35 @@ class AuthController extends Controller
     private function identityRules(?User $account = null): array
     {
         return [
-            'first_name' => ['required', 'string', 'min:2', 'max:50', 'regex:/\A[\p{L}\p{M}]+(?:[ ]+[\p{L}\p{M}]+)*\z/u'],
-            'middle_name' => ['nullable', 'string', 'min:1', 'max:50', 'regex:/\A[\p{L}\p{M}]+(?:[ ]+[\p{L}\p{M}]+)*\z/u'],
-            'last_name' => ['required', 'string', 'min:2', 'max:50', 'regex:/\A[\p{L}\p{M}]+(?:[ ]+[\p{L}\p{M}]+)*\z/u'],
-            'suffix' => ['nullable', 'string', 'max:20', 'regex:/\A[\p{L}\p{M}\p{N} .-]*\z/u'],
-            'email' => ['required', 'email', 'max:255', Rule::unique('users', 'email')->ignore($account?->id), Rule::unique('users', 'canonical_email')->ignore($account?->id)],
+            'first_name' => ['required', 'string', 'min:2', 'max:50', 'regex:'.$this->registrationIdentity->nameRule()],
+            'middle_name' => ['nullable', 'string', 'min:1', 'max:50', 'regex:'.$this->registrationIdentity->nameRule()],
+            'last_name' => ['required', 'string', 'min:2', 'max:50', 'regex:'.$this->registrationIdentity->nameRule()],
+            'suffix' => ['nullable', 'string', 'max:20', 'regex:/\A[\p{L}\p{M}\p{N} .\x27-]*\z/u'],
+            'email' => [...$this->emailRules(), Rule::unique('users', 'email')->ignore($account?->id), Rule::unique('users', 'canonical_email')->ignore($account?->id)],
             'contact_no' => ['required', 'string', 'regex:/^09\d{9}$/', Rule::unique('users', 'canonical_mobile')->ignore($account?->id)],
+        ];
+    }
+
+    private function registrationValidationMessages(bool $includeTinFormat = false): array
+    {
+        $messages = [
+            'contact_no.regex' => self::MOBILE_FORMAT_ERROR,
+            'contact_no.unique' => self::MOBILE_DUPLICATE_ERROR,
+        ];
+
+        if ($includeTinFormat) {
+            $messages['tin.regex'] = self::TIN_FORMAT_ERROR;
+        }
+
+        return $messages;
+    }
+
+    private function emailRules(): array
+    {
+        return [
+            'required',
+            'email:rfc',
+            'max:255',
         ];
     }
 
@@ -644,9 +830,15 @@ class AuthController extends Controller
             $rules['manual_province'] = ['required_if:address_mode,manual', 'nullable', 'string', 'max:120'];
             $rules['manual_municipality'] = ['required_if:address_mode,manual', 'nullable', 'string', 'max:120'];
             $rules['manual_barangay'] = ['required_if:address_mode,manual', 'nullable', 'string', 'max:120'];
+        } else {
+            $rules['address_mode'] = ['required', Rule::in(['psgc'])];
+            foreach (['manual_region', 'manual_province', 'manual_municipality', 'manual_barangay'] as $field) {
+                $rules[$field] = ['prohibited'];
+            }
         }
 
         return array_replace($rules, [
+            'street_address' => $addressRequired ? ['required', 'string', 'max:255'] : ['nullable', 'string', 'max:255'],
             'postal_code' => $postalRequired ? ['required', 'digits:4'] : ['nullable', 'digits:4'],
         ]);
     }
@@ -673,29 +865,24 @@ class AuthController extends Controller
             }
         }
 
-        $email = Str::lower(trim((string) $request->input('email')));
-        $phoneInput = trim((string) $request->input('contact_no'));
-        $phone = $phoneInput;
+        $request->merge([
+            'email' => $this->registrationIdentity->normalizeEmail((string) $request->input('email')),
+            'contact_no' => $this->registrationIdentity->normalizeMobile((string) $request->input('contact_no')),
+        ]);
+    }
 
-        if (preg_match('/^\+?[0-9\s]+$/u', $phoneInput)) {
-            $digits = preg_replace('/\s+/', '', $phoneInput) ?? '';
-            $digits = str_starts_with($digits, '+') ? substr($digits, 1) : $digits;
-
-            if (str_starts_with($digits, '63')) {
-                $nationalNumber = substr($digits, 2);
-                $nationalNumber = str_starts_with($nationalNumber, '0') ? substr($nationalNumber, 1) : $nationalNumber;
-
-                if (preg_match('/^9\d{9}$/', $nationalNumber)) {
-                    $phone = '0'.$nationalNumber;
-                }
-            } elseif (preg_match('/^09\d{9}$/', $digits)) {
-                $phone = $digits;
-            } elseif (preg_match('/^9\d{9}$/', $digits)) {
-                $phone = '0'.$digits;
-            }
-        }
-
-        $request->merge(['email' => $email, 'contact_no' => $phone]);
+    private function normalizeBusinessIdentifiers(Request $request): void
+    {
+        $request->merge([
+            'shop_name' => trim((string) $request->input('shop_name')),
+            'canonical_shop_name' => $this->registrationIdentity->canonicalText((string) $request->input('shop_name')),
+            'business_name' => trim((string) $request->input('business_name')),
+            'canonical_company_name' => $this->registrationIdentity->canonicalText((string) $request->input('business_name')),
+            'tin' => trim((string) $request->input('tin')),
+            'canonical_tin' => $this->registrationIdentity->canonicalDigits((string) $request->input('tin')),
+            'sec_registration_no' => $this->registrationIdentity->canonicalCode((string) $request->input('sec_registration_no')),
+            'canonical_sec_registration_no' => $this->registrationIdentity->canonicalCode((string) $request->input('sec_registration_no')),
+        ]);
     }
 
     private function createVerifiedAccount(array $validated, array $details, string $role): User
@@ -711,7 +898,7 @@ class AuthController extends Controller
                     ->orWhere('contact_no', $validated['contact_no'])
                     ->exists();
                 if ($duplicatePhone) {
-                    throw ValidationException::withMessages(['contact_no' => 'This mobile number is already linked to an account.']);
+                    throw ValidationException::withMessages(['contact_no' => self::MOBILE_DUPLICATE_ERROR]);
                 }
 
                 $user = User::query()->forceCreate(array_merge([
@@ -727,9 +914,9 @@ class AuthController extends Controller
                     'role' => $role,
                     'status' => 'unverified',
                     'terms_accepted_at' => now(),
-                    'terms_version' => '2026-10',
+                    'terms_version' => config('registration.policy_version'),
                     'privacy_accepted_at' => now(),
-                    'privacy_version' => '2026-10',
+                    'privacy_version' => config('registration.policy_version'),
                 ], $details));
 
                 return $user;
@@ -740,10 +927,10 @@ class AuthController extends Controller
             }
 
             if (User::query()->where('canonical_mobile', $validated['contact_no'])->orWhere('contact_no', $validated['contact_no'])->exists()) {
-                throw ValidationException::withMessages(['contact_no' => 'This mobile number is already linked to an account.']);
+                throw ValidationException::withMessages(['contact_no' => self::MOBILE_DUPLICATE_ERROR]);
             }
 
-            foreach (['shop_name', 'tin', 'sec_registration_no', 'canonical_company_name'] as $field) {
+            foreach (['canonical_shop_name', 'canonical_tin', 'canonical_sec_registration_no', 'canonical_license_number', 'canonical_plate', 'canonical_company_name'] as $field) {
                 if (filled($details[$field] ?? null) && User::query()->where($field, $details[$field])->exists()) {
                     throw ValidationException::withMessages([$field => 'This value is already linked to an account.']);
                 }
@@ -758,23 +945,29 @@ class AuthController extends Controller
     private function beginVerification(User $user): RedirectResponse
     {
         $record = EmailVerificationCode::query()->firstOrNew(['user_id' => $user->id]);
-        $this->issueVerificationCode($user, $record);
 
         session([
             'verification_user_id' => $user->id,
             'verification_email' => Str::lower(trim($user->email)),
         ]);
 
-        return redirect()->route('verification.notice', ['email' => $user->email])
-            ->with('verification_email', $user->email)
+        try {
+            $this->issueVerificationCode($user, $record);
+        } catch (\Throwable $exception) {
+            report($exception);
+            $record->delete();
+
+            return redirect()->route('verification.notice')
+                ->with('error', 'We could not send the verification code. You can request a new one below.');
+        }
+
+        return redirect()->route('verification.notice')
             ->with('success', 'A 6-digit verification code has been sent to your email address.');
     }
 
     private function issueVerificationCode(User $user, EmailVerificationCode $record): void
     {
         $code = (string) random_int(100000, 999999);
-        $user->notify(new EmailVerificationCodeNotification($code));
-
         $record->fill([
             'code_hash' => Hash::make($code),
             'expires_at' => now()->addMinutes(5),
@@ -782,6 +975,13 @@ class AuthController extends Controller
             'last_sent_at' => now(),
             'channel' => 'email',
         ])->save();
+
+        try {
+            $user->notify(new EmailVerificationCodeNotification($code));
+        } catch (\Throwable $exception) {
+            $record->forceFill(['code_hash' => null, 'expires_at' => null])->save();
+            throw $exception;
+        }
     }
 
     private function accountStateMessage(User $user): string

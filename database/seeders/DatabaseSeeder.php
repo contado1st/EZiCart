@@ -5,11 +5,18 @@ namespace Database\Seeders;
 use App\Models\User;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
+use LogicException;
 
 class DatabaseSeeder extends Seeder
 {
     public function run(): void
     {
+        if (! app()->environment(['local', 'testing'])) {
+            throw new LogicException('Demo accounts may only be seeded in local or testing environments.');
+        }
+
+        $demoPassword = config('registration.demo_password') ?: 'Password123!';
+
         // 1. Admin Account
         $this->updateOrCreateUser(
             ['email' => 'admin@ezicart.com'],
@@ -27,7 +34,7 @@ class DatabaseSeeder extends Seeder
                 'street_address' => '123 Admin Way',
                 'role' => 'admin',
                 'status' => 'approved',
-                'password' => Hash::make('password123'),
+                'password' => Hash::make($demoPassword),
             ]
         );
 
@@ -48,7 +55,7 @@ class DatabaseSeeder extends Seeder
                 'street_address' => '45 Market Rd.',
                 'role' => 'buyer',
                 'status' => 'approved',
-                'password' => Hash::make('password123'),
+                'password' => Hash::make($demoPassword),
             ]
         );
 
@@ -71,7 +78,7 @@ class DatabaseSeeder extends Seeder
                 'line_of_business' => 'Beauty & Personal Care',
                 'role' => 'seller',
                 'status' => 'approved',
-                'password' => Hash::make('password123'),
+                'password' => Hash::make($demoPassword),
             ]
         );
 
@@ -94,7 +101,7 @@ class DatabaseSeeder extends Seeder
                 'plate_number' => 'MC-4589',
                 'role' => 'courier',
                 'status' => 'approved',
-                'password' => Hash::make('password123'),
+                'password' => Hash::make($demoPassword),
             ]
         );
 
@@ -116,7 +123,7 @@ class DatabaseSeeder extends Seeder
                 'business_name' => 'EZiCart Central Sorting Hub',
                 'role' => 'sorting_center',
                 'status' => 'approved',
-                'password' => Hash::make('password123'),
+                'password' => Hash::make($demoPassword),
             ]
         );
 
@@ -139,7 +146,35 @@ class DatabaseSeeder extends Seeder
                 'line_of_business' => 'Electronics',
                 'role' => 'seller',
                 'status' => 'pending',
-                'password' => Hash::make('password123'),
+                'password' => Hash::make($demoPassword),
+            ]
+        );
+
+        // 7. Logistics Administrator Account
+        $logisticsAdminEmail = strtolower(trim((string) config('registration.logistics_admin_email')));
+        $existingLogisticsAdmin = User::query()
+            ->where('canonical_email', $logisticsAdminEmail)
+            ->orWhereRaw('LOWER(email) = ?', [$logisticsAdminEmail])
+            ->first();
+
+        if ($existingLogisticsAdmin && $existingLogisticsAdmin->role !== 'logistics_admin') {
+            throw new LogicException('The configured logistics admin email already belongs to a different account role.');
+        }
+
+        $this->updateOrCreateUser(
+            ['email' => $existingLogisticsAdmin?->email ?? $logisticsAdminEmail],
+            [
+                'canonical_email' => $logisticsAdminEmail,
+                'first_name' => 'Logistics',
+                'last_name' => 'Administrator',
+                'sex' => null,
+                'contact_no' => '',
+                'birthday' => null,
+                'age' => null,
+                'role' => 'logistics_admin',
+                'status' => 'approved',
+                'email_verified_at' => now(),
+                'password' => Hash::make($demoPassword),
             ]
         );
     }

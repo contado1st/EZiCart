@@ -12,14 +12,7 @@
 
         <div class="product-show-layout">
             <!-- Product Image Preview -->
-            <div class="product-gallery-box">
-                @if ($product->image_path)
-                    <img src="{{ asset('storage/' . $product->image_path) }}" alt="{{ $product->name }}"
-                        class="product-gallery-img">
-                @else
-                    <div class="product-gallery-placeholder">📦</div>
-                @endif
-            </div>
+            <x-product-gallery :product="$product" />
 
             <!-- Product Purchase Information -->
             <div class="product-info-column">
@@ -68,14 +61,14 @@
 
                             <div class="product-actions-row">
                                 <button type="submit" class="btn-primary product-btn-add-cart">
-                                    🛒 Add to Cart
+                                    <x-shop-icon name="cart2" /> Add to Cart
                                 </button>
                             </div>
                         </form>
                     @else
                         <!-- Notice For Seller, Courier, Admin -->
                         <div class="role-restriction-box">
-                            <span class="role-restriction-icon">🔒</span>
+                            <span class="role-restriction-icon"><x-shop-icon name="lock" /></span>
                             <div>
                                 <div class="role-restriction-title">Role Restriction Active</div>
                                 <div class="role-restriction-text">
@@ -100,7 +93,7 @@
 
                         <div class="product-actions-row">
                             <button type="submit" class="btn-primary product-btn-add-cart">
-                                🛒 Add to Cart
+                                <x-shop-icon name="cart2" /> Add to Cart
                             </button>
                         </div>
                     </form>

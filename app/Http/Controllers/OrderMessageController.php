@@ -3,60 +3,33 @@
 namespace App\Http\Controllers;
 
 use App\Models\Order;
-use App\Models\OrderConversation;
-use App\Models\OrderMessage;
 use App\Models\User;
-use App\Notifications\OrderMessageNotification;
-use App\Services\TransactionAwareNotificationSender;
-use Illuminate\Contracts\View\View;
-use Illuminate\Http\RedirectResponse;
+use App\Services\DirectMessagingService;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 
 class OrderMessageController extends Controller
 {
-    public function show(Order $order): View
+    public function show(Request $request, Order $order, DirectMessagingService $messaging)
     {
-        $actor = $this->authenticatedUser();
-        $this->authorizeParticipant($order, $actor);
-        $conversation = $order->conversation;
+        $actor = $request->user();
+        $messaging->authorizeOrder($order, $actor);
+        $ids = $order->messageParticipants()->pluck('id');
+        $contacts = $messaging->contacts($actor)->where(function ($q) use ($ids, $actor) {
+            $q->whereIn('id', $ids)->orWhereIn('role', in_array($actor->role, ['buyer', 'seller'], true) ? ['admin', 'ecommerce_admin'] : ['logistics_admin']);
+        })->orderBy('first_name')->paginate(20)->withQueryString();
 
-        if ($conversation !== null) {
-            $conversation->messages()
-                ->whereNull('read_at')
-                ->where('sender_id', '!=', $actor->id)
-                ->update(['read_at' => now()]);
-            $conversation->load('messages.sender');
-        }
-
-        return view('orders.messages', compact('order', 'conversation'));
+        return view('orders.contacts', compact('order', 'contacts'));
     }
 
-    public function store(Request $request, Order $order, TransactionAwareNotificationSender $notifications): RedirectResponse
+    public function store(Request $request, Order $order, DirectMessagingService $messaging)
     {
-        $validated = $request->validate(['body' => ['required', 'string', 'max:2000']]);
-        $actor = $this->authenticatedUser();
+        $messaging->authorizeOrder($order, $request->user());
+        $data = $request->validate(['recipient_id' => ['required', 'integer', 'exists:users,id'], 'body' => ['required', 'string', 'max:2000'], 'panel' => ['nullable', 'boolean']]);
+        $recipient = User::findOrFail($data['recipient_id']);
+        $messaging->authorizeOrder($order, $recipient);
+        $conversation = $messaging->start($request->user(), $recipient);
+        $messaging->send($conversation, $request->user(), $data['body'], $order);
 
-        DB::transaction(function () use ($order, $actor, $validated, $notifications): void {
-            $lockedOrder = Order::query()->whereKey($order->id)->lockForUpdate()->firstOrFail();
-            $this->authorizeParticipant($lockedOrder, $actor);
-            $conversation = OrderConversation::query()->firstOrCreate(['order_id' => $lockedOrder->id]);
-            OrderMessage::query()->create([
-                'conversation_id' => $conversation->id,
-                'sender_id' => $actor->id,
-                'body' => trim($validated['body']),
-            ]);
-
-            foreach ($conversation->participants()->where('id', '!=', $actor->id) as $recipient) {
-                $notifications->send($recipient, new OrderMessageNotification($lockedOrder, $actor->first_name.' '.$actor->last_name));
-            }
-        });
-
-        return back()->with('success', 'Message sent.');
-    }
-
-    private function authorizeParticipant(Order $order, User $actor): void
-    {
-        abort_unless($actor->role === 'admin' || $order->messageParticipants()->contains('id', $actor->id), 403);
+        return redirect()->route('chat.show', [$conversation, 'order_id' => $order->id, 'panel' => $request->boolean('panel') ? 1 : null])->with('success', 'Message sent.');
     }
 }

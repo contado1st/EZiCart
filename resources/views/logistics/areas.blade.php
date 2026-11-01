@@ -72,7 +72,7 @@
                                 <strong>{{ $area->name }}</strong>
                                 <div class="ops-mono">{{ $area->code }}</div>
                                 @if ($area->sorting_center_id === null)
-                                    <form method="POST" action="{{ route('logistics.areas.claim', $area) }}">
+                                    <form method="POST" action="{{ route('logistics.areas.claim', $area) }}" data-decision="logistics.areas.claim" data-decision-title="Claim this service area?" data-decision-message="This associates the selected service area with your sorting center." data-decision-label="Claim service area" data-decision-tone="normal" onsubmit="return window.eziDecisionReady ? true : window.confirm(this.dataset.decisionMessage)">
                                         @csrf
                                         <button class="ops-btn" type="submit">Assign to this hub</button>
                                     </form>

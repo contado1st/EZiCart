@@ -1,65 +1,31 @@
-@extends('layouts.app')
-
-@push('styles')
-    @vite('resources/css/shared/dashboard.css')
-@endpush
-
-@section('content')
-    <main class="container u-extracted-d7ea292b2e">
-        <div class="dash-header">
-            <div>
-                <h1 class="dash-title">Messages for {{ $order->order_number }}</h1>
-                <p class="dash-subtitle">Private coordination thread for the buyer, seller, assigned riders, and Logistics
-                    staff involved with this order.</p>
-            </div>
-            @php
-                [$backRoute, $messageRoute] = match (auth()->user()->role) {
-                    'buyer' => ['buyer.orders.show', 'buyer.orders.messages.store'],
-                    'seller' => ['seller.orders.show', 'seller.orders.messages.store'],
-                    'courier' => ['courier.orders.show', 'courier.orders.messages.store'],
-                    'sorting_center' => ['logistics.tracking', 'logistics.orders.messages.store'],
-                    'admin' => ['admin.dashboard', 'admin.orders.messages.store'],
-                    default => ['notifications.index', 'notifications.index'],
-                };
-            @endphp
-            @php
-                $backUrl = match (auth()->user()->role) {
-                    'sorting_center' => route($backRoute, ['search' => $order->order_number]),
-                    'admin' => route($backRoute),
-                    default => route($backRoute, $order),
-                };
-            @endphp
-            <a class="dash-btn-sm dash-btn-outline" href="{{ $backUrl }}">Back to order</a>
+@extends('layouts.communications')
+@section('title', 'Private messages | EZiCart')
+@section('communications-title', 'Messages')
+@section('communications-description', 'Private conversations with your contacts.')
+@section('communications-content')
+<div class="messaging-frame messaging-frame--thread">
+    @include('components.conversation-list')
+    <section class="conversation-thread" aria-labelledby="conversation-title">
+        <header class="conversation-thread-heading"><div><a class="conversation-mobile-back" href="{{ route('chat.index', ['panel' => request()->boolean('panel') ? 1 : null]) }}">All conversations</a><h2 id="conversation-title">{{ $partner->business_name ?: trim($partner->first_name.' '.$partner->last_name) }}</h2><p>Private conversation &middot; {{ str_replace('_', ' ', $partner->role) }}</p></div><a class="communications-text-link" href="{{ url()->full() }}">Refresh</a></header>
+        @if($order)<div class="conversation-order-context"><div><strong>{{ $order->order_number }}</strong><span>{{ str_replace('_', ' ', $order->status) }}</span></div><a href="{{ $orderUrl }}" @if(request()->boolean('panel')) target="_top" @endif>View order</a></div>@endif
+        <div class="conversation-history" data-conversation-history tabindex="0" aria-label="Message history">
+            @forelse($messages as $message)
+                @php($ownMessage = $message->sender_id === auth()->id())
+                <article @class(['conversation-message', 'is-own' => $ownMessage])>
+                    <div class="conversation-message-meta"><strong>{{ $ownMessage ? 'You' : trim($partner->first_name.' '.$partner->last_name) }}</strong></div>
+                    <p class="conversation-bubble">{{ $message->body }}</p><time datetime="{{ $message->created_at->toIso8601String() }}">{{ $message->created_at->format('M d, Y h:i A') }}</time>
+                </article>
+            @empty<div class="conversation-first-message"><x-shop-icon name="chat" /><h3>No messages yet</h3><p>Only you and {{ $partner->first_name }} can access this conversation.</p></div>@endforelse
+            @if($messages->hasPages())<nav class="conversation-history-pages" aria-label="Message history pages">{{ $messages->links('pagination::simple-tailwind') }}</nav>@endif
         </div>
-
-        @if (session('success'))
-            <div class="form-notice">{{ session('success') }}</div>
-        @endif
-
-        <section class="dash-panel u-extracted-ebdbcd4a73">
-            <div aria-live="polite">
-                @forelse ($conversation?->messages ?? [] as $message)
-                    <article class="u-extracted-a5249f670c">
-                        <strong>{{ $message->sender->first_name }} {{ $message->sender->last_name }}</strong>
-                        <small>{{ $message->created_at->format('M d, Y h:i A') }}</small>
-                        <p class="u-extracted-a94916ebb1">{{ $message->body }}</p>
-                    </article>
-                @empty
-                    <p>No messages yet. Use this conversation to coordinate this order with its assigned participants.</p>
-                @endforelse
-            </div>
-
-            <form method="POST" action="{{ route($messageRoute, $order) }}" class="u-extracted-2a01802927">
-                @csrf
-                <div class="form-group">
-                    <label class="form-label" for="message-body">Message</label>
-                    <textarea id="message-body" class="form-control" name="body" maxlength="2000" rows="4" required>{{ old('body') }}</textarea>
-                    @error('body')
-                        <p>{{ $message }}</p>
-                    @enderror
-                </div>
-                <button class="btn-submit" type="submit">Send message</button>
-            </form>
-        </section>
-    </main>
+        @if($canSend)
+        <form class="conversation-composer" method="POST" action="{{ route('chat.store', $conversation) }}" data-message-composer>
+            @csrf @if(request()->boolean('panel'))<input type="hidden" name="panel" value="1">@endif
+            @if($order)<input type="hidden" name="order_id" value="{{ $order->id }}">@endif
+            <label for="message-body">Message</label><textarea id="message-body" name="body" maxlength="2000" rows="3" required placeholder="Write a private message..." data-message-input>{{ old('body') }}</textarea>
+            <div class="conversation-composer-footer"><span><span data-message-count>0</span>/2,000 <span class="composer-shortcut">&middot; Ctrl+Enter to send</span></span><button type="submit" data-message-send>Send message <x-shop-icon name="arrowback" /></button></div>
+        </form>
+        @else<p class="conversation-list-empty">Messaging is unavailable because this contact is no longer active or related to your account. Your history remains available.</p>@endif
+    </section>
+</div>
 @endsection

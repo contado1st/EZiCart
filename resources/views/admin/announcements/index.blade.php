@@ -7,28 +7,7 @@
 
 @section('content')
     <div class="dash-wrapper">
-        <aside class="dash-sidebar">
-            <div>
-                <div class="dash-profile-badge">
-                    <span class="dash-role-tag dash-role-admin">Super Admin</span>
-                    <h2 class="dash-profile-title">{{ auth()->user()->first_name }} {{ auth()->user()->last_name }}</h2>
-                </div>
-                <nav class="dash-nav">
-                    <a href="{{ route('admin.dashboard') }}" class="dash-nav-item">📊 Platform Overview</a>
-                    <a href="{{ route('admin.registrations.index') }}" class="dash-nav-item">🛡️ User Approvals</a>
-                    <a href="{{ route('admin.reports.index') }}" class="dash-nav-item">📑 Financial & Commission</a>
-                    <a href="{{ route('admin.disputes.index') }}" class="dash-nav-item">⚖️ Dispute Arbitration</a>
-                    <a href="{{ route('admin.announcements.index') }}" class="dash-nav-item active">📢 Announcements</a>
-                    <a href="{{ route('admin.moderation.index') }}" class="dash-nav-item">🚫 Account Moderation</a>
-                </nav>
-            </div>
-            <form action="{{ route('logout') }}" method="POST">
-                @csrf
-                <button type="submit" class="dash-logout-btn">🚪 Logout</button>
-            </form>
-        </aside>
-
-        <main class="dash-main">
+<main class="dash-main">
             <div class="dash-header">
                 <div>
                     <h1 class="dash-title">Platform Announcements & Bulletins</h1>
@@ -37,7 +16,7 @@
             </div>
 
             @if (session('success'))
-                <div class="dash-alert-success">✅ {{ session('success') }}</div>
+                <div class="dash-alert-success"><x-shop-icon name="checklist" /> {{ session('success') }}</div>
             @endif
 
             <div class="controls-grid">
@@ -133,7 +112,7 @@
                                         <td>
                                             <div class="u-extracted-6d9d6fda77">
                                                 <form action="{{ route('admin.announcements.toggle', $item->id) }}"
-                                                    method="POST">
+                                                    method="POST" data-decision="admin.announcements.toggle" data-decision-title="Change announcement visibility?" data-decision-message="This changes whether users can see the selected announcement." data-decision-label="Change visibility" data-decision-tone="normal" onsubmit="return window.eziDecisionReady ? true : window.confirm(this.dataset.decisionMessage)">
                                                     @csrf
                                                     @method('PATCH')
                                                     <button type="submit" class="dash-btn-sm u-extracted-e013d740bb">
@@ -141,8 +120,7 @@
                                                     </button>
                                                 </form>
                                                 <form action="{{ route('admin.announcements.destroy', $item->id) }}"
-                                                    method="POST"
-                                                    onsubmit="return confirm('Delete this announcement permanently?');">
+                                                    method="POST" data-decision="admin.announcements.destroy" data-decision-title="Delete this announcement?" data-decision-message="This permanently deletes the selected announcement." data-decision-label="Delete announcement" data-decision-tone="danger" onsubmit="return window.eziDecisionReady ? true : window.confirm(this.dataset.decisionMessage)">
                                                     @csrf
                                                     @method('DELETE')
                                                     <button type="submit"

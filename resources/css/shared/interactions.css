@@ -1,0 +1,16 @@
+/* Tailwind v4 refinements, scoped to authenticated workspaces. */
+.dashboard-workspace :is(.dash-panel, .ops-panel, .feature-panel, .buyer-account-panel) {
+    @apply rounded-xl;
+}
+
+.dashboard-workspace :is(.form-group, .auth-field, .ops-field, .checkout-form-group) > label {
+    @apply font-medium;
+}
+
+.dashboard-workspace :is(.dash-header, .ops-heading, .communications-heading) h1 {
+    @apply text-balance;
+}
+
+.decision-dialog {
+    @apply antialiased;
+}

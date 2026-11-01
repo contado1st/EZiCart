@@ -19,7 +19,7 @@ class PsgcAddressService
         $manualLocationRules = ['required_if:address_mode,manual', 'nullable', 'string', 'max:120'];
 
         return [
-            'address_mode' => ['required', Rule::in(['psgc', 'manual'])],
+            'address_mode' => ['nullable', Rule::in(['psgc', 'manual'])],
             'region_code' => ['required_if:address_mode,psgc', 'nullable', 'regex:/^\d{10}$/'],
             'province_code' => ['required_if:address_mode,psgc', 'nullable', 'regex:/^(?:\d{10}|NCR)$/'],
             'municipality_code' => ['required_if:address_mode,psgc', 'nullable', 'regex:/^\d{10}$/'],
@@ -28,6 +28,10 @@ class PsgcAddressService
             'manual_province' => $manualLocationRules,
             'manual_municipality' => $manualLocationRules,
             'manual_barangay' => $manualLocationRules,
+            'region' => ['nullable', 'string', 'max:120'],
+            'province' => ['nullable', 'string', 'max:120'],
+            'municipality' => ['nullable', 'string', 'max:120'],
+            'barangay' => ['nullable', 'string', 'max:120'],
             'house_number' => ['nullable', 'string', 'max:100'],
             'street_address' => ['nullable', 'string', 'max:255'],
             'postal_code' => ['nullable', 'digits:4'],
@@ -79,6 +83,15 @@ class PsgcAddressService
     /** @return array{region: string, province: string, municipality: string, barangay: string} */
     public function resolve(array $input): array
     {
+        if (empty($input['address_mode'])) {
+            return [
+                'region' => trim((string) ($input['region'] ?? '')),
+                'province' => trim((string) ($input['province'] ?? '')),
+                'municipality' => trim((string) ($input['municipality'] ?? '')),
+                'barangay' => trim((string) ($input['barangay'] ?? '')),
+            ];
+        }
+
         if (($input['address_mode'] ?? 'psgc') === 'manual') {
             return [
                 'region' => trim($input['manual_region']),

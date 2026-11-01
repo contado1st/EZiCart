@@ -18,7 +18,7 @@
 
         @if (session('success'))
             <div class="alert-success">
-                ✅ {{ session('success') }}
+                <x-shop-icon name="checklist" /> {{ session('success') }}
             </div>
         @endif
 
@@ -88,12 +88,12 @@
                             <td>
                                 @if ($user->id_path || $user->license_path)
                                     <a href="{{ route('admin.users.documents.show', [$user, $user->license_path ? 'license' : 'identity']) }}"
-                                        class="doc-link">📄 View Valid ID / License</a>
+                                        class="doc-link"><x-shop-icon name="note" /> View Valid ID / License</a>
                                 @endif
 
                                 @if ($user->permit_path)
                                     <a href="{{ route('admin.users.documents.show', [$user, 'permit']) }}"
-                                        class="doc-link">📋 View Business Permit</a>
+                                        class="doc-link"><x-shop-icon name="checklist" /> View Business Permit</a>
                                 @endif
 
                                 @if ($user->sec_certificate_path)
@@ -108,24 +108,24 @@
 
                                 @if ($user->or_cr_path)
                                     <a href="{{ route('admin.users.documents.show', [$user, 'vehicle']) }}"
-                                        class="doc-link">🛵 View Vehicle OR/CR</a>
+                                        class="doc-link"><x-shop-icon name="delivery1" /> View Vehicle OR/CR</a>
                                 @endif
                             </td>
 
                             <!-- Action Forms -->
                             <td>
                                 <div class="action-buttons">
-                                    <form action="{{ route('admin.registrations.approve', $user->id) }}" method="POST">
+                                    <form action="{{ route('admin.registrations.approve', $user->id) }}" method="POST" data-decision="admin.registrations.approve" data-decision-title="Approve this account?" data-decision-message="Confirm that you reviewed the submitted credentials and that this account meets the approval requirements." data-decision-label="Approve account" data-decision-tone="normal" onsubmit="return window.eziDecisionReady ? true : window.confirm(this.dataset.decisionMessage)">
                                         @csrf
-                                        <button type="submit" onclick="return confirm('Approve this account?')"
+                                        <button type="submit"
                                             class="btn-approve">Approve</button>
                                     </form>
 
-                                    <form action="{{ route('admin.registrations.reject', $user->id) }}" method="POST">
+                                    <form action="{{ route('admin.registrations.reject', $user->id) }}" method="POST" data-decision="admin.registrations.reject" data-decision-title="Reject this application?" data-decision-message="Check the rejection reason before recording your decision." data-decision-label="Reject application" data-decision-tone="danger" onsubmit="return window.eziDecisionReady ? true : window.confirm(this.dataset.decisionMessage)">
                                         @csrf
                                         <label class="sr-only" for="rejection-reason-{{ $user->id }}">Reason for rejecting {{ $user->first_name }} {{ $user->last_name }}</label>
                                         <input id="rejection-reason-{{ $user->id }}" type="text" name="reason" maxlength="1000" minlength="5" placeholder="Reason required" required>
-                                        <button type="submit" onclick="return confirm('Reject this account?')"
+                                        <button type="submit"
                                             class="btn-reject">Reject</button>
                                     </form>
                                 </div>

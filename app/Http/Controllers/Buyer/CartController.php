@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Buyer;
 use App\Http\Controllers\Controller;
 use App\Models\Product;
 use App\Models\ProductVariation;
+use App\Services\CheckoutPricingService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -23,12 +24,12 @@ class CartController extends Controller
         return view('cart.index', compact('cart', 'subtotal'));
     }
 
-    public function add(Request $request, Product $product): RedirectResponse
+    public function add(Request $request, Product $product, CheckoutPricingService $pricing): RedirectResponse
     {
         abort_unless($product->compliance_status === 'approved' && ! $product->is_archived && $product->stock > 0, 404);
 
         $request->validate([
-            'quantity' => 'required|integer|min:1',
+            'quantity' => 'required|integer|min:1|max:20',
             'variation_id' => 'nullable|exists:product_variations,id',
         ]);
 
@@ -44,10 +45,9 @@ class CartController extends Controller
                 ->where('product_id', $product->id)
                 ->first();
 
-            if ($variation) {
-                $price = $product->price + $variation->price_adjustment;
-                $variationText = "{$variation->type}: {$variation->value}";
-            }
+            abort_unless($variation && $variation->is_active, 422, 'Choose an available variation belonging to this product.');
+            $price = $product->price + $variation->price_adjustment;
+            $variationText = "{$variation->type}: {$variation->value}";
         }
 
         $cart = session()->get('cart', []);
@@ -69,21 +69,23 @@ class CartController extends Controller
             ];
         }
 
+        $pricing->quote($cart);
         session()->put('cart', $cart);
 
         return redirect()->route('cart.index')->with('success', 'Item added to your cart.');
     }
 
-    public function update(Request $request, string $cartKey): RedirectResponse
+    public function update(Request $request, string $cartKey, CheckoutPricingService $pricing): RedirectResponse
     {
         $request->validate([
-            'quantity' => 'required|integer|min:1',
+            'quantity' => 'required|integer|min:1|max:20',
         ]);
 
         $cart = session()->get('cart', []);
 
         if (isset($cart[$cartKey])) {
             $cart[$cartKey]['quantity'] = (int) $request->quantity;
+            $pricing->quote($cart);
             session()->put('cart', $cart);
 
             return back()->with('success', 'Cart updated.');

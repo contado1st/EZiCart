@@ -1,0 +1,32 @@
+.feature-page { color: var(--workspace-ink, #202634); }
+.feature-page > header { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 16px; margin-bottom: 24px; }
+.feature-page h1 { font-size: 26px; font-weight: 650; }
+.feature-page h2 { font-size: 18px; font-weight: 600; margin-bottom: 12px; }
+.feature-page p { font-size: 13px; line-height: 1.7; }
+.feature-panel { background: #fff; border: 1px solid #e7e9ef; border-radius: 12px; padding: 20px; margin-bottom: 20px; }
+.feature-form { display: flex; align-items: flex-end; flex-wrap: wrap; gap: 14px; }
+.feature-form label { display: flex; flex-direction: column; gap: 6px; font-size: 12px; flex: 1 1 160px; }
+.feature-form :is(input, select, textarea) { width: 100%; min-height: 40px; padding: 9px 12px; border: 1px solid #cdd2dc; border-radius: 7px; color: #202634; background: #fff; font: inherit; }
+.feature-button { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 38px; padding: 9px 14px; border: 0; border-radius: 7px; background: var(--workspace-accent, #be2854); color: #fff; font-size: 12px; font-weight: 600; text-decoration: none; cursor: pointer; }
+.feature-button:hover { background: var(--workspace-accent-hover, #9f2046); color: #fff; }
+.feature-page :is(a, button, input, select, textarea):focus-visible { outline: 2px solid var(--workspace-accent, #be2854); outline-offset: 3px; }
+.feature-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 18px; margin-block: 20px; }
+.feature-product { display: flex; flex-direction: column; gap: 10px; border: 1px solid #e7e9ef; border-radius: 10px; padding: 16px; background: #fff; text-decoration: none; color: #202634; min-width: 0; }
+.feature-product img { width: 100%; aspect-ratio: 1; object-fit: contain; }
+.feature-product strong { overflow-wrap: anywhere; font-size: 14px; }
+.feature-product small { color: #657084; }
+.feature-product-price { color: #be2854; font-size: 19px; }
+.feature-table-scroll { overflow-x: auto; margin-block: 18px; }
+.feature-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.feature-table :is(th, td) { padding: 12px; border-bottom: 1px solid #e7e9ef; text-align: left; vertical-align: top; white-space: nowrap; }
+.feature-table th { background: #fcfcfe; color: #657084; font-weight: 600; }
+.feature-table details { max-width: 460px; white-space: normal; }
+.feature-table pre { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 11px; padding: 10px; background: #f8f9fc; }
+.order-deadline-panel { padding: 16px 20px; margin-block: 16px; border: 1px solid #e7d2dd; border-radius: 10px; background: #fff5f9; color: #57263b; font-size: 13px; }
+.order-deadline-panel h2 { font-size: 16px; margin-bottom: 6px; font-weight: 600; }
+.order-deadline-panel time { font-variant-numeric: tabular-nums; font-weight: 600; }
+.order-deadline-panel form { margin-top: 14px; }
+.marketplace-chat-dock { position: fixed; bottom: 20px; left: 20px; z-index: 45; display: flex; gap: 8px; padding: 8px; border: 1px solid #e6b6c9; border-radius: 10px; background: #fff1f6; color: #71384f; }
+.marketplace-chat-dock a { display: inline-flex; align-items: center; gap: 6px; padding: 8px 12px; text-decoration: none; font: 600 12px "Instrument Sans", sans-serif; }
+.marketplace-chat-dock .shop-icon { width: 18px; height: 18px; }
+@media(max-width:600px) { .feature-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; } .feature-product { padding: 12px; } .feature-panel { padding: 16px; } .marketplace-chat-dock { left: 12px; bottom: 12px; } }

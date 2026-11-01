@@ -1,5 +1,6 @@
 @import "tailwindcss";
 @import "./utilities.css";
+@import "./interactions.css";
 
 @source '../../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
 @source '../../../storage/framework/views/*.php';
@@ -9,6 +10,13 @@
         "Instrument Sans", ui-sans-serif, system-ui, sans-serif,
         "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol",
         "Noto Color Emoji";
+}
+
+.legal-page {
+    max-width: 52rem;
+    margin: 3rem auto;
+    padding: 0 1rem;
+    line-height: 1.7;
 }
 
 /* EZiart Logo */
@@ -1152,4 +1160,18 @@ body {
     font-family: inherit;
     font-size: inherit;
     font-weight: 600;
+}
+
+.shop-icon[data-shopicon] {
+    display: inline-flex;
+    width: 1.15em;
+    height: 1.15em;
+    flex: 0 0 auto;
+    vertical-align: -0.18em;
+}
+
+.shop-icon[data-shopicon] svg {
+    display: block;
+    width: 100%;
+    height: 100%;
 }

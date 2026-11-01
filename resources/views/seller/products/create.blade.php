@@ -17,6 +17,7 @@
         <div class="admin-table-wrapper u-extracted-a4812596aa">
             <form action="{{ route('seller.products.store') }}" method="POST" enctype="multipart/form-data">
                 @csrf
+                @if($errors->any())<div class="product-media-validation" role="alert"><strong>Check your product details and media.</strong><ul>@foreach($errors->all() as $error)<li>{{ $error }}</li>@endforeach</ul><p>Please select new upload files again after correcting errors.</p></div>@endif
 
                 <div class="form-group">
                     <label class="form-label">Product Name *</label>
@@ -36,10 +37,12 @@
                         </select>
                     </div>
                     <div class="form-group">
-                        <label class="form-label">Product Image (Optional)</label>
-                        <input type="file" name="image" class="form-control" accept="image/*">
+                        <label class="form-label" for="cover-image">Cover image (optional)</label>
+                        <input id="cover-image" type="file" name="image" class="form-control" accept="image/jpeg,image/png,image/webp">
                     </div>
                 </div>
+
+                @include('seller.products.media-fields')
 
                 <div class="form-grid">
                     <div class="form-group">

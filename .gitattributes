@@ -9,3 +9,15 @@
 /.github export-ignore
 CHANGELOG.md export-ignore
 .styleci.yml export-ignore
+/.env* export-ignore
+/.env.example -export-ignore
+/.git export-ignore
+/.aws export-ignore
+/.codex export-ignore
+/.agents export-ignore
+/.claude export-ignore
+/vendor export-ignore
+/node_modules export-ignore
+/storage/logs export-ignore
+/storage/app/private export-ignore
+/public/hot export-ignore

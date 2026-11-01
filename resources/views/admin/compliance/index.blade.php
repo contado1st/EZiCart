@@ -6,23 +6,7 @@
 
 @section('content')
     <div class="dash-wrapper">
-        <aside class="dash-sidebar">
-            <div>
-                <div class="dash-profile-badge">
-                    <span class="dash-role-tag dash-role-admin">Super Admin</span>
-                    <h2 class="dash-profile-title">Product Compliance</h2>
-                    <p class="dash-profile-subtitle">Manual listing review and seller warnings</p>
-                </div>
-                <nav class="dash-nav">
-                    <a href="{{ route('admin.dashboard') }}" class="dash-nav-item">Platform Overview</a>
-                    <a href="{{ route('admin.registrations.index') }}" class="dash-nav-item">User Approvals</a>
-                    <a href="{{ route('admin.compliance.products.index') }}" class="dash-nav-item active">Product
-                        Compliance</a>
-                </nav>
-            </div>
-        </aside>
-
-        <main class="dash-main">
+<main class="dash-main">
             <div class="dash-header">
                 <div>
                     <h1 class="dash-title">Product compliance</h1>
@@ -68,6 +52,7 @@
                                     <div>{{ $product->category }}</div>
                                     <div class="text-muted-small">{{ $product->description }}</div><span
                                         class="dash-badge dash-badge-archived">{{ str_replace('_', ' ', ucfirst($product->compliance_status)) }}</span>
+                                    <details class="product-compliance-media"><summary>Review photos &amp; video</summary><x-product-gallery :product="$product" compact /></details>
                                 </td>
                                 <td>{{ $product->seller?->business_name ?? $product->seller?->first_name }}<div
                                         class="text-muted-small">Seller category:
@@ -89,7 +74,7 @@
                                 </td>
                                 <td>
                                     <form method="POST"
-                                        action="{{ route('admin.compliance.products.review', $product) }}">
+                                        action="{{ route('admin.compliance.products.review', $product) }}" data-decision="admin.compliance.products.review" data-decision-title="Save compliance decision?" data-decision-message="Check the selected product decision and explanation. This can affect the listing availability." data-decision-label="Save decision" data-decision-tone="normal" onsubmit="return window.eziDecisionReady ? true : window.confirm(this.dataset.decisionMessage)">
                                         @csrf
                                         @method('PATCH')
                                         <div class="form-group"><label class="form-label"
@@ -106,7 +91,7 @@
                                         <button class="dash-btn-sm dash-btn-primary" type="submit">Save review</button>
                                     </form>
                                     <form method="POST" action="{{ route('admin.compliance.products.warn', $product) }}"
-                                        class="u-extracted-0cf8f93b0e">
+                                        class="u-extracted-0cf8f93b0e" data-decision="admin.compliance.products.warn" data-decision-title="Issue seller warning?" data-decision-message="Check your warning message before sending it to the seller." data-decision-label="Issue warning" data-decision-tone="normal" onsubmit="return window.eziDecisionReady ? true : window.confirm(this.dataset.decisionMessage)">
                                         @csrf
                                         <div class="form-group"><label class="form-label"
                                                 for="warning-{{ $product->id }}">Separate seller warning</label>
