@@ -89,6 +89,8 @@ class User extends Authenticatable implements AuthenticatableContract
         'remember_token',
         'profile_avatar_path',
         'profile_banner_path',
+        'last_web_login_at', 'last_web_activity_at', 'shop_availability',
+        'shop_unavailable_from', 'shop_returns_at', 'seller_promotions_enabled',
     ];
 
     /**
@@ -107,6 +109,11 @@ class User extends Authenticatable implements AuthenticatableContract
             'terms_accepted_at' => 'datetime',
             'privacy_accepted_at' => 'datetime',
             'approved_at' => 'datetime',
+            'last_web_login_at' => 'datetime',
+            'last_web_activity_at' => 'datetime',
+            'shop_unavailable_from' => 'datetime',
+            'shop_returns_at' => 'datetime',
+            'seller_promotions_enabled' => 'boolean',
         ];
     }
 
@@ -219,5 +226,21 @@ class User extends Authenticatable implements AuthenticatableContract
     public function apiTokens(): HasMany
     {
         return $this->hasMany(ApiToken::class);
+    }
+
+    public function effectiveShopAvailability(): string
+    {
+        if ($this->shop_availability === 'open' || ! $this->shop_availability
+            || ($this->shop_unavailable_from && $this->shop_unavailable_from->isFuture())
+            || ($this->shop_returns_at && $this->shop_returns_at->isPast())) {
+            return 'open';
+        }
+
+        return $this->shop_availability;
+    }
+
+    public function acceptsWebOrders(): bool
+    {
+        return $this->role === 'seller' && $this->status === 'approved' && $this->effectiveShopAvailability() === 'open';
     }
 }

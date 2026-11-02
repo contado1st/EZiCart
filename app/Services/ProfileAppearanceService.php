@@ -61,7 +61,7 @@ class ProfileAppearanceService
         }
     }
 
-    private function jpeg(UploadedFile $file, int $width, int $height, string $field): string
+    public function jpeg(UploadedFile $file, int $width, int $height, string $field): string
     {
         $source = @imagecreatefromstring(file_get_contents($file->getRealPath()));
         if (! $source) {

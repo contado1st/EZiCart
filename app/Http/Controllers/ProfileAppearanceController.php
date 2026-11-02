@@ -12,6 +12,9 @@ class ProfileAppearanceController extends Controller
 {
     public function update(Request $request, ProfileAppearanceService $profiles)
     {
+        if (in_array($request->user()->role, ['courier', 'sorting_center'], true)) {
+            return redirect()->route('staff.show', $request->user())->with('error', 'Submit staff appearance changes through your reviewed staff profile.');
+        }
         $data = $request->validate([
             'profile_display_name' => ['nullable', 'string', 'min:2', 'max:50'],
             'profile_bio' => ['nullable', 'string', 'max:1000'],

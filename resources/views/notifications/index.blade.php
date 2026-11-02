@@ -6,6 +6,7 @@
 <div class="notification-frame">
     <aside class="notification-sidebar" aria-label="Notification categories"><h2>Your updates</h2><a href="{{ route('notifications.index') }}" @class(['is-active' => !request('category') || request('category') === 'all'])><x-shop-icon name="bell" /> All updates <span>{{ $totalCount }}</span></a>
         @foreach(['orders' => ['package1', 'Order updates'], 'messages' => ['chat', 'Messages'], 'stock' => ['bell', 'Stock alerts'], 'account' => ['account', 'Account activity']] as $category => [$icon, $label])<a href="{{ route('notifications.index', ['category' => $category, 'filter' => request('filter')]) }}" @class(['is-active' => request('category') === $category]) @if(request('category') === $category) aria-current="page" @endif><x-shop-icon name="{{ $icon }}" /> {{ $label }}</a>@endforeach
+        @if(auth()->user()->role === 'buyer')<a href="{{ route('notifications.index', ['category' => 'promotions']) }}"><x-shop-icon name="megaphone" /> Shop promotions</a><form method="POST" action="{{ route('notifications.preferences') }}" class="web-form">@csrf @method('PATCH')<input type="hidden" name="seller_promotions_enabled" value="0"><label><span><input type="checkbox" name="seller_promotions_enabled" value="1" @checked(auth()->user()->seller_promotions_enabled)> Allow shop promotions</span></label><button class="notification-open" type="submit">Save preferences</button></form>@endif
         <p>Private updates for your account. Open an update to view its details and mark it read.</p>
     </aside>
     <section class="notification-feed" aria-labelledby="notification-feed-title">
@@ -13,6 +14,7 @@
         <nav class="notification-filters" aria-label="Notification read status"><a href="{{ route('notifications.index', ['category' => request('category'), 'filter' => 'all']) }}" @class(['is-active' => request('filter') !== 'unread']) @if(request('filter') !== 'unread') aria-current="page" @endif>All</a><a href="{{ route('notifications.index', ['category' => request('category'), 'filter' => 'unread']) }}" @class(['is-active' => request('filter') === 'unread']) @if(request('filter') === 'unread') aria-current="page" @endif>Unread</a></nav>
         <div class="notification-items">
         @forelse($notifications as $notification)
+            @if(($notification->data['category'] ?? null) === 'promotions')<div class="web-promotion-label">ADVERTISEMENT · {{ $notification->data['seller_name'] ?? 'Seller promotion' }} · {{ $notification->data['title'] ?? 'Shop offer' }}</div>@endif
             @php
                 $notificationIcon = match($notification->type) {
                     \App\Notifications\OrderMessageNotification::class, \App\Notifications\DirectMessageNotification::class => 'chat',

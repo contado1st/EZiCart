@@ -5,12 +5,14 @@ namespace App\Http\Controllers;
 use App\Models\User;
 use App\Services\BuyerAddressService;
 use App\Services\PsgcAddressService;
+use App\Services\StaffProfileService;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Password as PasswordRule;
 
 class AccountController extends Controller
@@ -41,7 +43,7 @@ class AccountController extends Controller
 
         if ($user->role === 'seller') {
             $rules['business_name'] = ['required', 'string', 'max:255'];
-            $rules['line_of_business'] = ['nullable', 'string', 'max:255'];
+            $rules['line_of_business'] = ['nullable', 'string', 'max:255', Rule::in([...config('web-commerce.categories'), ...array_keys(config('web-commerce.category_aliases')), $user->line_of_business])];
         }
 
         if ($user->role === 'courier') {
@@ -63,6 +65,11 @@ class AccountController extends Controller
             $validated['manual_municipality'],
             $validated['manual_barangay'],
         );
+        if (in_array($user->role, ['courier', 'sorting_center'], true)) {
+            app(StaffProfileService::class)->submit($user, $user, array_merge($validated, $address));
+
+            return back()->with('success', 'Your proposed profile changes were submitted for logistics admin review. Official details remain in effect until approved.');
+        }
         DB::transaction(function () use ($user, $validated, $address, $hasAddress, $addressBook): void {
             User::query()->whereKey($user->id)->lockForUpdate()->firstOrFail();
             $user->update(array_merge($validated, $address));

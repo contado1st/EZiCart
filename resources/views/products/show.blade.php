@@ -22,7 +22,7 @@
                     <a href="{{ route('buyer.stock.index') }}">Manage stock alerts</a>
                 @endif
                 <div>
-                    <span class="product-badge">{{ $product->category }}</span>
+                    <span class="product-badge">{{ $product->category_label }}</span>
                     <h1 class="product-detail-title">{{ $product->name }}</h1>
 
                     <!-- Rating Quick Peek -->
@@ -52,6 +52,7 @@
                     </div>
 
                     <!-- Price Block -->
+                    <x-user-activity :user="$product->seller" />
                     <div class="product-detail-price" id="basePriceDisplay">
                         ₱{{ number_format($product->price, 2) }}
                     </div>
@@ -65,7 +66,7 @@
                 <!-- Role Guarded Cart Submission -->
                 @auth
                     @if (auth()->user()->role === 'buyer')
-                        <form action="{{ route('cart.add', $product->id) }}" method="POST" class="product-cart-form">
+                        <form action="{{ route('cart.add', $product->id) }}" method="POST" class="product-cart-form" data-product-selection data-stock="{{ $product->stock }}" data-price="{{ $product->price }}" data-shop-open="{{ $product->seller->acceptsWebOrders() ? '1' : '0' }}">
                             @csrf
 
                             @if ($product->variations->count() > 0)
@@ -79,6 +80,8 @@
                                         @foreach ($product->variations as $variation)
                                             <option value="{{ $variation->id }}"
                                                 data-adjustment="{{ $variation->price_adjustment }}"
+                                                data-image="{{ $variation->image_path ? asset('storage/'.$variation->image_path) : '' }}"
+                                                @disabled($variation->stock < 1)
                                                 data-stock="{{ $variation->stock }}">
                                                 {{ $variation->type }}: {{ $variation->value }}
                                                 @if ($variation->price_adjustment != 0)
@@ -88,8 +91,10 @@
                                             </option>
                                         @endforeach
                                     </select>
+                                    <img class="web-variation-preview" data-variation-image hidden alt="Selected variation">
                                 </div>
                             @endif
+                            @if($product->variations->isEmpty())<img data-variation-image hidden alt="Selected variation">@endif
 
                             <div class="product-qty-row">
                                 <label class="product-qty-label">Quantity:</label>
@@ -101,7 +106,7 @@
                             </div>
 
                             <div class="product-actions-row">
-                                <button type="submit" class="btn-primary product-btn-add-cart">
+                                <button type="submit" class="btn-primary product-btn-add-cart" @disabled(! $product->seller->acceptsWebOrders())>
                                     <x-shop-icon name="cart2" /> Add to Cart
                                 </button>
                             </div>
@@ -184,36 +189,5 @@
         </div>
     </div>
 
-    <script>
-        const basePrice = {{ $product->price }};
-        const variationSelect = document.getElementById('variationSelect');
-        const priceDisplay = document.getElementById('basePriceDisplay');
-        const stockDisplay = document.getElementById('stockDisplay');
-        const qtyInput = document.getElementById('qtyInput');
-
-        if (variationSelect) {
-            variationSelect.addEventListener('change', function() {
-                const selected = this.options[this.selectedIndex];
-                if (this.value) {
-                    const adjustment = parseFloat(selected.dataset.adjustment) || 0;
-                    const newPrice = basePrice + adjustment;
-                    const varStock = parseInt(selected.dataset.stock) || 0;
-
-                    priceDisplay.textContent = '₱' + newPrice.toLocaleString('en-US', {
-                        minimumFractionDigits: 2,
-                        maximumFractionDigits: 2
-                    });
-                    stockDisplay.textContent = varStock + ' variation pieces available';
-                    qtyInput.max = varStock > 0 ? varStock : 1;
-                } else {
-                    priceDisplay.textContent = '₱' + basePrice.toLocaleString('en-US', {
-                        minimumFractionDigits: 2,
-                        maximumFractionDigits: 2
-                    });
-                    stockDisplay.textContent = '{{ $product->stock }} pieces available';
-                    qtyInput.max = {{ $product->stock }};
-                }
-            });
-        }
-    </script>
+    <script src="{{ asset('js/product-selection.js') }}?v={{ filemtime(public_path('js/product-selection.js')) }}" defer></script>
 @endsection

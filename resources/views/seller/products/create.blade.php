@@ -20,20 +20,16 @@
                 @if($errors->any())<div class="product-media-validation" role="alert"><strong>Check your product details and media.</strong><ul>@foreach($errors->all() as $error)<li>{{ $error }}</li>@endforeach</ul><p>Please select new upload files again after correcting errors.</p></div>@endif
 
                 <div class="form-group">
-                    <label class="form-label">Product Name *</label>
-                    <input type="text" name="name" class="form-control" required>
+                    <label class="form-label" for="product-name">Product Name *</label>
+                    <input id="product-name" type="text" name="name" class="form-control" value="{{ old('name') }}" required>
                 </div>
 
                 <div class="form-grid">
                     <div class="form-group">
-                        <label class="form-label">Category *</label>
-                        <select name="category" class="form-control" required>
+                        <label class="form-label" for="product-category">Category *</label>
+                        <select id="product-category" name="category" class="form-control" required>
                             <option value="">Select Category</option>
-                            <option value="Electronics">Electronics</option>
-                            <option value="Fashion">Fashion</option>
-                            <option value="Home & Living">Home & Living</option>
-                            <option value="Beauty">Beauty</option>
-                            <option value="Groceries">Groceries</option>
+                            @foreach(config('web-commerce.categories') as $category)<option value="{{ $category }}" @selected(old('category') === $category)>{{ $category }}</option>@endforeach
                         </select>
                     </div>
                     <div class="form-group">
@@ -47,19 +43,20 @@
                 <div class="form-grid">
                     <div class="form-group">
                         <label class="form-label">Price (₱) *</label>
-                        <input type="number" step="0.01" name="price" class="form-control" required>
+                        <input type="number" step="0.01" min="0.01" name="price" class="form-control" value="{{ old('price') }}" required aria-label="Product base price in PHP">
                     </div>
                     <div class="form-group">
                         <label class="form-label">Initial Stock *</label>
-                        <input type="number" name="stock" class="form-control" required>
+                        <input type="number" min="0" name="stock" class="form-control" value="{{ old('stock') }}" required aria-label="Product stock">
                     </div>
                 </div>
 
                 <div class="form-group">
                     <label class="form-label">Description</label>
-                    <textarea name="description" class="form-control" rows="4"></textarea>
+                    <textarea name="description" class="form-control" rows="4" aria-label="Product description">{{ old('description') }}</textarea>
                 </div>
 
+                @include('seller.products.variation-fields')
                 <button type="submit" class="btn-primary u-extracted-1c5da340eb">Save Product</button>
             </form>
         </div>

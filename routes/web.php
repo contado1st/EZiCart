@@ -10,6 +10,7 @@ use App\Http\Controllers\Admin\AdminModerationController;
 use App\Http\Controllers\Admin\AdminReportController;
 use App\Http\Controllers\Admin\LogisticsAdminController;
 use App\Http\Controllers\Admin\PlatformVoucherController;
+use App\Http\Controllers\Admin\RegistrationReviewController;
 use App\Http\Controllers\AnalyticsController;
 use App\Http\Controllers\Auth\AuthController;
 use App\Http\Controllers\Auth\RiderActivationController;
@@ -20,6 +21,7 @@ use App\Http\Controllers\Buyer\CheckoutController;
 use App\Http\Controllers\Buyer\DiscoveryController;
 use App\Http\Controllers\Buyer\DisputeController;
 use App\Http\Controllers\Buyer\ReviewController;
+use App\Http\Controllers\ChatAttachmentController;
 use App\Http\Controllers\ChatInboxController;
 use App\Http\Controllers\CommunicationCountController;
 use App\Http\Controllers\Courier\AssignmentAcceptanceController;
@@ -31,6 +33,7 @@ use App\Http\Controllers\Logistics\CoverageController;
 use App\Http\Controllers\Logistics\LogisticsController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\OrderMessageController;
+use App\Http\Controllers\ParcelEvidenceController;
 use App\Http\Controllers\ParcelTransferController;
 use App\Http\Controllers\ProfileAppearanceController;
 use App\Http\Controllers\PsgcAddressController;
@@ -44,7 +47,11 @@ use App\Http\Controllers\Seller\SellerController;
 use App\Http\Controllers\Seller\SellerOrderController;
 use App\Http\Controllers\Seller\SellerReportController;
 use App\Http\Controllers\Seller\SellerVoucherController;
+use App\Http\Controllers\SellerPromotionController;
 use App\Http\Controllers\SellerShopController;
+use App\Http\Controllers\ShopAvailabilityController;
+use App\Http\Controllers\StaffProfileController;
+use App\Http\Controllers\VoucherClaimController;
 use Illuminate\Support\Facades\Route;
 
 // 1. Public Marketplace & Browsing Routes
@@ -99,6 +106,28 @@ Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
 
 // 3. Protected Routes (Strictly Isolated by Role)
 Route::middleware(['auth', 'account.active', 'auth.session'])->group(function () {
+    Route::get('/staff', [StaffProfileController::class, 'index'])->name('staff.index');
+    Route::get('/staff/reviews', [StaffProfileController::class, 'reviews'])->middleware('role:logistics_admin')->name('staff.reviews');
+    Route::patch('/staff/reviews/{revision}', [StaffProfileController::class, 'review'])->middleware(['role:logistics_admin', 'throttle:operational-action'])->name('staff.review');
+    Route::get('/staff/revisions/{revision}/avatar', [StaffProfileController::class, 'proposedAvatar'])->name('staff.proposed-avatar');
+    Route::get('/staff/{staff}', [StaffProfileController::class, 'show'])->whereNumber('staff')->name('staff.show');
+    Route::patch('/staff/{staff}', [StaffProfileController::class, 'update'])->whereNumber('staff')->middleware('throttle:operational-action')->name('staff.update');
+    Route::get('/staff/{staff}/avatar', [StaffProfileController::class, 'avatar'])->whereNumber('staff')->name('staff.avatar');
+    Route::get('/parcel-evidence', [ParcelEvidenceController::class, 'index'])->name('parcel-evidence.index');
+    Route::get('/orders/{order}/evidence', [ParcelEvidenceController::class, 'show'])->name('parcel-evidence.show');
+    Route::post('/orders/{order}/evidence', [ParcelEvidenceController::class, 'store'])->middleware('throttle:operational-action')->name('parcel-evidence.store');
+    Route::get('/parcel-evidence/{evidence}/photo', [ParcelEvidenceController::class, 'photo'])->name('parcel-evidence.photo');
+    Route::get('/chat/attachments/{attachment}', [ChatAttachmentController::class, 'show'])->name('chat.attachments.show');
+    Route::get('/buyer/vouchers', [VoucherClaimController::class, 'index'])->middleware('role:buyer')->name('buyer.vouchers.index');
+    Route::post('/buyer/vouchers/{voucher}/claim', [VoucherClaimController::class, 'store'])->middleware(['role:buyer', 'throttle:operational-action'])->name('buyer.vouchers.claim');
+    Route::get('/seller/availability', [ShopAvailabilityController::class, 'edit'])->middleware('role:seller')->name('seller.availability.edit');
+    Route::patch('/seller/availability', [ShopAvailabilityController::class, 'update'])->middleware('role:seller')->name('seller.availability.update');
+    Route::get('/seller/promotions', [SellerPromotionController::class, 'index'])->middleware('role:seller')->name('seller.promotions.index');
+    Route::get('/admin/promotions', [SellerPromotionController::class, 'index'])->middleware('role:admin,ecommerce_admin')->name('admin.promotions.index');
+    Route::post('/seller/promotions', [SellerPromotionController::class, 'store'])->middleware(['role:seller', 'throttle:operational-action'])->name('seller.promotions.store');
+    Route::delete('/seller/promotions/{promotion}', [SellerPromotionController::class, 'cancel'])->middleware('throttle:operational-action')->name('seller.promotions.cancel');
+    Route::patch('/notifications/promotions/preferences', [SellerPromotionController::class, 'preferences'])->middleware('role:buyer')->name('notifications.preferences');
+    Route::patch('/seller/vouchers/{voucher}/limits', [SellerVoucherController::class, 'updateLimits'])->middleware('role:seller')->name('seller.vouchers.limits');
     Route::middleware('role:buyer,seller,courier,sorting_center,admin,ecommerce_admin,logistics_admin')->group(function () {
         Route::get('/analytics', [AnalyticsController::class, 'index'])->name('analytics.index');
         Route::get('/analytics/export', [AnalyticsController::class, 'export'])->middleware('throttle:10,1')->name('analytics.export');
@@ -275,6 +304,7 @@ Route::middleware(['auth', 'account.active', 'auth.session'])->group(function ()
     });
 
     Route::middleware(['role:logistics_admin'])->prefix('logistics-admin')->name('logistics-admin.')->group(function () {
+        Route::get('/applications/{user}', [RegistrationReviewController::class, 'show'])->name('applications.show');
         Route::get('/', [LogisticsAdminController::class, 'index'])->name('dashboard');
         Route::post('/users/{user}/approve', [AdminController::class, 'approve'])->middleware('throttle:operational-action')->name('users.approve');
         Route::post('/users/{user}/reject', [AdminController::class, 'reject'])->middleware('throttle:operational-action')->name('users.reject');
@@ -301,6 +331,7 @@ Route::middleware(['auth', 'account.active', 'auth.session'])->group(function ()
         Route::patch('/compliance/products/{product}', [AdminComplianceController::class, 'review'])->middleware('throttle:operational-action')->name('compliance.products.review');
         Route::post('/compliance/products/{product}/warn-seller', [AdminComplianceController::class, 'warn'])->middleware('throttle:operational-action')->name('compliance.products.warn');
         Route::get('/registrations', [AdminController::class, 'index'])->name('registrations.index');
+        Route::get('/registrations/{user}', [RegistrationReviewController::class, 'show'])->name('registrations.show');
         Route::post('/registrations/{user}/approve', [AdminController::class, 'approve'])->middleware('throttle:operational-action')->name('registrations.approve');
         Route::post('/registrations/{user}/reject', [AdminController::class, 'reject'])->middleware('throttle:operational-action')->name('registrations.reject');
         Route::get('/reports', [AdminReportController::class, 'index'])->name('reports.index');

@@ -175,7 +175,7 @@ class ProductMediaTest extends TestCase
 
     private function payload(): array
     {
-        return ['name' => 'Media test product', 'description' => 'Product media demonstration.', 'category' => 'Fashion', 'price' => 100, 'stock' => 3];
+        return ['name' => 'Media test product', 'description' => 'Product media demonstration.', 'category' => "Women's Apparel", 'price' => 100, 'stock' => 3];
     }
 
     private function product(User $seller): Product

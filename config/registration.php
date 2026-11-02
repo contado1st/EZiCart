@@ -7,17 +7,5 @@ return [
     'registration_per_ip_per_minute' => (int) env('REGISTRATION_PER_IP_PER_MINUTE', 100),
     'demo_password' => env('DEMO_USER_PASSWORD'),
     'logistics_admin_email' => env('LOGISTICS_ADMIN_EMAIL', 'logistics.admin@ezicart.com'),
-    'seller_categories' => [
-        'Beauty & Personal Care',
-        'Home & Living',
-        'Mobiles & Gadgets',
-        'Fashion',
-        'Electronics',
-        'Groceries',
-        'Food & Beverages',
-        'Health & Wellness',
-        'Toys & Hobbies',
-        'Sports & Outdoors',
-        'Other',
-    ],
+    'seller_categories' => (require __DIR__.'/web-commerce.php')['categories'],
 ];

@@ -1033,7 +1033,7 @@ class LogisticsWorkflowTest extends TestCase
         $this->actingAsUser($seller)->post(route('seller.products.store'), [
             'name' => 'Professor Flow Product',
             'description' => 'Approved test listing',
-            'category' => 'Test',
+            'category' => 'Pet Supplies',
             'price' => 100,
             'stock' => 3,
         ])->assertRedirect(route('seller.products.index'))->assertSessionHasNoErrors();

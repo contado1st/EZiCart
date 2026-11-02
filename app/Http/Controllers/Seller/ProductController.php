@@ -6,7 +6,9 @@ use App\Http\Controllers\Controller;
 use App\Models\Product;
 use App\Models\ProductComplianceEvent;
 use App\Services\AdministrativeAuditService;
+use App\Services\ProductCategoryService;
 use App\Services\ProductMediaService;
+use App\Services\ProductVariationEditorService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
@@ -29,6 +31,9 @@ class ProductController extends Controller
 
     public function store(Request $request)
     {
+        if ($request->has('variations_present') && ! $request->has('variations')) {
+            $request->merge(['variations' => []]);
+        }
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'category' => 'required|string|max:100',
@@ -44,9 +49,15 @@ class ProductController extends Controller
             'variations.*.stock' => 'nullable|integer|min:0',
         ]);
 
+        $validated['category'] = app(ProductCategoryService::class)->validate($validated['category']);
         $staged = $this->media->stage($request, firstImageIsCover: ! $request->hasFile('image'));
         $imagePath = null;
+        $variantPaths = [];
         try {
+            [$validated, $variantPaths] = app(ProductVariationEditorService::class)->prepare($request, $validated);
+            if ($request->boolean('variations_present') && ! empty($validated['variations'])) {
+                $validated['stock'] = array_sum(array_column($validated['variations'], 'stock'));
+            }
             $cover = $request->file('image') ?? collect($request->file('gallery_images', []))->first();
             if ($cover) {
                 $imagePath = $cover->store('products', 'public');
@@ -84,13 +95,15 @@ class ProductController extends Controller
                                 'value' => trim($variationData['value']),
                                 'price_adjustment' => $variationData['price_adjustment'] ?? 0.00,
                                 'stock' => $variationData['stock'] ?? 0,
+                                'sku' => $variationData['sku'] ?? null,
+                                'image_path' => $variationData['image_path'] ?? null,
                             ]);
                         }
                     }
                 }
             });
         } catch (\Throwable $exception) {
-            $this->media->deleteFiles([$imagePath, ...array_column($staged, 'path')]);
+            $this->media->deleteFiles([$imagePath, ...array_column($staged, 'path'), ...$variantPaths]);
             throw $exception;
         }
 
@@ -107,6 +120,9 @@ class ProductController extends Controller
 
     public function update(Request $request, Product $product)
     {
+        if ($request->has('variations_present') && ! $request->has('variations')) {
+            $request->merge(['variations' => []]);
+        }
         abort_if($product->user_id !== $this->authenticatedUser()->id, 403);
         $validatedVariantIds = $request->validate(['variations.*.id' => ['nullable', 'integer', 'distinct', Rule::exists('product_variations', 'id')->where('product_id', $product->id)]]);
 
@@ -126,9 +142,15 @@ class ProductController extends Controller
         ]);
 
         $validated = array_replace_recursive($validated, $validatedVariantIds);
+        $validated['category'] = app(ProductCategoryService::class)->validate($validated['category'], $product);
         $staged = $this->media->stage($request, firstImageIsCover: ! $product->image_path && ! $request->hasFile('image') && ! $request->boolean('remove_cover'));
         $uploadedImagePath = null;
+        $variantPaths = [];
         try {
+            [$validated, $variantPaths] = app(ProductVariationEditorService::class)->prepare($request, $validated);
+            if ($request->boolean('variations_present') && ! empty($validated['variations'])) {
+                $validated['stock'] = array_sum(array_column($validated['variations'], 'stock'));
+            }
             $cover = $request->file('image');
             if (! $cover && ! $product->image_path && ! $request->boolean('remove_cover')) {
                 $cover = collect($request->file('gallery_images', []))->first();
@@ -143,7 +165,7 @@ class ProductController extends Controller
             return DB::transaction(function () use ($request, $product, $validated, $uploadedImagePath, $staged) {
                 $product = Product::query()->whereKey($product->id)->lockForUpdate()->firstOrFail();
                 $previousValues = $product->only(['name', 'price', 'stock', 'category']);
-                $previousValues['variations'] = $product->variations()->get(['id', 'type', 'value', 'stock', 'price_adjustment', 'is_active'])->toArray();
+                $previousValues['variations'] = $product->variations()->get(['id', 'type', 'value', 'sku', 'image_path', 'stock', 'price_adjustment', 'is_active'])->map(fn ($variant) => $variant->only(['id', 'type', 'value', 'sku', 'image_path', 'stock', 'price_adjustment', 'is_active']))->all();
                 $previousValues['media'] = $product->media()->get(['id', 'kind', 'path', 'sort_order'])->toArray();
                 $previousValues['image_path'] = $product->image_path;
                 $previousImagePath = $product->image_path;
@@ -154,6 +176,9 @@ class ProductController extends Controller
                     || $uploadedImagePath !== null || $staged !== []
                     || ! empty($validated['remove_media'])
                     || ($request->boolean('remove_cover') && filled($previousImagePath));
+                if ($request->has('variations')) {
+                    $complianceFieldsChanged = $complianceFieldsChanged || app(ProductVariationEditorService::class)->needsReview($product, $validated['variations'] ?? []);
+                }
 
                 $this->media->apply($product, $staged, $validated['remove_media'] ?? []);
 
@@ -196,6 +221,8 @@ class ProductController extends Controller
                                 'type' => trim($data['type']), 'value' => trim($data['value']),
                                 'price_adjustment' => $data['price_adjustment'] ?? 0,
                                 'stock' => $data['stock'] ?? 0, 'is_active' => true,
+                                'sku' => array_key_exists('sku', $data) ? $data['sku'] : $variant?->sku,
+                                'image_path' => $data['image_path'] ?? $variant?->image_path,
                             ];
                             if ($variant) {
                                 $variant->forceFill($attributes)->save();
@@ -209,7 +236,7 @@ class ProductController extends Controller
                 }
 
                 $nextValues = $product->only(['name', 'price', 'stock', 'category']);
-                $nextValues['variations'] = $product->variations()->get(['id', 'type', 'value', 'stock', 'price_adjustment', 'is_active'])->toArray();
+                $nextValues['variations'] = $product->variations()->get(['id', 'type', 'value', 'sku', 'image_path', 'stock', 'price_adjustment', 'is_active'])->map(fn ($variant) => $variant->only(['id', 'type', 'value', 'sku', 'image_path', 'stock', 'price_adjustment', 'is_active']))->all();
                 $nextValues['media'] = $product->media()->get(['id', 'kind', 'path', 'sort_order'])->toArray();
                 $nextValues['image_path'] = $product->image_path;
                 $this->audits->record($this->authenticatedUser(), $product, 'seller_catalog_updated', $previousValues, $nextValues, 'Seller catalog and inventory update.');
@@ -220,7 +247,7 @@ class ProductController extends Controller
                 return redirect()->route('seller.products.index')->with('success', 'Product updated successfully.');
             });
         } catch (\Throwable $exception) {
-            $this->media->deleteFiles([$uploadedImagePath, ...array_column($staged, 'path')]);
+            $this->media->deleteFiles([$uploadedImagePath, ...array_column($staged, 'path'), ...$variantPaths]);
             throw $exception;
         }
     }
@@ -236,7 +263,7 @@ class ProductController extends Controller
         }
 
         DB::transaction(function () use ($product): void {
-            $paths = [$product->image_path, ...$product->media()->pluck('path')->all()];
+            $paths = [$product->image_path, ...$product->media()->pluck('path')->all(), ...$product->variations()->whereNotNull('image_path')->pluck('image_path')->all()];
             $product->delete();
             DB::afterCommit(fn () => $this->media->deleteFiles($paths));
         });

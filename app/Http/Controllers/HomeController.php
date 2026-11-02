@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Product;
+use App\Services\ProductCategoryService;
 use App\Services\ProductRecommendationService;
 use Illuminate\Http\Request;
 
@@ -22,20 +23,14 @@ class HomeController extends Controller
             return redirect()->route($roleDashboardRoute);
         }
 
-        $categories = [
-            ['name' => 'Beauty', 'icon' => "\u{1F484}"],
-            ['name' => 'Home & Living', 'icon' => "\u{1F3E0}"],
-            ['name' => 'Fashion', 'icon' => "\u{1F457}"],
-            ['name' => 'Electronics', 'icon' => "\u{1F3A7}"],
-            ['name' => 'Groceries', 'icon' => "\u{1F6D2}"],
-        ];
+        $categories = array_map(fn ($name) => ['name' => $name, 'icon' => 'package1'], app(ProductCategoryService::class)->browseOptions(Product::availableForMarketplace()->distinct()->pluck('category')));
 
         $query = Product::query()->availableForMarketplace()
             ->with('seller');
 
         // Filter by category
         if ($request->filled('category')) {
-            $query->where('category', $request->query('category'));
+            app(ProductCategoryService::class)->filter($query, $request->query('category'));
         }
 
         // Search by keyword

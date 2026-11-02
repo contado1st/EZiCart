@@ -3,10 +3,13 @@
 namespace App\Http\Controllers\Seller;
 
 use App\Http\Controllers\Controller;
+use App\Models\SellerPromotion;
 use App\Models\Voucher;
 use App\Services\AdministrativeAuditService;
+use App\Services\VoucherClaimService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 class SellerVoucherController extends Controller
 {
@@ -30,6 +33,8 @@ class SellerVoucherController extends Controller
             'value' => 'required|numeric|min:1',
             'min_spend' => 'nullable|numeric|min:0',
             'usage_limit' => 'nullable|integer|min:1',
+            'recipient_limit' => 'nullable|integer|min:1|max:1000000',
+            'per_buyer_limit' => 'nullable|integer|min:1|max:1000',
             'expires_at' => 'nullable|date|after:today',
         ]);
 
@@ -44,6 +49,8 @@ class SellerVoucherController extends Controller
                 'value' => $validated['value'],
                 'min_spend' => $validated['min_spend'] ?? 0.00,
                 'usage_limit' => $validated['usage_limit'] ?? null,
+                'recipient_limit' => $validated['recipient_limit'] ?? null,
+                'per_buyer_limit' => $validated['per_buyer_limit'] ?? 1,
                 'expires_at' => $validated['expires_at'] ?? null,
                 'is_active' => true,
             ]);
@@ -76,9 +83,35 @@ class SellerVoucherController extends Controller
 
         DB::transaction(function () use ($voucher): void {
             $this->audits->record($this->authenticatedUser(), $voucher, 'seller_voucher_deleted', $voucher->only(['code', 'type', 'value', 'used_count']), [], 'Seller removed a store voucher. Historical order discounts are retained.');
-            $voucher->delete();
+            if ($voucher->used_count > 0 || DB::table('voucher_claims')->where('voucher_id', $voucher->id)->exists()
+                || SellerPromotion::where('voucher_id', $voucher->id)->exists()) {
+                $voucher->update(['is_active' => false]);
+            } else {
+                $voucher->delete();
+            }
         });
 
-        return back()->with('success', 'Voucher deleted successfully.');
+        return back()->with('success', 'Voucher removed from availability. Claimed-voucher history is retained.');
+    }
+
+    public function updateLimits(Request $request, Voucher $voucher)
+    {
+        abort_unless($voucher->seller_id === $request->user()->id, 403);
+        $data = $request->validate(['recipient_limit' => ['nullable', 'integer', 'min:1', 'max:1000000'], 'per_buyer_limit' => ['nullable', 'integer', 'min:1', 'max:1000'], 'expires_at' => ['nullable', 'date', 'after:now']]);
+        DB::transaction(function () use ($request, $voucher, $data) {
+            $locked = Voucher::whereKey($voucher->id)->lockForUpdate()->firstOrFail();
+            app(VoucherClaimService::class)->synchronizeHistory($locked);
+            if (isset($data['recipient_limit']) && $data['recipient_limit'] < $locked->claimed_count) {
+                throw ValidationException::withMessages(['recipient_limit' => 'The recipient limit cannot be lower than the existing claim count.']);
+            }
+            if (isset($data['per_buyer_limit']) && $data['per_buyer_limit'] < (int) DB::table('voucher_claims')->where('voucher_id', $locked->id)->max('redemption_count')) {
+                throw ValidationException::withMessages(['per_buyer_limit' => 'The per-buyer limit cannot be lower than an existing redemption count.']);
+            }
+            $previous = $locked->only(array_keys($data));
+            $locked->update($data);
+            $this->audits->record($request->user(), $locked, 'voucher_recipient_limits_updated', $previous, $data, 'Seller updated voucher claim limits.');
+        });
+
+        return back()->with('success', 'Voucher limits saved.');
     }
 }

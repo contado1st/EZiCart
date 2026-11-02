@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Services\ProductCategoryService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -64,5 +65,10 @@ class Product extends Model
     public function getReviewCountAttribute(): int
     {
         return $this->reviews()->count();
+    }
+
+    public function getCategoryLabelAttribute(): string
+    {
+        return app(ProductCategoryService::class)->label((string) $this->category);
     }
 }

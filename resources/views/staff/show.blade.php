@@ -1,0 +1,22 @@
+@extends('layouts.app')
+@section('content')
+<main class="web-operations"><header><h1>{{ $staff->first_name }} {{ $staff->last_name }}</h1><p>{{ str_replace('_', ' ', $staff->role) }} · {{ ucfirst($staff->status) }}</p></header>
+@include('components.feature-feedback')
+<section class="dash-panel"><h2>Verified staff information</h2>
+@if($staff->profile_avatar_path)<img class="web-staff-photo" src="{{ route('staff.avatar', $staff) }}" alt="{{ $staff->first_name }} profile photo">@endif
+<x-user-activity :user="$staff" />
+<dl class="web-form"><div><dt>Contact</dt><dd>{{ $staff->contact_no }}</dd></div><div><dt>Operating location</dt><dd>{{ $staff->municipality }}, {{ $staff->province }}</dd></div><div><dt>Service areas</dt><dd>{{ $staff->serviceAreas->pluck('name')->join(', ') ?: 'Not assigned' }}</dd></div>
+@if($staff->role === 'courier')<div><dt>Vehicle and plate</dt><dd>{{ $staff->vehicle_type }} · {{ $staff->vehicle_description }} · {{ $staff->plate_number }}</dd></div>@if($canViewHistory)<div><dt>License expiry</dt><dd>{{ $staff->license_expires_at?->format('d M Y') ?: 'Not recorded' }}</dd></div>@endif @endif</dl><p>{{ $staff->profile_bio }}</p></section>
+@if(auth()->id() === $staff->id)
+<section class="dash-panel"><h2>Request a profile update</h2><p>Changes become official after logistics administration review. One request can be pending at a time.</p>
+<form class="web-form" method="POST" action="{{ route('staff.update', $staff) }}" enctype="multipart/form-data" data-decision="staff.update" data-decision-title="Submit profile for review?" data-decision-message="Your current verified profile stays active until these changes are approved." data-decision-label="Submit for review">@csrf @method('PATCH')
+@foreach(['first_name' => 'First name', 'last_name' => 'Last name', 'contact_no' => 'Mobile number', 'profile_display_name' => 'Display name'] as $field => $label)<label for="staff-{{ $field }}">{{ $label }}<input id="staff-{{ $field }}" name="{{ $field }}" value="{{ old($field, $staff->$field) }}" maxlength="{{ $field === 'contact_no' ? 13 : 50 }}" @required(in_array($field, ['first_name','last_name','contact_no']))></label>@endforeach
+@if($staff->role === 'courier')
+@foreach(['vehicle_type' => 'Vehicle type', 'vehicle_description' => 'Vehicle details', 'plate_number' => 'License plate', 'license_number' => 'Driver license (A00-00-000000)'] as $field => $label)<label for="staff-{{ $field }}">{{ $label }}<input id="staff-{{ $field }}" name="{{ $field }}" value="{{ old($field, $staff->$field) }}" maxlength="{{ in_array($field, ['plate_number','license_number']) ? 20 : 100 }}"></label>@endforeach
+<label for="staff-category">Vehicle category<select name="vehicle_category" id="staff-category"><option value="">Not specified</option>@foreach(['two_wheel' => 'Two wheels', 'four_wheel' => 'Four wheels'] as $value => $label)<option value="{{ $value }}" @selected(old('vehicle_category', $staff->vehicle_category) === $value)>{{ $label }}</option>@endforeach</select></label>
+<label for="staff-license-expiry">License expiry<input type="date" id="staff-license-expiry" name="license_expires_at" value="{{ old('license_expires_at', $staff->license_expires_at?->format('Y-m-d')) }}"></label>
+@endif
+<label for="staff-photo">Profile photo (JPEG, PNG, WebP; 2 MB)<input id="staff-photo" type="file" name="avatar" accept="image/jpeg,image/png,image/webp"></label><label for="staff-bio" class="web-wide">About you<textarea name="profile_bio" id="staff-bio" maxlength="1000">{{ old('profile_bio', $staff->profile_bio) }}</textarea></label><button class="dash-btn-primary" type="submit">Submit for review</button></form></section>
+@endif
+@if($canViewHistory)<section class="dash-panel"><h2>Update history</h2>@forelse($revisions as $revision)<article class="web-section"><strong>{{ ucfirst($revision->status) }}</strong> · {{ $revision->created_at->format('d M Y H:i') }}<p>{{ $revision->reason }}</p><p class="web-muted">Reviewer: {{ $revision->reviewer?->first_name ?: 'Awaiting review' }} @if($revision->reviewed_at) · {{ $revision->reviewed_at->format('d M Y H:i') }}@endif</p><dl>@foreach($revision->proposed_values as $field => $value)@if($field !== 'profile_avatar_path')<div><dt>{{ \Illuminate\Support\Str::headline($field) }}</dt><dd>{{ $revision->previous_values[$field] ?? 'Not recorded' }} → {{ $value ?: 'Not specified' }}</dd></div>@else<div>Profile photo change</div>@endif @endforeach</dl></article>@empty<p>No profile updates submitted.</p>@endforelse{{ $revisions->links() }}</section>@endif
+</main>@endsection

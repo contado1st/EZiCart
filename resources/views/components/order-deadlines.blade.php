@@ -1,3 +1,4 @@
+<p class="web-section"><a class="feature-button" href="{{ route('parcel-evidence.show', $order) }}">View parcel journey and event photos</a></p>
 @php($pendingCancellation = $order->pendingCancellation)
 @if ($pendingCancellation)
 <section class="order-deadline-panel"><h2>Cancellation pending</h2><p>{{ $pendingCancellation->reason }}</p><p>Seller response due: {{ $pendingCancellation->respond_by->format('M d, Y h:i A T') }} · <time data-order-deadline="{{ $pendingCancellation->respond_by->toIso8601String() }}">{{ $pendingCancellation->respond_by->diffForHumans() }}</time></p><p>Fulfillment is paused. Unanswered requests are approved automatically after this deadline.</p>

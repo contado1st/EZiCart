@@ -19,8 +19,8 @@
     <section class="dash-panel" id="applications"><h2>Logistics applications <span class="workspace-count">{{ $pendingUsers->count() }} shown</span></h2>
         @forelse($pendingUsers as $applicant)
             <article><h3>{{ $applicant->business_name ?? trim($applicant->first_name.' '.$applicant->last_name) }} ({{ $applicant->role }})</h3>
-                <a href="{{ route('logistics-admin.users.documents', [$applicant, 'identity']) }}">Identity document</a>
-                @if($applicant->role === 'sorting_center')<a href="{{ route('logistics-admin.users.documents', [$applicant, 'permit']) }}">Business permit</a>@endif
+                <p>{{ $applicant->email }} · {{ $applicant->contact_no }}</p>
+                <a class="dash-btn-sm dash-btn-outline" href="{{ route('logistics-admin.applications.show', $applicant) }}">Review details & documents</a>
                 <form method="POST" action="{{ route('logistics-admin.users.approve', $applicant) }}" data-decision="logistics-admin.users.approve" data-decision-title="Approve this account?" data-decision-message="Confirm that you reviewed the submitted credentials and that this account meets the approval requirements." data-decision-label="Approve account" data-decision-tone="normal" onsubmit="return window.eziDecisionReady ? true : window.confirm(this.dataset.decisionMessage)">@csrf<button class="dash-btn-sm" type="submit">Approve reviewed application</button></form>
                 <form method="POST" action="{{ route('logistics-admin.users.reject', $applicant) }}" data-decision="logistics-admin.users.reject" data-decision-title="Reject this application?" data-decision-message="Check the rejection reason before recording your decision." data-decision-label="Reject application" data-decision-tone="danger" onsubmit="return window.eziDecisionReady ? true : window.confirm(this.dataset.decisionMessage)">@csrf<label>Rejection reason<input name="reason" required minlength="5" maxlength="1000"></label><button class="dash-btn-sm" type="submit">Reject</button></form>
             </article>

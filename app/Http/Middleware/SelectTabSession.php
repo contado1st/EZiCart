@@ -19,9 +19,10 @@ class SelectTabSession
 
         if (! is_string($token) || ! preg_match('/\A[a-f0-9]{32}\z/i', $token)) {
             if ($request->isMethodSafe()
-                && $request->header('Sec-Fetch-Dest') === 'document'
+                && in_array($request->header('Sec-Fetch-Dest'), ['document', 'iframe'], true)
                 && str_contains((string) $request->header('Accept'), 'text/html')) {
-                return redirect()->to($request->fullUrlWithQuery(['__tab' => bin2hex(random_bytes(16))]));
+                return response()->view('auth.tab-bootstrap', ['targetUrl' => $request->fullUrl()])
+                    ->header('Cache-Control', 'private, no-store');
             }
 
             return $next($request);
@@ -30,6 +31,15 @@ class SelectTabSession
         $previousCookie = $baseCookie;
         config(['session.cookie' => $baseCookie.'-tab-'.substr(hash('sha256', strtolower($token)), 0, 24)]);
         $this->sessions->forgetDrivers();
+        // A reused application container may retain a store/guard from another tab.
+        // Resolve both again only after selecting this request's cookie name.
+        app()->forgetInstance('session.store');
+        if (app()->resolved('auth')) {
+            app('auth')->forgetGuards();
+        }
+
+        // A legacy browser-wide remember cookie must never authenticate a fresh tab.
+        $request->cookies->remove(app('auth')->guard('web')->getRecallerName());
 
         try {
             /** @var Response $response */
@@ -50,6 +60,9 @@ class SelectTabSession
                     $query = [];
                     parse_str($target['query'] ?? '', $query);
                     $query['__tab'] = strtolower($token);
+                    if ($request->boolean('__new_account')) {
+                        $query['__new_account'] = '1';
+                    }
                     $path = ($target['scheme'] ?? null)
                         ? ($target['scheme'].'://'.$targetHost.((isset($target['port']) ? ':'.$target['port'] : '')).($target['path'] ?? '/'))
                         : ($target['path'] ?? '/');
@@ -57,10 +70,13 @@ class SelectTabSession
                 }
             }
 
+            $response->headers->set('Cache-Control', 'private, no-store');
+
             return $response;
         } finally {
             config(['session.cookie' => $previousCookie]);
             $this->sessions->forgetDrivers();
+            app()->forgetInstance('session.store');
         }
     }
 }

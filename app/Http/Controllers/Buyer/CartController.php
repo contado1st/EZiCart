@@ -27,6 +27,9 @@ class CartController extends Controller
     public function add(Request $request, Product $product, CheckoutPricingService $pricing): RedirectResponse
     {
         abort_unless($product->compliance_status === 'approved' && ! $product->is_archived && $product->stock > 0, 404);
+        if (! $product->seller?->acceptsWebOrders()) {
+            return back()->withErrors(['cart' => 'This shop is temporarily unavailable for new orders.']);
+        }
 
         $request->validate([
             'quantity' => 'required|integer|min:1|max:20',
