@@ -44,7 +44,7 @@ class ReplacementOrderService
                 if ($line['variation_id']) {
                     abort_unless(ProductVariation::query()->whereKey($line['variation_id'])->where('stock', '>=', $line['quantity'])->decrement('stock', $line['quantity']) === 1, 422, 'Replacement variation is unavailable.');
                 }
-                OrderItem::create(['order_id' => $replacement->id, 'product_id' => $line['product_id'], 'variation_id' => $line['variation_id'], 'variation_info' => $line['variation_info'], 'product_name' => $line['name'], 'unit_price' => 0, 'quantity' => $line['quantity'], 'item_total' => 0]);
+                OrderItem::create(['order_id' => $replacement->id, 'product_id' => $line['product_id'], 'variation_id' => $line['variation_id'], 'variation_info' => $line['variation_info'], 'product_name' => $line['name'], 'unit_price' => 0, 'quantity' => $line['quantity'], 'item_total' => 0, 'unit_weight_grams' => $line['product']->weight_grams]);
             }
             $this->finances->initialize($replacement);
             $this->audits->record($seller, $replacement, 'replacement_created', [], ['original_order_id' => $original->id, 'dispute_id' => $dispute->id], 'Approved replacement, stock reserved and no additional buyer charge.');

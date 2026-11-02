@@ -14,10 +14,12 @@ use App\Models\User;
 use App\Notifications\AccountStatusNotification;
 use App\Notifications\OrderWorkflowNotification;
 use App\Notifications\RiderActivationNotification;
+use App\Services\HubOrderScope;
 use App\Services\LogisticsCoverageService;
 use App\Services\LogisticsExceptionService;
 use App\Services\OrderAreaService;
 use App\Services\OrderTransitionService;
+use App\Services\ParcelLoadService;
 use App\Services\QrCodeService;
 use App\Services\RegistrationIdentityService;
 use App\Services\RiderBadgeService;
@@ -35,6 +37,7 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 use Symfony\Component\HttpKernel\Exception\HttpException;
@@ -73,7 +76,7 @@ class LogisticsController extends Controller
             'license_number' => ['required', 'regex:/^[A-Z]\d{2}-\d{2}-\d{6}$/'],
             'canonical_license_number' => ['required', 'size:13', 'unique:users,canonical_license_number'],
             'license_expires_at' => ['required', 'date', 'after_or_equal:today'],
-            'vehicle_type' => ['required', 'in:Motorcycle,Car,Van'],
+            'vehicle_type' => ['required', Rule::in(array_keys(config('rider-vehicles.types')))],
             'plate_number' => ['required', 'string', 'min:2', 'max:20'],
             'canonical_plate' => ['required', 'string', 'min:2', 'max:20', 'unique:users,canonical_plate'],
             'license_document' => ['required', 'file', 'mimes:jpg,jpeg,png,pdf', 'max:5120'],
@@ -110,6 +113,7 @@ class LogisticsController extends Controller
                     'birthday' => $validated['birthday'],
                     'age' => Carbon::parse($validated['birthday'])->age,
                     'vehicle_type' => $validated['vehicle_type'],
+                    'vehicle_category' => config('rider-vehicles.types')[$validated['vehicle_type']],
                     'plate_number' => $validated['plate_number'],
                     'canonical_plate' => $validated['canonical_plate'],
                     'license_number' => $validated['license_number'],
@@ -277,6 +281,7 @@ class LogisticsController extends Controller
         abort_unless($this->hubOrders($operator)->whereKey($order->id)->exists(), 403, 'This pickup belongs to another sorting center.');
 
         return DB::transaction(function () use ($order, $validated, $operator, $notifications): RedirectResponse {
+            app(ParcelLoadService::class)->lockVehicle((int) $validated['pickup_courier_id']);
             $lockedOrder = Order::query()->whereKey($order->id)->lockForUpdate()->firstOrFail();
             abort_unless(
                 $lockedOrder->status === 'READY_FOR_PICKUP'
@@ -293,6 +298,7 @@ class LogisticsController extends Controller
             abort_unless($lockedOrder->pickup_claimed_at === null || $previousRider?->status === 'suspended', 422, 'The accepted pickup must be released by its unavailable rider before reassignment.');
             abort_if($previousRider?->id === $rider->id, 422, 'Choose a different rider for reassignment.');
 
+            app(ParcelLoadService::class)->assertFits($lockedOrder, $rider);
             $lockedOrder->forceFill(['pickup_courier_id' => $rider->id, 'pickup_claimed_at' => null])->save();
             if ($previousRider !== null) {
                 DB::table('logistics_exceptions')
@@ -321,7 +327,7 @@ class LogisticsController extends Controller
             if ($previousRider !== null) {
                 $notifications->send($previousRider, new OrderWorkflowNotification($lockedOrder, 'pickup_reassigned', 'Logistics reassigned this pickup before you accepted it.'));
             }
-            $notifications->send($rider, new OrderWorkflowNotification($lockedOrder, 'pickup_assigned', 'Logistics assigned you a seller pickup.'));
+            $notifications->send([$rider, $lockedOrder->buyer], new OrderWorkflowNotification($lockedOrder, 'pickup_assigned', 'Logistics assigned a rider to collect the parcel from the seller.'));
             $notifications->send($lockedOrder->seller, new OrderWorkflowNotification(
                 $lockedOrder,
                 $previousRider === null ? 'pickup_assigned' : 'pickup_reassigned',
@@ -867,9 +873,14 @@ class LogisticsController extends Controller
         });
         $maxActiveDeliveries = max(1, (int) config('logistics.maximum_active_deliveries_per_rider', 10));
         $suggestedRiders = [];
+        $loadSummaries = app(ParcelLoadService::class)->summaries($riders);
         foreach ($parcels as $parcel) {
             $suggestedRiders[$parcel->id] = $riders
                 ->filter(fn (User $rider): bool => $parcel->destination_area_id !== null
+                    && $parcel->parcel_weight_grams > 0
+                    && $loadSummaries[$rider->id]['capacity'] !== null
+                    && $loadSummaries[$rider->id]['unknown'] === 0
+                    && $loadSummaries[$rider->id]['grams'] + ($parcel->delivery_courier_id === $rider->id ? 0 : $parcel->parcel_weight_grams) <= $loadSummaries[$rider->id]['capacity']
                     && $rider->capacity_load_count < $maxActiveDeliveries
                     && $rider->serviceAreas->contains('id', $parcel->destination_area_id))
                 ->sortBy('failed_deliveries_count')
@@ -895,6 +906,7 @@ class LogisticsController extends Controller
         $operator = $this->authenticatedUser();
 
         return DB::transaction(function () use ($order, $validated, $operator, $transitions, $notifications): RedirectResponse {
+            app(ParcelLoadService::class)->lockVehicle((int) $validated['delivery_courier_id']);
             $lockedOrder = Order::whereKey($order->id)->lockForUpdate()->firstOrFail();
             $this->assertHubAccess($lockedOrder, $operator);
             $previousRiderId = $lockedOrder->delivery_courier_id
@@ -1040,6 +1052,7 @@ class LogisticsController extends Controller
         }
 
         return DB::transaction(function () use ($request, $order, $operator, $notifications, $badges, $validated, $badgeRiderId, $submittedBadge, $scannedParcelCode): RedirectResponse {
+            app(ParcelLoadService::class)->lockVehicle((int) $badgeRiderId);
             $lockedOrder = Order::query()->whereKey($order->id)->lockForUpdate()->firstOrFail();
             $this->assertHubAccess($lockedOrder, $operator);
             abort_unless($lockedOrder->status === OrderStatus::AssignedToRider->value, 422, 'Assign this parcel before releasing it to a rider.');
@@ -1048,6 +1061,7 @@ class LogisticsController extends Controller
             $this->recordAcceptanceAtHandoff($lockedOrder);
 
             $rider = User::query()->whereKey($lockedOrder->delivery_courier_id)->lockForUpdate()->firstOrFail();
+            app(ParcelLoadService::class)->assertFits($lockedOrder, $rider);
             abort_unless($rider->role === 'courier' && $rider->status === 'approved', 422, 'Only an approved rider can receive a hub release.');
             abort_unless($this->riderBelongsToHub($rider, $operator) || ! $this->isMultiHubOperation(), 422, 'The rider is not assigned to this hub.');
             abort_unless($badgeRiderId === $rider->id && hash_equals($badges->ensure($rider), $submittedBadge), 422, 'The rider assignment changed after the badge scan. Scan the current rider badge again.');
@@ -1074,7 +1088,7 @@ class LogisticsController extends Controller
                 'location' => $operator->municipality,
                 'notes' => "Logistics released the parcel to {$rider->first_name} {$rider->last_name} for final delivery.",
             ]);
-            $notifications->send($rider, new OrderWorkflowNotification($lockedOrder, 'hub_released_to_rider', 'Logistics released your assigned parcel from the sorting center.'));
+            $notifications->send([$rider, $lockedOrder->buyer, $lockedOrder->seller], new OrderWorkflowNotification($lockedOrder, 'hub_released_to_rider', 'The sorting hub physically released the parcel to the assigned delivery rider.'));
 
             return back()->with('success', "Parcel {$lockedOrder->order_number} released to {$rider->first_name} {$rider->last_name}.");
         });
@@ -1118,7 +1132,7 @@ class LogisticsController extends Controller
 
         try {
             DB::transaction(function () use ($request, $validated, $operator, $notifications, $badges, $rider): void {
-                $lockedRider = User::query()->whereKey($rider->id)->lockForUpdate()->firstOrFail();
+                $lockedRider = app(ParcelLoadService::class)->lockVehicle($rider->id);
                 abort_unless($lockedRider->status === 'approved' && hash_equals($badges->ensure($lockedRider), str_starts_with($validated['rider_badge'], 'EZR:') ? substr($validated['rider_badge'], 4) : $validated['rider_badge']), 422, 'The rider badge changed. Scan the current badge again.');
                 $orders = Order::query()->whereIn('id', $validated['order_ids'])->orderBy('id')->lockForUpdate()->get();
                 abort_unless($orders->count() === count($validated['order_ids']), 422, 'The selected manifest changed. Refresh dispatch and scan again.');
@@ -1132,6 +1146,7 @@ class LogisticsController extends Controller
 
                 foreach ($orders as $order) {
                     $this->assertHubAccess($order, $operator);
+                    app(ParcelLoadService::class)->assertFits($order, $lockedRider);
                     abort_unless($order->status === OrderStatus::AssignedToRider->value && $order->payment_method === 'COD' && $order->delivery_courier_id === $lockedRider->id && $order->hub_released_at === null, 422, 'Every selected parcel must be assigned to this rider, fulfillable, and not yet released.');
                     $this->recordAcceptanceAtHandoff($order);
                     abort_unless($this->riderBelongsToHub($lockedRider, $operator) || ! $this->isMultiHubOperation(), 422, 'The rider is not assigned to this hub.');
@@ -1163,7 +1178,7 @@ class LogisticsController extends Controller
                         'location' => $operator->municipality,
                         'notes' => "Logistics batch-released the parcel to {$lockedRider->first_name} {$lockedRider->last_name}.",
                     ]);
-                    $notifications->send($lockedRider, new OrderWorkflowNotification($order, 'hub_released_to_rider', 'Logistics released your assigned parcel from the sorting center.'));
+                    $notifications->send([$lockedRider, $order->buyer, $order->seller], new OrderWorkflowNotification($order, 'hub_released_to_rider', 'The sorting hub physically released the parcel to the assigned delivery rider.'));
                 }
             });
         } catch (Throwable $exception) {
@@ -1594,21 +1609,7 @@ class LogisticsController extends Controller
 
     private function hubOrders(User $operator): Builder
     {
-        $singleHub = ! $this->isMultiHubOperation();
-
-        return Order::query()->where(function (Builder $query) use ($operator, $singleHub): void {
-            $query->where('sorting_center_id', $operator->id)
-                ->orWhere(function (Builder $unreceived) use ($operator, $singleHub): void {
-                    $unreceived->whereNull('sorting_center_id')->where(function (Builder $areaQuery) use ($operator, $singleHub): void {
-                        $areaQuery->whereHas('destinationArea', fn (Builder $area) => $area->where('sorting_center_id', $operator->id));
-
-                        if ($singleHub) {
-                            $areaQuery->orWhereHas('destinationArea', fn (Builder $area) => $area->whereNull('sorting_center_id'))
-                                ->orWhereDoesntHave('destinationArea');
-                        }
-                    });
-                });
-        });
+        return app(HubOrderScope::class)->query($operator);
     }
 
     private function isMultiHubOperation(): bool

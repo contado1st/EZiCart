@@ -1,14 +1,27 @@
 # Web operations user guide
 
-## Staff profiles and review
+## Parcel progress, notifications and required actions
 
-1. Riders and sorting-center staff open **Staff profiles** in the sidebar, then their own profile.
-2. Submit proposed names, mobile number, display information, profile photo and applicable vehicle/plate/license details. Only one request may be pending per account.
-3. The logistics administrator receives an in-app notification and opens **Profile reviews**.
-4. Compare the verified and proposed values. Approve to apply them or reject with a reason. The proposal, previous values, reviewer and decision remain in history.
-5. Basic account edits and the existing coverage vehicle form use this same review gate. Changing appearance through the old account form redirects staff to their reviewed profile.
+- Dashboard pages have a **Next steps** panel. It lists your current tasks and links to the relevant order, hub queue or administrator review page. Buyer, seller, rider, sorting hub and both administrator modules receive tasks within their own permissions.
+- Order detail pages and **Journey & evidence** show the parcel stages, who acts next, and whether you need to act or wait. Pickup distinguishes scheduling, rider assignment/acceptance, arrival, seller handover and the rider's possession scan.
+- Action counts and order progress refresh every 15 seconds while the tab is visible, and when it regains focus. Relevant action buttons get a badge from the current task state. Completing an action clears its badge; reading a notification does not clear an unfinished task.
+- When another participant changes the workflow, the progress message updates. Select **Workflow updated: refresh to load current controls** to reload operational forms. The page does not automatically discard unsaved input.
+- Pickup scheduling, assignment, acceptance, arrival, handover, collection, hub release and delivery notifications explain the next step. Notification text records the step at the time of the update; open the order to see its current state. Cancellation holds, hub transfers, failed deliveries, returns and disputes have separate guidance rather than encouraging an invalid fulfillment action.
+- Network failures preserve the last displayed counts and show a retry message. **Refresh next steps** retries immediately. No new websocket server or background process is required for the on-page indicators; the existing queue worker still handles queued notification channels.
 
-Related hubs and staff can see operational profiles. Buyers and sellers involved in a parcel can open its assigned rider's verified profile through the parcel journey. They do not see proposal history or license expiry. Unrelated users cannot open the profile or its private photo.
+## Rider vehicle choices
+
+Vehicle choices include motorcycles/scooters (2 wheels), tricycles (3 wheels), and cars, vans, pickup trucks and light trucks (4 wheels). The vehicle type determines its wheel category. New riders use this catalog, and subsequent profile/vehicle changes still require logistics administrator approval. Existing stored vehicle labels remain readable. The shared catalog is `config/rider-vehicles.php`.
+
+## Profile changes and administrator review
+
+1. Sellers, riders and sorting-center staff open **Account & profile**. Submit contact/address/business or applicable vehicle/license changes with **Request profile update**, or photos, banners and display information with **Request appearance update**.
+2. Verified details and images stay active until approval. Only one request may be pending per account; wait for its decision before submitting another form.
+3. Marketplace administrators review seller requests. Logistics administrators review rider and sorting-center requests. Each administrator opens **Profile change approvals** in the sidebar or the in-app notification.
+4. The dedicated table compares current and requested values, including private photo/banner previews. Approve to apply the values, or reject with a reason. Use the status filter to view earlier decisions.
+5. Users can see their own request history and rejection reasons on **Account & profile**. Existing coverage vehicle proposals use this same review gate. Login email remains read-only and password changes keep their existing security flow.
+
+**Staff profiles** pages are administrator-only and limited to the accounts each administrator manages. Buyers, sellers, riders and sorting centers cannot open these pages, including by typing their URLs. Parcel journeys still show the assigned rider's name without linking non-admin users to a restricted staff page.
 
 ## Parcel journey, QR and event photos
 
@@ -86,3 +99,17 @@ The tab middleware now clears a cached session-store binding and authentication 
 Flutter/Dart files, mobile controllers, mobile middleware, `routes/api.php` and API response structures are untouched. New pages/actions are web routes. Shared model additions are additive. The shared purchase service enforces newly configured recipient/per-buyer caps and shop closures so another checkout caller cannot bypass them; legacy open shops and vouchers with null new limits retain their prior behavior. Mobile does not acquire new native profile-review, attachment, promotion or variant-editor screens from this web revision.
 
 The native mobile category endpoint keeps its original options under the protected-API restriction. New web-only database fields are hidden from existing model serialization so they do not expand native product/profile response shapes.
+
+## Parcel weight and vehicle load planning
+
+Weights are entered in kilograms with up to three decimal places and stored as integer grams. Product weight is per unit. Checkout saves the unit weight on each order item, so later product edits do not change an existing order's estimate. The actual packed parcel weight is a separate scale measurement and must include packaging; it is never invented from the estimate.
+
+1. **Seller:** enter the unit weight when creating or editing a product. Prepare the order, open its parcel journey, and use **Record packed parcel weight** with a measurement note before requesting pickup.
+2. **Logistics admin:** open **Staff profiles**, choose the approved rider, and verify their current vehicle's maximum cargo capacity in kg with a verification note. Use its documented cargo allowance, not a guessed limit based on wheel count. Approving a different vehicle type or plate clears the old verification.
+3. **Seller, rider, hub or logistics admin:** open **Weight & load planning** in the sidebar. Review parcel weights, vehicle limits, combined reservations, remaining capacity and blocked loads before arranging transport.
+4. **Hub:** assign a vehicle with sufficient remaining capacity. Assigned pickups, delivery/return loads and in-transit hub transfers share its capacity. Assignments reserve space before physical loading; the same parcel is counted once. Unloading, completing a handoff or releasing an assignment removes its applicable reservation.
+5. **Seller and rider:** complete the normal arrival, handover and parcel scan steps. Weight and capacity are checked again before pickup. **Hub and delivery rider:** use the normal release scans and delivery-start action; these check the current load again, including changes made after assignment.
+6. **Hub transfers:** the source hub must select a registered driver belonging to that hub. The driver needs verified capacity for the combined transfer and other reserved loads. Destination receipt releases that transport reservation.
+7. **Reweighing:** sellers can correct a packed weight before pickup; the current hub can reweigh before release when no hub transfer is active. Each measurement is audited and relevant operators receive an in-app notification. A truthful measurement is retained even when it reveals an overload; reassign or reduce the load before moving it. Refresh the planning board after changes.
+
+Missing parcel weights, unverified vehicle capacity, unknown weights on other reserved parcels, and combined loads above the limit block assignment, pickup and dispatch. Existing records remain unknown after migration: weigh old parcels and verify current vehicles before continuing their outgoing movements. Receiving/unloading existing parcels remains available. No shipping-price calculation or fabricated historical weights were added.

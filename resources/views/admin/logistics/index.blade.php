@@ -46,7 +46,7 @@
     <section class="dash-panel" id="parcels"><h2>Parcels across hubs</h2>
         <form method="GET"><label for="parcel-search">Order number</label><input id="parcel-search" name="search" maxlength="100" value="{{ request('search') }}"><button type="submit" class="dash-btn-sm">Search</button></form>
         <div class="dash-table-wrapper"><table class="dash-table"><thead><tr><th>Parcel</th><th>Status</th><th>Hub</th><th>Coordination</th></tr></thead><tbody>
-        @forelse($orders as $order)<tr><td>{{ $order->order_number }}</td><td>{{ str_replace('_', ' ', $order->status) }}</td><td>{{ $order->sortingCenter->business_name ?? 'Awaiting intake' }}</td><td>
+        @forelse($orders as $order)<tr><td>{{ $order->order_number }}<x-parcel-weight :order="$order" compact /></td><td>{{ str_replace('_', ' ', $order->status) }}</td><td>{{ $order->sortingCenter->business_name ?? 'Awaiting intake' }}</td><td>
             <a href="{{ route('logistics-admin.orders.messages.show', $order) }}">Messages</a>
             @if(in_array($order->status, ['AT_SORTING_CENTER', 'SORTED'], true) && ! $order->activeTransfer)
                 <form method="POST" action="{{ route('logistics-admin.orders.transfer', $order) }}" data-decision="logistics-admin.orders.transfer" data-decision-title="Plan hub transfer?" data-decision-message="Verify the destination hub and reason before creating a physical parcel transfer." data-decision-label="Plan transfer" data-decision-tone="normal" onsubmit="return window.eziDecisionReady ? true : window.confirm(this.dataset.decisionMessage)">@csrf

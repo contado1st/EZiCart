@@ -75,7 +75,7 @@ class CartController extends Controller
         $pricing->quote($cart);
         session()->put('cart', $cart);
 
-        return redirect()->route('cart.index')->with('success', 'Item added to your cart.');
+        return redirect()->route($request->input('intent') === 'buy_now' ? 'checkout.index' : 'cart.index')->with('success', 'Item added to your cart.');
     }
 
     public function update(Request $request, string $cartKey, CheckoutPricingService $pricing): RedirectResponse

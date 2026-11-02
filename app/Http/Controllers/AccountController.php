@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\StaffProfileRevision;
 use App\Models\User;
 use App\Services\BuyerAddressService;
 use App\Services\PsgcAddressService;
@@ -27,7 +28,11 @@ class AccountController extends Controller
             $followedShops = $user->followedShops()->where('role', 'seller')->where('status', 'approved')->orderByPivot('created_at', 'desc')->paginate(6, ['users.*'], 'shops_page')->withQueryString();
         }
 
-        return view('account.edit', compact('user', 'followedShops'));
+        $profileRevisions = in_array($user->role, ['seller', 'courier', 'sorting_center'], true)
+            ? StaffProfileRevision::where('user_id', $user->id)->with('reviewer')->latest()->paginate(10, ['*'], 'requests_page')->withQueryString()
+            : null;
+
+        return view('account.edit', compact('user', 'followedShops', 'profileRevisions'));
     }
 
     public function update(Request $request, PsgcAddressService $psgcAddressService, BuyerAddressService $addressBook): RedirectResponse
@@ -47,8 +52,12 @@ class AccountController extends Controller
         }
 
         if ($user->role === 'courier') {
-            $rules['vehicle_type'] = ['nullable', 'string', 'max:100'];
+            $rules['vehicle_type'] = ['nullable', Rule::in(array_filter([...array_keys(config('rider-vehicles.types')), $user->vehicle_type]))];
             $rules['plate_number'] = ['nullable', 'string', 'max:20'];
+            $rules['vehicle_category'] = ['nullable', Rule::in(array_keys(config('rider-vehicles.categories')))];
+            $rules['vehicle_description'] = ['nullable', 'string', 'max:120'];
+            $rules['license_number'] = ['nullable', 'regex:/^[A-Za-z]\d{2}-\d{2}-\d{6}$/'];
+            $rules['license_expires_at'] = ['nullable', 'date', 'after:today'];
         }
 
         $validated = $request->validate($rules);
@@ -65,10 +74,10 @@ class AccountController extends Controller
             $validated['manual_municipality'],
             $validated['manual_barangay'],
         );
-        if (in_array($user->role, ['courier', 'sorting_center'], true)) {
+        if (in_array($user->role, ['seller', 'courier', 'sorting_center'], true)) {
             app(StaffProfileService::class)->submit($user, $user, array_merge($validated, $address));
 
-            return back()->with('success', 'Your proposed profile changes were submitted for logistics admin review. Official details remain in effect until approved.');
+            return back()->with('success', 'Your proposed profile changes were submitted for admin review. Official details remain in effect until approved.');
         }
         DB::transaction(function () use ($user, $validated, $address, $hasAddress, $addressBook): void {
             User::query()->whereKey($user->id)->lockForUpdate()->firstOrFail();

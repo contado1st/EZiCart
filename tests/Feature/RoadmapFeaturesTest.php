@@ -297,7 +297,7 @@ class RoadmapFeaturesTest extends TestCase
 
     private function user(string $role): User
     {
-        return User::forceCreate(['email' => Str::uuid().'@example.com', 'password' => 'password', 'role' => $role, 'status' => 'approved', 'first_name' => 'Roadmap', 'last_name' => 'User', 'business_name' => 'Roadmap Shop', 'contact_no' => '09123456789', 'province' => 'Laguna', 'municipality' => 'Majayjay']);
+        return User::forceCreate(['email' => Str::uuid().'@example.com', 'password' => 'password', 'vehicle_capacity_grams' => $role === 'courier' ? 100000 : null, 'vehicle_capacity_verified_at' => $role === 'courier' ? now() : null, 'role' => $role, 'status' => 'approved', 'first_name' => 'Roadmap', 'last_name' => 'User', 'business_name' => 'Roadmap Shop', 'contact_no' => '09123456789', 'province' => 'Laguna', 'municipality' => 'Majayjay']);
     }
 
     private function product(array $data = []): Product
@@ -307,7 +307,7 @@ class RoadmapFeaturesTest extends TestCase
 
     private function order(array $data = []): Order
     {
-        return Order::forceCreate(array_replace(['order_number' => 'ROAD-'.Str::random(12), 'buyer_id' => $this->user('buyer')->id, 'seller_id' => $this->user('seller')->id, 'recipient_name' => 'Buyer', 'recipient_contact' => '09123456789', 'province' => 'Laguna', 'municipality' => 'Majayjay', 'barangay' => 'Poblacion', 'street_address' => '1 Street', 'subtotal' => 100, 'shipping_fee' => 50, 'discount_amount' => 0, 'commission_fee' => 10, 'total_amount' => 150, 'payment_method' => 'COD', 'status' => 'PLACED'], $data));
+        return Order::forceCreate(array_replace(['order_number' => 'ROAD-'.Str::random(12), 'buyer_id' => $this->user('buyer')->id, 'seller_id' => $this->user('seller')->id, 'recipient_name' => 'Buyer', 'recipient_contact' => '09123456789', 'province' => 'Laguna', 'municipality' => 'Majayjay', 'barangay' => 'Poblacion', 'street_address' => '1 Street', 'subtotal' => 100, 'shipping_fee' => 50, 'discount_amount' => 0, 'commission_fee' => 10, 'total_amount' => 150, 'parcel_weight_grams' => 1000, 'payment_method' => 'COD', 'status' => 'PLACED'], $data));
     }
 
     private function reserved(Order $order): Product

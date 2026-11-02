@@ -39,6 +39,7 @@
                 </div>
 
                 @include('seller.products.media-fields')
+                @include('seller.products.weight-field')
 
                 <div class="form-grid">
                     <div class="form-group">

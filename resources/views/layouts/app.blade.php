@@ -11,7 +11,7 @@
     $isDashboardWorkspace = auth()->check() && request()->routeIs(
         'admin.*', 'seller.*', 'courier.*', 'logistics.*', 'logistics-admin.*',
         'buyer.dashboard', 'buyer.orders.*', 'buyer.addresses.*', 'finance.*', 'parcel-transfers.*',
-        'account.profile.*', 'notifications.*', 'buyer.for-you*', 'buyer.stock.*', 'chat.*', 'sales-reports.*', 'activity-logs.*', 'coverage.*', 'analytics.*', 'staff.*', 'parcel-evidence.*', 'buyer.vouchers.*'
+        'account.profile.*', 'notifications.*', 'buyer.for-you*', 'buyer.stock.*', 'chat.*', 'sales-reports.*', 'activity-logs.*', 'coverage.*', 'analytics.*', 'staff.*', 'parcel-evidence.*', 'buyer.vouchers.*', 'load-planning.*'
     );
 @endphp
 
@@ -39,6 +39,8 @@
     @if(auth()->check())
         <link rel="stylesheet" href="{{ asset('css/communication-badges.css') }}?v={{ filemtime(public_path('css/communication-badges.css')) }}">
         <script src="{{ asset('js/communication-badges.js') }}?v={{ filemtime(public_path('js/communication-badges.js')) }}" data-communication-count-url="{{ route('communications.counts') }}" defer></script>
+        <link rel="stylesheet" href="{{ asset('css/workflow-progress.css') }}?v={{ filemtime(public_path('css/workflow-progress.css')) }}">
+        <script src="{{ asset('js/workflow-progress.js') }}?v={{ filemtime(public_path('js/workflow-progress.js')) }}" data-workflow-url="{{ route('workflow.attention') }}" defer></script>
         <link rel="stylesheet" href="{{ asset('css/message-drawer.css') }}?v={{ filemtime(public_path('css/message-drawer.css')) }}">
         <script src="{{ asset('js/message-drawer.js') }}?v={{ filemtime(public_path('js/message-drawer.js')) }}" defer></script>
     @endif
@@ -199,6 +201,7 @@
             @include('components.workspace-sidebar')
             <button type="button" class="workspace-overlay" data-workspace-close aria-label="Close navigation" tabindex="-1" hidden></button>
             <div class="workspace-page" id="workspace-content" tabindex="-1" data-page-content>
+                @include('components.workflow-attention')
                 @yield('content')
             </div>
         </div>

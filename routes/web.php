@@ -52,6 +52,7 @@ use App\Http\Controllers\SellerShopController;
 use App\Http\Controllers\ShopAvailabilityController;
 use App\Http\Controllers\StaffProfileController;
 use App\Http\Controllers\VoucherClaimController;
+use App\Http\Controllers\WorkflowAttentionController;
 use Illuminate\Support\Facades\Route;
 
 // 1. Public Marketplace & Browsing Routes
@@ -106,13 +107,18 @@ Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
 
 // 3. Protected Routes (Strictly Isolated by Role)
 Route::middleware(['auth', 'account.active', 'auth.session'])->group(function () {
-    Route::get('/staff', [StaffProfileController::class, 'index'])->name('staff.index');
-    Route::get('/staff/reviews', [StaffProfileController::class, 'reviews'])->middleware('role:logistics_admin')->name('staff.reviews');
-    Route::patch('/staff/reviews/{revision}', [StaffProfileController::class, 'review'])->middleware(['role:logistics_admin', 'throttle:operational-action'])->name('staff.review');
-    Route::get('/staff/revisions/{revision}/avatar', [StaffProfileController::class, 'proposedAvatar'])->name('staff.proposed-avatar');
-    Route::get('/staff/{staff}', [StaffProfileController::class, 'show'])->whereNumber('staff')->name('staff.show');
-    Route::patch('/staff/{staff}', [StaffProfileController::class, 'update'])->whereNumber('staff')->middleware('throttle:operational-action')->name('staff.update');
-    Route::get('/staff/{staff}/avatar', [StaffProfileController::class, 'avatar'])->whereNumber('staff')->name('staff.avatar');
+    Route::get('/workflow-attention', WorkflowAttentionController::class)->name('workflow.attention');
+    Route::get('/load-planning', \App\Http\Controllers\LoadPlanningController::class)->middleware('role:seller,courier,sorting_center,logistics_admin')->name('load-planning.index');
+    Route::patch('/orders/{order}/weight', [\App\Http\Controllers\ParcelWeightController::class, 'record'])->middleware(['role:seller,sorting_center', 'throttle:operational-action'])->name('orders.weight');
+    Route::middleware('role:admin,ecommerce_admin,logistics_admin')->group(function () {
+        Route::get('/staff', [StaffProfileController::class, 'index'])->name('staff.index');
+        Route::get('/staff/reviews', [StaffProfileController::class, 'reviews'])->name('staff.reviews');
+        Route::patch('/staff/reviews/{revision}', [StaffProfileController::class, 'review'])->middleware(['throttle:operational-action'])->name('staff.review');
+        Route::get('/staff/revisions/{revision}/avatar', [StaffProfileController::class, 'proposedAvatar'])->name('staff.proposed-avatar');
+        Route::get('/staff/{staff}', [StaffProfileController::class, 'show'])->whereNumber('staff')->name('staff.show');
+        Route::get('/staff/{staff}/avatar', [StaffProfileController::class, 'avatar'])->whereNumber('staff')->name('staff.avatar');
+    });
+    Route::get('/account/profile-requests/{revision}/media/{type}', [StaffProfileController::class, 'proposedMedia'])->name('account.profile-requests.media');
     Route::get('/parcel-evidence', [ParcelEvidenceController::class, 'index'])->name('parcel-evidence.index');
     Route::get('/orders/{order}/evidence', [ParcelEvidenceController::class, 'show'])->name('parcel-evidence.show');
     Route::post('/orders/{order}/evidence', [ParcelEvidenceController::class, 'store'])->middleware('throttle:operational-action')->name('parcel-evidence.store');
@@ -304,6 +310,9 @@ Route::middleware(['auth', 'account.active', 'auth.session'])->group(function ()
     });
 
     Route::middleware(['role:logistics_admin'])->prefix('logistics-admin')->name('logistics-admin.')->group(function () {
+        Route::patch('/riders/{rider}/capacity', [\App\Http\Controllers\ParcelWeightController::class, 'capacity'])->middleware('throttle:operational-action')->name('riders.capacity');
+        Route::get('/profile-reviews', [StaffProfileController::class, 'reviews'])->name('profile-reviews.index');
+        Route::patch('/profile-reviews/{revision}', [StaffProfileController::class, 'review'])->middleware('throttle:operational-action')->name('profile-reviews.review');
         Route::get('/applications/{user}', [RegistrationReviewController::class, 'show'])->name('applications.show');
         Route::get('/', [LogisticsAdminController::class, 'index'])->name('dashboard');
         Route::post('/users/{user}/approve', [AdminController::class, 'approve'])->middleware('throttle:operational-action')->name('users.approve');
@@ -320,6 +329,8 @@ Route::middleware(['auth', 'account.active', 'auth.session'])->group(function ()
 
     // Marketplace administration. Legacy admin accounts retain this domain only.
     Route::middleware(['role:admin,ecommerce_admin'])->prefix('admin')->name('admin.')->group(function () {
+        Route::get('/profile-reviews', [StaffProfileController::class, 'reviews'])->name('profile-reviews.index');
+        Route::patch('/profile-reviews/{revision}', [StaffProfileController::class, 'review'])->middleware('throttle:operational-action')->name('profile-reviews.review');
         Route::get('/vouchers', [PlatformVoucherController::class, 'index'])->name('vouchers.index');
         Route::post('/vouchers', [PlatformVoucherController::class, 'store'])->middleware('throttle:operational-action')->name('vouchers.store');
         Route::patch('/vouchers/{voucher}', [PlatformVoucherController::class, 'toggle'])->middleware('throttle:operational-action')->name('vouchers.toggle');

@@ -38,31 +38,30 @@ class WebOperationsTest extends TestCase
         Storage::fake('private');
         $rider = $this->user('courier');
         $admin = $this->user('logistics_admin');
-        $this->as($rider)->patch(route('staff.update', $rider), [
+        $this->as($rider)->patch(route('account.profile.update'), [
             'first_name' => $rider->first_name, 'last_name' => $rider->last_name, 'contact_no' => $rider->contact_no,
             'plate_number' => 'NEW 456', 'vehicle_category' => 'two_wheel', 'vehicle_description' => 'Blue delivery motorcycle',
-            'avatar' => UploadedFile::fake()->image('rider.png', 200, 200),
         ])->assertRedirect()->assertSessionHasNoErrors();
         $revision = StaffProfileRevision::firstOrFail();
         $this->assertNull($rider->fresh()->plate_number);
         $this->assertNull($rider->fresh()->profile_avatar_path);
         $this->assertSame('pending', $revision->status);
         $this->assertSame(1, $admin->notifications()->count());
-        $this->as($rider)->patch(route('staff.update', $rider), ['first_name' => 'Changed', 'last_name' => $rider->last_name, 'contact_no' => $rider->contact_no])->assertSessionHasErrors('profile');
+        $this->as($rider)->patch(route('account.profile.update'), ['first_name' => 'Changed', 'last_name' => $rider->last_name, 'contact_no' => $rider->contact_no])->assertSessionHasErrors('profile');
         $this->as($this->user('sorting_center'))->patch(route('staff.review', $revision), ['decision' => 'approve'])->assertForbidden();
         $this->as($admin)->get(route('staff.reviews'))->assertOk()->assertSee('NEW 456');
         $this->patch(route('staff.review', $revision), ['decision' => 'approve'])->assertRedirect()->assertSessionHasNoErrors();
         $this->assertSame('NEW 456', $rider->fresh()->plate_number);
         $this->assertSame('NEW456', $rider->fresh()->canonical_plate);
-        Storage::disk('private')->assertExists($rider->fresh()->profile_avatar_path);
+        $this->assertNull($rider->fresh()->profile_avatar_path);
         $this->assertSame('approved', $revision->fresh()->status);
         $this->as($this->user('buyer'))->get(route('staff.show', $rider))->assertForbidden();
         $related = $this->user('buyer');
         $order = $this->order($related, $this->user('seller'));
         $order->forceFill(['pickup_courier_id' => $rider->id])->save();
-        $this->as($related)->get(route('staff.show', $rider))->assertOk()->assertSee('NEW 456')->assertDontSee('Update history');
-        $this->get(route('staff.avatar', $rider))->assertOk();
-        $this->as($rider)->patch(route('account.appearance.update'), [])->assertRedirectToRoute('staff.show', $rider);
+        $this->as($related)->get(route('staff.show', $rider))->assertForbidden();
+        $this->get(route('staff.avatar', $rider))->assertForbidden();
+        $this->as($rider)->patch(route('account.appearance.update'), [])->assertSessionHasErrors('profile_theme');
     }
 
     public function test_rejected_staff_updates_keep_history_and_vehicle_endpoint_cannot_bypass_review(): void
@@ -234,7 +233,7 @@ class WebOperationsTest extends TestCase
         Storage::fake('public');
         $seller = $this->user('seller');
         $this->as($seller)->get(route('seller.products.create'))->assertOk()->assertSee('Generate combinations');
-        $this->post(route('seller.products.store'), ['name' => 'Combination shirt', 'category' => "Women's Apparel", 'price' => 100, 'stock' => 99, 'variations_present' => 1,
+        $this->post(route('seller.products.store'), ['name' => 'Combination shirt', 'category' => "Women's Apparel", 'price' => 100, 'stock' => 99, 'weight_kg' => 1, 'variations_present' => 1,
             'variations' => [['type' => 'Size / Color', 'value' => 'Small / Black', 'sku' => 'SHIRT-S-B', 'price_adjustment' => 20, 'stock' => 3, 'image' => UploadedFile::fake()->image('black.png')],
                 ['type' => 'Size / Color', 'value' => 'Large / White', 'sku' => 'SHIRT-L-W', 'price_adjustment' => 30, 'stock' => 2, 'image_path' => 'documents/not-owned.jpg']]])->assertRedirect()->assertSessionHasNoErrors();
         $product = Product::firstOrFail();
@@ -251,7 +250,7 @@ class WebOperationsTest extends TestCase
         $quote = app(CheckoutPricingService::class)->quote([['product_id' => $product->id, 'variation_id' => $variant->id, 'quantity' => 1]]);
         $this->assertSame(12000, array_values($quote['lines'])[0]['unit_cents']);
         $this->assertSame('Size / Color: Small / Black', array_values($quote['lines'])[0]['variation_info']);
-        $this->as($seller)->put(route('seller.products.update', $product), ['name' => $product->name, 'category' => $product->category, 'price' => 100, 'stock' => 5,
+        $this->as($seller)->put(route('seller.products.update', $product), ['name' => $product->name, 'category' => $product->category, 'price' => 100, 'stock' => 5, 'weight_kg' => 1,
             'variations' => [['type' => 'Color', 'value' => 'Black', 'stock' => 1], ['type' => 'Color', 'value' => 'black', 'stock' => 1]]])->assertSessionHasErrors('variations');
     }
 
@@ -312,8 +311,9 @@ class WebOperationsTest extends TestCase
         $this->as($seller)->get(route('seller.promotions.index'))->assertOk();
         $this->get(route('seller.availability.edit'))->assertOk();
         $this->get(route('seller.vouchers.index'))->assertOk();
-        $this->as($rider)->get(route('staff.index'))->assertOk();
-        $this->get(route('staff.show', $rider))->assertOk();
+        $this->as($rider)->get(route('staff.index'))->assertForbidden();
+        $this->get(route('staff.show', $rider))->assertForbidden();
+        $this->get(route('account.profile.edit'))->assertOk()->assertSee('Profile change requests');
         $this->as($admin)->get(route('staff.reviews'))->assertOk();
         $this->as($commerce)->get(route('admin.promotions.index'))->assertOk();
         $this->as($buyer)->get(route('staff.reviews'))->assertForbidden();
@@ -322,7 +322,7 @@ class WebOperationsTest extends TestCase
 
     private function user(string $role): User
     {
-        return User::forceCreate(['email' => fake()->unique()->safeEmail(), 'password' => 'Password123!', 'role' => $role, 'status' => 'approved', 'first_name' => 'Test', 'last_name' => ucfirst($role), 'sex' => 'Other', 'contact_no' => '09'.fake()->unique()->numerify('#########'), 'birthday' => '1990-01-01', 'age' => 36, 'province' => 'Laguna', 'municipality' => 'Majayjay', 'barangay' => 'San Roque', 'street_address' => '45 Market Road', 'business_name' => $role === 'seller' ? 'Test Shop '.Str::random(5) : null]);
+        return User::forceCreate(['email' => fake()->unique()->safeEmail(), 'password' => 'Password123!', 'role' => $role, 'vehicle_capacity_grams' => $role === 'courier' ? 100000 : null, 'vehicle_capacity_verified_at' => $role === 'courier' ? now() : null, 'status' => 'approved', 'first_name' => 'Test', 'last_name' => ucfirst($role), 'sex' => 'Other', 'contact_no' => '09'.fake()->unique()->numerify('#########'), 'birthday' => '1990-01-01', 'age' => 36, 'province' => 'Laguna', 'municipality' => 'Majayjay', 'barangay' => 'San Roque', 'street_address' => '45 Market Road', 'business_name' => $role === 'seller' ? 'Test Shop '.Str::random(5) : null]);
     }
 
     private function product(User $seller, array $extra = []): Product
@@ -342,6 +342,6 @@ class WebOperationsTest extends TestCase
 
     private function order(User $buyer, User $seller): Order
     {
-        return Order::forceCreate($this->address() + ['buyer_id' => $buyer->id, 'seller_id' => $seller->id, 'order_number' => 'WEB-'.Str::upper(Str::random(10)), 'subtotal' => 100, 'shipping_fee' => 50, 'commission_fee' => 10, 'total_amount' => 150, 'payment_method' => 'COD', 'status' => 'PLACED']);
+        return Order::forceCreate($this->address() + ['buyer_id' => $buyer->id, 'seller_id' => $seller->id, 'order_number' => 'WEB-'.Str::upper(Str::random(10)), 'subtotal' => 100, 'shipping_fee' => 50, 'commission_fee' => 10, 'total_amount' => 150, 'parcel_weight_grams' => 1000, 'payment_method' => 'COD', 'status' => 'PLACED']);
     }
 }

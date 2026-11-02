@@ -117,7 +117,7 @@
                                 @endif
                             </td>
                             <td class="ops-mono">
-                                <strong>{{ $order->order_number }}</strong>
+                                <strong>{{ $order->order_number }}</strong><x-parcel-weight :order="$order" compact />
                                 <div>
                                     <span class="ops-status">{{ str_replace('_', ' ', $order->status) }}</span>
                                 </div>
@@ -198,7 +198,7 @@
                                                             $rider->serviceAreas->contains('id', $order->destination_area_id) &&
                                                             ($rider->capacity_load_count < $maxActiveDeliveries || $order->delivery_courier_id === $rider->id))
                                                             <option value="{{ $rider->id }}" @selected($order->delivery_courier_id === $rider->id)>
-                                                                {{ $rider->first_name }} {{ $rider->last_name }} ·
+                                                                {{ $rider->first_name }} {{ $rider->last_name }} ({{ $rider->vehicle_type }}; {{ $rider->vehicle_capacity_verified_at ? \App\Services\ParcelLoadService::kg($rider->vehicle_capacity_grams) : 'capacity unverified' }}) ·
                                                                 {{ $rider->active_deliveries_count }} active ·
                                                                 {{ $rider->serviceAreas->pluck('name')->join(', ') }} area(s)
                                                             </option>

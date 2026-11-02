@@ -70,6 +70,7 @@
             @if (session('success'))<div class="form-notice">{{ session('success') }}</div>@endif
 
             @if($errors->any())<p class="profile-field-error" role="alert">{{ $errors->first() }}</p>@endif
+            @include('account.profile-requests')
             @include('account.appearance')
 
             <section class="dash-panel u-extracted-ebdbcd4a73">
@@ -87,12 +88,17 @@
                         <div class="form-group"><label class="form-label" for="line-of-business">Line of business</label><select id="line-of-business" class="form-control" name="line_of_business"><option value="">Not specified</option>@foreach(array_filter(array_unique([...config('web-commerce.categories'), app(\App\Services\ProductCategoryService::class)->label((string) $user->line_of_business)])) as $category)<option value="{{ $category }}" @selected(app(\App\Services\ProductCategoryService::class)->label((string) old('line_of_business', $user->line_of_business)) === $category)>{{ $category }}</option>@endforeach</select></div>
                     @endif
                     @if ($user->role === 'courier')
-                        <div class="form-group"><label class="form-label" for="vehicle-type">Vehicle type</label><input id="vehicle-type" class="form-control" name="vehicle_type" value="{{ old('vehicle_type', $user->vehicle_type) }}"></div>
+                        <x-vehicle-capacity :rider="$user" /><p class="web-muted">A logistics admin verifies your current vehicle's cargo capacity. Vehicle type or plate changes require capacity verification again before pickup or dispatch.</p>
+                        <div class="form-group"><label class="form-label" for="vehicle-type">Vehicle type</label><select id="vehicle-type" class="form-control" name="vehicle_type"><option value="">Not specified</option>@foreach(array_filter(array_unique([...array_keys(config('rider-vehicles.types')), $user->vehicle_type])) as $type)<option value="{{ $type }}" @selected(old('vehicle_type', $user->vehicle_type) === $type)>{{ $type }}{{ isset(config('rider-vehicles.types')[$type]) ? ' ('.config('rider-vehicles.categories')[config('rider-vehicles.types')[$type]].')' : '' }}</option>@endforeach</select></div>
                         <div class="form-group"><label class="form-label" for="plate-number">Plate number</label><input id="plate-number" class="form-control" name="plate_number" value="{{ old('plate_number', $user->plate_number) }}"></div>
+                        <div class="form-group"><label class="form-label" for="vehicle-category">Vehicle category</label><select id="vehicle-category" class="form-control" name="vehicle_category"><option value="">Not specified</option>@foreach(config('rider-vehicles.categories') as $value => $label)<option value="{{ $value }}" @selected(old('vehicle_category', $user->vehicle_category) === $value)>{{ $label }}</option>@endforeach</select></div>
+                        <div class="form-group"><label class="form-label" for="vehicle-description">Vehicle details</label><input id="vehicle-description" class="form-control" name="vehicle_description" maxlength="120" value="{{ old('vehicle_description', $user->vehicle_description) }}"></div>
+                        <div class="form-group"><label class="form-label" for="license-number">License number</label><input id="license-number" class="form-control" name="license_number" pattern="[A-Za-z][0-9]{2}-[0-9]{2}-[0-9]{6}" placeholder="A00-00-000000" value="{{ old('license_number', $user->license_number) }}"></div>
+                        <div class="form-group"><label class="form-label" for="license-expiry">License expiry</label><input id="license-expiry" class="form-control" type="date" name="license_expires_at" value="{{ old('license_expires_at', $user->license_expires_at?->format('Y-m-d')) }}"></div>
                         <h3>Active service areas</h3><ul>@forelse ($user->serviceAreas as $area)<li>{{ $area->name }}{{ $area->pivot->is_primary ? ' (primary)' : '' }}</li>@empty<li>No service areas assigned. Contact Logistics.</li>@endforelse</ul>
                     @endif
                     @include('components.psgc-address-fields', ['prefix' => 'account-address', 'address' => $user, 'postalRequired' => false])
-                    <button class="btn-submit" type="submit">Save profile</button>
+                    <button class="btn-submit" type="submit">{{ in_array($user->role, ['seller', 'courier', 'sorting_center'], true) ? 'Request profile update' : 'Save profile' }}</button>
                 </form>
             </section>
 

@@ -198,6 +198,8 @@ class WorkflowRevisionTest extends TestCase
         $source = $this->user('sorting_center');
         $destination = $this->user('sorting_center');
         $otherHub = $this->user('sorting_center');
+        $carrier = $this->user('courier');
+        $carrier->forceFill(['logistics_owner_id' => $source->id])->save();
         $area = Area::create(['name' => 'Destination', 'code' => 'destination', 'sorting_center_id' => $destination->id, 'is_active' => true]);
         $order = $this->order(['status' => 'SORTED', 'sorting_center_id' => $source->id, 'destination_area_id' => $area->id]);
         $this->actingAs($this->user('ecommerce_admin'))->post(route('logistics-admin.orders.transfer', $order), ['destination_hub_id' => $destination->id, 'reason' => 'Misrouted parcel transfer.'])->assertForbidden();
@@ -209,8 +211,8 @@ class WorkflowRevisionTest extends TestCase
         $this->flushSession();
         $this->actingAs($destination)->post(route('parcel-transfers.receive', $transfer), ['parcel_reference' => 'EZP:'.$order->parcel_code])->assertUnprocessable();
         $this->flushSession();
-        $this->actingAs($source)->post(route('parcel-transfers.release', $transfer), ['parcel_reference' => 'EZP:WRONG', 'transport_reference' => 'MANIFEST-ONE'])->assertUnprocessable();
-        $this->post(route('parcel-transfers.release', $transfer), ['parcel_reference' => 'EZP:'.$order->parcel_code, 'transport_reference' => 'MANIFEST-ONE'])->assertRedirect();
+        $this->actingAs($source)->post(route('parcel-transfers.release', $transfer), ['parcel_reference' => 'EZP:WRONG', 'transport_reference' => 'MANIFEST-ONE', 'carrier_rider_id' => $carrier->id])->assertUnprocessable();
+        $this->post(route('parcel-transfers.release', $transfer), ['parcel_reference' => 'EZP:'.$order->parcel_code, 'transport_reference' => 'MANIFEST-ONE', 'carrier_rider_id' => $carrier->id])->assertRedirect();
         $this->assertSame('IN_TRANSIT', $transfer->fresh()->status);
         $this->assertEquals($source->id, $order->fresh()->sorting_center_id);
         $this->post(route('logistics.orders.sort', $order))->assertUnprocessable();
@@ -252,7 +254,7 @@ class WorkflowRevisionTest extends TestCase
         $order = $this->order();
         $product = $this->reservedItem($order);
         $variant = $product->variations()->create(['type' => 'Color', 'value' => 'Blue', 'price_adjustment' => 10, 'stock' => 3]);
-        $payload = ['name' => $product->name, 'category' => $product->category, 'price' => 100, 'stock' => 0];
+        $payload = ['name' => $product->name, 'category' => $product->category, 'price' => 100, 'stock' => 0, 'weight_kg' => 1];
         $this->actingAs($order->seller)->put(route('seller.products.update', $product), $payload)->assertRedirect();
         $this->assertDatabaseHas('product_variations', ['id' => $variant->id, 'is_active' => true]);
         $this->put(route('seller.products.update', $product), [...$payload, 'variations' => [['id' => $variant->id, 'type' => 'Color', 'value' => 'Sky Blue', 'price_adjustment' => 15, 'stock' => 3]]])->assertRedirect();
@@ -387,12 +389,12 @@ class WorkflowRevisionTest extends TestCase
 
     private function user(string $role): User
     {
-        return User::forceCreate(['email' => fake()->unique()->safeEmail(), 'password' => 'password', 'role' => $role, 'status' => 'approved', 'first_name' => 'Test', 'last_name' => 'User', 'contact_no' => '09123456789']);
+        return User::forceCreate(['email' => fake()->unique()->safeEmail(), 'password' => 'password', 'vehicle_capacity_grams' => $role === 'courier' ? 100000 : null, 'vehicle_capacity_verified_at' => $role === 'courier' ? now() : null, 'role' => $role, 'status' => 'approved', 'first_name' => 'Test', 'last_name' => 'User', 'contact_no' => '09123456789']);
     }
 
     private function order(array $attributes = []): Order
     {
-        return Order::forceCreate([...['order_number' => 'EZC-'.fake()->unique()->numerify('##########'), 'buyer_id' => $this->user('buyer')->id, 'seller_id' => $this->user('seller')->id, 'recipient_name' => 'Buyer', 'recipient_contact' => '09123456789', 'province' => 'Laguna', 'municipality' => 'Majayjay', 'barangay' => 'Poblacion', 'street_address' => '1 Street', 'subtotal' => 100, 'discount_amount' => 0, 'shipping_fee' => 50, 'commission_fee' => 10, 'total_amount' => 150, 'status' => 'PLACED', 'payment_method' => 'COD'], ...$attributes]);
+        return Order::forceCreate([...['order_number' => 'EZC-'.fake()->unique()->numerify('##########'), 'buyer_id' => $this->user('buyer')->id, 'seller_id' => $this->user('seller')->id, 'recipient_name' => 'Buyer', 'recipient_contact' => '09123456789', 'province' => 'Laguna', 'municipality' => 'Majayjay', 'barangay' => 'Poblacion', 'street_address' => '1 Street', 'subtotal' => 100, 'discount_amount' => 0, 'shipping_fee' => 50, 'commission_fee' => 10, 'total_amount' => 150, 'status' => 'PLACED', 'parcel_weight_grams' => 1000, 'payment_method' => 'COD'], ...$attributes]);
     }
 
     private function reservedItem(Order $order): Product

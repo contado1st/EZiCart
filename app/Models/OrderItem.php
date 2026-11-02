@@ -10,6 +10,8 @@ class OrderItem extends Model
 {
     use HasFactory;
 
+    protected $hidden = ['unit_weight_grams'];
+
     protected $fillable = [
         'order_id',
         'product_id',
@@ -19,6 +21,7 @@ class OrderItem extends Model
         'unit_price',
         'quantity',
         'item_total',
+        'unit_weight_grams',
     ];
 
     public function order(): BelongsTo

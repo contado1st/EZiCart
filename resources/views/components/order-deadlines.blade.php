@@ -1,3 +1,4 @@
+@include('components.order-progress', ['order' => $order])
 <p class="web-section"><a class="feature-button" href="{{ route('parcel-evidence.show', $order) }}">View parcel journey and event photos</a></p>
 @php($pendingCancellation = $order->pendingCancellation)
 @if ($pendingCancellation)

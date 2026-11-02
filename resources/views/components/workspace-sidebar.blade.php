@@ -90,8 +90,11 @@
     };
     $navigation['Insights'] = [['analytics.index', 'diagram', 'Analytics', 'analytics.*']];
     $navigation['Parcel records'] = [['parcel-evidence.index', 'package1', 'Journey & evidence', 'parcel-evidence.*']];
-    if (in_array($sidebarUser->role, ['courier', 'sorting_center', 'logistics_admin'], true)) $navigation['Staff'] = [['staff.index', 'account', 'Staff profiles', 'staff.*']];
-    if ($sidebarUser->isLogisticsAdmin()) $navigation['Staff'][] = ['staff.reviews', 'shield', 'Profile reviews', 'staff.reviews'];
+    if (in_array($sidebarUser->role, ['seller', 'courier', 'sorting_center', 'logistics_admin'], true)) $navigation['Planning'] = [['load-planning.index', 'delivery1', 'Weight & load planning', 'load-planning.*']];
+    if ($sidebarUser->isCommerceAdmin() || $sidebarUser->isLogisticsAdmin()) {
+        $navigation['Staff'] = [['staff.index', 'account', 'Staff profiles', 'staff.index']];
+        $navigation['Staff'][] = [$sidebarUser->isCommerceAdmin() ? 'admin.profile-reviews.index' : 'logistics-admin.profile-reviews.index', 'shield', 'Profile change approvals', $sidebarUser->isCommerceAdmin() ? 'admin.profile-reviews.*' : 'logistics-admin.profile-reviews.*'];
+    }
     if ($sidebarUser->role === 'buyer') $navigation['Offers'] = [['buyer.vouchers.index', 'voucher', 'My vouchers', 'buyer.vouchers.*']];
     if ($sidebarUser->role === 'seller') $navigation['Shop settings'] = [['seller.availability.edit', 'settings', 'Availability', 'seller.availability.*'], ['seller.promotions.index', 'megaphone', 'Promotions', 'seller.promotions.*']];
     if ($sidebarUser->isCommerceAdmin()) $navigation['Administration'][] = ['admin.promotions.index', 'megaphone', 'Seller promotions', 'admin.promotions.*'];

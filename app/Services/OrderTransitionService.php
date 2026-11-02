@@ -72,6 +72,12 @@ class OrderTransitionService
         }
 
         return DB::transaction(function () use ($order, $actor, $target, $eventType, $location, $notes, $attributes): Order {
+            if (in_array($target, [OrderStatus::AssignedToRider, OrderStatus::PickedUp, OrderStatus::OutForDelivery], true)) {
+                $vehicleId = $target === OrderStatus::PickedUp ? $order->pickup_courier_id : ($attributes['delivery_courier_id'] ?? $order->delivery_courier_id);
+                if ($vehicleId) {
+                    app(ParcelLoadService::class)->lockVehicle((int) $vehicleId);
+                }
+            }
             $lockedOrder = Order::query()->whereKey($order->id)->lockForUpdate()->firstOrFail();
             $current = $lockedOrder->status;
             abort_if($lockedOrder->pendingCancellation()->exists(), 422, 'Resolve the pending cancellation request before changing this order.');
@@ -113,6 +119,11 @@ class OrderTransitionService
             }
 
             $this->authorizeActor($lockedOrder, $actor, $target);
+            if (in_array($target, [OrderStatus::AssignedToRider, OrderStatus::PickedUp, OrderStatus::OutForDelivery], true)) {
+                $riderId = $target === OrderStatus::PickedUp ? $lockedOrder->pickup_courier_id : ($attributes['delivery_courier_id'] ?? $lockedOrder->delivery_courier_id);
+                abort_unless($riderId, 422, 'Assign a verified vehicle before moving this parcel.');
+                app(ParcelLoadService::class)->assertFits($lockedOrder, User::findOrFail($riderId));
+            }
             if ($target === OrderStatus::Confirmed && $lockedOrder->seller_response_due_at?->isPast()) {
                 throw new HttpException(422, 'The seller confirmation deadline has expired.');
             }
@@ -163,6 +174,10 @@ class OrderTransitionService
                     $eventType,
                     $notes ?? 'Order status changed to '.str_replace('_', ' ', strtolower($target->value)).'.',
                 ));
+            }
+            if ($target === OrderStatus::PickedUp && $lockedOrder->sorting_center_id === null) {
+                app(LogisticsHubNotificationService::class)->sendForOrder($lockedOrder, $this->notifications,
+                    new OrderWorkflowNotification($lockedOrder, 'pickup_confirmed', 'The rider confirmed parcel possession. Prepare for the hub intake scan.'));
             }
 
             return $lockedOrder->refresh();
@@ -293,7 +308,7 @@ class OrderTransitionService
             $locked->forceFill(['status' => OrderStatus::Sorted->value, 'delivery_courier_id' => null, 'assigned_at' => null])->save();
             ParcelTrackingEvent::create(['order_id' => $locked->id, 'event_type' => 'rider_acceptance_expired', 'status' => $locked->status, 'notes' => 'Rider acceptance deadline expired before handoff; logistics must select another rider.']);
             $this->audits->record(null, $locked, 'rider_acceptance_expired', ['status' => 'ASSIGNED_TO_RIDER', 'rider_id' => $previousRider?->id], ['status' => 'SORTED', 'rider_id' => null], 'Unaccepted assignment returned to the hub dispatch queue.');
-            $this->notifications->send(collect([$previousRider, $locked->sortingCenter])->filter(), new OrderWorkflowNotification($locked, 'delivery_assignment_replaced', 'The rider acceptance deadline expired. Parcel returned to logistics for reassignment.'));
+            $this->notifications->send(collect([$previousRider, $locked->sortingCenter, $locked->buyer, $locked->seller])->filter()->unique('id'), new OrderWorkflowNotification($locked, 'delivery_assignment_replaced', 'The rider acceptance deadline expired. Parcel returned to logistics for reassignment.'));
 
             return true;
         }, 3);
@@ -682,7 +697,7 @@ class OrderTransitionService
             $recipients[] = $order->sortingCenter;
         }
 
-        if (in_array($target, [OrderStatus::AtSortingCenter, OrderStatus::DeliveryFailed, OrderStatus::ReturnInTransit], true)) {
+        if (in_array($target, [OrderStatus::PickedUp, OrderStatus::AtSortingCenter, OrderStatus::DeliveryFailed, OrderStatus::Delivered, OrderStatus::Completed, OrderStatus::ReturnInTransit], true)) {
             if ($order->sortingCenter !== null) {
                 $recipients[] = $order->sortingCenter;
             }

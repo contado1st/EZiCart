@@ -2,7 +2,6 @@
 
 namespace App\Services;
 
-use App\Models\Order;
 use App\Models\StaffProfileRevision;
 use App\Models\User;
 use App\Notifications\WebOperationsNotification;
@@ -13,63 +12,32 @@ use Illuminate\Validation\ValidationException;
 
 class StaffProfileService
 {
-    public const FIELDS = ['first_name', 'last_name', 'middle_initial', 'contact_no', 'region', 'province', 'municipality', 'barangay', 'street_address', 'house_number', 'postal_code', 'vehicle_type', 'vehicle_category', 'vehicle_description', 'plate_number', 'license_number', 'license_expires_at', 'profile_display_name', 'profile_bio', 'profile_avatar_path'];
+    public const FIELDS = ['first_name', 'last_name', 'middle_initial', 'contact_no', 'region', 'province', 'municipality', 'barangay', 'street_address', 'house_number', 'postal_code', 'vehicle_type', 'vehicle_category', 'vehicle_description', 'plate_number', 'license_number', 'license_expires_at', 'profile_display_name', 'profile_bio', 'profile_avatar_path', 'profile_banner_path', 'profile_theme', 'business_name', 'line_of_business'];
 
     public function __construct(private AdministrativeAuditService $audits, private TransactionAwareNotificationSender $notifications, private RegistrationIdentityService $identities) {}
 
     public function canView(User $actor, User $staff): bool
     {
-        if (! in_array($staff->role, ['courier', 'sorting_center'], true)) {
-            return false;
-        }
-        if ($actor->id === $staff->id || $actor->isLogisticsAdmin()) {
-            return true;
-        }
-        if ($actor->role === 'sorting_center' && $staff->role === 'courier') {
-            if ((int) $staff->logistics_owner_id === $actor->id || $staff->serviceAreas()->where('sorting_center_id', $actor->id)->exists()) {
-                return true;
-            }
-        }
-        if ($actor->role === 'courier' && $staff->role === 'sorting_center') {
-            if ((int) $actor->logistics_owner_id === $staff->id || $actor->serviceAreas()->where('sorting_center_id', $staff->id)->exists()) {
-                return true;
-            }
-        }
-
-        $orders = Order::query()->where(function ($q) use ($staff) {
-            if ($staff->role === 'courier') {
-                $q->where('pickup_courier_id', $staff->id)->orWhere('delivery_courier_id', $staff->id);
-            } else {
-                $q->where('sorting_center_id', $staff->id);
-            }
-        });
-        if (! $actor->isCommerceAdmin()) {
-            $columns = match ($actor->role) {
-                'buyer' => ['buyer_id'], 'seller' => ['seller_id'], 'courier' => ['pickup_courier_id', 'delivery_courier_id'], 'sorting_center' => ['sorting_center_id'], default => []
-            };
-            if ($columns === []) {
-                return false;
-            }
-            $orders->where(function ($q) use ($columns, $actor) {
-                foreach ($columns as $column) {
-                    $q->orWhere($column, $actor->id);
-                }
-            });
-        }
-
-        return $orders->exists();
+        return in_array($staff->role, ['seller', 'courier', 'sorting_center'], true)
+            && $actor->canManageAccount($staff);
     }
 
     public function canViewHistory(User $actor, User $staff): bool
     {
-        return $actor->id === $staff->id || $actor->isLogisticsAdmin()
-            || ($actor->role === 'sorting_center' && $staff->role === 'courier' && ((int) $staff->logistics_owner_id === $actor->id || $staff->serviceAreas()->where('sorting_center_id', $actor->id)->exists()));
+        return $actor->id === $staff->id || $this->canView($actor, $staff);
     }
 
-    public function submit(User $actor, User $staff, array $values, string $submissionReason = 'Staff profile changes await logistics administration review.'): StaffProfileRevision
+    public function reviewRoute(User $subject): string
     {
-        abort_unless($this->canViewHistory($actor, $staff), 403);
-        abort_unless(in_array($staff->role, ['courier', 'sorting_center'], true), 403);
+        return $subject->role === 'seller' ? 'admin.profile-reviews.index' : 'logistics-admin.profile-reviews.index';
+    }
+
+    public function submit(User $actor, User $staff, array $values, string $submissionReason = 'Profile changes await the responsible administrator’s review.'): StaffProfileRevision
+    {
+        $relatedHub = $actor->role === 'sorting_center' && $staff->role === 'courier'
+            && ((int) $staff->logistics_owner_id === $actor->id || $staff->serviceAreas()->where('sorting_center_id', $actor->id)->exists());
+        abort_unless($actor->status === 'approved' && ($this->canViewHistory($actor, $staff) || $relatedHub), 403);
+        abort_unless(in_array($staff->role, ['seller', 'courier', 'sorting_center'], true), 403);
 
         return DB::transaction(function () use ($actor, $staff, $values, $submissionReason) {
             $staff = User::whereKey($staff->id)->lockForUpdate()->firstOrFail();
@@ -77,12 +45,24 @@ class StaffProfileService
                 throw ValidationException::withMessages(['profile' => 'A profile update is already awaiting review.']);
             }
             $values = Arr::only($values, self::FIELDS);
+            if ($staff->role !== 'courier') {
+                $values = Arr::except($values, ['vehicle_type', 'vehicle_category', 'vehicle_description', 'plate_number', 'license_number', 'license_expires_at']);
+            }
+            if ($staff->role !== 'seller') {
+                $values = Arr::except($values, ['business_name', 'line_of_business']);
+            }
+            if (isset(config('rider-vehicles.types')[$values['vehicle_type'] ?? ''])) {
+                $values['vehicle_category'] = config('rider-vehicles.types')[$values['vehicle_type']];
+            }
             validator($values, [
                 'first_name' => ['sometimes', 'required', 'string', 'min:2', 'max:50'], 'last_name' => ['sometimes', 'required', 'string', 'min:2', 'max:50'],
                 'contact_no' => ['sometimes', 'required', 'regex:/^(09\d{9}|\+639\d{9})$/'],
                 'plate_number' => ['nullable', 'regex:/^[A-Za-z0-9][A-Za-z0-9 -]{1,19}$/'],
                 'license_number' => ['nullable', 'regex:/^[A-Za-z]\d{2}-\d{2}-\d{6}$/'],
-                'vehicle_category' => ['nullable', 'in:two_wheel,four_wheel'],
+                'vehicle_category' => ['nullable', Rule::in(array_keys(config('rider-vehicles.categories')))],
+                'vehicle_type' => ['nullable', Rule::in(array_filter([...array_keys(config('rider-vehicles.types')), $staff->vehicle_type]))],
+                'profile_theme' => ['sometimes', Rule::in(array_keys(ProfileAppearanceService::THEMES))],
+                'business_name' => ['sometimes', 'required', 'string', 'min:2', 'max:255'],
             ])->validate();
             $values = array_filter($values, fn ($value, $key) => (string) $staff->getRawOriginal($key) !== (string) $value, ARRAY_FILTER_USE_BOTH);
             if ($values === []) {
@@ -92,7 +72,8 @@ class StaffProfileService
             $revision = StaffProfileRevision::create(['user_id' => $staff->id, 'submitted_by' => $actor->id, 'pending_user_id' => $staff->id,
                 'previous_values' => Arr::only($staff->getRawOriginal(), array_keys($values)), 'proposed_values' => $values]);
             $this->audits->record($actor, $revision, 'staff_profile_submitted', $revision->previous_values, $values, $submissionReason);
-            $this->notifications->send(User::where('role', 'logistics_admin')->where('status', 'approved')->get(), new WebOperationsNotification(['message' => 'A staff profile update requires review.', 'url' => route('staff.reviews')]));
+            $roles = $staff->role === 'seller' ? ['admin', 'ecommerce_admin'] : ['logistics_admin'];
+            $this->notifications->send(User::whereIn('role', $roles)->where('status', 'approved')->get(), new WebOperationsNotification(['message' => 'A profile update requires review.', 'url' => route($this->reviewRoute($staff))]));
 
             return $revision;
         }, 3);
@@ -100,11 +81,11 @@ class StaffProfileService
 
     public function review(User $actor, StaffProfileRevision $revision, bool $approve, ?string $reason): void
     {
-        abort_unless($actor->isLogisticsAdmin() && $actor->status === 'approved', 403);
         DB::transaction(function () use ($actor, $revision, $approve, $reason) {
             // Match submission lock order: subject first, then its proposal.
             $staff = User::whereKey($revision->user_id)->lockForUpdate()->firstOrFail();
             $revision = StaffProfileRevision::whereKey($revision->id)->lockForUpdate()->firstOrFail();
+            abort_unless($this->canView($actor, $staff), 403);
             if ($revision->status !== 'pending') {
                 throw ValidationException::withMessages(['review' => 'This update was already reviewed.']);
             }
@@ -115,13 +96,16 @@ class StaffProfileService
                     }
                 }
                 $values = $this->validateIdentity($staff, $revision->proposed_values);
+                if ($staff->role === 'courier' && array_intersect(array_keys($values), ['vehicle_type', 'plate_number'])) {
+                    $values += ['vehicle_capacity_grams' => null, 'vehicle_capacity_verified_by' => null, 'vehicle_capacity_verified_at' => null];
+                }
                 $staff->forceFill($values)->save();
             } elseif (! filled($reason)) {
                 throw ValidationException::withMessages(['reason' => 'Give a reason for rejecting the update.']);
             }
             $revision->update(['status' => $approve ? 'approved' : 'rejected', 'pending_user_id' => null, 'reviewed_by' => $actor->id, 'reviewed_at' => now(), 'reason' => $reason]);
             $this->audits->record($actor, $revision, 'staff_profile_'.$revision->status, $revision->previous_values, $revision->proposed_values, $reason ?: 'Verified staff information approved.');
-            $this->notifications->send($staff, new WebOperationsNotification(['message' => 'Your staff profile update was '.$revision->status.'.'.($reason ? ' '.$reason : ''), 'url' => route('staff.show', $staff)]));
+            $this->notifications->send($staff, new WebOperationsNotification(['message' => 'Your profile update was '.$revision->status.'.'.($reason ? ' '.$reason : ''), 'url' => route('account.profile.edit').'#profile-requests']));
         }, 3);
     }
 

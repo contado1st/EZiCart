@@ -1,4 +1,20 @@
 /* Web additions reuse each workspace's existing accent and spacing. */
+.parcel-weight-label { display: block; margin-block: 4px; font-size: 11px; font-weight: 600; color: #71384f; white-space: normal; }
+.parcel-weight-label.is-missing { color: #a42849; }
+.parcel-weight-editor { margin-block: 10px; }
+.parcel-weight-editor summary { cursor: pointer; color: var(--workspace-accent, #be2854); font-size: 12px; font-weight: 600; }
+.profile-review-changes { display: grid; gap: 12px; margin: 12px 0; }
+.profile-review-changes > div { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px 16px; padding-bottom: 12px; border-bottom: 1px solid #e7e9ef; }
+.profile-review-changes dt { grid-column: 1 / -1; font-weight: 600; }
+.profile-review-changes dd { display: grid; gap: 4px; margin: 0; align-content: start; overflow-wrap: anywhere; }
+.profile-review-image { width: 100px; max-height: 90px; object-fit: contain; border-radius: 5px; }
+.profile-request-history { padding-block: 14px; border-bottom: 1px solid #e7e9ef; }
+.profile-request-history summary { margin-top: 8px; cursor: pointer; color: var(--workspace-accent, #be2854); }
+.profile-review-table { min-width: 820px; }
+.profile-review-table td { vertical-align: top; }
+.profile-review-table td:nth-child(2) { min-width: 300px; }
+.profile-review-table .profile-review-decision { display: grid; gap: 8px; min-width: 185px; }
+.profile-review-decision textarea { width: 100%; padding: 8px; border: 1px solid #dce0e8; border-radius: 6px; font: inherit; }
 .registration-review-details { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr)); gap: 16px; }
 .registration-review-fields { display: grid; gap: 12px; margin: 0; }
 .registration-review-fields > div { display: grid; grid-template-columns: minmax(110px, 1fr) minmax(0, 2fr); gap: 12px; padding-bottom: 10px; border-bottom: 1px solid #e7e9ef; }

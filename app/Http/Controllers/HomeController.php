@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Product;
+use App\Models\Voucher;
 use App\Services\ProductCategoryService;
 use App\Services\ProductRecommendationService;
 use Illuminate\Http\Request;
@@ -50,6 +51,7 @@ class HomeController extends Controller
 
     public function showProduct(Request $request, Product $product, ProductRecommendationService $recommendations)
     {
+        $filters = $request->validate(['rating' => ['nullable', 'integer', 'between:1,5'], 'comments' => ['nullable', 'boolean'], 'recommendations_page' => ['nullable', 'integer', 'min:1']]);
         abort_if($product->compliance_status !== 'approved' || $product->is_archived || $product->stock <= 0, 404);
 
         $product->load(['seller', 'media', 'variations' => fn ($query) => $query->where('is_active', true)]);
@@ -59,6 +61,28 @@ class HomeController extends Controller
             $recommendations->recordView($request->user(), $product);
         }
 
-        return view('products.show', compact('product'));
+        $ratingCounts = $product->reviews()->selectRaw('rating, COUNT(*) as total')->groupBy('rating')->pluck('total', 'rating');
+        $reviewCount = (int) $ratingCounts->sum();
+        $averageRating = $reviewCount ? round($ratingCounts->sum(fn ($count, $rating) => $count * $rating) / $reviewCount, 1) : 0;
+        $reviews = $product->reviews()->with('buyer')
+            ->when($filters['rating'] ?? null, fn ($query, $rating) => $query->where('rating', $rating))
+            ->when($request->boolean('comments'), fn ($query) => $query->whereNotNull('comment')->where('comment', '<>', ''))
+            ->latest()->paginate(5, ['*'], 'reviews_page')->withQueryString();
+        $sameShop = Product::availableForMarketplace()->where('user_id', $product->user_id)->whereKeyNot($product->id)
+            ->withAvg('reviews as display_rating', 'rating')->withCount('reviews')->latest()->limit(6)->get();
+        $suggestions = Product::availableForMarketplace()->where('user_id', '<>', $product->user_id)
+            ->whereHas('seller', fn ($query) => $query->where('role', 'seller')->where('status', 'approved'))
+            ->with('seller')->withAvg('reviews as display_rating', 'rating')->withCount('reviews')
+            ->orderByRaw('CASE WHEN category = ? THEN 0 ELSE 1 END', [$product->category])->latest()->orderByDesc('id')
+            ->paginate(24, ['*'], 'recommendations_page')->withQueryString()->fragment('you-may-also-like');
+        $shopProductCount = $product->seller->products()->availableForMarketplace()->count();
+        $followerCount = $product->seller->shopFollowers()->count();
+        $vouchers = Voucher::query()->where('seller_id', $product->user_id)->where('is_active', true)
+            ->where(fn ($query) => $query->whereNull('expires_at')->orWhere('expires_at', '>', now()))
+            ->where(fn ($query) => $query->whereNull('usage_limit')->orWhereColumn('used_count', '<', 'usage_limit'))
+            ->where(fn ($query) => $query->whereNull('recipient_limit')->orWhereColumn('claimed_count', '<', 'recipient_limit'))
+            ->latest()->limit(3)->get();
+
+        return view('products.show', compact('product', 'reviews', 'ratingCounts', 'reviewCount', 'averageRating', 'sameShop', 'suggestions', 'shopProductCount', 'followerCount', 'vouchers'));
     }
 }

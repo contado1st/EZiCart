@@ -60,7 +60,7 @@
                     @forelse($orders as $order)
                         <tr>
                             <td class="ops-mono" data-label="Order">
-                                <strong>{{ $order->order_number }}</strong>
+                                <strong>{{ $order->order_number }}</strong><x-parcel-weight :order="$order" compact />
                             </td>
                             <td data-label="Stage">
                                 <span class="ops-status {{ $order->status === 'DELIVERY_FAILED' ? 'ops-status--danger' : (in_array($order->status, ['DELIVERED', 'COMPLETED', 'PICKED_UP'], true) ? 'ops-status--green' : 'ops-status--amber') }}">

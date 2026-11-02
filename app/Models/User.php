@@ -85,6 +85,7 @@ class User extends Authenticatable implements AuthenticatableContract
      * @var array<int, string>
      */
     protected $hidden = [
+        'vehicle_capacity_grams', 'vehicle_capacity_verified_by', 'vehicle_capacity_verified_at',
         'password',
         'remember_token',
         'profile_avatar_path',
@@ -101,6 +102,7 @@ class User extends Authenticatable implements AuthenticatableContract
     protected function casts(): array
     {
         return [
+            'vehicle_capacity_verified_at' => 'datetime',
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
             'birthday' => 'date',

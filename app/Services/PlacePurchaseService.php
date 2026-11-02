@@ -84,6 +84,7 @@ class PlacePurchaseService
                         'order_id' => $order->id, 'product_id' => $line['product_id'], 'variation_id' => $line['variation_id'],
                         'variation_info' => $line['variation_info'], 'product_name' => $line['name'],
                         'unit_price' => $line['unit_cents'] / 100, 'quantity' => $line['quantity'], 'item_total' => $line['item_cents'] / 100,
+                        'unit_weight_grams' => $line['product']->weight_grams,
                     ]);
                 }
                 ParcelTrackingEvent::query()->create([

@@ -13,9 +13,11 @@ class Product extends Model
 {
     use HasFactory;
 
+    protected $hidden = ['weight_grams'];
+
     protected $fillable = [
         'user_id', 'name', 'description', 'category',
-        'price', 'stock', 'image_path', 'is_archived',
+        'price', 'stock', 'image_path', 'is_archived', 'weight_grams',
     ];
 
     public function scopeAvailableForMarketplace(Builder $query): Builder

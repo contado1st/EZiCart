@@ -1,5 +1,33 @@
 @extends('layouts.app')
-@section('content')<main class="web-operations"><header><h1>Staff profile reviews</h1><p>Review proposed information before it replaces verified operational details.</p></header>@include('components.feature-feedback')
-@forelse($revisions as $revision)<section class="dash-panel"><h2><a href="{{ route('staff.show', $revision->user) }}">{{ $revision->user->first_name }} {{ $revision->user->last_name }}</a> · {{ ucfirst($revision->status) }}</h2><p>Submitted {{ $revision->created_at->format('d M Y H:i') }}</p>
-<div class="dash-table-wrapper"><table class="dash-table"><thead><tr><th>Field</th><th>Verified before submission</th><th>Proposed</th></tr></thead><tbody>@foreach($revision->proposed_values as $field => $value)<tr><th>{{ \Illuminate\Support\Str::headline($field) }}</th><td>@if($field === 'profile_avatar_path')Previous profile photo retained in history@else{{ $revision->previous_values[$field] ?? 'Not specified' }}@endif</td><td>@if($field === 'profile_avatar_path')<img class="web-staff-photo" src="{{ route('staff.proposed-avatar', $revision) }}" alt="Proposed staff photo">@else{{ $value ?: 'Not specified' }}@endif</td></tr>@endforeach</tbody></table></div>
-@if($revision->status === 'pending')<form method="POST" action="{{ route('staff.review', $revision) }}" class="web-form" data-decision="staff.review" data-decision-title="Record this profile decision?" data-decision-message="An approval makes these values official. Check the proposal and decision before continuing." data-decision-label="Record decision">@csrf @method('PATCH')<label for="decision-{{ $revision->id }}">Decision<select id="decision-{{ $revision->id }}" name="decision" required><option value="">Select decision</option><option value="approve">Approve verified changes</option><option value="reject">Reject</option></select></label><label for="reason-{{ $revision->id }}">Reason (required for rejection)<textarea id="reason-{{ $revision->id }}" name="reason" maxlength="1000"></textarea></label><button class="dash-btn-primary" type="submit">Record review</button></form>@else<p>{{ $revision->reviewer?->first_name }} · {{ $revision->reviewed_at?->format('d M Y H:i') }} · {{ $revision->reason }}</p>@endif</section>@empty<section class="dash-panel"><p>No profile changes to review.</p></section>@endforelse{{ $revisions->links() }}</main>@endsection
+@section('title', 'Profile change approvals | EZiCart')
+@section('content')
+<main class="web-operations">
+    <header><h1>Profile change approvals</h1><p>{{ auth()->user()->isCommerceAdmin() ? 'Review seller profile and contact updates.' : 'Review rider and sorting center profile and contact updates.' }} Changes take effect only after approval.</p></header>
+    @include('components.feature-feedback')
+    <form method="GET" class="web-form"><label for="profile-review-status">Request status<select id="profile-review-status" name="status">@foreach(['pending' => 'Pending', 'approved' => 'Approved', 'rejected' => 'Rejected', 'all' => 'All requests'] as $value => $label)<option value="{{ $value }}" @selected($status === $value)>{{ $label }}</option>@endforeach</select></label><button type="submit" class="dash-btn-sm dash-btn-outline">Filter requests</button></form>
+    <section class="dash-panel"><h2>{{ $revisions->total() }} {{ Str::plural('request', $revisions->total()) }}</h2>
+        <div class="dash-table-wrapper"><table class="dash-table profile-review-table">
+            <thead><tr><th scope="col">Account / Submitted</th><th scope="col">Current and requested changes</th><th scope="col">Status</th><th scope="col">Review decision</th></tr></thead>
+            <tbody>
+            @forelse($revisions as $revision)
+                <tr>
+                    <td><a href="{{ route('staff.show', $revision->user) }}"><strong>{{ $revision->user->first_name }} {{ $revision->user->last_name }}</strong></a><p>{{ str_replace('_', ' ', $revision->user->role) }}</p><p>{{ $revision->user->email }}</p><time class="web-muted" datetime="{{ $revision->created_at->toIso8601String() }}">{{ $revision->created_at->format('d M Y, h:i A') }}</time></td>
+                    <td>@include('account.profile-change-values', ['revision' => $revision])</td>
+                    <td><strong>{{ ucfirst($revision->status) }}</strong>@if($revision->reviewed_at)<p class="web-muted">{{ $revision->reviewed_at->format('d M Y, h:i A') }}<br>{{ $revision->reviewer?->first_name ?: 'Administrator' }}</p>@endif</td>
+                    <td>
+                        @if($revision->status === 'pending')
+                            <form method="POST" action="{{ route($reviewRoute, $revision) }}" class="profile-review-decision" data-decision="profile-review" data-decision-title="Record this profile decision?" data-decision-message="Approval replaces the verified details with the requested values. Rejection keeps the current details." data-decision-label="Record decision" onsubmit="return window.eziDecisionReady ? true : window.confirm(this.dataset.decisionMessage)">
+                                @csrf @method('PATCH')
+                                <label for="profile-review-reason-{{ $revision->id }}">Reason (required to reject)</label><textarea id="profile-review-reason-{{ $revision->id }}" name="reason" rows="2" minlength="5" maxlength="1000">{{ old('reason') }}</textarea>
+                                <div class="web-actions"><button class="dash-btn-sm dash-btn-primary" type="submit" name="decision" value="approve">Approve</button><button class="dash-btn-sm dash-btn-outline" type="submit" name="decision" value="reject">Reject</button></div>
+                            </form>
+                        @else<p>{{ $revision->reason ?: 'Review completed.' }}</p>@endif
+                    </td>
+                </tr>
+            @empty<tr><td colspan="4">No {{ $status === 'all' ? '' : $status }} profile change requests.</td></tr>@endforelse
+            </tbody>
+        </table></div>
+        {{ $revisions->links() }}
+    </section>
+</main>
+@endsection

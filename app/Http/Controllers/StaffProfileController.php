@@ -4,18 +4,16 @@ namespace App\Http\Controllers;
 
 use App\Models\StaffProfileRevision;
 use App\Models\User;
-use App\Services\ProfileAppearanceService;
 use App\Services\StaffProfileService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Str;
 
 class StaffProfileController extends Controller
 {
     public function index(Request $request, StaffProfileService $profiles)
     {
-        abort_unless(in_array($request->user()->role, ['courier', 'sorting_center', 'logistics_admin'], true), 403);
-        $staff = User::whereIn('role', ['courier', 'sorting_center'])->with('serviceAreas')->orderBy('first_name')->get()
+        abort_unless($request->user()->isCommerceAdmin() || $request->user()->isLogisticsAdmin(), 403);
+        $staff = User::whereIn('role', array_intersect($request->user()->managedAccountRoles(), ['seller', 'courier', 'sorting_center']))->with('serviceAreas')->orderBy('first_name')->get()
             ->filter(fn ($person) => $profiles->canView($request->user(), $person));
 
         return view('staff.index', compact('staff'));
@@ -31,52 +29,23 @@ class StaffProfileController extends Controller
         return view('staff.show', compact('staff', 'revisions', 'canViewHistory'));
     }
 
-    public function update(Request $request, User $staff, StaffProfileService $profiles, ProfileAppearanceService $images)
-    {
-        abort_unless($request->user()->id === $staff->id && in_array($staff->role, ['courier', 'sorting_center'], true), 403);
-        $data = $request->validate([
-            'first_name' => ['required', 'string', 'min:2', 'max:50'], 'last_name' => ['required', 'string', 'min:2', 'max:50'],
-            'contact_no' => ['required', 'regex:/^(09\d{9}|\+639\d{9})$/'],
-            'profile_display_name' => ['nullable', 'string', 'min:2', 'max:50'], 'profile_bio' => ['nullable', 'string', 'max:1000'],
-            'vehicle_type' => ['nullable', 'string', 'max:100'], 'vehicle_category' => ['nullable', 'in:two_wheel,four_wheel'], 'vehicle_description' => ['nullable', 'string', 'max:120'],
-            'plate_number' => ['nullable', 'regex:/^[A-Za-z0-9][A-Za-z0-9 -]{1,19}$/'],
-            'license_number' => ['nullable', 'regex:/^[A-Za-z]\d{2}-\d{2}-\d{6}$/'], 'license_expires_at' => ['nullable', 'date', 'after:today'],
-            'avatar' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'extensions:jpg,jpeg,png,webp', 'max:2048', 'dimensions:max_width=2048,max_height=2048'],
-        ]);
-        if ($staff->role !== 'courier') {
-            $data = collect($data)->except(['vehicle_type', 'vehicle_category', 'vehicle_description', 'plate_number', 'license_number', 'license_expires_at'])->all();
-        }
-        $path = null;
-        try {
-            if ($request->hasFile('avatar')) {
-                $path = 'staff-proposals/'.$staff->id.'/'.Str::uuid().'.jpg';
-                if (! Storage::disk('private')->put($path, $images->jpeg($request->file('avatar'), 400, 400, 'avatar'))) {
-                    throw new \RuntimeException('The profile photo could not be saved.');
-                }
-                $data['profile_avatar_path'] = $path;
-            }
-            unset($data['avatar']);
-            $profiles->submit($request->user(), $staff, $data);
-        } catch (\Throwable $e) {
-            if ($path) {
-                Storage::disk('private')->delete($path);
-            }
-            throw $e;
-        }
-
-        return back()->with('success', 'Profile changes submitted. Your verified details remain active until approved.');
-    }
-
     public function reviews(Request $request)
     {
-        abort_unless($request->user()->isLogisticsAdmin(), 403);
-        $revisions = StaffProfileRevision::with(['user', 'reviewer'])->orderByRaw("CASE WHEN status = 'pending' THEN 0 ELSE 1 END")->latest()->paginate(20);
+        abort_unless($request->user()->isCommerceAdmin() || $request->user()->isLogisticsAdmin(), 403);
+        $filters = $request->validate(['status' => ['nullable', 'in:pending,approved,rejected,all']]);
+        $status = $filters['status'] ?? 'pending';
+        $revisions = StaffProfileRevision::with(['user', 'reviewer'])
+            ->whereHas('user', fn ($query) => $query->whereIn('role', $request->user()->managedAccountRoles()))
+            ->when($status !== 'all', fn ($query) => $query->where('status', $status))
+            ->latest()->paginate(20)->withQueryString();
+        $reviewRoute = $request->user()->isCommerceAdmin() ? 'admin.profile-reviews.review' : 'logistics-admin.profile-reviews.review';
 
-        return view('staff.reviews', compact('revisions'));
+        return view('staff.reviews', compact('revisions', 'status', 'reviewRoute'));
     }
 
     public function review(Request $request, StaffProfileRevision $revision, StaffProfileService $profiles)
     {
+        abort_unless($profiles->canView($request->user(), $revision->user), 403);
         $data = $request->validate(['decision' => ['required', 'in:approve,reject'], 'reason' => ['required_if:decision,reject', 'nullable', 'string', 'min:5', 'max:1000']]);
         $profiles->review($request->user(), $revision, $data['decision'] === 'approve', $data['reason'] ?? null);
 
@@ -92,9 +61,17 @@ class StaffProfileController extends Controller
 
     public function proposedAvatar(Request $request, StaffProfileRevision $revision)
     {
-        abort_unless($request->user()->isLogisticsAdmin() || $request->user()->id === $revision->user_id, 403);
+        return $this->proposedMedia($request, $revision, 'avatar', app(StaffProfileService::class));
+    }
 
-        return $this->image($revision->proposed_values['profile_avatar_path'] ?? null);
+    public function proposedMedia(Request $request, StaffProfileRevision $revision, string $type, StaffProfileService $profiles)
+    {
+        abort_unless(in_array($type, ['avatar', 'banner'], true), 404);
+        abort_unless($request->user()->id === $revision->user_id || $profiles->canView($request->user(), $revision->user), 403);
+
+        $values = $request->query('version') === 'before' ? $revision->previous_values : $revision->proposed_values;
+
+        return $this->image($values['profile_'.$type.'_path'] ?? null);
     }
 
     private function image(?string $path)
