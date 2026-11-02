@@ -34,7 +34,8 @@ class WorkflowAttentionService
                 $total = $group['query']->count();
                 $count += $total;
                 if ($total) {
-                    $items[] = ['label' => $group['label'], 'url' => route($group['route']), 'count' => $total, 'target' => null];
+                    $groupRoute = $group['route'];
+                    $items[] = ['label' => $group['label'], 'url' => route($groupRoute), 'count' => $total, 'target' => null];
                 }
             }
         } else {
@@ -47,7 +48,8 @@ class WorkflowAttentionService
             $count = (clone $query)->count();
             foreach ($query->with(['pendingCancellation', 'activeTransfer', 'deliveryAssignments', 'dispute', 'items', 'reviews'])->oldest('orders.id')->limit(20)->get() as $order) {
                 $state = $this->progress->forViewer($order, $user);
-                $target = $state['action_route'] && Route::has($state['action_route']) ? route($state['action_route'], ['order' => $order->id]) : null;
+                $actionRoute = $state['action_route'];
+                $target = $actionRoute && Route::has($actionRoute) ? route($actionRoute, ['order' => $order->id]) : null;
                 $items[] = ['order_id' => $order->id, 'label' => $order->order_number.': '.$state['message'], 'url' => $this->orderUrl($user, $order), 'target' => $target, 'count' => 1];
             }
             if ($user->role === 'sorting_center') {
@@ -111,11 +113,20 @@ class WorkflowAttentionService
 
     private function orderUrl(User $user, Order $order): string
     {
+        if ($user->role === 'sorting_center') {
+            $hubRoute = match ($order->status) {
+                'READY_FOR_PICKUP' => 'logistics.pickupRequests',
+                'PICKED_UP' => 'logistics.intake',
+                'AT_SORTING_CENTER' => 'logistics.sorting',
+                'SORTED', 'ASSIGNED_TO_RIDER' => 'logistics.dispatch',
+                default => 'logistics.tracking',
+            };
+
+            return route($hubRoute, ['search' => $order->order_number]);
+        }
+
         return match ($user->role) {
             'buyer' => route('buyer.orders.show', $order), 'seller' => route('seller.orders.show', $order), 'courier' => route('courier.orders.show', $order),
-            'sorting_center' => route(match ($order->status) {
-                'READY_FOR_PICKUP' => 'logistics.pickupRequests', 'PICKED_UP' => 'logistics.intake', 'AT_SORTING_CENTER' => 'logistics.sorting', 'SORTED', 'ASSIGNED_TO_RIDER' => 'logistics.dispatch', default => 'logistics.tracking',
-            }, ['search' => $order->order_number]),
             default => route('parcel-evidence.show', $order),
         };
     }

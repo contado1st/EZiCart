@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\Order;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -38,7 +39,8 @@ class ParcelLoadService
         return $this->summarize($rider, $rows);
     }
 
-    public function summaries($riders): array
+    /** @param Collection<int, User> $riders */
+    public function summaries(Collection $riders): array
     {
         $ids = $riders->modelKeys();
         $rows = Order::where(fn ($q) => $q
@@ -56,7 +58,8 @@ class ParcelLoadService
         return $result;
     }
 
-    private function summarize(User $rider, $rows): array
+    /** @param Collection<int, Order> $rows */
+    private function summarize(User $rider, Collection $rows): array
     {
         $unknown = $rows->filter(fn ($row) => ! $row->parcel_weight_grams)->count();
         $capacity = $rider->vehicle_capacity_verified_at ? $rider->vehicle_capacity_grams : null;

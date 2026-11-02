@@ -50,7 +50,6 @@ class OrderTransitionService
         'RETURN_IN_TRANSIT' => ['delivery_code_hash', 'delivery_code_encrypted', 'delivery_code_expires_at', 'delivery_code_attempts'],
     ];
 
-    /** @param array<string, mixed> $attributes */
     public function __construct(
         private InventoryRestorationService $inventoryRestoration,
         private TransactionAwareNotificationSender $notifications,
@@ -58,6 +57,7 @@ class OrderTransitionService
         private OrderFinancialService $finances,
     ) {}
 
+    /** @param array<string, mixed> $attributes */
     public function transition(
         Order $order,
         User $actor,
