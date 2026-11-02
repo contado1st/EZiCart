@@ -8,6 +8,7 @@
     @if(auth()->user()->isLogisticsAdmin())
         <form class="web-form" method="POST" action="{{ route('logistics-admin.riders.capacity', $staff) }}" data-decision="vehicle-capacity" data-decision-title="Verify this cargo capacity?" data-decision-message="Confirm the maximum cargo payload for this specific current vehicle. Unknown or overweight loads will be blocked." data-decision-label="Verify capacity" onsubmit="return window.eziDecisionReady ? true : window.confirm(this.dataset.decisionMessage)">@csrf @method('PATCH')
             <label for="vehicle-capacity-{{ $staff->id }}">Verified maximum cargo capacity (kg)<input id="vehicle-capacity-{{ $staff->id }}" name="vehicle_capacity_kg" type="number" min="0.001" max="100000" step="0.001" value="{{ $staff->vehicle_capacity_grams ? $staff->vehicle_capacity_grams / 1000 : '' }}" required></label>
+            <label for="driver-duty">Driver duty<select id="driver-duty" name="hub_transfer_only"><option value="0" @selected(!$staff->hub_transfer_only)>Local pickup and last-mile delivery</option><option value="1" @selected($staff->hub_transfer_only)>Dedicated hub-to-hub transport</option></select></label>
             <label for="capacity-verification-reason">Verification source / reason<input id="capacity-verification-reason" name="reason" minlength="5" maxlength="500" required placeholder="Current vehicle cargo payload documentation"></label><button class="dash-btn-sm dash-btn-primary" type="submit">Verify vehicle capacity</button>
         </form>
     @endif

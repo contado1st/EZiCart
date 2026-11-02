@@ -30,9 +30,12 @@ use Throwable;
 
 class CourierController extends Controller
 {
-    public function dashboard(RiderBadgeService $badges, QrCodeService $qrCodes): View
+    public function dashboard(RiderBadgeService $badges, QrCodeService $qrCodes): View|RedirectResponse
     {
         $courier = $this->authenticatedUser();
+        if ($courier->hub_transfer_only) {
+            return redirect()->route('parcel-transfers.index');
+        }
         $badgeCode = $badges->ensure($courier);
         $badgeQr = $qrCodes->svg('EZR:'.$badgeCode, 180);
         $todayStart = today()->startOfDay();

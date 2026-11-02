@@ -11,6 +11,7 @@ use App\Services\ParcelLoadService;
 use App\Services\TransactionAwareNotificationSender;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 class ParcelWeightController extends Controller
 {
@@ -36,13 +37,17 @@ class ParcelWeightController extends Controller
     public function capacity(Request $request, User $rider, AdministrativeAuditService $audits, TransactionAwareNotificationSender $notifications)
     {
         abort_unless($request->user()->isLogisticsAdmin() && $rider->role === 'courier', 403);
-        $data = $request->validate(['vehicle_capacity_kg' => ParcelLoadService::KG_RULES, 'reason' => ['required', 'string', 'min:5', 'max:500']]);
+        $data = $request->validate(['vehicle_capacity_kg' => ParcelLoadService::KG_RULES, 'hub_transfer_only' => ['sometimes', 'boolean'], 'reason' => ['required', 'string', 'min:5', 'max:500']]);
         DB::transaction(function () use ($request, $rider, $data, $audits, $notifications): void {
             $locked = User::whereKey($rider->id)->lockForUpdate()->firstOrFail();
             abort_unless($locked->role === 'courier' && $locked->status === 'approved', 422, 'Verify capacity for an approved rider and their current vehicle.');
-            $before = $locked->only(['vehicle_capacity_grams', 'vehicle_capacity_verified_by', 'vehicle_capacity_verified_at']);
-            $locked->forceFill(['vehicle_capacity_grams' => ParcelLoadService::grams($data['vehicle_capacity_kg']), 'vehicle_capacity_verified_by' => $request->user()->id, 'vehicle_capacity_verified_at' => now()])->save();
-            $audits->record($request->user(), $locked, 'vehicle_capacity_verified', $before, $locked->only(['vehicle_capacity_grams', 'vehicle_capacity_verified_by', 'vehicle_capacity_verified_at']), $data['reason']);
+            $duty = array_key_exists('hub_transfer_only', $data) ? (bool) $data['hub_transfer_only'] : $locked->hub_transfer_only;
+            if ($duty !== $locked->hub_transfer_only && app(ParcelLoadService::class)->activeLoads($locked->id)->exists()) {
+                throw ValidationException::withMessages(['hub_transfer_only' => 'Complete or release all reserved loads before changing this driver duty.']);
+            }
+            $before = $locked->only(['vehicle_capacity_grams', 'vehicle_capacity_verified_by', 'vehicle_capacity_verified_at', 'hub_transfer_only']);
+            $locked->forceFill(['hub_transfer_only' => $duty, 'vehicle_capacity_grams' => ParcelLoadService::grams($data['vehicle_capacity_kg']), 'vehicle_capacity_verified_by' => $request->user()->id, 'vehicle_capacity_verified_at' => now()])->save();
+            $audits->record($request->user(), $locked, 'vehicle_capacity_verified', $before, $locked->only(['vehicle_capacity_grams', 'vehicle_capacity_verified_by', 'vehicle_capacity_verified_at', 'hub_transfer_only']), $data['reason']);
             $notifications->send(collect([$locked, $locked->logisticsOwner])->filter()->unique('id'), new WebOperationsNotification(['message' => 'Logistics administration verified this vehicle’s cargo limit: '.ParcelLoadService::kg($locked->vehicle_capacity_grams).'. Reduce or reassign any load above this limit before movement.', 'url' => route('load-planning.index')]));
         }, 3);
 

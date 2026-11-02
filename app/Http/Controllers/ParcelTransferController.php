@@ -16,11 +16,14 @@ class ParcelTransferController extends Controller
     public function index(Request $request)
     {
         $actor = $request->user();
+        abort_if($actor->role === 'courier' && ! $actor->hub_transfer_only, 403);
         $transfers = ParcelTransfer::query()->with(['order', 'sourceHub', 'destinationHub', 'carrier'])
-            ->when(! $actor->isLogisticsAdmin(), fn ($query) => $query->where(fn ($q) => $q->where('source_hub_id', $actor->id)->orWhere('destination_hub_id', $actor->id)))
+            ->when($actor->role === 'courier', fn ($query) => $query->where('carrier_rider_id', $actor->id))
+            ->when($actor->role === 'sorting_center', fn ($query) => $query->where(fn ($q) => $q->where('source_hub_id', $actor->id)->orWhere('destination_hub_id', $actor->id)))
             ->latest('id')->paginate(20);
 
         $carriers = User::where('role', 'courier')->where('status', 'approved')
+            ->where('hub_transfer_only', true)
             ->where(fn ($q) => $q->where('logistics_owner_id', $actor->id)->orWhereHas('serviceAreas', fn ($a) => $a->where('sorting_center_id', $actor->id)))->get();
 
         return view('logistics.transfers', compact('transfers', 'actor', 'carriers'));

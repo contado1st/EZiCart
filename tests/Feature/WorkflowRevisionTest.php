@@ -199,7 +199,7 @@ class WorkflowRevisionTest extends TestCase
         $destination = $this->user('sorting_center');
         $otherHub = $this->user('sorting_center');
         $carrier = $this->user('courier');
-        $carrier->forceFill(['logistics_owner_id' => $source->id])->save();
+        $carrier->forceFill(['logistics_owner_id' => $source->id, 'hub_transfer_only' => true])->save();
         $area = Area::create(['name' => 'Destination', 'code' => 'destination', 'sorting_center_id' => $destination->id, 'is_active' => true]);
         $order = $this->order(['status' => 'SORTED', 'sorting_center_id' => $source->id, 'destination_area_id' => $area->id]);
         $this->actingAs($this->user('ecommerce_admin'))->post(route('logistics-admin.orders.transfer', $order), ['destination_hub_id' => $destination->id, 'reason' => 'Misrouted parcel transfer.'])->assertForbidden();

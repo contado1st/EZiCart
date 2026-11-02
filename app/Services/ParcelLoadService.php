@@ -77,10 +77,15 @@ class ParcelLoadService
     }
 
     /** Call within the existing operation transaction; reserve planned and physically held loads. */
-    public function assertFits(Order $order, User $rider): void
+    public function assertFits(Order $order, User $rider, bool $hubTransfer = false): void
     {
         $grams = $this->requireWeight($order);
         $rider = $this->lockVehicle($rider->id);
+        if ((bool) $rider->hub_transfer_only !== $hubTransfer) {
+            throw ValidationException::withMessages(['carrier_rider_id' => $hubTransfer
+                ? 'Choose a dedicated hub-transfer driver authorized by logistics administration.'
+                : 'This driver is dedicated to hub transfers. Choose a local pickup or delivery rider.']);
+        }
         abort_unless($rider->role === 'courier' && $rider->status === 'approved', 422, 'Choose an approved rider with a verified vehicle.');
         if (! $rider->vehicle_capacity_grams || ! $rider->vehicle_capacity_verified_at) {
             throw ValidationException::withMessages(['vehicle_capacity_kg' => 'A logistics admin must verify this vehicle’s maximum cargo capacity in kg before assignment or movement.']);

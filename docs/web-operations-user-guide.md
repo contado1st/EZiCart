@@ -113,3 +113,9 @@ Weights are entered in kilograms with up to three decimal places and stored as i
 7. **Reweighing:** sellers can correct a packed weight before pickup; the current hub can reweigh before release when no hub transfer is active. Each measurement is audited and relevant operators receive an in-app notification. A truthful measurement is retained even when it reveals an overload; reassign or reduce the load before moving it. Refresh the planning board after changes.
 
 Missing parcel weights, unverified vehicle capacity, unknown weights on other reserved parcels, and combined loads above the limit block assignment, pickup and dispatch. Existing records remain unknown after migration: weigh old parcels and verify current vehicles before continuing their outgoing movements. Receiving/unloading existing parcels remains available. No shipping-price calculation or fabricated historical weights were added.
+
+## Dedicated hub transport demo
+
+Logistics administrators select a rider's **Driver duty** in **Staff profiles** while verifying capacity. Dedicated hub-to-hub drivers are excluded from local pickup and delivery assignments. They sign in to **Assigned hub transfers**, see their own transport jobs and destination details, and present parcels for destination-hub receipt. Hub staff remain responsible for the release and receiving scans.
+
+See the [hub-to-hub flow audit and demo guide](hub-to-hub-flow-audit.md) for the seeded accounts, two ready-to-run parcels, exact steps, safety checks, test results and a rollback-only local database checker.

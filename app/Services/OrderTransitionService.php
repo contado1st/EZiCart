@@ -15,6 +15,7 @@ use App\Models\ProductVariation;
 use App\Models\User;
 use App\Notifications\OrderStatusNotification;
 use App\Notifications\OrderWorkflowNotification;
+use App\Notifications\WebOperationsNotification;
 use Illuminate\Support\Facades\DB;
 use Symfony\Component\HttpKernel\Exception\HttpException;
 
@@ -198,7 +199,8 @@ class OrderTransitionService
             $locked->forceFill(['status' => 'RECEIVED', 'active_order_id' => null, 'received_by' => $actor->id, 'received_at' => now()])->save();
             ParcelTrackingEvent::create(['order_id' => $order->id, 'actor_id' => $actor->id, 'event_type' => 'hub_transfer_received', 'status' => $order->status, 'notes' => 'Destination hub scanned and received the transfer parcel.']);
             $this->audits->record($actor, $order, 'hub_transfer_received', $previous, $order->only(['status', 'sorting_center_id']), 'Physical parcel label scanned at destination hub.');
-            $this->notifications->send([$order->buyer, $order->seller, $locked->sourceHub], new OrderWorkflowNotification($order, 'hub_transfer_received', 'Parcel received at the destination hub for sorting.'));
+            $this->notifications->send([$order->buyer, $order->seller], new OrderWorkflowNotification($order, 'hub_transfer_received', 'Parcel received at the destination hub for sorting.'));
+            $this->notifications->send(collect([$locked->sourceHub, $locked->carrier])->filter(), new WebOperationsNotification(['message' => 'Destination hub received '.$order->order_number.'. This parcel is now unloaded from its transport vehicle reservation.', 'url' => route('parcel-transfers.index')]));
         });
     }
 

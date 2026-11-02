@@ -117,7 +117,7 @@ class ParcelWeightLoadTest extends TestCase
         $source = $this->user('sorting_center');
         $destination = $this->user('sorting_center');
         $seller = $this->user('seller');
-        $driver = $this->user('courier', ['logistics_owner_id' => $source->id, 'vehicle_capacity_grams' => 2000]);
+        $driver = $this->user('courier', ['logistics_owner_id' => $source->id, 'vehicle_capacity_grams' => 2000, 'hub_transfer_only' => true]);
         $area = Area::create(['code' => 'WEIGHT-DEST', 'name' => 'Weight destination', 'sorting_center_id' => $destination->id, 'is_active' => true]);
         $first = $this->order($seller, ['status' => 'SORTED', 'sorting_center_id' => $source->id, 'destination_area_id' => $area->id, 'parcel_weight_grams' => 1200]);
         $transfer = ParcelTransfer::create(['order_id' => $first->id, 'active_order_id' => $first->id, 'source_hub_id' => $source->id, 'destination_hub_id' => $destination->id, 'requested_by' => $source->id, 'status' => 'PLANNED', 'reason' => 'Test weight planning.']);

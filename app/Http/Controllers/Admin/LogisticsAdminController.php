@@ -28,7 +28,7 @@ class LogisticsAdminController extends Controller
             ->latest('id')->paginate(20)->withQueryString();
         $pendingUsers = User::query()->whereIn('role', ['courier', 'sorting_center'])->where('status', 'pending')->latest()->limit(25)->get();
         $centers = User::query()->where('role', 'sorting_center')->where('status', 'approved')->orderBy('business_name')->get();
-        $riders = User::query()->where('role', 'courier')->where('status', 'approved')->orderBy('first_name')->limit(100)->get();
+        $riders = User::query()->where('role', 'courier')->where('status', 'approved')->where('hub_transfer_only', false)->orderBy('first_name')->limit(100)->get();
         $managedUsers = User::query()->whereIn('role', ['courier', 'sorting_center'])->whereIn('status', ['approved', 'suspended'])
             ->withCount(['finalDeliveries as active_parcels_count' => fn ($query) => $query->whereIn('status', ['ASSIGNED_TO_RIDER', 'OUT_FOR_DELIVERY', 'DELIVERY_FAILED', 'RETURN_IN_TRANSIT'])])
             ->latest('id')->paginate(25, ['*'], 'users_page');

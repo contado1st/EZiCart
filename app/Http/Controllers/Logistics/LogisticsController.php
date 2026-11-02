@@ -268,6 +268,7 @@ class LogisticsController extends Controller
             ->latest()->paginate(20);
         $areaIds = $orders->getCollection()->pluck('destination_area_id')->filter()->unique()->all();
         $riders = User::query()->where('role', 'courier')->where('status', 'approved')
+            ->where('hub_transfer_only', false)
             ->whereHas('serviceAreas', fn (Builder $query) => $query->whereIn('areas.id', $areaIds))
             ->orderBy('first_name')->get();
 
@@ -846,6 +847,7 @@ class LogisticsController extends Controller
             ->with(['buyer', 'deliveryCourier', 'destinationArea', 'deliveryAttempts'])->latest()->paginate(15);
         $pageAreaIds = $parcels->getCollection()->pluck('destination_area_id')->filter()->unique()->all();
         $riders = User::query()->where('role', 'courier')->where('status', 'approved')
+            ->where('hub_transfer_only', false)
             ->whereHas('serviceAreas', function (Builder $query) use ($pageAreaIds, $operator, $singleHub): void {
                 $query->whereIn('areas.id', $pageAreaIds)
                     ->where(function (Builder $areaQuery) use ($operator, $singleHub): void {

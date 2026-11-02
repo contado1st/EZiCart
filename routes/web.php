@@ -161,7 +161,7 @@ Route::middleware(['auth', 'account.active', 'auth.session'])->group(function ()
         Route::post('/stock-alerts/{product}', [DiscoveryController::class, 'watch'])->middleware('throttle:operational-action')->name('stock.watch');
         Route::delete('/stock-alerts/{product}', [DiscoveryController::class, 'unwatch'])->name('stock.unwatch');
     });
-    Route::get('/parcel-transfers', [ParcelTransferController::class, 'index'])->middleware('role:sorting_center,logistics_admin')->name('parcel-transfers.index');
+    Route::get('/parcel-transfers', [ParcelTransferController::class, 'index'])->middleware('role:sorting_center,logistics_admin,courier')->name('parcel-transfers.index');
     Route::post('/parcel-transfers/{transfer}/release', [ParcelTransferController::class, 'release'])->middleware(['role:sorting_center', 'throttle:operational-action'])->name('parcel-transfers.release');
     Route::post('/parcel-transfers/{transfer}/receive', [ParcelTransferController::class, 'receive'])->middleware(['role:sorting_center', 'throttle:operational-action'])->name('parcel-transfers.receive');
     Route::post('/parcel-transfers/{transfer}/cancel', [ParcelTransferController::class, 'cancel'])->middleware(['role:logistics_admin', 'throttle:operational-action'])->name('parcel-transfers.cancel');

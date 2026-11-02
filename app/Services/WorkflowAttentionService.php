@@ -38,6 +38,11 @@ class WorkflowAttentionService
                 }
             }
         } else {
+            if ($user->role === 'courier' && $user->hub_transfer_only) {
+                $transfers = DB::table('parcel_transfers')->where('carrier_rider_id', $user->id)->where('status', 'IN_TRANSIT')->count();
+
+                return ['count' => $transfers, 'items' => $transfers ? [['label' => 'Deliver assigned hub transfers to their destination', 'url' => route('parcel-transfers.index'), 'count' => $transfers, 'target' => null]] : [], 'progress' => []];
+            }
             $query = $this->candidates($user);
             $count = (clone $query)->count();
             foreach ($query->with(['pendingCancellation', 'activeTransfer', 'deliveryAssignments', 'dispute', 'items', 'reviews'])->oldest('orders.id')->limit(20)->get() as $order) {

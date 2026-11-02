@@ -91,6 +91,9 @@
     $navigation['Insights'] = [['analytics.index', 'diagram', 'Analytics', 'analytics.*']];
     $navigation['Parcel records'] = [['parcel-evidence.index', 'package1', 'Journey & evidence', 'parcel-evidence.*']];
     if (in_array($sidebarUser->role, ['seller', 'courier', 'sorting_center', 'logistics_admin'], true)) $navigation['Planning'] = [['load-planning.index', 'delivery1', 'Weight & load planning', 'load-planning.*']];
+    if ($sidebarUser->role === 'courier' && $sidebarUser->hub_transfer_only) {
+        $navigation['Delivery operations'] = [['parcel-transfers.index', 'delivery1', 'Assigned hub transfers', 'parcel-transfers.*']];
+    }
     if ($sidebarUser->isCommerceAdmin() || $sidebarUser->isLogisticsAdmin()) {
         $navigation['Staff'] = [['staff.index', 'account', 'Staff profiles', 'staff.index']];
         $navigation['Staff'][] = [$sidebarUser->isCommerceAdmin() ? 'admin.profile-reviews.index' : 'logistics-admin.profile-reviews.index', 'shield', 'Profile change approvals', $sidebarUser->isCommerceAdmin() ? 'admin.profile-reviews.*' : 'logistics-admin.profile-reviews.*'];
