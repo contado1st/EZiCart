@@ -11,6 +11,7 @@ import '../../services/api_service.dart';
 import 'cart_page.dart';
 import 'checkout_page.dart';
 import 'messages_page.dart';
+import 'shop_page.dart';
 
 class ProductDetailsPage extends StatefulWidget {
   final ProductModel product;
@@ -303,7 +304,7 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
                     ),
                     const Divider(height: 28),
 
-                    // Seller Card with Chat
+                    // Seller Card with Shop & Chat
                     Container(
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
@@ -311,41 +312,87 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
                         borderRadius: BorderRadius.circular(10),
                         border: Border.all(color: AppTheme.line),
                       ),
-                      child: Row(
+                      child: Column(
                         children: [
-                          CircleAvatar(
-                            backgroundColor: AppTheme.primarySoft,
-                            radius: 20,
-                            child: Text(
-                              _product.sellerName.isNotEmpty ? _product.sellerName[0].toUpperCase() : 'S',
-                              style: const TextStyle(color: AppTheme.primary, fontWeight: FontWeight.bold),
-                            ),
+                          Row(
+                            children: [
+                              CircleAvatar(
+                                backgroundColor: AppTheme.primarySoft,
+                                radius: 20,
+                                child: Text(
+                                  _product.sellerName.isNotEmpty ? _product.sellerName[0].toUpperCase() : 'S',
+                                  style: const TextStyle(color: AppTheme.primary, fontWeight: FontWeight.bold),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      _product.sellerName,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                                    ),
+                                    const Row(
+                                      children: [
+                                        Icon(Icons.verified, size: 13, color: AppTheme.primary),
+                                        SizedBox(width: 4),
+                                        Text(
+                                          'Verified Merchant',
+                                          style: TextStyle(fontSize: 12, color: AppTheme.muted),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
                           ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  _product.sellerName,
-                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                          const SizedBox(height: 10),
+                          Row(
+                            children: [
+                              if (_product.sellerId != null) ...[
+                                Expanded(
+                                  child: OutlinedButton.icon(
+                                    style: OutlinedButton.styleFrom(
+                                      foregroundColor: AppTheme.primary,
+                                      side: const BorderSide(color: AppTheme.primary),
+                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(7)),
+                                      padding: const EdgeInsets.symmetric(vertical: 8),
+                                    ),
+                                    icon: const Icon(Icons.storefront_outlined, size: 15),
+                                    label: const Text('Visit Shop', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                                    onPressed: () {
+                                      Navigator.of(context).push(
+                                        MaterialPageRoute(
+                                          builder: (_) => ShopPage(
+                                            sellerId: _product.sellerId!,
+                                            initialShopName: _product.sellerName,
+                                          ),
+                                        ),
+                                      );
+                                    },
+                                  ),
                                 ),
-                                const Text(
-                                  'Verified Merchant',
-                                  style: TextStyle(fontSize: 12, color: AppTheme.muted),
-                                ),
+                                const SizedBox(width: 8),
                               ],
-                            ),
-                          ),
-                          OutlinedButton.icon(
-                            style: OutlinedButton.styleFrom(
-                              foregroundColor: AppTheme.primary,
-                              side: const BorderSide(color: AppTheme.primary),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(7)),
-                            ),
-                            icon: const Icon(Icons.chat_outlined, size: 16),
-                            label: const Text('Chat', style: TextStyle(fontSize: 13)),
-                            onPressed: _startChatWithSeller,
+                              Expanded(
+                                child: ElevatedButton.icon(
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: AppTheme.primarySoft,
+                                    foregroundColor: AppTheme.primary,
+                                    elevation: 0,
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(7)),
+                                    padding: const EdgeInsets.symmetric(vertical: 8),
+                                  ),
+                                  icon: const Icon(Icons.chat_bubble_outline, size: 15),
+                                  label: const Text('Chat Seller', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                                  onPressed: _startChatWithSeller,
+                                ),
+                              ),
+                            ],
                           ),
                         ],
                       ),
@@ -442,6 +489,105 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
                           : 'No product description provided.',
                       style: const TextStyle(color: AppTheme.muted, height: 1.5, fontSize: 13),
                     ),
+                    const Divider(height: 36),
+
+                    // Customer Reviews Section
+                    Row(
+                      children: [
+                        const Text(
+                          'Customer Reviews',
+                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          '(${_product.reviews.length})',
+                          style: const TextStyle(color: AppTheme.muted, fontSize: 13),
+                        ),
+                        const Spacer(),
+                        const Icon(Icons.star, color: Colors.amber, size: 16),
+                        const SizedBox(width: 4),
+                        Text(
+                          _product.rating.toStringAsFixed(1),
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    if (_product.reviews.isEmpty)
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        width: double.infinity,
+                        decoration: BoxDecoration(
+                          color: AppTheme.surface,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: AppTheme.line),
+                        ),
+                        child: const Center(
+                          child: Text(
+                            'No customer reviews yet. Be the first to order and leave a review!',
+                            style: TextStyle(color: AppTheme.muted, fontSize: 12),
+                          ),
+                        ),
+                      )
+                    else
+                      Column(
+                        children: _product.reviews.map((r) {
+                          return Container(
+                            margin: const EdgeInsets.only(bottom: 10),
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: AppTheme.surface,
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: AppTheme.line),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    CircleAvatar(
+                                      radius: 14,
+                                      backgroundColor: AppTheme.primarySoft,
+                                      child: Text(
+                                        r.userName.isNotEmpty ? r.userName[0].toUpperCase() : 'B',
+                                        style: const TextStyle(
+                                          color: AppTheme.primary,
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: Text(
+                                        r.userName,
+                                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                                      ),
+                                    ),
+                                    Row(
+                                      children: List.generate(
+                                        5,
+                                        (i) => Icon(
+                                          i < r.rating ? Icons.star : Icons.star_border,
+                                          size: 14,
+                                          color: Colors.amber,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                if (r.comment != null && r.comment!.isNotEmpty) ...[
+                                  const SizedBox(height: 8),
+                                  Text(
+                                    r.comment!,
+                                    style: const TextStyle(fontSize: 13, color: AppTheme.ink),
+                                  ),
+                                ],
+                              ],
+                            ),
+                          );
+                        }).toList(),
+                      ),
                     const SizedBox(height: 30),
                   ],
                 ),

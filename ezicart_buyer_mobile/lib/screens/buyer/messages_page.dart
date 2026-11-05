@@ -9,16 +9,20 @@ class MessagesPage extends StatefulWidget {
   const MessagesPage({super.key});
 
   @override
-  State<MessagesPage> createState() => _MessagesPageState();
+  State<MessagesPage> createState() => MessagesPageState();
 }
 
-class _MessagesPageState extends State<MessagesPage> {
+class MessagesPageState extends State<MessagesPage> {
   List<ChatThreadModel> _threads = [];
   bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
+    _fetchThreads();
+  }
+
+  void fetchThreads() {
     _fetchThreads();
   }
 
@@ -31,15 +35,20 @@ class _MessagesPageState extends State<MessagesPage> {
           final list = (body['data'] as List)
               .map((t) => ChatThreadModel.fromJson(t as Map<String, dynamic>))
               .toList();
-          setState(() {
-            _threads = list;
-            _isLoading = false;
-          });
-          return;
+          if (mounted) {
+            setState(() {
+              _threads = list;
+              _isLoading = false;
+            });
+            return;
+          }
         }
       }
     } catch (_) {}
-    setState(() => _isLoading = false);
+
+    if (mounted) {
+      setState(() => _isLoading = false);
+    }
   }
 
   @override
@@ -50,23 +59,48 @@ class _MessagesPageState extends State<MessagesPage> {
 
     if (_threads.isEmpty) {
       return Scaffold(
-        appBar: AppBar(title: const Text('Messages')),
-        body: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(Icons.chat_bubble_outline, size: 56, color: Colors.grey.shade400),
-              const SizedBox(height: 12),
-              const Text(
-                'No message conversations yet',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+        appBar: AppBar(
+          title: const Text('Messages'),
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.refresh),
+              tooltip: 'Refresh',
+              onPressed: () {
+                setState(() => _isLoading = true);
+                _fetchThreads();
+              },
+            ),
+          ],
+        ),
+        body: RefreshIndicator(
+          onRefresh: _fetchThreads,
+          child: SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            child: SizedBox(
+              height: MediaQuery.of(context).size.height * 0.7,
+              child: Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(32),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.chat_bubble_outline, size: 56, color: Colors.grey.shade400),
+                      const SizedBox(height: 12),
+                      const Text(
+                        'No message conversations yet',
+                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                      ),
+                      const SizedBox(height: 6),
+                      const Text(
+                        'Direct inquiries or chats with merchants will appear here. Tap "Chat" on any store or product to get started.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(color: AppTheme.muted, fontSize: 13),
+                      ),
+                    ],
+                  ),
+                ),
               ),
-              const SizedBox(height: 6),
-              const Text(
-                'Messages from sellers or order inquiries will appear here.',
-                style: TextStyle(color: AppTheme.muted, fontSize: 13),
-              ),
-            ],
+            ),
           ),
         ),
       );
@@ -75,10 +109,21 @@ class _MessagesPageState extends State<MessagesPage> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Messages'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            tooltip: 'Refresh',
+            onPressed: () {
+              setState(() => _isLoading = true);
+              _fetchThreads();
+            },
+          ),
+        ],
       ),
       body: RefreshIndicator(
         onRefresh: _fetchThreads,
         child: ListView.separated(
+          physics: const AlwaysScrollableScrollPhysics(),
           padding: const EdgeInsets.symmetric(vertical: 8),
           itemCount: _threads.length,
           separatorBuilder: (_, __) => const Divider(height: 1, indent: 72),
@@ -107,9 +152,12 @@ class _MessagesPageState extends State<MessagesPage> {
                   Expanded(
                     child: Text(
                       t.partnerName,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
                     ),
                   ),
+                  const SizedBox(width: 6),
                   Text(
                     t.partnerRole.toUpperCase(),
                     style: const TextStyle(fontSize: 10, color: AppTheme.muted, fontWeight: FontWeight.bold),
@@ -193,16 +241,21 @@ class _ChatConversationScreenState extends State<ChatConversationScreen> {
           final list = rawMessages
               .map((m) => ChatMessageModel.fromJson(m as Map<String, dynamic>))
               .toList();
-          setState(() {
-            _messages = list;
-            _isLoading = false;
-          });
-          _scrollToBottom();
-          return;
+          if (mounted) {
+            setState(() {
+              _messages = list;
+              _isLoading = false;
+            });
+            _scrollToBottom();
+            return;
+          }
         }
       }
     } catch (_) {}
-    setState(() => _isLoading = false);
+
+    if (mounted) {
+      setState(() => _isLoading = false);
+    }
   }
 
   void _scrollToBottom() {
@@ -232,16 +285,30 @@ class _ChatConversationScreenState extends State<ChatConversationScreen> {
       if (res.statusCode == 201) {
         final body = jsonDecode(res.body);
         final newMsg = ChatMessageModel.fromJson(body['data']);
-        setState(() {
-          _messages.add(newMsg);
-          _isSending = false;
-        });
-        _scrollToBottom();
+        if (mounted) {
+          setState(() {
+            _messages.add(newMsg);
+            _isSending = false;
+          });
+          _scrollToBottom();
+        }
       } else {
-        setState(() => _isSending = false);
+        if (mounted) {
+          _msgCtrl.text = text;
+          setState(() => _isSending = false);
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Failed to send message. Please retry.')),
+          );
+        }
       }
-    } catch (_) {
-      setState(() => _isSending = false);
+    } catch (e) {
+      if (mounted) {
+        _msgCtrl.text = text;
+        setState(() => _isSending = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not send message: $e')),
+        );
+      }
     }
   }
 
@@ -252,7 +319,12 @@ class _ChatConversationScreenState extends State<ChatConversationScreen> {
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(widget.partnerName, style: const TextStyle(fontSize: 16)),
+            Text(
+              widget.partnerName,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontSize: 16),
+            ),
             if (widget.orderId != null)
               Text('Ref: Order #${widget.orderId}', style: const TextStyle(fontSize: 11, color: AppTheme.muted)),
           ],
@@ -338,4 +410,3 @@ class _ChatConversationScreenState extends State<ChatConversationScreen> {
     );
   }
 }
-

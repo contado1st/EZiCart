@@ -390,14 +390,14 @@ class _CartPageState extends State<CartPage> {
                   ),
                   ElevatedButton(
                     style: ElevatedButton.styleFrom(
-                      minimumSize: const Size(160, 46),
+                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
                     ),
                     onPressed: () {
                       Navigator.of(context).push(
                         MaterialPageRoute(builder: (_) => const CheckoutPage()),
                       );
                     },
-                    child: const Text('Proceed to Checkout'),
+                    child: const Text('Checkout'),
                   ),
                 ],
               ),

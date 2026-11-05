@@ -18,20 +18,24 @@ class ChatApiController extends Controller
      */
     public function threads(Request $request, MessagingInboxService $inbox): JsonResponse
     {
+        /** @var User $buyer */
         $buyer = $request->user();
         $threads = $inbox->threads($request);
 
-        $data = $threads->map(function ($t) use ($buyer) {
+        $data = collect($threads->items())->map(function (DirectConversation $t) use ($buyer) {
+            $partner = $t->otherUser($buyer);
+            $latest = $t->latestMessage;
+
             return [
                 'id' => $t->id,
                 'partner' => [
-                    'id' => $t->partner->id,
-                    'name' => $t->partner->business_name ?? trim("{$t->partner->first_name} {$t->partner->last_name}"),
-                    'role' => $t->partner->role,
+                    'id' => $partner->id,
+                    'name' => $partner->business_name ?: trim("{$partner->first_name} {$partner->last_name}"),
+                    'role' => $partner->role,
                 ],
-                'last_message' => $t->last_message?->body ?? '',
-                'last_message_at' => $t->last_message?->created_at?->toIso8601String() ?? $t->updated_at->toIso8601String(),
-                'unread_count' => $t->unread_count ?? 0,
+                'last_message' => $latest?->body ?? '',
+                'last_message_at' => $latest?->created_at?->toIso8601String() ?? $t->updated_at?->toIso8601String() ?? '',
+                'unread_count' => (int) ($t->unread_count ?? 0),
             ];
         });
 
@@ -46,6 +50,7 @@ class ChatApiController extends Controller
      */
     public function show(int $id, Request $request, DirectMessagingService $messaging): JsonResponse
     {
+        /** @var User $buyer */
         $buyer = $request->user();
         $conversation = DirectConversation::find($id);
 
@@ -75,7 +80,7 @@ class ChatApiController extends Controller
                 'conversation_id' => $conversation->id,
                 'partner' => [
                     'id' => $partner->id,
-                    'name' => $partner->business_name ?? trim("{$partner->first_name} {$partner->last_name}"),
+                    'name' => $partner->business_name ?: trim("{$partner->first_name} {$partner->last_name}"),
                     'role' => $partner->role,
                 ],
                 'messages' => $messages->map(fn ($m) => [
@@ -94,6 +99,7 @@ class ChatApiController extends Controller
      */
     public function sendMessage(int $id, Request $request, DirectMessagingService $messaging): JsonResponse
     {
+        /** @var User $buyer */
         $buyer = $request->user();
         $conversation = DirectConversation::find($id);
 
@@ -128,6 +134,7 @@ class ChatApiController extends Controller
      */
     public function start(int $sellerId, Request $request, DirectMessagingService $messaging): JsonResponse
     {
+        /** @var User $buyer */
         $buyer = $request->user();
         $seller = User::find($sellerId);
 
@@ -135,12 +142,18 @@ class ChatApiController extends Controller
             return response()->json(['success' => false, 'message' => 'Recipient not found.'], 404);
         }
 
-        $conversation = $messaging->start($buyer, $seller);
+        try {
+            $conversation = $messaging->start($buyer, $seller);
 
-        return response()->json([
-            'success' => true,
-            'conversation_id' => $conversation->id,
-        ]);
+            return response()->json([
+                'success' => true,
+                'conversation_id' => $conversation->id,
+            ]);
+        } catch (\Throwable $e) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage(),
+            ], 422);
+        }
     }
 }
-

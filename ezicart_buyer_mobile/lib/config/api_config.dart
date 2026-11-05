@@ -73,6 +73,11 @@ class ApiConfig {
   static String get categoriesEndpoint => '$baseUrl/categories';
   static String productDetailEndpoint(int id) => '$baseUrl/products/$id';
 
+  // Shop / Storefront endpoints
+  static String shopDetailsEndpoint(int id) => '$baseUrl/shops/$id';
+  static String shopFollowEndpoint(int id) => '$baseUrl/shops/$id/follow';
+  static String get followedShopsEndpoint => '$baseUrl/buyer/followed-shops';
+
   // Cart & Pricing endpoints
   static String get cartQuoteEndpoint => '$baseUrl/cart/quote';
 
@@ -84,6 +89,13 @@ class ApiConfig {
   static String cancelOrderEndpoint(int id) => '$baseUrl/orders/$id/cancel';
   static String refreshDeliveryCodeEndpoint(int id) => '$baseUrl/orders/$id/delivery-code/refresh';
   static String reviewOrderEndpoint(int id) => '$baseUrl/orders/$id/review';
+
+  // Notifications endpoints
+  static String get notificationsEndpoint => '$baseUrl/notifications';
+  static String get notificationsUnreadCountEndpoint => '$baseUrl/notifications/unread-count';
+  static String get notificationsReadAllEndpoint => '$baseUrl/notifications/read-all';
+  static String notificationReadEndpoint(String id) => '$baseUrl/notifications/$id/read';
+  static String get notificationPreferencesEndpoint => '$baseUrl/notifications/preferences';
 
   // Address book & PSGC endpoints
   static String get addressesEndpoint => '$baseUrl/addresses';

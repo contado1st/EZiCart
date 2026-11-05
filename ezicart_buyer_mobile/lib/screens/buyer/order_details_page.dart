@@ -8,6 +8,7 @@ import '../../models/order_model.dart';
 import '../../services/api_service.dart';
 import 'create_dispute_page.dart';
 import 'messages_page.dart';
+import 'shop_page.dart';
 
 class OrderDetailsPage extends StatefulWidget {
   final int orderId;
@@ -475,7 +476,42 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           const Text('Items Ordered', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                          Text(_order!.sellerName, style: const TextStyle(color: AppTheme.primary, fontSize: 12, fontWeight: FontWeight.bold)),
+                          const SizedBox(width: 8),
+                          Flexible(
+                            child: InkWell(
+                              onTap: _order!.sellerId != null
+                                  ? () {
+                                      Navigator.of(context).push(
+                                        MaterialPageRoute(
+                                          builder: (_) => ShopPage(
+                                            sellerId: _order!.sellerId!,
+                                            initialShopName: _order!.sellerName,
+                                          ),
+                                        ),
+                                      );
+                                    }
+                                  : null,
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Icon(Icons.storefront_outlined, size: 14, color: AppTheme.primary),
+                                  const SizedBox(width: 4),
+                                  Flexible(
+                                    child: Text(
+                                      _order!.sellerName,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(
+                                        color: AppTheme.primary,
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
                         ],
                       ),
                       const Divider(height: 16),

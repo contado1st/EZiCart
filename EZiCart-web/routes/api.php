@@ -6,9 +6,11 @@ use App\Http\Controllers\Api\CartApiController;
 use App\Http\Controllers\Api\ChatApiController;
 use App\Http\Controllers\Api\CheckoutApiController;
 use App\Http\Controllers\Api\DiscoveryApiController;
+use App\Http\Controllers\Api\NotificationApiController;
 use App\Http\Controllers\Api\OrderApiController;
 use App\Http\Controllers\Api\ProductApiController;
 use App\Http\Controllers\Api\ProfileApiController;
+use App\Http\Controllers\Api\ShopApiController;
 use App\Http\Controllers\Api\VoucherApiController;
 use App\Http\Controllers\PsgcAddressController;
 use Illuminate\Support\Facades\Route;
@@ -39,6 +41,9 @@ $defineApiRoutes = function () {
     Route::get('/products/{id}', [ProductApiController::class, 'show'])->whereNumber('id');
     Route::get('/categories', [ProductApiController::class, 'categories']);
 
+    // Seller Shop Front (Public)
+    Route::get('/shops/{id}', [ShopApiController::class, 'show'])->whereNumber('id');
+
     // PSGC Locations (Public for registration & address management)
     Route::get('/psgc-addresses', PsgcAddressController::class);
 
@@ -56,6 +61,18 @@ $defineApiRoutes = function () {
         // Profile & Security Management
         Route::put('/account/profile', [ProfileApiController::class, 'updateProfile']);
         Route::put('/account/password', [ProfileApiController::class, 'updatePassword']);
+
+        // Seller Shop Following
+        Route::post('/shops/{id}/follow', [ShopApiController::class, 'follow'])->whereNumber('id')->middleware('throttle:operational-action');
+        Route::get('/buyer/followed-shops', [ShopApiController::class, 'followedShops']);
+
+        // Notifications & Preferences
+        Route::get('/notifications', [NotificationApiController::class, 'index']);
+        Route::get('/notifications/unread-count', [NotificationApiController::class, 'unreadCount']);
+        Route::post('/notifications/read-all', [NotificationApiController::class, 'markAllRead']);
+        Route::post('/notifications/{id}/read', [NotificationApiController::class, 'markRead']);
+        Route::get('/notifications/preferences', [NotificationApiController::class, 'getPreferences']);
+        Route::patch('/notifications/preferences', [NotificationApiController::class, 'updatePreferences']);
 
         // Checkout & Orders
         Route::post('/checkout', [CheckoutApiController::class, 'checkout'])->middleware('throttle:operational-action');
@@ -100,4 +117,3 @@ $defineApiRoutes = function () {
 // Mount both at /v1 and root of API
 Route::prefix('v1')->group($defineApiRoutes);
 $defineApiRoutes();
-

@@ -19,6 +19,7 @@ import 'product_details_page.dart';
 import 'profile_page.dart';
 import 'stock_watchlist_page.dart';
 import 'vouchers_page.dart';
+import 'notifications_page.dart';
 
 class BuyerDashboard extends StatefulWidget {
   const BuyerDashboard({super.key});
@@ -29,6 +30,8 @@ class BuyerDashboard extends StatefulWidget {
 
 class _BuyerDashboardState extends State<BuyerDashboard> {
   int _currentIndex = 0;
+  int _unreadNotificationCount = 0;
+  final GlobalKey<MessagesPageState> _messagesKey = GlobalKey<MessagesPageState>();
   List<ProductModel> _products = [];
   List<CategoryModel> _categories = [];
   String _selectedCategory = 'All';
@@ -53,8 +56,21 @@ class _BuyerDashboardState extends State<BuyerDashboard> {
     await Future.wait([
       _fetchProducts(),
       _fetchCategories(),
+      _fetchNotificationCount(),
     ]);
     setState(() => _isLoading = false);
+  }
+
+  Future<void> _fetchNotificationCount() async {
+    try {
+      final res = await ApiService.get(ApiConfig.notificationsUnreadCountEndpoint);
+      if (res.statusCode == 200) {
+        final body = jsonDecode(res.body);
+        if (body['unread_count'] is int && mounted) {
+          setState(() => _unreadNotificationCount = body['unread_count']);
+        }
+      }
+    } catch (_) {}
   }
 
   Future<void> _fetchProducts() async {
@@ -398,7 +414,7 @@ class _BuyerDashboardState extends State<BuyerDashboard> {
               sliver: SliverGrid(
                 gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                   crossAxisCount: 2,
-                  childAspectRatio: 0.68,
+                  childAspectRatio: 0.63,
                   crossAxisSpacing: 12,
                   mainAxisSpacing: 12,
                 ),
@@ -477,12 +493,16 @@ class _BuyerDashboardState extends State<BuyerDashboard> {
                                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                       crossAxisAlignment: CrossAxisAlignment.center,
                                       children: [
-                                        Text(
-                                          currency.format(product.price),
-                                          style: const TextStyle(
-                                            fontSize: 14,
-                                            fontWeight: FontWeight.bold,
-                                            color: AppTheme.primary,
+                                        Expanded(
+                                          child: Text(
+                                            currency.format(product.price),
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: const TextStyle(
+                                              fontSize: 14,
+                                              fontWeight: FontWeight.bold,
+                                              color: AppTheme.primary,
+                                            ),
                                           ),
                                         ),
                                         IconButton(
@@ -528,7 +548,7 @@ class _BuyerDashboardState extends State<BuyerDashboard> {
       _buildStorefront(),
       CategoriesPage(onSelectCategory: _onCategorySelected),
       const OrdersPage(),
-      const MessagesPage(),
+      MessagesPage(key: _messagesKey),
       const ProfilePage(),
     ];
 
@@ -549,6 +569,35 @@ class _BuyerDashboardState extends State<BuyerDashboard> {
           ],
         ),
         actions: [
+          Stack(
+            children: [
+              IconButton(
+                icon: const Icon(Icons.notifications_outlined),
+                onPressed: () async {
+                  await Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const NotificationsPage()),
+                  );
+                  _fetchNotificationCount();
+                },
+              ),
+              if (_unreadNotificationCount > 0)
+                Positioned(
+                  right: 8,
+                  top: 8,
+                  child: Container(
+                    padding: const EdgeInsets.all(4),
+                    decoration: const BoxDecoration(
+                      color: Colors.redAccent,
+                      shape: BoxShape.circle,
+                    ),
+                    child: Text(
+                      '$_unreadNotificationCount',
+                      style: const TextStyle(fontSize: 10, color: Colors.white, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                ),
+            ],
+          ),
           Stack(
             children: [
               IconButton(
@@ -585,7 +634,12 @@ class _BuyerDashboardState extends State<BuyerDashboard> {
       ),
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _currentIndex,
-        onTap: (index) => setState(() => _currentIndex = index),
+        onTap: (index) {
+          setState(() => _currentIndex = index);
+          if (index == 3) {
+            _messagesKey.currentState?.fetchThreads();
+          }
+        },
         type: BottomNavigationBarType.fixed,
         selectedItemColor: AppTheme.primary,
         unselectedItemColor: AppTheme.muted,

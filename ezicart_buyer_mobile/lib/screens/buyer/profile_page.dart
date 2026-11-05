@@ -1,11 +1,14 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../config/api_config.dart';
 import '../../config/theme.dart';
 import '../../providers/auth_provider.dart';
+import '../../services/api_service.dart';
 import 'addresses_page.dart';
 import 'disputes_list_page.dart';
 import 'for_you_page.dart';
+import 'notifications_page.dart';
 import 'stock_watchlist_page.dart';
 import 'vouchers_page.dart';
 
@@ -17,6 +20,35 @@ class ProfilePage extends StatefulWidget {
 }
 
 class _ProfilePageState extends State<ProfilePage> {
+  bool _promotionsEnabled = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadPreferences();
+  }
+
+  Future<void> _loadPreferences() async {
+    try {
+      final res = await ApiService.get(ApiConfig.notificationPreferencesEndpoint);
+      if (res.statusCode == 200) {
+        final body = jsonDecode(res.body);
+        if (body['seller_promotions_enabled'] is bool && mounted) {
+          setState(() => _promotionsEnabled = body['seller_promotions_enabled']);
+        }
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _updatePromotions(bool value) async {
+    setState(() => _promotionsEnabled = value);
+    try {
+      await ApiService.patch(
+        ApiConfig.notificationPreferencesEndpoint,
+        {'seller_promotions_enabled': value},
+      );
+    } catch (_) {}
+  }
   void _showEditProfileDialog() {
     final auth = context.read<AuthProvider>();
     final user = auth.user;
@@ -311,6 +343,18 @@ class _ProfilePageState extends State<ProfilePage> {
               child: Column(
                 children: [
                   ListTile(
+                    leading: const Icon(Icons.notifications_outlined, color: Colors.purple),
+                    title: const Text('Notifications Center'),
+                    subtitle: const Text('Order updates, messages, promos, and restocks', style: TextStyle(fontSize: 11, color: AppTheme.muted)),
+                    trailing: const Icon(Icons.chevron_right, size: 18, color: AppTheme.muted),
+                    onTap: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(builder: (_) => const NotificationsPage()),
+                      );
+                    },
+                  ),
+                  const Divider(height: 1, indent: 56),
+                  ListTile(
                     leading: const Icon(Icons.confirmation_number_outlined, color: Colors.indigo),
                     title: const Text('Vouchers & Promos'),
                     subtitle: const Text('Claim platform discounts and seller shop vouchers', style: TextStyle(fontSize: 11, color: AppTheme.muted)),
@@ -381,6 +425,15 @@ class _ProfilePageState extends State<ProfilePage> {
                         MaterialPageRoute(builder: (_) => const AddressesPage()),
                       );
                     },
+                  ),
+                  const Divider(height: 1, indent: 56),
+                  SwitchListTile(
+                    secondary: const Icon(Icons.campaign_outlined, color: AppTheme.ink),
+                    title: const Text('Store Broadcasts & Offers'),
+                    subtitle: const Text('Receive promotional campaign updates from followed merchants', style: TextStyle(fontSize: 11, color: AppTheme.muted)),
+                    value: _promotionsEnabled,
+                    activeTrackColor: AppTheme.primary,
+                    onChanged: _updatePromotions,
                   ),
                   const Divider(height: 1, indent: 56),
                   ListTile(

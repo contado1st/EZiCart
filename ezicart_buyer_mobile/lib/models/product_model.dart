@@ -26,6 +26,43 @@ class ProductVariation {
   }
 }
 
+class ReviewItemModel {
+  final int id;
+  final String userName;
+  final int rating;
+  final String? comment;
+  final String createdAt;
+
+  ReviewItemModel({
+    required this.id,
+    required this.userName,
+    required this.rating,
+    this.comment,
+    required this.createdAt,
+  });
+
+  factory ReviewItemModel.fromJson(Map<String, dynamic> json) {
+    String uName = 'Buyer';
+    if (json['user'] is Map) {
+      final user = json['user'] as Map<String, dynamic>;
+      final fn = user['first_name']?.toString() ?? '';
+      final ln = user['last_name']?.toString() ?? '';
+      uName = '$fn $ln'.trim();
+      if (uName.isEmpty) uName = 'Verified Buyer';
+    } else if (json['user_name'] != null) {
+      uName = json['user_name'].toString();
+    }
+
+    return ReviewItemModel(
+      id: parseInt(json['id']),
+      userName: uName,
+      rating: parseInt(json['rating'], 5),
+      comment: json['comment'] as String? ?? json['review'] as String?,
+      createdAt: json['created_at']?.toString() ?? '',
+    );
+  }
+}
+
 class ProductModel {
   final int id;
   final String name;
@@ -39,6 +76,7 @@ class ProductModel {
   final double rating;
   final int reviewsCount;
   final List<ProductVariation> variations;
+  final List<ReviewItemModel> reviews;
 
   int get reviewCount => reviewsCount;
 
@@ -55,12 +93,18 @@ class ProductModel {
     this.rating = 5.0,
     this.reviewsCount = 0,
     required this.variations,
+    this.reviews = const [],
   });
 
   factory ProductModel.fromJson(Map<String, dynamic> json) {
     var rawVariations = json['variations'] as List<dynamic>? ?? [];
     var parsedVariations = rawVariations
         .map((e) => ProductVariation.fromJson(e as Map<String, dynamic>))
+        .toList();
+
+    var rawReviews = json['reviews'] as List<dynamic>? ?? [];
+    var parsedReviews = rawReviews
+        .map((e) => ReviewItemModel.fromJson(e as Map<String, dynamic>))
         .toList();
 
     String seller = json['seller']?['business_name']?.toString() ?? '';
@@ -82,8 +126,9 @@ class ProductModel {
       sellerId: parseNullableInt(json['seller']?['id']),
       sellerName: seller,
       rating: parseDouble(json['rating'], 5.0),
-      reviewsCount: parseInt(json['reviews_count']),
+      reviewsCount: parseInt(json['reviews_count'], parsedReviews.length),
       variations: parsedVariations,
+      reviews: parsedReviews,
     );
   }
 }

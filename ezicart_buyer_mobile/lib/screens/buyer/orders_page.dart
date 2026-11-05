@@ -262,16 +262,23 @@ class _OrdersPageState extends State<OrdersPage> with SingleTickerProviderStateM
                                 Row(
                                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                   children: [
-                                    Row(
-                                      children: [
-                                        const Icon(Icons.storefront_outlined, size: 16, color: AppTheme.muted),
-                                        const SizedBox(width: 6),
-                                        Text(
-                                          order.sellerName,
-                                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-                                        ),
-                                      ],
+                                    Expanded(
+                                      child: Row(
+                                        children: [
+                                          const Icon(Icons.storefront_outlined, size: 16, color: AppTheme.muted),
+                                          const SizedBox(width: 6),
+                                          Expanded(
+                                            child: Text(
+                                              order.sellerName,
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
                                     ),
+                                    const SizedBox(width: 8),
                                     Container(
                                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                                       decoration: BoxDecoration(
@@ -324,18 +331,22 @@ class _OrdersPageState extends State<OrdersPage> with SingleTickerProviderStateM
                                 // Total & Action buttons
                                 Row(
                                   children: [
-                                    Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        if (order.parcelCode != null)
-                                          Text('Parcel: ${order.parcelCode}', style: const TextStyle(fontSize: 11, color: AppTheme.muted)),
-                                        Text(
-                                          'Total: ${currency.format(order.totalAmount)}',
-                                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: AppTheme.ink),
-                                        ),
-                                      ],
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          if (order.parcelCode != null)
+                                            Text('Parcel: ${order.parcelCode}', style: const TextStyle(fontSize: 11, color: AppTheme.muted)),
+                                          Text(
+                                            'Total: ${currency.format(order.totalAmount)}',
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: AppTheme.ink),
+                                          ),
+                                        ],
+                                      ),
                                     ),
-                                    const Spacer(),
+                                    const SizedBox(width: 8),
                                     if (order.status == 'DELIVERED')
                                       Padding(
                                         padding: const EdgeInsets.only(right: 8),
