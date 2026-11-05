@@ -10,7 +10,7 @@ class ProductVariation extends Model
 {
     use HasFactory;
 
-    protected $hidden = ['sku', 'image_path'];
+    protected $hidden = ['sku'];
 
     protected $fillable = [
         'product_id',

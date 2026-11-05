@@ -6,6 +6,7 @@ class ProductVariation {
   final String value;
   final double priceAdjustment;
   final int stock;
+  final String? imagePath;
 
   ProductVariation({
     required this.id,
@@ -13,6 +14,7 @@ class ProductVariation {
     required this.value,
     required this.priceAdjustment,
     required this.stock,
+    this.imagePath,
   });
 
   factory ProductVariation.fromJson(Map<String, dynamic> json) {
@@ -22,6 +24,7 @@ class ProductVariation {
       value: json['value']?.toString() ?? '',
       priceAdjustment: parseDouble(json['price_adjustment']),
       stock: parseInt(json['stock']),
+      imagePath: json['image_path'] as String?,
     );
   }
 }
@@ -77,8 +80,23 @@ class ProductModel {
   final int reviewsCount;
   final List<ProductVariation> variations;
   final List<ReviewItemModel> reviews;
+  final List<String> galleryImages;
 
   int get reviewCount => reviewsCount;
+
+  List<String> get allImages {
+    final list = <String>[];
+    for (final img in galleryImages) {
+      final t = img.trim();
+      if (t.isNotEmpty && !list.contains(t)) {
+        list.add(t);
+      }
+    }
+    if (imagePath != null && imagePath!.trim().isNotEmpty && !list.contains(imagePath!.trim())) {
+      list.insert(0, imagePath!.trim());
+    }
+    return list;
+  }
 
   ProductModel({
     required this.id,
@@ -94,6 +112,7 @@ class ProductModel {
     this.reviewsCount = 0,
     required this.variations,
     this.reviews = const [],
+    this.galleryImages = const [],
   });
 
   factory ProductModel.fromJson(Map<String, dynamic> json) {
@@ -106,6 +125,36 @@ class ProductModel {
     var parsedReviews = rawReviews
         .map((e) => ReviewItemModel.fromJson(e as Map<String, dynamic>))
         .toList();
+
+    // Parse gallery media images
+    List<String> allImages = [];
+    final baseImg = json['image_path'] as String?;
+    if (baseImg != null && baseImg.trim().isNotEmpty) {
+      allImages.add(baseImg.trim());
+    }
+
+    var rawMedia = json['media'] as List<dynamic>? ?? [];
+    for (var m in rawMedia) {
+      if (m is Map) {
+        final path = m['path']?.toString();
+        final kind = m['kind']?.toString() ?? 'image';
+        if (path != null && path.trim().isNotEmpty && kind != 'video') {
+          if (!allImages.contains(path.trim())) {
+            allImages.add(path.trim());
+          }
+        }
+      }
+    }
+
+    // Also support raw gallery_images list if present
+    if (json['gallery_images'] is List) {
+      for (var img in json['gallery_images']) {
+        final str = img?.toString();
+        if (str != null && str.trim().isNotEmpty && !allImages.contains(str.trim())) {
+          allImages.add(str.trim());
+        }
+      }
+    }
 
     String seller = json['seller']?['business_name']?.toString() ?? '';
     if (seller.trim().isEmpty) {
@@ -122,13 +171,14 @@ class ProductModel {
       category: json['category']?.toString() ?? 'General',
       price: parseDouble(json['price']),
       stock: parseInt(json['stock']),
-      imagePath: json['image_path'] as String?,
-      sellerId: parseNullableInt(json['seller']?['id']),
+      imagePath: baseImg ?? (allImages.isNotEmpty ? allImages.first : null),
+      sellerId: parseNullableInt(json['seller']?['id'] ?? json['user_id']),
       sellerName: seller,
       rating: parseDouble(json['rating'], 5.0),
       reviewsCount: parseInt(json['reviews_count'], parsedReviews.length),
       variations: parsedVariations,
       reviews: parsedReviews,
+      galleryImages: allImages,
     );
   }
 }

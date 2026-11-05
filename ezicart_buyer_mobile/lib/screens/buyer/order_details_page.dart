@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
@@ -245,17 +246,41 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
 
     if (_order == null) {
       return Scaffold(
-        appBar: AppBar(title: const Text('Order Details')),
-        body: const Center(child: Text('Order details could not be loaded.')),
+        appBar: AppBar(title: Text('Order #${widget.orderId}')),
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.receipt_long_outlined, size: 54, color: Colors.grey.shade400),
+                const SizedBox(height: 12),
+                const Text('Order details could not be loaded.', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                const SizedBox(height: 6),
+                const Text('Please verify your connection and tap retry below.', style: TextStyle(color: AppTheme.muted, fontSize: 13)),
+                const SizedBox(height: 16),
+                ElevatedButton.icon(
+                  icon: const Icon(Icons.refresh, size: 18),
+                  label: const Text('Retry'),
+                  onPressed: () {
+                    setState(() => _isLoading = true);
+                    _fetchDetails();
+                  },
+                ),
+              ],
+            ),
+          ),
+        ),
       );
     }
 
-    final currency = NumberFormat.currency(symbol: '₱', decimalDigits: 2);
+    final currency = NumberFormat.currency(locale: 'en_PH', symbol: '₱', decimalDigits: 2);
     final isOutForDelivery = _order!.status == 'OUT_FOR_DELIVERY';
+    final displayOrderRef = _order!.orderNumber ?? 'Order #${_order!.id}';
 
     return Scaffold(
       appBar: AppBar(
-        title: Text('Order #${_order!.id}'),
+        title: Text(displayOrderRef, maxLines: 1, overflow: TextOverflow.ellipsis),
         actions: [
           if (_order!.sellerId != null)
             IconButton(
@@ -516,11 +541,32 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
                       ),
                       const Divider(height: 16),
                       ..._order!.items.map((item) {
+                        final itemImg = ApiConfig.resolveImageUrl(item.imagePath);
                         return Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 6),
+                          padding: const EdgeInsets.symmetric(vertical: 8),
                           child: Row(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
+                              Container(
+                                width: 48,
+                                height: 48,
+                                decoration: BoxDecoration(
+                                  color: Colors.grey.shade100,
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(color: AppTheme.line),
+                                ),
+                                child: itemImg != null
+                                    ? ClipRRect(
+                                        borderRadius: BorderRadius.circular(7),
+                                        child: CachedNetworkImage(
+                                          imageUrl: itemImg,
+                                          fit: BoxFit.cover,
+                                          errorWidget: (_, __, ___) => const Icon(Icons.inventory_2_outlined, size: 20, color: AppTheme.muted),
+                                        ),
+                                      )
+                                    : const Icon(Icons.inventory_2_outlined, size: 20, color: AppTheme.muted),
+                              ),
+                              const SizedBox(width: 10),
                               Expanded(
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,

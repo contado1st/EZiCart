@@ -122,13 +122,47 @@ class _CartPageState extends State<CartPage> {
       body: SafeArea(
         child: Column(
           children: [
+            if (cart.isLoading)
+              const LinearProgressIndicator(
+                minHeight: 2,
+                backgroundColor: AppTheme.line,
+                color: AppTheme.primary,
+              ),
             Expanded(
               child: ListView(
                 padding: const EdgeInsets.all(16),
                 children: [
+                  if (cart.errorMessage != null)
+                    Container(
+                      margin: const EdgeInsets.only(bottom: 12),
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.red.shade50,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.red.shade200),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(Icons.error_outline, color: Colors.red.shade700, size: 20),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              cart.errorMessage!,
+                              style: TextStyle(color: Colors.red.shade900, fontSize: 12, height: 1.3),
+                            ),
+                          ),
+                          TextButton(
+                            onPressed: () => cart.fetchAuthoritativeQuote(),
+                            child: const Text('Retry', style: TextStyle(fontSize: 12)),
+                          ),
+                        ],
+                      ),
+                    ),
                   ...cart.items.entries.map((entry) {
                     final key = entry.key;
                     final item = entry.value;
+                    final imgPath = item.displayImage;
+                    final canIncrement = item.quantity < item.availableStock && item.quantity < 20;
 
                     return Card(
                       margin: const EdgeInsets.only(bottom: 12),
@@ -150,12 +184,19 @@ class _CartPageState extends State<CartPage> {
                                 color: Colors.grey.shade100,
                                 borderRadius: BorderRadius.circular(8),
                               ),
-                              child: ApiConfig.resolveImageUrl(item.product.imagePath) != null
+                              child: ApiConfig.resolveImageUrl(imgPath) != null
                                   ? ClipRRect(
                                       borderRadius: BorderRadius.circular(8),
                                       child: CachedNetworkImage(
-                                        imageUrl: ApiConfig.resolveImageUrl(item.product.imagePath)!,
+                                        imageUrl: ApiConfig.resolveImageUrl(imgPath)!,
                                         fit: BoxFit.cover,
+                                        placeholder: (_, __) => const Center(
+                                          child: SizedBox(
+                                            width: 20,
+                                            height: 20,
+                                            child: CircularProgressIndicator(strokeWidth: 2),
+                                          ),
+                                        ),
                                         errorWidget: (_, __, ___) => const Icon(Icons.inventory_2_outlined, color: AppTheme.muted),
                                       ),
                                     )
@@ -226,10 +267,14 @@ class _CartPageState extends State<CartPage> {
                                         child: Text('${item.quantity}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
                                       ),
                                       InkWell(
-                                        onTap: () => cart.updateQuantity(key, item.quantity + 1),
-                                        child: const Padding(
-                                          padding: EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                          child: Icon(Icons.add, size: 14),
+                                        onTap: canIncrement ? () => cart.updateQuantity(key, item.quantity + 1) : null,
+                                        child: Padding(
+                                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                          child: Icon(
+                                            Icons.add,
+                                            size: 14,
+                                            color: canIncrement ? AppTheme.ink : AppTheme.muted,
+                                          ),
                                         ),
                                       ),
                                     ],
@@ -392,12 +437,20 @@ class _CartPageState extends State<CartPage> {
                     style: ElevatedButton.styleFrom(
                       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
                     ),
-                    onPressed: () {
-                      Navigator.of(context).push(
-                        MaterialPageRoute(builder: (_) => const CheckoutPage()),
-                      );
-                    },
-                    child: const Text('Checkout'),
+                    onPressed: (cart.isLoading || cart.errorMessage != null || cart.items.isEmpty)
+                        ? null
+                        : () {
+                            Navigator.of(context).push(
+                              MaterialPageRoute(builder: (_) => const CheckoutPage()),
+                            );
+                          },
+                    child: cart.isLoading
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                          )
+                        : const Text('Checkout'),
                   ),
                 ],
               ),

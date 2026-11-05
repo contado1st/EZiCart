@@ -37,32 +37,37 @@ class CartProvider extends ChangeNotifier {
   String? get errorMessage => _errorMessage;
 
   void addItem(ProductModel product, {ProductVariation? variation, int quantity = 1}) {
+    final maxStock = variation != null ? variation.stock : product.stock;
+    final limit = maxStock > 0 ? (maxStock < 20 ? maxStock : 20) : 1;
     final key = '${product.id}${variation != null ? "_${variation.id}" : ""}';
     if (_items.containsKey(key)) {
       final newQty = _items[key]!.quantity + quantity;
-      _items[key]!.quantity = newQty.clamp(1, 20);
+      _items[key]!.quantity = newQty.clamp(1, limit);
     } else {
       _items[key] = CartItemModel(
         product: product,
         variation: variation,
-        quantity: quantity.clamp(1, 20),
+        quantity: quantity.clamp(1, limit),
       );
     }
     _recalculateLocalTotals();
     notifyListeners();
-    fetchAuthoritativeQuote();
+    Future.microtask(() => fetchAuthoritativeQuote());
   }
 
   void updateQuantity(String cartKey, int quantity) {
     if (_items.containsKey(cartKey)) {
+      final item = _items[cartKey]!;
+      final maxStock = item.availableStock;
+      final limit = maxStock > 0 ? (maxStock < 20 ? maxStock : 20) : 1;
       if (quantity <= 0) {
         _items.remove(cartKey);
       } else {
-        _items[cartKey]!.quantity = quantity.clamp(1, 20);
+        _items[cartKey]!.quantity = quantity.clamp(1, limit);
       }
       _recalculateLocalTotals();
       notifyListeners();
-      fetchAuthoritativeQuote();
+      Future.microtask(() => fetchAuthoritativeQuote());
     }
   }
 
@@ -71,7 +76,7 @@ class CartProvider extends ChangeNotifier {
     _recalculateLocalTotals();
     notifyListeners();
     if (_items.isNotEmpty) {
-      fetchAuthoritativeQuote();
+      Future.microtask(() => fetchAuthoritativeQuote());
     } else {
       clearQuote();
     }
@@ -149,12 +154,16 @@ class CartProvider extends ChangeNotifier {
         return true;
       } else {
         _errorMessage = body['message'] ?? 'Unable to calculate checkout totals.';
+        _checkoutToken = null;
+        _quoteHash = null;
         notifyListeners();
         return false;
       }
     } catch (e) {
       _isLoading = false;
       _errorMessage = e.toString();
+      _checkoutToken = null;
+      _quoteHash = null;
       notifyListeners();
       return false;
     }

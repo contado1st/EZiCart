@@ -14,6 +14,14 @@ class CartItemModel {
 
   double get total => unitPrice * quantity;
 
+  String? get displayImage =>
+      (variation?.imagePath != null && variation!.imagePath!.trim().isNotEmpty)
+          ? variation!.imagePath
+          : product.imagePath;
+
+  int get availableStock =>
+      variation != null ? variation!.stock : product.stock;
+
   Map<String, dynamic> toLineMap() => {
     'product_id': product.id,
     'variation_id': variation?.id,

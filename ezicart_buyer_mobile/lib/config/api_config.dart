@@ -19,14 +19,16 @@ class ApiConfig {
     final prefs = await SharedPreferences.getInstance();
     final customUrl = prefs.getString('custom_api_base_url');
     if (customUrl != null && customUrl.trim().isNotEmpty) {
-      if (customUrl.contains('localhost:8000')) {
-        // Automatically migrate any legacy localhost:8000 to 127.0.0.1:8000
-        final migrated = customUrl.replaceAll('localhost:8000', '127.0.0.1:8000').trim();
-        _customBaseUrl = migrated;
-        await prefs.setString('custom_api_base_url', migrated);
+      var migrated = customUrl.trim();
+      if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
+        migrated = migrated
+            .replaceAll('localhost:8000', '10.0.2.2:8000')
+            .replaceAll('127.0.0.1:8000', '10.0.2.2:8000');
       } else {
-        _customBaseUrl = customUrl.trim();
+        migrated = migrated.replaceAll('localhost:8000', '127.0.0.1:8000');
       }
+      _customBaseUrl = migrated;
+      await prefs.setString('custom_api_base_url', migrated);
     }
   }
 
@@ -46,12 +48,29 @@ class ApiConfig {
   /// Helper to convert relative or absolute image path to full URL
   static String? resolveImageUrl(String? path) {
     if (path == null || path.trim().isEmpty) return null;
-    final trimmed = path.trim();
+    var trimmed = path.trim().replaceAll(r'\', '/');
+    final root = baseUrl.replaceAll(RegExp(r'/api(/v\d+)?$'), '');
+
     if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+      if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
+        final rootUri = Uri.tryParse(root);
+        final targetHost = rootUri?.host ?? '10.0.2.2';
+        final targetPort = (rootUri != null && rootUri.hasPort) ? rootUri.port : 8000;
+        final parsed = Uri.tryParse(trimmed);
+        if (parsed != null && (parsed.host == '127.0.0.1' || parsed.host == 'localhost')) {
+          trimmed = trimmed.replaceFirst('${parsed.host}:${parsed.port}', '$targetHost:$targetPort');
+        }
+      }
       return trimmed;
     }
-    final cleanPath = trimmed.startsWith('/') ? trimmed.substring(1) : trimmed;
-    final root = baseUrl.replaceAll(RegExp(r'/api(/v\d+)?$'), '');
+
+    var cleanPath = trimmed.replaceFirst(RegExp(r'^/+'), '');
+    if (cleanPath.startsWith('public/')) {
+      cleanPath = cleanPath.substring(7);
+    }
+    if (cleanPath.startsWith('images/')) {
+      return '$root/$cleanPath';
+    }
     if (cleanPath.startsWith('storage/')) {
       return '$root/$cleanPath';
     }

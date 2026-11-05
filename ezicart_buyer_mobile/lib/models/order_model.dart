@@ -63,6 +63,7 @@ class OrderTrackingTimelineItem {
 
 class OrderModel {
   final int id;
+  final String? orderNumber;
   final String? parcelCode;
   final String status;
   final String statusLabel;
@@ -89,6 +90,7 @@ class OrderModel {
 
   OrderModel({
     required this.id,
+    this.orderNumber,
     this.parcelCode,
     required this.status,
     required this.statusLabel,
@@ -132,6 +134,7 @@ class OrderModel {
 
     return OrderModel(
       id: parseInt(json['id']),
+      orderNumber: json['order_number'] as String?,
       parcelCode: json['parcel_code'] as String?,
       status: rawStatus,
       statusLabel: json['status_label']?.toString() ?? rawStatus.replaceAll('_', ' '),

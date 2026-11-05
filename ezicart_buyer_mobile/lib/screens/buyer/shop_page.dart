@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../config/api_config.dart';
@@ -495,13 +496,23 @@ class _ShopPageState extends State<ShopPage> {
                                       child: ClipRRect(
                                         borderRadius: const BorderRadius.vertical(top: Radius.circular(9)),
                                         child: imageUrl != null
-                                            ? Image.network(
-                                                imageUrl,
+                                            ? CachedNetworkImage(
+                                                imageUrl: imageUrl,
                                                 width: double.infinity,
                                                 fit: BoxFit.cover,
-                                                errorBuilder: (_, __, ___) => Container(
+                                                placeholder: (_, __) => Container(
                                                   color: Colors.grey.shade100,
-                                                  child: const Icon(Icons.image_not_supported, color: Colors.grey),
+                                                  child: const Center(
+                                                    child: SizedBox(
+                                                      width: 24,
+                                                      height: 24,
+                                                      child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.primary),
+                                                    ),
+                                                  ),
+                                                ),
+                                                errorWidget: (_, __, ___) => Container(
+                                                  color: Colors.grey.shade100,
+                                                  child: const Icon(Icons.inventory_2_outlined, color: AppTheme.muted),
                                                 ),
                                               )
                                             : Container(

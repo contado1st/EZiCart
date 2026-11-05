@@ -45,7 +45,11 @@ class ShopApiController extends Controller
         $reviewCount = (clone $reviews)->count();
 
         $query = (clone $base)
-            ->with(['variations' => fn ($q) => $q->where('is_active', true)])
+            ->with([
+                'seller:id,business_name,first_name,last_name,municipality,province',
+                'media',
+                'variations' => fn ($q) => $q->where('is_active', true),
+            ])
             ->withAvg('reviews as rating', 'rating')
             ->withCount('reviews');
 

@@ -68,7 +68,8 @@ class OrderApiController extends Controller
         $buyer = $request->user();
         $order = Order::with([
             'seller:id,business_name,contact_no',
-            'courier:id,first_name,last_name,contact_no,plate_number',
+            'deliveryCourier:id,first_name,last_name,contact_no,plate_number',
+            'pickupCourier:id,first_name,last_name,contact_no,plate_number',
             'items.product:id,name,image_path',
             'dispute',
             'trackingEvents' => fn ($q) => $q->latest('id'),
@@ -82,24 +83,36 @@ class OrderApiController extends Controller
         $deliveryCode = null;
         $deliveryQrString = null;
         if ($order->status === 'OUT_FOR_DELIVERY') {
-            $deliveryCode = $deliveryCodes->reveal($order);
-            if ($deliveryCode !== null) {
-                $deliveryQrString = 'EZD:'.$deliveryCode;
+            try {
+                $deliveryCode = $deliveryCodes->reveal($order);
+                if ($deliveryCode !== null) {
+                    $deliveryQrString = 'EZD:'.$deliveryCode;
+                }
+            } catch (\Throwable $e) {
+                // Ignore code reveal errors if not ready
             }
         }
+
+        $courier = $order->deliveryCourier ?? $order->pickupCourier;
+
+        $totalAmount = (float) ($order->total_amount ?? ($order->total_cents ? $order->total_cents / 100 : 0));
+        $subtotal = (float) ($order->subtotal ?? ($order->subtotal_cents ? $order->subtotal_cents / 100 : $totalAmount));
+        $shippingFee = (float) ($order->shipping_fee ?? ($order->shipping_cents ? $order->shipping_cents / 100 : 0));
+        $discount = (float) ($order->discount_cents ? $order->discount_cents / 100 : 0);
 
         return response()->json([
             'success' => true,
             'data' => [
                 'id' => $order->id,
+                'order_number' => $order->order_number,
                 'parcel_code' => $order->parcel_code,
                 'status' => $order->status,
                 'status_label' => str_replace('_', ' ', $order->status),
                 'created_at' => $order->created_at->toIso8601String(),
-                'total_amount' => $order->total_cents / 100,
-                'subtotal' => $order->subtotal_cents / 100,
-                'shipping_fee' => $order->shipping_cents / 100,
-                'discount' => $order->discount_cents / 100,
+                'total_amount' => $totalAmount,
+                'subtotal' => $subtotal,
+                'shipping_fee' => $shippingFee,
+                'discount' => $discount,
                 'payment_method' => $order->payment_method ?? 'COD',
                 'delivery_code' => $deliveryCode,
                 'delivery_qr_payload' => $deliveryQrString,
@@ -112,27 +125,34 @@ class OrderApiController extends Controller
                     'name' => $order->seller->business_name ?? 'Merchant',
                     'contact' => $order->seller->contact_no ?? null,
                 ],
-                'courier' => $order->courier ? [
-                    'name' => "{$order->courier->first_name} {$order->courier->last_name}",
-                    'contact' => $order->courier->contact_no,
-                    'plate_number' => $order->courier->plate_number,
+                'courier' => $courier ? [
+                    'name' => "{$courier->first_name} {$courier->last_name}",
+                    'contact' => $courier->contact_no,
+                    'plate_number' => $courier->plate_number,
                 ] : null,
                 'items' => $order->items->map(fn ($item) => [
                     'id' => $item->id,
                     'product_id' => $item->product_id,
                     'name' => $item->product->name ?? 'Product',
                     'image_path' => $item->product->image_path ?? null,
-                    'quantity' => $item->quantity,
-                    'price' => $item->price,
-                    'total' => $item->price * $item->quantity,
+                    'quantity' => (int) $item->quantity,
+                    'price' => (float) $item->price,
+                    'total' => (float) ($item->price * $item->quantity),
                     'variation_info' => $item->variation_info,
                 ]),
                 'tracking_timeline' => $order->trackingEvents->map(fn ($e) => [
                     'status' => $e->status,
-                    'description' => $e->description ?? $e->remarks,
+                    'description' => $e->description ?? $e->remarks ?? '',
                     'location' => $e->location,
                     'timestamp' => $e->created_at->toIso8601String(),
                 ]),
+                'dispute' => $order->dispute ? [
+                    'id' => $order->dispute->id,
+                    'reason' => $order->dispute->reason,
+                    'status' => $order->dispute->status,
+                    'resolution' => $order->dispute->resolution,
+                    'created_at' => $order->dispute->created_at->toIso8601String(),
+                ] : null,
             ],
         ]);
     }

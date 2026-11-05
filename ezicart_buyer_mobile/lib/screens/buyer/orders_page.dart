@@ -253,9 +253,18 @@ class _OrdersPageState extends State<OrdersPage> with SingleTickerProviderStateM
                             borderRadius: BorderRadius.circular(12),
                             side: const BorderSide(color: AppTheme.line),
                           ),
-                          child: Padding(
-                            padding: const EdgeInsets.all(14),
-                            child: Column(
+                          child: InkWell(
+                            borderRadius: BorderRadius.circular(12),
+                            onTap: () {
+                              Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (_) => OrderDetailsPage(orderId: order.id),
+                                ),
+                              ).then((_) => _fetchOrders());
+                            },
+                            child: Padding(
+                              padding: const EdgeInsets.all(14),
+                              child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 // Seller & Status Header
@@ -394,7 +403,8 @@ class _OrdersPageState extends State<OrdersPage> with SingleTickerProviderStateM
                               ],
                             ),
                           ),
-                        );
+                        ),
+                      );
                       },
                     ),
                   ),
