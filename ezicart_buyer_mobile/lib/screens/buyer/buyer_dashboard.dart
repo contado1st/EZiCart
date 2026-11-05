@@ -11,10 +11,14 @@ import '../../providers/cart_provider.dart';
 import '../../services/api_service.dart';
 import 'cart_page.dart';
 import 'categories_page.dart';
+import 'addresses_page.dart';
+import 'for_you_page.dart';
 import 'messages_page.dart';
 import 'orders_page.dart';
 import 'product_details_page.dart';
 import 'profile_page.dart';
+import 'stock_watchlist_page.dart';
+import 'vouchers_page.dart';
 
 class BuyerDashboard extends StatefulWidget {
   const BuyerDashboard({super.key});
@@ -177,6 +181,133 @@ class _BuyerDashboardState extends State<BuyerDashboard> {
               ),
             ),
           ),
+
+          // Buyer Feature Shortcut Tiles
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: InkWell(
+                      onTap: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(builder: (_) => const VouchersPage()),
+                        );
+                      },
+                      borderRadius: BorderRadius.circular(10),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 10),
+                        decoration: BoxDecoration(
+                          color: Colors.indigo.shade50,
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: Colors.indigo.shade100),
+                        ),
+                        child: Column(
+                          children: [
+                            Icon(Icons.confirmation_number_outlined, color: Colors.indigo.shade800, size: 22),
+                            const SizedBox(height: 4),
+                            Text(
+                              'Vouchers',
+                              style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.indigo.shade900),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: InkWell(
+                      onTap: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(builder: (_) => const ForYouPage()),
+                        );
+                      },
+                      borderRadius: BorderRadius.circular(10),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 10),
+                        decoration: BoxDecoration(
+                          color: Colors.teal.shade50,
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: Colors.teal.shade100),
+                        ),
+                        child: Column(
+                          children: [
+                            Icon(Icons.auto_awesome_outlined, color: Colors.teal.shade800, size: 22),
+                            const SizedBox(height: 4),
+                            Text(
+                              'For You',
+                              style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.teal.shade900),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: InkWell(
+                      onTap: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(builder: (_) => const StockWatchlistPage()),
+                        );
+                      },
+                      borderRadius: BorderRadius.circular(10),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 10),
+                        decoration: BoxDecoration(
+                          color: Colors.amber.shade50,
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: Colors.amber.shade200),
+                        ),
+                        child: Column(
+                          children: [
+                            Icon(Icons.notifications_active_outlined, color: Colors.amber.shade900, size: 22),
+                            const SizedBox(height: 4),
+                            Text(
+                              'Alerts',
+                              style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.amber.shade900),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: InkWell(
+                      onTap: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(builder: (_) => const AddressesPage()),
+                        );
+                      },
+                      borderRadius: BorderRadius.circular(10),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 10),
+                        decoration: BoxDecoration(
+                          color: Colors.orange.shade50,
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: Colors.orange.shade200),
+                        ),
+                        child: Column(
+                          children: [
+                            Icon(Icons.pin_drop_outlined, color: Colors.orange.shade900, size: 22),
+                            const SizedBox(height: 4),
+                            Text(
+                              'Addresses',
+                              style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.orange.shade900),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SliverToBoxAdapter(child: SizedBox(height: 8)),
 
           // Horizontal Category Chips
           SliverToBoxAdapter(

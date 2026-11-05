@@ -1,4 +1,5 @@
 import '../utils/safe_convert.dart';
+import 'dispute_model.dart';
 
 class OrderItemModel {
   final int id;
@@ -84,6 +85,7 @@ class OrderModel {
   final String? courierPlate;
   final List<OrderItemModel> items;
   final List<OrderTrackingTimelineItem> trackingTimeline;
+  final DisputeModel? dispute;
 
   OrderModel({
     required this.id,
@@ -109,6 +111,7 @@ class OrderModel {
     this.courierPlate,
     required this.items,
     this.trackingTimeline = const [],
+    this.dispute,
   });
 
   factory OrderModel.fromJson(Map<String, dynamic> json) {
@@ -156,6 +159,7 @@ class OrderModel {
       courierPlate: json['courier']?['plate_number'] as String?,
       items: itemsList,
       trackingTimeline: timelineList,
+      dispute: json['dispute'] is Map ? DisputeModel.fromJson(json['dispute'] as Map<String, dynamic>) : null,
     );
   }
 }

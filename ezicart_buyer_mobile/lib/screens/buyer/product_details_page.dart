@@ -25,6 +25,8 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
   late ProductModel _product;
   ProductVariation? _selectedVariation;
   int _quantity = 1;
+  bool _isWatched = false;
+  bool _isWatchLoading = false;
 
   @override
   void initState() {
@@ -34,6 +36,38 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
       _selectedVariation = _product.variations.first;
     }
     _loadFreshDetails();
+  }
+
+  Future<void> _toggleStockAlert() async {
+    setState(() => _isWatchLoading = true);
+    try {
+      if (_isWatched) {
+        final res = await ApiService.delete(ApiConfig.unwatchStockEndpoint(_product.id));
+        if (res.statusCode == 200 && mounted) {
+          setState(() => _isWatched = false);
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Stock alert removed.')),
+          );
+        }
+      } else {
+        final res = await ApiService.post(ApiConfig.watchStockEndpoint(_product.id), {});
+        if (res.statusCode == 200 && mounted) {
+          setState(() => _isWatched = true);
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Stock alert active! We will notify you of inventory changes for ${_product.name}.'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
+      }
+    } finally {
+      if (mounted) setState(() => _isWatchLoading = false);
+    }
   }
 
   Future<void> _loadFreshDetails() async {
@@ -131,6 +165,14 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
       appBar: AppBar(
         title: Text(_product.name, maxLines: 1, overflow: TextOverflow.ellipsis),
         actions: [
+          IconButton(
+            icon: _isWatchLoading
+                ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                : Icon(_isWatched ? Icons.notifications_active : Icons.notifications_none_outlined),
+            color: _isWatched ? Colors.amber.shade800 : null,
+            tooltip: _isWatched ? 'Stock alert active' : 'Watch stock changes',
+            onPressed: _isWatchLoading ? null : _toggleStockAlert,
+          ),
           Stack(
             children: [
               IconButton(

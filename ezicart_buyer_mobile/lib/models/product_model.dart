@@ -40,6 +40,8 @@ class ProductModel {
   final int reviewsCount;
   final List<ProductVariation> variations;
 
+  int get reviewCount => reviewsCount;
+
   ProductModel({
     required this.id,
     required this.name,

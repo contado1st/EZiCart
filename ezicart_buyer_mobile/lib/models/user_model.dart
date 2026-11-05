@@ -71,6 +71,8 @@ class UserModel {
     );
   }
 
+  String get fullName => name;
+
   String get fullAddress {
     final parts = [
       houseNumber,

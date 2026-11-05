@@ -6,6 +6,7 @@ import '../../config/api_config.dart';
 import '../../config/theme.dart';
 import '../../providers/cart_provider.dart';
 import 'checkout_page.dart';
+import 'vouchers_page.dart';
 
 class CartPage extends StatefulWidget {
   const CartPage({super.key});
@@ -276,9 +277,22 @@ class _CartPageState extends State<CartPage> {
                                   child: TextField(
                                     controller: _voucherCtrl,
                                     textCapitalization: TextCapitalization.characters,
-                                    decoration: const InputDecoration(
+                                    decoration: InputDecoration(
                                       hintText: 'Enter Voucher Code',
-                                      contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                      suffixIcon: IconButton(
+                                        icon: const Icon(Icons.confirmation_number_outlined, color: AppTheme.primary, size: 20),
+                                        tooltip: 'Select from available vouchers',
+                                        onPressed: () async {
+                                          final code = await Navigator.of(context).push<String>(
+                                            MaterialPageRoute(builder: (_) => const VouchersPage(selectMode: true)),
+                                          );
+                                          if (code != null) {
+                                            _voucherCtrl.text = code;
+                                            _applyVoucher();
+                                          }
+                                        },
+                                      ),
                                     ),
                                   ),
                                 ),

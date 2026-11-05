@@ -7,6 +7,8 @@ import '../../config/theme.dart';
 import '../../models/address_model.dart';
 import '../../providers/cart_provider.dart';
 import '../../services/api_service.dart';
+import '../common/psgc_address_form.dart';
+import 'addresses_page.dart';
 
 class CheckoutPage extends StatefulWidget {
   const CheckoutPage({super.key});
@@ -24,10 +26,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
   final _notesCtrl = TextEditingController();
   final _nameCtrl = TextEditingController();
   final _contactCtrl = TextEditingController();
-  final _provinceCtrl = TextEditingController(text: 'Laguna');
-  final _muniCtrl = TextEditingController(text: 'Lumban');
-  final _brgyCtrl = TextEditingController(text: 'Poblacion');
-  final _streetCtrl = TextEditingController();
+  AddressFormData _customAddressData = AddressFormData();
 
   @override
   void initState() {
@@ -40,10 +39,6 @@ class _CheckoutPageState extends State<CheckoutPage> {
     _notesCtrl.dispose();
     _nameCtrl.dispose();
     _contactCtrl.dispose();
-    _provinceCtrl.dispose();
-    _muniCtrl.dispose();
-    _brgyCtrl.dispose();
-    _streetCtrl.dispose();
     super.dispose();
   }
 
@@ -107,13 +102,23 @@ class _CheckoutPageState extends State<CheckoutPage> {
         );
         return;
       }
+      if (!_customAddressData.hasLocation) {
+        setState(() => _isSubmitting = false);
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Please select or complete the region, province, city, and barangay location details.')),
+        );
+        return;
+      }
       payload['recipient_name'] = _nameCtrl.text.trim();
       payload['recipient_contact'] = _contactCtrl.text.trim();
-      payload['region'] = 'Region IV-A (CALABARZON)';
-      payload['province'] = _provinceCtrl.text.trim();
-      payload['municipality'] = _muniCtrl.text.trim();
-      payload['barangay'] = _brgyCtrl.text.trim();
-      payload['street_address'] = _streetCtrl.text.trim();
+      payload['region'] = _customAddressData.region;
+      payload['province'] = _customAddressData.province;
+      payload['municipality'] = _customAddressData.municipality;
+      payload['barangay'] = _customAddressData.barangay;
+      if (_customAddressData.streetAddress != null) payload['street_address'] = _customAddressData.streetAddress;
+      if (_customAddressData.houseNumber != null) payload['house_number'] = _customAddressData.houseNumber;
+      if (_customAddressData.postalCode != null) payload['postal_code'] = _customAddressData.postalCode;
     }
 
     try {
@@ -190,8 +195,20 @@ class _CheckoutPageState extends State<CheckoutPage> {
                           const Text('Delivery Address', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
                           const Spacer(),
                           TextButton(
+                            onPressed: () async {
+                              final selected = await Navigator.of(context).push<AddressModel>(
+                                MaterialPageRoute(builder: (_) => const AddressesPage(selectMode: true)),
+                              );
+                              if (selected != null) {
+                                await _loadAddresses();
+                                setState(() => _selectedAddressId = selected.id);
+                              }
+                            },
+                            child: const Text('Address Book', style: TextStyle(fontSize: 12, color: AppTheme.primary)),
+                          ),
+                          TextButton(
                             onPressed: () => setState(() => _selectedAddressId = null),
-                            child: const Text('New Address', style: TextStyle(fontSize: 12, color: AppTheme.primary)),
+                            child: const Text('+ New', style: TextStyle(fontSize: 12, color: AppTheme.primary)),
                           ),
                         ],
                       ),
@@ -259,7 +276,7 @@ class _CheckoutPageState extends State<CheckoutPage> {
                           );
                         }),
                       ] else ...[
-                        const Text('Enter Destination Address:', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                        const Text('Enter Delivery Details:', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
                         const SizedBox(height: 10),
                         TextField(
                           controller: _nameCtrl,
@@ -271,21 +288,10 @@ class _CheckoutPageState extends State<CheckoutPage> {
                           keyboardType: TextInputType.phone,
                           decoration: const InputDecoration(labelText: 'Recipient Mobile (09XXXXXXXXX) *'),
                         ),
-                        const SizedBox(height: 8),
-                        Row(
-                          children: [
-                            Expanded(child: TextField(controller: _provinceCtrl, decoration: const InputDecoration(labelText: 'Province *'))),
-                            const SizedBox(width: 8),
-                            Expanded(child: TextField(controller: _muniCtrl, decoration: const InputDecoration(labelText: 'Municipality *'))),
-                          ],
-                        ),
-                        const SizedBox(height: 8),
-                        Row(
-                          children: [
-                            Expanded(child: TextField(controller: _brgyCtrl, decoration: const InputDecoration(labelText: 'Barangay *'))),
-                            const SizedBox(width: 8),
-                            Expanded(child: TextField(controller: _streetCtrl, decoration: const InputDecoration(labelText: 'Street Address'))),
-                          ],
+                        const SizedBox(height: 12),
+                        PsgcAddressForm(
+                          initialData: _customAddressData,
+                          onChanged: (data) => _customAddressData = data,
                         ),
                         if (_savedAddresses.isNotEmpty)
                           TextButton(

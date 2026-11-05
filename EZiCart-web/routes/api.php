@@ -5,9 +5,12 @@ use App\Http\Controllers\Api\AuthApiController;
 use App\Http\Controllers\Api\CartApiController;
 use App\Http\Controllers\Api\ChatApiController;
 use App\Http\Controllers\Api\CheckoutApiController;
+use App\Http\Controllers\Api\DiscoveryApiController;
 use App\Http\Controllers\Api\OrderApiController;
 use App\Http\Controllers\Api\ProductApiController;
 use App\Http\Controllers\Api\ProfileApiController;
+use App\Http\Controllers\Api\VoucherApiController;
+use App\Http\Controllers\PsgcAddressController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -36,6 +39,9 @@ $defineApiRoutes = function () {
     Route::get('/products/{id}', [ProductApiController::class, 'show'])->whereNumber('id');
     Route::get('/categories', [ProductApiController::class, 'categories']);
 
+    // PSGC Locations (Public for registration & address management)
+    Route::get('/psgc-addresses', PsgcAddressController::class);
+
     // Cart Quote (Public or Authenticated)
     Route::post('/cart/quote', [CartApiController::class, 'quote']);
 
@@ -59,6 +65,22 @@ $defineApiRoutes = function () {
         Route::post('/orders/{id}/cancel', [OrderApiController::class, 'cancel'])->whereNumber('id');
         Route::post('/orders/{id}/delivery-code/refresh', [OrderApiController::class, 'refreshDeliveryCode'])->whereNumber('id');
         Route::post('/orders/{id}/review', [OrderApiController::class, 'review'])->whereNumber('id');
+
+        // Order Disputes & Returns
+        Route::get('/disputes', [OrderApiController::class, 'disputesList']);
+        Route::get('/orders/{id}/dispute', [OrderApiController::class, 'getDispute'])->whereNumber('id');
+        Route::post('/orders/{id}/dispute', [OrderApiController::class, 'createDispute'])->whereNumber('id');
+
+        // Vouchers & Claims
+        Route::get('/vouchers', [VoucherApiController::class, 'index']);
+        Route::post('/vouchers/{id}/claim', [VoucherApiController::class, 'claim'])->whereNumber('id');
+
+        // Personalized Discovery ("For You") & Stock Alerts
+        Route::get('/discovery/for-you', [DiscoveryApiController::class, 'forYou']);
+        Route::delete('/discovery/history', [DiscoveryApiController::class, 'resetHistory']);
+        Route::get('/stock-alerts', [DiscoveryApiController::class, 'stockAlerts']);
+        Route::post('/stock-alerts/{id}', [DiscoveryApiController::class, 'watchStock'])->whereNumber('id');
+        Route::delete('/stock-alerts/{id}', [DiscoveryApiController::class, 'unwatchStock'])->whereNumber('id');
 
         // Address Management
         Route::get('/addresses', [AddressApiController::class, 'index']);

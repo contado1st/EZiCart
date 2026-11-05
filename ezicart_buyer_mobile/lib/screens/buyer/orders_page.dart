@@ -5,6 +5,7 @@ import '../../config/api_config.dart';
 import '../../config/theme.dart';
 import '../../models/order_model.dart';
 import '../../services/api_service.dart';
+import 'disputes_list_page.dart';
 import 'order_details_page.dart';
 
 class OrdersPage extends StatefulWidget {
@@ -174,6 +175,17 @@ class _OrdersPageState extends State<OrdersPage> with SingleTickerProviderStateM
     return Scaffold(
       appBar: AppBar(
         title: const Text('My Orders'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.shield_outlined),
+            tooltip: 'Return & Dispute Cases',
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const DisputesListPage()),
+              );
+            },
+          ),
+        ],
         bottom: TabBar(
           controller: _tabController,
           isScrollable: true,

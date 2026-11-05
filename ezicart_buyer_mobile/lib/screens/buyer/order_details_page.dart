@@ -1,10 +1,12 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import '../../config/api_config.dart';
 import '../../config/theme.dart';
 import '../../models/order_model.dart';
 import '../../services/api_service.dart';
+import 'create_dispute_page.dart';
 import 'messages_page.dart';
 
 class OrderDetailsPage extends StatefulWidget {
@@ -42,6 +44,79 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
       }
     } catch (_) {}
     setState(() => _isLoading = false);
+  }
+
+  Future<void> _cancelOrder() async {
+    final reasonCtrl = TextEditingController();
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Cancel Order'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Are you sure you want to cancel this order? Fulfillment will be stopped.'),
+            const SizedBox(height: 12),
+            TextField(
+              controller: reasonCtrl,
+              maxLines: 2,
+              decoration: const InputDecoration(
+                labelText: 'Reason for cancellation',
+                hintText: 'e.g. Changed my mind, ordered by mistake',
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Keep Order')),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Cancel Order'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true) return;
+
+    setState(() => _isActionLoading = true);
+    try {
+      final res = await ApiService.post(ApiConfig.cancelOrderEndpoint(widget.orderId), {
+        'reason': reasonCtrl.text.trim().isNotEmpty ? reasonCtrl.text.trim() : 'Cancelled by buyer',
+      });
+      final body = jsonDecode(res.body);
+      if (res.statusCode == 200 && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(body['message'] ?? 'Cancellation requested.'),
+            backgroundColor: Colors.green,
+          ),
+        );
+        _fetchDetails();
+      } else if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(body['message'] ?? 'Failed to cancel order.')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
+      }
+    } finally {
+      if (mounted) setState(() => _isActionLoading = false);
+    }
+  }
+
+  Future<void> _openDispute() async {
+    if (_order == null) return;
+    final created = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(builder: (_) => CreateDisputePage(order: _order!)),
+    );
+    if (created == true) {
+      _fetchDetails();
+    }
   }
 
   Future<void> _refreshDeliveryCode() async {
@@ -283,22 +358,38 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
                           style: TextStyle(fontSize: 12, color: AppTheme.muted),
                         ),
                         const SizedBox(height: 14),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-                          decoration: BoxDecoration(
-                            color: Colors.orange.shade50,
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: Colors.orange.shade300),
-                          ),
-                          child: Text(
-                            _order!.deliveryCode!,
-                            style: TextStyle(
-                              fontSize: 28,
-                              fontWeight: FontWeight.bold,
-                              letterSpacing: 6,
-                              color: Colors.orange.shade900,
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                              decoration: BoxDecoration(
+                                color: Colors.orange.shade50,
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(color: Colors.orange.shade300),
+                              ),
+                              child: Text(
+                                _order!.deliveryCode!,
+                                style: TextStyle(
+                                  fontSize: 28,
+                                  fontWeight: FontWeight.bold,
+                                  letterSpacing: 6,
+                                  color: Colors.orange.shade900,
+                                ),
+                              ),
                             ),
-                          ),
+                            const SizedBox(width: 8),
+                            IconButton(
+                              icon: const Icon(Icons.copy, size: 20, color: Colors.orange),
+                              tooltip: 'Copy Code',
+                              onPressed: () {
+                                Clipboard.setData(ClipboardData(text: _order!.deliveryCode!));
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(content: Text('Delivery verification code copied!')),
+                                );
+                              },
+                            ),
+                          ],
                         ),
                         if (_order!.deliveryQrPayload != null) ...[
                           const SizedBox(height: 8),
@@ -480,6 +571,65 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
                 const SizedBox(height: 12),
               ],
 
+              // Dispute Card (if existing)
+              if (_order!.dispute != null) ...[
+                Card(
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    side: BorderSide(color: Colors.red.shade300),
+                  ),
+                  color: Colors.red.shade50,
+                  child: Padding(
+                    padding: const EdgeInsets.all(14),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Icon(Icons.shield_outlined, color: Colors.red.shade800, size: 20),
+                            const SizedBox(width: 8),
+                            const Text(
+                              'Dispute / Return Case Filed',
+                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                            ),
+                            const Spacer(),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: Colors.red.shade100,
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: Text(
+                                _order!.dispute!.status.toUpperCase(),
+                                style: TextStyle(color: Colors.red.shade900, fontSize: 10, fontWeight: FontWeight.bold),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          'Reason: ${_order!.dispute!.reason}',
+                          style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12),
+                        ),
+                        Text(
+                          _order!.dispute!.description,
+                          style: const TextStyle(fontSize: 12),
+                        ),
+                        if (_order!.dispute!.adminNotes != null) ...[
+                          const SizedBox(height: 6),
+                          Text(
+                            'Admin Notes: ${_order!.dispute!.adminNotes}',
+                            style: const TextStyle(fontSize: 11, fontStyle: FontStyle.italic),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+              ],
+
               // Price Summary Card
               Card(
                 elevation: 0,
@@ -531,12 +681,40 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
               const SizedBox(height: 20),
 
               // Action Buttons
-              if (_order!.status == 'DELIVERED')
+              if (_order!.status == 'DELIVERED') ...[
                 ElevatedButton(
                   style: ElevatedButton.styleFrom(backgroundColor: Colors.green, minimumSize: const Size(double.infinity, 46)),
                   onPressed: _isActionLoading ? null : _confirmReceived,
                   child: const Text('Confirm Order Received'),
                 ),
+                const SizedBox(height: 10),
+              ],
+
+              if (['PLACED', 'CONFIRMED', 'PREPARING'].contains(_order!.status)) ...[
+                OutlinedButton(
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.red.shade700,
+                    side: BorderSide(color: Colors.red.shade300),
+                    minimumSize: const Size(double.infinity, 46),
+                  ),
+                  onPressed: _isActionLoading ? null : _cancelOrder,
+                  child: const Text('Cancel Order'),
+                ),
+                const SizedBox(height: 10),
+              ],
+
+              if (['DELIVERED', 'COMPLETED'].contains(_order!.status) && _order!.dispute == null) ...[
+                OutlinedButton.icon(
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.red.shade800,
+                    side: BorderSide(color: Colors.red.shade300),
+                    minimumSize: const Size(double.infinity, 46),
+                  ),
+                  icon: const Icon(Icons.report_problem_outlined, size: 18),
+                  label: const Text('Raise Return / Dispute Request'),
+                  onPressed: _isActionLoading ? null : _openDispute,
+                ),
+              ],
             ],
           ),
         ),

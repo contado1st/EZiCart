@@ -85,10 +85,26 @@ class ApiConfig {
   static String refreshDeliveryCodeEndpoint(int id) => '$baseUrl/orders/$id/delivery-code/refresh';
   static String reviewOrderEndpoint(int id) => '$baseUrl/orders/$id/review';
 
-  // Address book endpoints
+  // Address book & PSGC endpoints
   static String get addressesEndpoint => '$baseUrl/addresses';
   static String addressDetailEndpoint(int id) => '$baseUrl/addresses/$id';
   static String addressDefaultEndpoint(int id) => '$baseUrl/addresses/$id/default';
+  static String get psgcAddressesEndpoint => '$baseUrl/psgc-addresses';
+
+  // Vouchers endpoints
+  static String get vouchersEndpoint => '$baseUrl/vouchers';
+  static String voucherClaimEndpoint(int id) => '$baseUrl/vouchers/$id/claim';
+
+  // Discovery & Stock alerts endpoints
+  static String get discoveryForYouEndpoint => '$baseUrl/discovery/for-you';
+  static String get discoveryResetHistoryEndpoint => '$baseUrl/discovery/history';
+  static String get stockAlertsEndpoint => '$baseUrl/stock-alerts';
+  static String watchStockEndpoint(int id) => '$baseUrl/stock-alerts/$id';
+  static String unwatchStockEndpoint(int id) => '$baseUrl/stock-alerts/$id';
+
+  // Disputes & Returns endpoints
+  static String get disputesEndpoint => '$baseUrl/disputes';
+  static String orderDisputeEndpoint(int id) => '$baseUrl/orders/$id/dispute';
 
   // Messaging & Chat endpoints
   static String get chatThreadsEndpoint => '$baseUrl/chat/threads';

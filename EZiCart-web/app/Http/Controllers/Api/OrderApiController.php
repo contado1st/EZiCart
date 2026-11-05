@@ -269,5 +269,111 @@ class OrderApiController extends Controller
             'review' => $review,
         ]);
     }
+
+    /**
+     * Raise a dispute or return request on delivered/completed order
+     */
+    public function createDispute(int $id, Request $request): JsonResponse
+    {
+        $buyer = $request->user();
+        $order = Order::find($id);
+
+        if (! $order || $order->buyer_id !== $buyer->id) {
+            return response()->json(['success' => false, 'message' => 'Order not found.'], 404);
+        }
+
+        if (! in_array($order->status, ['DELIVERED', 'COMPLETED'])) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Disputes can only be raised for delivered or completed orders.',
+            ], 422);
+        }
+
+        if ($order->dispute()->exists()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'A dispute case is already open for this order.',
+            ], 422);
+        }
+
+        $validated = $request->validate([
+            'reason' => ['required', 'string', 'in:Damaged Item,Wrong Item Delivered,Missing Items,Non-Delivery,Defective Goods,Other'],
+            'description' => ['required', 'string', 'min:10', 'max:2000'],
+            'evidence_file' => ['nullable', 'file', 'mimes:jpg,jpeg,png,pdf', 'max:5120'],
+        ]);
+
+        $evidencePath = null;
+        if ($request->hasFile('evidence_file')) {
+            $evidencePath = $request->file('evidence_file')->store('disputes/evidence', 'public');
+        }
+
+        $dispute = \App\Models\Dispute::create([
+            'order_id' => $order->id,
+            'buyer_id' => $buyer->id,
+            'seller_id' => $order->seller_id,
+            'reason' => $validated['reason'],
+            'description' => $validated['description'],
+            'evidence_path' => $evidencePath,
+            'status' => 'PENDING',
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Dispute ticket submitted. Customer support and seller will review your request.',
+            'data' => $dispute,
+        ], 201);
+    }
+
+    /**
+     * Get dispute details for an order
+     */
+    public function getDispute(int $id, Request $request): JsonResponse
+    {
+        $buyer = $request->user();
+        $order = Order::find($id);
+
+        if (! $order || $order->buyer_id !== $buyer->id) {
+            return response()->json(['success' => false, 'message' => 'Order not found.'], 404);
+        }
+
+        $dispute = $order->dispute;
+        if (! $dispute) {
+            return response()->json([
+                'success' => true,
+                'data' => null,
+            ]);
+        }
+
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'id' => $dispute->id,
+                'order_id' => $dispute->order_id,
+                'reason' => $dispute->reason,
+                'description' => $dispute->description,
+                'status' => $dispute->status,
+                'admin_notes' => $dispute->admin_notes,
+                'created_at' => $dispute->created_at->toIso8601String(),
+                'resolved_at' => $dispute->resolved_at?->toIso8601String(),
+            ],
+        ]);
+    }
+
+    /**
+     * List all disputes for current buyer
+     */
+    public function disputesList(Request $request): JsonResponse
+    {
+        $buyer = $request->user();
+        $disputes = \App\Models\Dispute::with(['order:id,parcel_code,status,total_cents,seller_id', 'order.seller:id,business_name'])
+            ->where('buyer_id', $buyer->id)
+            ->latest('id')
+            ->get();
+
+        return response()->json([
+            'success' => true,
+            'data' => $disputes,
+        ]);
+    }
 }
 

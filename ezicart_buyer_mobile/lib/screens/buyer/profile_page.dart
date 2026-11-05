@@ -1,11 +1,13 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../config/api_config.dart';
 import '../../config/theme.dart';
-import '../../models/address_model.dart';
 import '../../providers/auth_provider.dart';
-import '../../services/api_service.dart';
+import 'addresses_page.dart';
+import 'disputes_list_page.dart';
+import 'for_you_page.dart';
+import 'stock_watchlist_page.dart';
+import 'vouchers_page.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -15,6 +17,78 @@ class ProfilePage extends StatefulWidget {
 }
 
 class _ProfilePageState extends State<ProfilePage> {
+  void _showEditProfileDialog() {
+    final auth = context.read<AuthProvider>();
+    final user = auth.user;
+
+    final firstCtrl = TextEditingController(text: user?.firstName ?? '');
+    final lastCtrl = TextEditingController(text: user?.lastName ?? '');
+    final contactCtrl = TextEditingController(text: user?.contactNo ?? '');
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Edit Profile Details'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: firstCtrl,
+                textCapitalization: TextCapitalization.words,
+                decoration: const InputDecoration(labelText: 'First Name *'),
+              ),
+              const SizedBox(height: 10),
+              TextField(
+                controller: lastCtrl,
+                textCapitalization: TextCapitalization.words,
+                decoration: const InputDecoration(labelText: 'Last Name *'),
+              ),
+              const SizedBox(height: 10),
+              TextField(
+                controller: contactCtrl,
+                keyboardType: TextInputType.phone,
+                decoration: const InputDecoration(labelText: 'Contact Number *', hintText: '09XXXXXXXXX'),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          ElevatedButton(
+            onPressed: () async {
+              if (firstCtrl.text.trim().isEmpty || lastCtrl.text.trim().isEmpty || contactCtrl.text.trim().isEmpty) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Please fill out all required fields.')),
+                );
+                return;
+              }
+
+              final nav = Navigator.of(context);
+              final scaffold = ScaffoldMessenger.of(context);
+
+              final success = await auth.updateProfile({
+                'first_name': firstCtrl.text.trim(),
+                'last_name': lastCtrl.text.trim(),
+                'contact_no': contactCtrl.text.trim(),
+              });
+
+              if (!mounted) return;
+              nav.pop();
+              scaffold.showSnackBar(
+                SnackBar(
+                  content: Text(success ? 'Profile updated successfully!' : (auth.errorMessage ?? 'Update failed.')),
+                  backgroundColor: success ? Colors.green : Colors.red,
+                ),
+              );
+            },
+            child: const Text('Save Changes'),
+          ),
+        ],
+      ),
+    );
+  }
+
   void _showChangePasswordDialog() {
     final currentCtrl = TextEditingController();
     final newCtrl = TextEditingController();
@@ -99,26 +173,10 @@ class _ProfilePageState extends State<ProfilePage> {
                   hintText: 'http://127.0.0.1:8000/api',
                 ),
               ),
-              const SizedBox(height: 12),
-              const Text('Quick Presets:', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.muted)),
-              const SizedBox(height: 6),
-              Wrap(
-                spacing: 6,
-                runSpacing: 6,
-                children: [
-                  ActionChip(
-                    label: const Text('127.0.0.1:8000 (Local PC/Web)', style: TextStyle(fontSize: 11)),
-                    onPressed: () => domainCtrl.text = 'http://127.0.0.1:8000/api',
-                  ),
-                  ActionChip(
-                    label: const Text('10.0.2.2:8000 (Android Emulator)', style: TextStyle(fontSize: 11)),
-                    onPressed: () => domainCtrl.text = 'http://10.0.2.2:8000/api',
-                  ),
-                  ActionChip(
-                    label: const Text('Live Server (https://shop.ezicart.trade/api/v1)', style: TextStyle(fontSize: 11)),
-                    onPressed: () => domainCtrl.text = 'https://shop.ezicart.trade/api/v1',
-                  ),
-                ],
+              const SizedBox(height: 8),
+              const Text(
+                'Use 10.0.2.2 for Android emulator or 127.0.0.1 for desktop/web.',
+                style: TextStyle(fontSize: 11, color: AppTheme.muted),
               ),
             ],
           ),
@@ -126,25 +184,19 @@ class _ProfilePageState extends State<ProfilePage> {
         actions: [
           TextButton(
             onPressed: () async {
-              final nav = Navigator.of(context);
               await ApiConfig.resetBaseUrl();
-              if (!mounted) return;
-              nav.pop();
+              if (ctx.mounted) Navigator.pop(ctx);
               setState(() {});
             },
             child: const Text('Reset Default'),
           ),
           ElevatedButton(
             onPressed: () async {
-              final nav = Navigator.of(context);
-              if (domainCtrl.text.trim().isNotEmpty) {
-                await ApiConfig.setBaseUrl(domainCtrl.text.trim());
-              }
-              if (!mounted) return;
-              nav.pop();
+              await ApiConfig.setBaseUrl(domainCtrl.text);
+              if (ctx.mounted) Navigator.pop(ctx);
               setState(() {});
             },
-            child: const Text('Save Domain'),
+            child: const Text('Save & Apply'),
           ),
         ],
       ),
@@ -156,19 +208,16 @@ class _ProfilePageState extends State<ProfilePage> {
     final auth = context.watch<AuthProvider>();
     final user = auth.user;
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('My Profile'),
-      ),
-      body: SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.all(16),
+    return SafeArea(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(16),
+        child: Column(
           children: [
-            // User Avatar & Name Card
+            // User header banner
             Card(
               elevation: 0,
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(14),
+                borderRadius: BorderRadius.circular(16),
                 side: const BorderSide(color: AppTheme.line),
               ),
               child: Padding(
@@ -176,24 +225,20 @@ class _ProfilePageState extends State<ProfilePage> {
                 child: Row(
                   children: [
                     CircleAvatar(
-                      radius: 32,
-                      backgroundColor: AppTheme.primarySoft,
+                      radius: 30,
+                      backgroundColor: AppTheme.primary,
                       child: Text(
-                        user?.name.isNotEmpty == true ? user!.name[0].toUpperCase() : 'B',
-                        style: const TextStyle(
-                          fontSize: 24,
-                          color: AppTheme.primary,
-                          fontWeight: FontWeight.bold,
-                        ),
+                        (user?.firstName.isNotEmpty == true) ? user!.firstName[0].toUpperCase() : 'B',
+                        style: const TextStyle(fontSize: 24, color: Colors.white, fontWeight: FontWeight.bold),
                       ),
                     ),
-                    const SizedBox(width: 16),
+                    const SizedBox(width: 14),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            user?.name ?? 'Buyer Account',
+                            user?.fullName ?? 'Buyer Account',
                             style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                           ),
                           const SizedBox(height: 2),
@@ -219,6 +264,11 @@ class _ProfilePageState extends State<ProfilePage> {
                           ),
                         ],
                       ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.edit_outlined, size: 20, color: AppTheme.primary),
+                      tooltip: 'Edit Profile',
+                      onPressed: _showEditProfileDialog,
                     ),
                   ],
                 ),
@@ -251,7 +301,68 @@ class _ProfilePageState extends State<ProfilePage> {
             ),
             const SizedBox(height: 16),
 
-            // Settings & Tools
+            // Buyer features section
+            Card(
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(14),
+                side: const BorderSide(color: AppTheme.line),
+              ),
+              child: Column(
+                children: [
+                  ListTile(
+                    leading: const Icon(Icons.confirmation_number_outlined, color: Colors.indigo),
+                    title: const Text('Vouchers & Promos'),
+                    subtitle: const Text('Claim platform discounts and seller shop vouchers', style: TextStyle(fontSize: 11, color: AppTheme.muted)),
+                    trailing: const Icon(Icons.chevron_right, size: 18, color: AppTheme.muted),
+                    onTap: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(builder: (_) => const VouchersPage()),
+                      );
+                    },
+                  ),
+                  const Divider(height: 1, indent: 56),
+                  ListTile(
+                    leading: const Icon(Icons.auto_awesome_outlined, color: Colors.teal),
+                    title: const Text('Personalized Recommendations'),
+                    subtitle: const Text('View curated "For You" picks based on your activity', style: TextStyle(fontSize: 11, color: AppTheme.muted)),
+                    trailing: const Icon(Icons.chevron_right, size: 18, color: AppTheme.muted),
+                    onTap: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(builder: (_) => const ForYouPage()),
+                      );
+                    },
+                  ),
+                  const Divider(height: 1, indent: 56),
+                  ListTile(
+                    leading: const Icon(Icons.notifications_active_outlined, color: Colors.amber),
+                    title: const Text('Stock Alerts Watchlist'),
+                    subtitle: const Text('Track availability and restock notifications for watched items', style: TextStyle(fontSize: 11, color: AppTheme.muted)),
+                    trailing: const Icon(Icons.chevron_right, size: 18, color: AppTheme.muted),
+                    onTap: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(builder: (_) => const StockWatchlistPage()),
+                      );
+                    },
+                  ),
+                  const Divider(height: 1, indent: 56),
+                  ListTile(
+                    leading: const Icon(Icons.shield_outlined, color: Colors.deepOrange),
+                    title: const Text('Return & Dispute Cases'),
+                    subtitle: const Text('Track mediated claims and resolution statuses', style: TextStyle(fontSize: 11, color: AppTheme.muted)),
+                    trailing: const Icon(Icons.chevron_right, size: 18, color: AppTheme.muted),
+                    onTap: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(builder: (_) => const DisputesListPage()),
+                      );
+                    },
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            // Settings & Security
             Card(
               elevation: 0,
               shape: RoundedRectangleBorder(
@@ -263,10 +374,11 @@ class _ProfilePageState extends State<ProfilePage> {
                   ListTile(
                     leading: const Icon(Icons.bookmark_border, color: AppTheme.ink),
                     title: const Text('Saved Delivery Addresses'),
+                    subtitle: const Text('Manage official locations with PSGC API integration', style: TextStyle(fontSize: 11, color: AppTheme.muted)),
                     trailing: const Icon(Icons.chevron_right, size: 18, color: AppTheme.muted),
                     onTap: () {
                       Navigator.of(context).push(
-                        MaterialPageRoute(builder: (_) => const AddressBookPage()),
+                        MaterialPageRoute(builder: (_) => const AddressesPage()),
                       );
                     },
                   ),
@@ -320,218 +432,6 @@ class _ProfilePageState extends State<ProfilePage> {
             const SizedBox(height: 20),
           ],
         ),
-      ),
-    );
-  }
-}
-
-class AddressBookPage extends StatefulWidget {
-  const AddressBookPage({super.key});
-
-  @override
-  State<AddressBookPage> createState() => _AddressBookPageState();
-}
-
-class _AddressBookPageState extends State<AddressBookPage> {
-  List<AddressModel> _addresses = [];
-  bool _isLoading = true;
-
-  @override
-  void initState() {
-    super.initState();
-    _fetchAddresses();
-  }
-
-  Future<void> _fetchAddresses() async {
-    try {
-      final res = await ApiService.get(ApiConfig.addressesEndpoint);
-      if (res.statusCode == 200) {
-        final body = jsonDecode(res.body);
-        if (body['data'] is List) {
-          final list = (body['data'] as List)
-              .map((a) => AddressModel.fromJson(a as Map<String, dynamic>))
-              .toList();
-          setState(() {
-            _addresses = list;
-            _isLoading = false;
-          });
-          return;
-        }
-      }
-    } catch (_) {}
-    setState(() => _isLoading = false);
-  }
-
-  void _showAddEditAddressDialog({AddressModel? address}) {
-    final labelCtrl = TextEditingController(text: address?.label ?? 'Home');
-    final nameCtrl = TextEditingController(text: address?.recipientName ?? '');
-    final contactCtrl = TextEditingController(text: address?.recipientContact ?? '');
-    final provinceCtrl = TextEditingController(text: address?.province ?? 'Laguna');
-    final muniCtrl = TextEditingController(text: address?.municipality ?? 'Lumban');
-    final brgyCtrl = TextEditingController(text: address?.barangay ?? 'Poblacion');
-    final streetCtrl = TextEditingController(text: address?.streetAddress ?? '');
-    bool isDefault = address?.isDefault ?? false;
-
-    showDialog(
-      context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (context, setDlgState) => AlertDialog(
-          title: Text(address == null ? 'Add Delivery Address' : 'Edit Address'),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextField(controller: labelCtrl, decoration: const InputDecoration(labelText: 'Label (e.g. Home, Work)')),
-                const SizedBox(height: 8),
-                TextField(controller: nameCtrl, decoration: const InputDecoration(labelText: 'Recipient Full Name *')),
-                const SizedBox(height: 8),
-                TextField(controller: contactCtrl, keyboardType: TextInputType.phone, decoration: const InputDecoration(labelText: 'Recipient Mobile *')),
-                const SizedBox(height: 8),
-                TextField(controller: provinceCtrl, decoration: const InputDecoration(labelText: 'Province *')),
-                const SizedBox(height: 8),
-                TextField(controller: muniCtrl, decoration: const InputDecoration(labelText: 'Municipality *')),
-                const SizedBox(height: 8),
-                TextField(controller: brgyCtrl, decoration: const InputDecoration(labelText: 'Barangay *')),
-                const SizedBox(height: 8),
-                TextField(controller: streetCtrl, decoration: const InputDecoration(labelText: 'Street Address')),
-                const SizedBox(height: 8),
-                CheckboxListTile(
-                  contentPadding: EdgeInsets.zero,
-                  value: isDefault,
-                  onChanged: (v) => setDlgState(() => isDefault = v ?? false),
-                  title: const Text('Set as default address', style: TextStyle(fontSize: 13)),
-                ),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
-            ElevatedButton(
-              onPressed: () async {
-                if (nameCtrl.text.isEmpty || contactCtrl.text.isEmpty) return;
-                Navigator.pop(ctx);
-
-                final payload = {
-                  'label': labelCtrl.text.trim(),
-                  'recipient_name': nameCtrl.text.trim(),
-                  'recipient_contact': contactCtrl.text.trim(),
-                  'region': 'Region IV-A (CALABARZON)',
-                  'province': provinceCtrl.text.trim(),
-                  'municipality': muniCtrl.text.trim(),
-                  'barangay': brgyCtrl.text.trim(),
-                  'street_address': streetCtrl.text.trim(),
-                  'is_default': isDefault,
-                };
-
-                try {
-                  if (address == null) {
-                    await ApiService.post(ApiConfig.addressesEndpoint, payload);
-                  } else {
-                    await ApiService.put(ApiConfig.addressDetailEndpoint(address.id), payload);
-                  }
-                  _fetchAddresses();
-                } catch (_) {}
-              },
-              child: const Text('Save Address'),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  void _deleteAddress(int id) async {
-    try {
-      await ApiService.delete(ApiConfig.addressDetailEndpoint(id));
-      _fetchAddresses();
-    } catch (_) {}
-  }
-
-  void _makeDefault(int id) async {
-    try {
-      await ApiService.patch(ApiConfig.addressDefaultEndpoint(id), {});
-      _fetchAddresses();
-    } catch (_) {}
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Address Book'),
-      ),
-      floatingActionButton: FloatingActionButton(
-        backgroundColor: AppTheme.primary,
-        onPressed: () => _showAddEditAddressDialog(),
-        child: const Icon(Icons.add, color: Colors.white),
-      ),
-      body: SafeArea(
-        child: _isLoading
-            ? const Center(child: CircularProgressIndicator())
-            : _addresses.isEmpty
-                ? const Center(child: Text('No saved addresses yet.'))
-                : ListView.separated(
-                    padding: const EdgeInsets.all(16),
-                    itemCount: _addresses.length,
-                    separatorBuilder: (_, __) => const SizedBox(height: 12),
-                    itemBuilder: (context, i) {
-                      final addr = _addresses[i];
-                      return Card(
-                        elevation: 0,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
-                          side: BorderSide(color: addr.isDefault ? AppTheme.primary : AppTheme.line),
-                        ),
-                        child: Padding(
-                          padding: const EdgeInsets.all(14),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                children: [
-                                  Text(addr.label, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                                  if (addr.isDefault) ...[
-                                    const SizedBox(width: 8),
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                      decoration: BoxDecoration(
-                                        color: AppTheme.primarySoft,
-                                        borderRadius: BorderRadius.circular(4),
-                                      ),
-                                      child: const Text('DEFAULT', style: TextStyle(color: AppTheme.primary, fontSize: 9, fontWeight: FontWeight.bold)),
-                                    ),
-                                  ],
-                                  const Spacer(),
-                                  IconButton(
-                                    icon: const Icon(Icons.edit_outlined, size: 18),
-                                    onPressed: () => _showAddEditAddressDialog(address: addr),
-                                  ),
-                                  IconButton(
-                                    icon: const Icon(Icons.delete_outline, size: 18, color: Colors.red),
-                                    onPressed: () => _deleteAddress(addr.id),
-                                  ),
-                                ],
-                              ),
-                              const Divider(height: 12),
-                              Text('${addr.recipientName} (${addr.recipientContact})', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
-                              const SizedBox(height: 2),
-                              Text(addr.fullAddress, style: const TextStyle(color: AppTheme.muted, fontSize: 12)),
-                              if (!addr.isDefault) ...[
-                                const SizedBox(height: 8),
-                                Align(
-                                  alignment: Alignment.centerRight,
-                                  child: TextButton(
-                                    onPressed: () => _makeDefault(addr.id),
-                                    child: const Text('Set as Default', style: TextStyle(fontSize: 12, color: AppTheme.primary)),
-                                  ),
-                                ),
-                              ],
-                            ],
-                          ),
-                        ),
-                      );
-                    },
-                  ),
       ),
     );
   }
