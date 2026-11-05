@@ -12,87 +12,121 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('users', function (Blueprint $table) {
-            $table->timestamp('last_web_login_at')->nullable();
-            $table->timestamp('last_web_activity_at')->nullable()->index();
-            $table->string('shop_availability', 24)->default('open');
-            $table->timestamp('shop_unavailable_from')->nullable();
-            $table->timestamp('shop_returns_at')->nullable();
-            $table->boolean('seller_promotions_enabled')->default(true);
+            if (! Schema::hasColumn('users', 'last_web_login_at')) {
+                $table->timestamp('last_web_login_at')->nullable();
+            }
+            if (! Schema::hasColumn('users', 'last_web_activity_at')) {
+                $table->timestamp('last_web_activity_at')->nullable()->index();
+            }
+            if (! Schema::hasColumn('users', 'shop_availability')) {
+                $table->string('shop_availability', 24)->default('open');
+            }
+            if (! Schema::hasColumn('users', 'shop_unavailable_from')) {
+                $table->timestamp('shop_unavailable_from')->nullable();
+            }
+            if (! Schema::hasColumn('users', 'shop_returns_at')) {
+                $table->timestamp('shop_returns_at')->nullable();
+            }
+            if (! Schema::hasColumn('users', 'seller_promotions_enabled')) {
+                $table->boolean('seller_promotions_enabled')->default(true);
+            }
         });
         Schema::table('vouchers', function (Blueprint $table) {
-            $table->unsignedInteger('recipient_limit')->nullable();
-            $table->unsignedInteger('claimed_count')->default(0);
-            $table->unsignedInteger('per_buyer_limit')->nullable();
+            if (! Schema::hasColumn('vouchers', 'recipient_limit')) {
+                $table->unsignedInteger('recipient_limit')->nullable();
+            }
+            if (! Schema::hasColumn('vouchers', 'claimed_count')) {
+                $table->unsignedInteger('claimed_count')->default(0);
+            }
+            if (! Schema::hasColumn('vouchers', 'per_buyer_limit')) {
+                $table->unsignedInteger('per_buyer_limit')->nullable();
+            }
         });
         Schema::table('product_variations', function (Blueprint $table) {
-            $table->string('sku', 64)->nullable();
-            $table->string('image_path')->nullable();
+            if (! Schema::hasColumn('product_variations', 'sku')) {
+                $table->string('sku', 64)->nullable();
+            }
+            if (! Schema::hasColumn('product_variations', 'image_path')) {
+                $table->string('image_path')->nullable();
+            }
         });
-        Schema::create('staff_profile_revisions', function (Blueprint $table) {
-            $table->id();
-            $table->foreignId('user_id')->constrained()->restrictOnDelete();
-            $table->foreignId('submitted_by')->constrained('users')->restrictOnDelete();
-            $table->unsignedBigInteger('pending_user_id')->nullable()->unique();
-            $table->json('previous_values');
-            $table->json('proposed_values');
-            $table->string('status', 16)->default('pending');
-            $table->text('reason')->nullable();
-            $table->foreignId('reviewed_by')->nullable()->constrained('users')->nullOnDelete();
-            $table->timestamp('reviewed_at')->nullable();
-            $table->timestamps();
-        });
-        Schema::create('voucher_claims', function (Blueprint $table) {
-            $table->id();
-            $table->foreignId('voucher_id')->constrained()->restrictOnDelete();
-            $table->foreignId('buyer_id')->constrained('users')->restrictOnDelete();
-            $table->unsignedInteger('redemption_count')->default(0);
-            $table->timestamps();
-            $table->unique(['voucher_id', 'buyer_id']);
-        });
-        Schema::create('message_attachments', function (Blueprint $table) {
-            $table->id();
-            $table->foreignId('direct_message_id')->constrained()->cascadeOnDelete();
-            $table->string('path');
-            $table->string('original_name');
-            $table->string('mime_type', 120);
-            $table->unsignedBigInteger('size');
-            $table->timestamps();
-        });
-        Schema::create('parcel_evidence', function (Blueprint $table) {
-            $table->id();
-            $table->foreignId('order_id')->constrained()->restrictOnDelete();
-            $table->foreignId('actor_id')->constrained('users')->restrictOnDelete();
-            $table->foreignId('scan_event_id')->nullable()->constrained('scan_events')->restrictOnDelete();
-            $table->foreignId('tracking_event_id')->nullable()->constrained('parcel_tracking_events')->restrictOnDelete();
-            $table->string('event_key', 64);
-            $table->string('digest', 64);
-            $table->string('path');
-            $table->string('status', 50);
-            $table->string('location')->nullable();
-            $table->timestamps();
-            $table->unique(['order_id', 'event_key', 'digest'], 'parcel_evidence_event_file_unique');
-        });
-        Schema::create('seller_promotions', function (Blueprint $table) {
-            $table->id();
-            $table->foreignId('seller_id')->constrained('users')->restrictOnDelete();
-            $table->foreignId('product_id')->nullable()->constrained()->nullOnDelete();
-            $table->foreignId('voucher_id')->nullable()->constrained()->nullOnDelete();
-            $table->string('title', 100);
-            $table->text('message');
-            $table->timestamp('starts_at');
-            $table->timestamp('expires_at');
-            $table->timestamp('cancelled_at')->nullable();
-            $table->timestamps();
-            $table->index(['seller_id', 'created_at']);
-        });
-        Schema::create('promotion_deliveries', function (Blueprint $table) {
-            $table->id();
-            $table->foreignId('seller_promotion_id')->constrained()->restrictOnDelete();
-            $table->foreignId('buyer_id')->constrained('users')->restrictOnDelete();
-            $table->timestamps();
-            $table->unique(['seller_promotion_id', 'buyer_id']);
-            $table->index(['buyer_id', 'created_at']);
-        });
+        if (! Schema::hasTable('staff_profile_revisions')) {
+            Schema::create('staff_profile_revisions', function (Blueprint $table) {
+                $table->id();
+                $table->foreignId('user_id')->constrained()->restrictOnDelete();
+                $table->foreignId('submitted_by')->constrained('users')->restrictOnDelete();
+                $table->unsignedBigInteger('pending_user_id')->nullable()->unique();
+                $table->json('previous_values');
+                $table->json('proposed_values');
+                $table->string('status', 16)->default('pending');
+                $table->text('reason')->nullable();
+                $table->foreignId('reviewed_by')->nullable()->constrained('users')->nullOnDelete();
+                $table->timestamp('reviewed_at')->nullable();
+                $table->timestamps();
+            });
+        }
+        if (! Schema::hasTable('voucher_claims')) {
+            Schema::create('voucher_claims', function (Blueprint $table) {
+                $table->id();
+                $table->foreignId('voucher_id')->constrained()->restrictOnDelete();
+                $table->foreignId('buyer_id')->constrained('users')->restrictOnDelete();
+                $table->unsignedInteger('redemption_count')->default(0);
+                $table->timestamps();
+                $table->unique(['voucher_id', 'buyer_id']);
+            });
+        }
+        if (! Schema::hasTable('message_attachments')) {
+            Schema::create('message_attachments', function (Blueprint $table) {
+                $table->id();
+                $table->foreignId('direct_message_id')->constrained()->cascadeOnDelete();
+                $table->string('path');
+                $table->string('original_name');
+                $table->string('mime_type', 120);
+                $table->unsignedBigInteger('size');
+                $table->timestamps();
+            });
+        }
+        if (! Schema::hasTable('parcel_evidence')) {
+            Schema::create('parcel_evidence', function (Blueprint $table) {
+                $table->id();
+                $table->foreignId('order_id')->constrained()->restrictOnDelete();
+                $table->foreignId('actor_id')->constrained('users')->restrictOnDelete();
+                $table->foreignId('scan_event_id')->nullable()->constrained('scan_events')->restrictOnDelete();
+                $table->foreignId('tracking_event_id')->nullable()->constrained('parcel_tracking_events')->restrictOnDelete();
+                $table->string('event_key', 64);
+                $table->string('digest', 64);
+                $table->string('path');
+                $table->string('status', 50);
+                $table->string('location')->nullable();
+                $table->timestamps();
+                $table->unique(['order_id', 'event_key', 'digest'], 'parcel_evidence_event_file_unique');
+            });
+        }
+        if (! Schema::hasTable('seller_promotions')) {
+            Schema::create('seller_promotions', function (Blueprint $table) {
+                $table->id();
+                $table->foreignId('seller_id')->constrained('users')->restrictOnDelete();
+                $table->foreignId('product_id')->nullable()->constrained()->nullOnDelete();
+                $table->foreignId('voucher_id')->nullable()->constrained()->nullOnDelete();
+                $table->string('title', 100);
+                $table->text('message');
+                $table->timestamp('starts_at');
+                $table->timestamp('expires_at');
+                $table->timestamp('cancelled_at')->nullable();
+                $table->timestamps();
+                $table->index(['seller_id', 'created_at']);
+            });
+        }
+        if (! Schema::hasTable('promotion_deliveries')) {
+            Schema::create('promotion_deliveries', function (Blueprint $table) {
+                $table->id();
+                $table->foreignId('seller_promotion_id')->constrained()->restrictOnDelete();
+                $table->foreignId('buyer_id')->constrained('users')->restrictOnDelete();
+                $table->timestamps();
+                $table->unique(['seller_promotion_id', 'buyer_id']);
+                $table->index(['buyer_id', 'created_at']);
+            });
+        }
     }
 
     /**
