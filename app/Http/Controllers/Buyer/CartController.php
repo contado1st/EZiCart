@@ -27,6 +27,9 @@ class CartController extends Controller
     public function add(Request $request, Product $product, CheckoutPricingService $pricing): RedirectResponse
     {
         abort_unless($product->compliance_status === 'approved' && ! $product->is_archived && $product->stock > 0, 404);
+        if (! $product->seller?->acceptsWebOrders()) {
+            return back()->withErrors(['cart' => 'This shop is temporarily unavailable for new orders.']);
+        }
 
         $request->validate([
             'quantity' => 'required|integer|min:1|max:20',
@@ -72,7 +75,7 @@ class CartController extends Controller
         $pricing->quote($cart);
         session()->put('cart', $cart);
 
-        return redirect()->route('cart.index')->with('success', 'Item added to your cart.');
+        return redirect()->route($request->input('intent') === 'buy_now' ? 'checkout.index' : 'cart.index')->with('success', 'Item added to your cart.');
     }
 
     public function update(Request $request, string $cartKey, CheckoutPricingService $pricing): RedirectResponse

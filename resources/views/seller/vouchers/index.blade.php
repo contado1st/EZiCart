@@ -73,6 +73,9 @@
                             <label class="voucher-form-label">Expiration Date</label>
                             <input type="date" name="expires_at" value="{{ old('expires_at') }}" class="voucher-input">
                         </div>
+                        <div class="voucher-form-group"><label class="voucher-form-label" for="voucher-recipients">Maximum unique buyers</label><input id="voucher-recipients" class="voucher-input" type="number" name="recipient_limit" min="1" max="1000000" value="{{ old('recipient_limit') }}" placeholder="Blank for unlimited recipients"></div>
+                        <div class="voucher-form-group"><label class="voucher-form-label" for="voucher-per-buyer">Uses per buyer</label><input id="voucher-per-buyer" class="voucher-input" type="number" name="per_buyer_limit" min="1" max="1000" value="{{ old('per_buyer_limit', 1) }}"></div>
+                        @if($errors->any())<p role="alert">{{ $errors->first() }}</p>@endif
 
                         <button type="submit" class="dash-btn-primary u-extracted-92762f464d">
                             <x-shop-icon name="checklist" /> Create Voucher
@@ -108,6 +111,7 @@
                                         <td>₱{{ number_format($voucher->min_spend, 2) }}</td>
                                         <td>
                                             {{ $voucher->used_count }} / {{ $voucher->usage_limit ?? '∞' }}
+                                            <p class="web-muted">Unique buyers: {{ $voucher->claimed_count }} / {{ $voucher->recipient_limit ?? 'Unlimited' }}<br>Remaining: {{ $voucher->recipient_limit !== null ? max(0, $voucher->recipient_limit - $voucher->claimed_count) : 'Unlimited' }}</p>
                                         </td>
                                         <td>
                                             <span
@@ -133,6 +137,7 @@
                                                         class="dash-btn-sm dash-btn-danger">Delete</button>
                                                 </form>
                                             </div>
+                                            <details class="web-section"><summary>Edit recipient limits</summary><form class="web-form" method="POST" action="{{ route('seller.vouchers.limits', $voucher) }}">@csrf @method('PATCH')<label for="limit-{{ $voucher->id }}">Maximum buyers<input id="limit-{{ $voucher->id }}" type="number" name="recipient_limit" min="{{ max(1, $voucher->claimed_count) }}" max="1000000" value="{{ $voucher->recipient_limit }}"></label><label for="buyer-limit-{{ $voucher->id }}">Uses per buyer<input id="buyer-limit-{{ $voucher->id }}" type="number" name="per_buyer_limit" min="1" max="1000" value="{{ $voucher->per_buyer_limit }}"></label><label for="expiry-{{ $voucher->id }}">Expires<input id="expiry-{{ $voucher->id }}" type="datetime-local" name="expires_at" value="{{ $voucher->expires_at?->format('Y-m-d\TH:i') }}"></label><button class="dash-btn-sm" type="submit">Save limits</button></form></details>
                                         </td>
                                     </tr>
                                 @empty

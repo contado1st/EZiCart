@@ -5,11 +5,12 @@ namespace App\Http\Controllers\Buyer;
 use App\Http\Controllers\Controller;
 use App\Models\Purchase;
 use App\Models\Voucher;
-use App\Services\CheckoutPricingService;
 use App\Services\BuyerAddressService;
+use App\Services\CheckoutPricingService;
 use App\Services\OrderAreaService;
-use App\Services\PlacePurchaseService;
 use App\Services\PsgcAddressService;
+use App\Services\VoucherClaimService;
+use App\Services\WebCheckoutService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
@@ -26,6 +27,10 @@ class CheckoutController extends Controller
         $appliedVoucher = $request->session()->get('applied_voucher');
         $voucher = $appliedVoucher ? Voucher::find($appliedVoucher['id']) : null;
         try {
+            app(WebCheckoutService::class)->assertShopsOpen($cart);
+            if ($voucher) {
+                app(VoucherClaimService::class)->assertUsable($request->user(), $voucher);
+            }
             $quote = $pricing->quote($cart, $voucher);
         } catch (ValidationException $exception) {
             if (isset($exception->errors()['voucher_code'])) {
@@ -72,6 +77,8 @@ class CheckoutController extends Controller
             return back()->withErrors(['voucher_code' => 'Voucher code not found.']);
         }
         $pricing->quote($request->session()->get('cart', []), $voucher);
+        app(VoucherClaimService::class)->claim($request->user(), $voucher);
+        app(VoucherClaimService::class)->assertUsable($request->user(), $voucher);
         $request->session()->put('applied_voucher', ['id' => $voucher->id, 'code' => $voucher->code]);
 
         return redirect()->route('checkout.index')->with('success', 'Voucher applied. Review your updated total.');
@@ -84,7 +91,7 @@ class CheckoutController extends Controller
         return redirect()->route('checkout.index');
     }
 
-    public function process(Request $request, PlacePurchaseService $purchases, OrderAreaService $areas, PsgcAddressService $psgc): RedirectResponse
+    public function process(Request $request, WebCheckoutService $purchases, OrderAreaService $areas, PsgcAddressService $psgc): RedirectResponse
     {
         $validated = $request->validate([
             'checkout_token' => ['required', 'uuid'], 'quote_hash' => ['required', 'string', 'size:64'],

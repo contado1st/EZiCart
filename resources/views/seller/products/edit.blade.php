@@ -30,8 +30,8 @@
                     <div class="form-group">
                         <label class="form-label">Category *</label>
                         <select name="category" class="form-control" required>
-                            @foreach (['Electronics', 'Fashion', 'Home & Living', 'Beauty', 'Groceries'] as $cat)
-                                <option value="{{ $cat }}" {{ $product->category === $cat ? 'selected' : '' }}>
+                            @foreach (array_unique([...config('web-commerce.categories'), $product->category_label]) as $cat)
+                                <option value="{{ $cat }}" @selected(app(\App\Services\ProductCategoryService::class)->label(old('category', $product->category)) === $cat)>
                                     {{ $cat }}</option>
                             @endforeach
                         </select>
@@ -47,6 +47,7 @@
                 </div>
 
                 @include('seller.products.media-fields')
+                @include('seller.products.weight-field')
 
                 <div class="form-grid">
                     <div class="form-group">
@@ -74,6 +75,7 @@
                     </label>
                 </div>
 
+                @include('seller.products.variation-fields')
                 <button type="submit" class="btn-primary u-extracted-3b6349e4b7">Update Product</button>
             </form>
         </div>

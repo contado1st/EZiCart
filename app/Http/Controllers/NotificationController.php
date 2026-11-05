@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\SellerPromotion;
 use App\Notifications\DirectMessageNotification;
 use App\Notifications\OrderMessageNotification;
 use App\Notifications\OrderStatusNotification;
@@ -15,7 +16,7 @@ class NotificationController extends Controller
 {
     public function index(Request $request): View
     {
-        $filters = $request->validate(['filter' => ['nullable', 'in:all,unread'], 'category' => ['nullable', 'in:all,orders,messages,stock,account']]);
+        $filters = $request->validate(['filter' => ['nullable', 'in:all,unread'], 'category' => ['nullable', 'in:all,orders,messages,stock,account,promotions']]);
         $owned = $this->authenticatedUser()->notifications();
         $totalCount = (clone $owned)->count();
         $unreadCount = (clone $owned)->whereNull('read_at')->count();
@@ -27,8 +28,9 @@ class NotificationController extends Controller
                 match ($filters['category']) {
                     'messages' => $query->whereIn('type', [$messageType, DirectMessageNotification::class]),
                     'stock' => $query->where('type', $stockType),
+                    'promotions' => $query->where('data->category', 'promotions'),
                     'orders' => $query->whereIn('type', [OrderWorkflowNotification::class, OrderStatusNotification::class]),
-                    'account' => $query->whereNotIn('type', [$messageType, DirectMessageNotification::class, $stockType, OrderWorkflowNotification::class, OrderStatusNotification::class]),
+                    'account' => $query->whereNotIn('type', [$messageType, DirectMessageNotification::class, $stockType, OrderWorkflowNotification::class, OrderStatusNotification::class])->where(fn ($q) => $q->whereNull('data->category')->orWhere('data->category', '!=', 'promotions')),
                 };
             })->latest()->paginate(20)->withQueryString();
 
@@ -54,6 +56,12 @@ class NotificationController extends Controller
     {
         $owned = $this->authenticatedUser()->notifications()->whereKey($notification)->firstOrFail();
         $owned->markAsRead();
+        if (($owned->data['category'] ?? null) === 'promotions') {
+            $promotion = SellerPromotion::find($owned->data['promotion_id'] ?? 0);
+            if (! $promotion || $promotion->cancelled_at || $promotion->expires_at->isPast()) {
+                return redirect()->route('notifications.index')->with('success', 'This promotion has ended.');
+            }
+        }
         $url = (string) ($owned->data['url'] ?? '');
         $parts = parse_url($url);
         $path = $parts['path'] ?? '';

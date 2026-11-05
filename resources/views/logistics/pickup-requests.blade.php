@@ -33,7 +33,7 @@
                     @forelse ($orders as $order)
                         <tr>
                             <td class="ops-mono">
-                                <strong>{{ $order->order_number }}</strong>
+                                <strong>{{ $order->order_number }}</strong><x-parcel-weight :order="$order" compact />
                                 <div class="ops-muted">
                                     {{ $order->pickup_scheduled_for?->format('d M Y, h:i A') ?? 'Immediate dispatch' }}
                                     @if ($order->pickup_window)
@@ -72,7 +72,7 @@
                                             <option value="">Select rider</option>
                                             @foreach ($riders as $rider)
                                                 <option value="{{ $rider->id }}">
-                                                    {{ $rider->first_name }} {{ $rider->last_name }}
+                                                    {{ $rider->first_name }} {{ $rider->last_name }} ({{ $rider->vehicle_type }}; {{ $rider->vehicle_capacity_verified_at ? \App\Services\ParcelLoadService::kg($rider->vehicle_capacity_grams) : 'capacity unverified' }})
                                                 </option>
                                             @endforeach
                                         </select>

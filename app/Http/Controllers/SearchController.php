@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Product;
 use App\Models\Review;
 use App\Models\User;
+use App\Services\ProductCategoryService;
 use Illuminate\Contracts\View\View;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
@@ -31,6 +32,7 @@ class SearchController extends Controller
         $sortOptions = ['relevance' => 'Relevance', 'latest' => 'Latest', 'rating' => 'Top rated', 'price_asc' => 'Price: low to high', 'price_desc' => 'Price: high to low'];
         $base = Product::query()->availableForMarketplace();
         $categories = (clone $base)->whereNotNull('category')->where('category', '<>', '')->distinct()->orderBy('category')->pluck('category');
+        $categories = collect(app(ProductCategoryService::class)->browseOptions($categories));
         $provinces = User::query()->whereHas('products', fn (Builder $products) => $products->availableForMarketplace())
             ->whereNotNull('province')->where('province', '<>', '')->distinct()->orderBy('province')->pluck('province');
 
@@ -47,7 +49,7 @@ class SearchController extends Controller
             });
         }
         if (filled($filters['category'] ?? null)) {
-            $query->where('category', $filters['category']);
+            app(ProductCategoryService::class)->filter($query, $filters['category']);
         }
         if (filled($filters['province'] ?? null)) {
             $query->whereHas('seller', fn (Builder $sellers) => $sellers->where('province', $filters['province']));

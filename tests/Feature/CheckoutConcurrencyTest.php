@@ -20,7 +20,8 @@ class CheckoutConcurrencyTest extends TestCase
     #[TestWith([false, false])]
     #[TestWith([true, false])]
     #[TestWith([false, true])]
-    public function test_simultaneous_last_unit_duplicate_token_and_last_voucher_requests(bool $duplicate, bool $limitedVoucher): void
+    #[TestWith([false, false, true])]
+    public function test_simultaneous_last_unit_duplicate_token_and_last_voucher_requests(bool $duplicate, bool $limitedVoucher, bool $recipientLimited = false): void
     {
         $path = sys_get_temp_dir().DIRECTORY_SEPARATOR.'ezicart-race-'.Str::uuid().'.sqlite';
         touch($path);
@@ -42,8 +43,8 @@ class CheckoutConcurrencyTest extends TestCase
             $seller = $this->user('seller');
             $first = $this->user('buyer');
             $second = $duplicate ? $first : $this->user('buyer');
-            $product = Product::forceCreate(['user_id' => $seller->id, 'name' => 'Last item', 'category' => 'Test', 'price' => 100, 'stock' => $limitedVoucher ? 2 : 1, 'compliance_status' => 'approved']);
-            $voucher = $limitedVoucher ? Voucher::create(['seller_id' => $seller->id, 'code' => 'LAST-VOUCHER', 'type' => 'fixed', 'value' => 5, 'usage_limit' => 1, 'is_active' => true]) : null;
+            $product = Product::forceCreate(['user_id' => $seller->id, 'name' => 'Last item', 'category' => 'Test', 'price' => 100, 'stock' => ($limitedVoucher || $recipientLimited) ? 2 : 1, 'compliance_status' => 'approved']);
+            $voucher = ($limitedVoucher || $recipientLimited) ? Voucher::create(['seller_id' => $seller->id, 'code' => 'LAST-VOUCHER', 'type' => 'fixed', 'value' => 5, 'usage_limit' => $limitedVoucher ? 1 : null, 'recipient_limit' => $recipientLimited ? 1 : null, 'per_buyer_limit' => $recipientLimited ? 1 : null, 'is_active' => true]) : null;
             $hash = app(CheckoutPricingService::class)->quote([['product_id' => $product->id, 'quantity' => 1]], $voucher)['hash'];
             $token = (string) Str::uuid();
             foreach ([$first, $second] as $index => $buyer) {
@@ -65,10 +66,14 @@ class CheckoutConcurrencyTest extends TestCase
                 $results[] = json_decode($process->getOutput(), true, flags: JSON_THROW_ON_ERROR)['result'];
             }
             $this->assertSame(1, Order::count());
-            $this->assertEquals($limitedVoucher ? 1 : 0, $product->fresh()->stock);
+            $this->assertEquals(($limitedVoucher || $recipientLimited) ? 1 : 0, $product->fresh()->stock);
             $this->assertSame($duplicate ? 2 : 1, count(array_filter($results, fn ($result) => $result === 'placed')));
             if ($voucher) {
                 $this->assertEquals(1, $voucher->fresh()->used_count);
+            }
+            if ($recipientLimited) {
+                $this->assertEquals(1, $voucher->fresh()->claimed_count);
+                $this->assertSame(1, DB::table('voucher_claims')->count());
             }
         } finally {
             foreach ($processes as $process) {

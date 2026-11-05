@@ -86,13 +86,16 @@
 
                             <!-- Uploaded Document Links -->
                             <td>
-                                @if ($user->id_path || $user->license_path)
-                                    <a href="{{ route('admin.users.documents.show', [$user, $user->license_path ? 'license' : 'identity']) }}"
-                                        class="doc-link"><x-shop-icon name="note" /> View Valid ID / License</a>
+                                @if ($user->id_path || $user->id_upload_path)
+                                    <a href="{{ route('admin.users.documents.show', [$user, 'identity', 'preview' => 1]) }}" target="_blank" rel="noopener"
+                                        class="doc-link"><x-shop-icon name="note" /> View Valid ID</a>
+                                @endif
+                                @if ($user->license_path)
+                                    <a href="{{ route('admin.users.documents.show', [$user, 'license', 'preview' => 1]) }}" target="_blank" rel="noopener" class="doc-link">View Driver’s License</a>
                                 @endif
 
-                                @if ($user->permit_path)
-                                    <a href="{{ route('admin.users.documents.show', [$user, 'permit']) }}"
+                                @if ($user->permit_path || $user->business_permit_path)
+                                    <a href="{{ route('admin.users.documents.show', [$user, 'permit', 'preview' => 1]) }}" target="_blank" rel="noopener"
                                         class="doc-link"><x-shop-icon name="checklist" /> View Business Permit</a>
                                 @endif
 
@@ -106,7 +109,7 @@
                                     <a href="{{ route('admin.users.documents.show', [$user, 'representative']) }}" class="doc-link">View Representative ID</a>
                                 @endif
 
-                                @if ($user->or_cr_path)
+                                @if ($user->or_cr_path || $user->or_cr_upload_path)
                                     <a href="{{ route('admin.users.documents.show', [$user, 'vehicle']) }}"
                                         class="doc-link"><x-shop-icon name="delivery1" /> View Vehicle OR/CR</a>
                                 @endif
@@ -115,6 +118,7 @@
                             <!-- Action Forms -->
                             <td>
                                 <div class="action-buttons">
+                                    <a class="dash-btn-sm dash-btn-outline" href="{{ route('admin.registrations.show', $user) }}">Review details & documents</a>
                                     <form action="{{ route('admin.registrations.approve', $user->id) }}" method="POST" data-decision="admin.registrations.approve" data-decision-title="Approve this account?" data-decision-message="Confirm that you reviewed the submitted credentials and that this account meets the approval requirements." data-decision-label="Approve account" data-decision-tone="normal" onsubmit="return window.eziDecisionReady ? true : window.confirm(this.dataset.decisionMessage)">
                                         @csrf
                                         <button type="submit"

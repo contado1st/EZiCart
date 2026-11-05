@@ -13,6 +13,7 @@ use App\Notifications\OrderWorkflowNotification;
 use App\Services\DeliveryCodeService;
 use App\Services\LogisticsHubNotificationService;
 use App\Services\OrderTransitionService;
+use App\Services\ParcelLoadService;
 use App\Services\QrCodeService;
 use App\Services\RiderBadgeService;
 use App\Services\TransactionAwareNotificationSender;
@@ -29,9 +30,12 @@ use Throwable;
 
 class CourierController extends Controller
 {
-    public function dashboard(RiderBadgeService $badges, QrCodeService $qrCodes): View
+    public function dashboard(RiderBadgeService $badges, QrCodeService $qrCodes): View|RedirectResponse
     {
         $courier = $this->authenticatedUser();
+        if ($courier->hub_transfer_only) {
+            return redirect()->route('parcel-transfers.index');
+        }
         $badgeCode = $badges->ensure($courier);
         $badgeQr = $qrCodes->svg('EZR:'.$badgeCode, 180);
         $todayStart = today()->startOfDay();
@@ -94,6 +98,7 @@ class CourierController extends Controller
         $courier = $this->authenticatedUser();
 
         return DB::transaction(function () use ($order, $courier, $notifications): RedirectResponse {
+            app(ParcelLoadService::class)->lockVehicle($courier->id);
             $lockedOrder = Order::whereKey($order->id)->lockForUpdate()->firstOrFail();
             abort_unless($courier->status === 'approved', 403, 'Your rider account is not approved for pickups.');
             abort_unless($lockedOrder->pickup_courier_id === $courier->id, 403);
@@ -104,9 +109,10 @@ class CourierController extends Controller
                 422,
                 'This pickup has already been accepted, is on payment verification hold, or is no longer available.',
             );
+            app(ParcelLoadService::class)->assertFits($lockedOrder, $courier);
             $lockedOrder->forceFill(['pickup_claimed_at' => now()])->save();
             $this->recordEvent($lockedOrder, 'pickup_accepted', $courier, $lockedOrder->seller?->municipality, 'Rider accepted the Logistics pickup assignment.');
-            $notifications->send($lockedOrder->seller, new OrderWorkflowNotification($lockedOrder, 'pickup_accepted', 'The assigned rider accepted the pickup request.'));
+            $notifications->send([$lockedOrder->seller, $lockedOrder->buyer], new OrderWorkflowNotification($lockedOrder, 'pickup_accepted', 'The assigned rider accepted the pickup request.'));
 
             return back()->with('success', "Pickup {$lockedOrder->order_number} added to your route.");
         });
@@ -130,7 +136,7 @@ class CourierController extends Controller
                 $lockedOrder->seller?->municipality,
                 filled($validated['reason'] ?? null) ? $validated['reason'] : 'Rider declined the pickup assignment.',
             );
-            $notifications->send($lockedOrder->seller, new OrderWorkflowNotification($lockedOrder, 'pickup_declined', 'The assigned rider declined the pickup. Logistics will reassign it.'));
+            $notifications->send([$lockedOrder->seller, $lockedOrder->buyer], new OrderWorkflowNotification($lockedOrder, 'pickup_declined', 'The assigned rider declined the pickup. Logistics will reassign it.'));
             $hubNotifications->sendForOrder($lockedOrder, $notifications, new OrderWorkflowNotification($lockedOrder, 'pickup_declined', 'A rider declined a pickup and it is back in the Logistics queue.'));
 
             return back()->with('success', "Pickup {$lockedOrder->order_number} returned to the Logistics queue.");
@@ -169,6 +175,7 @@ class CourierController extends Controller
 
         try {
             return DB::transaction(function () use ($request, $order, $courier, $transitions, $notifications, $validated, $scannedReference): RedirectResponse {
+                app(ParcelLoadService::class)->lockVehicle($courier->id);
                 $lockedOrder = Order::whereKey($order->id)->lockForUpdate()->firstOrFail();
                 abort_unless($lockedOrder->pickup_courier_id === $courier->id, 403);
                 abort_unless(
@@ -182,7 +189,7 @@ class CourierController extends Controller
                 if ($lockedOrder->pickup_arrived_at === null) {
                     $lockedOrder->forceFill(['pickup_arrived_at' => now()])->save();
                     $this->recordEvent($lockedOrder, 'pickup_arrived', $courier, $lockedOrder->seller?->municipality, 'Rider arrived and requested seller handover confirmation.');
-                    $notifications->send($lockedOrder->seller, new OrderWorkflowNotification($lockedOrder, 'pickup_arrived', 'The rider arrived. Confirm the parcel handover when ready.'));
+                    $notifications->send([$lockedOrder->seller, $lockedOrder->buyer], new OrderWorkflowNotification($lockedOrder, 'pickup_arrived', 'The rider arrived at the seller. The seller must confirm parcel handover.'));
 
                     return back()->with('success', 'Arrival recorded. Wait for the seller to confirm parcel handover, then confirm possession.');
                 }
@@ -252,6 +259,7 @@ class CourierController extends Controller
 
         try {
             return DB::transaction(function () use ($request, $order, $courier, $transitions, $deliveryCodes, $validated, $scannedReference): RedirectResponse {
+                app(ParcelLoadService::class)->lockVehicle($courier->id);
                 $lockedOrder = Order::whereKey($order->id)->lockForUpdate()->firstOrFail();
                 abort_unless($lockedOrder->delivery_courier_id === $courier->id, 403);
                 abort_unless($courier->status === 'approved' && $lockedOrder->status === 'ASSIGNED_TO_RIDER', 422, 'This parcel cannot be started for delivery.');

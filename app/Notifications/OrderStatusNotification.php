@@ -4,6 +4,7 @@ namespace App\Notifications;
 
 use App\Models\Order;
 use App\Models\User;
+use App\Services\OrderProgressService;
 use Illuminate\Bus\Queueable;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
@@ -38,12 +39,17 @@ class OrderStatusNotification extends Notification
     /** @return array<string, int|string> */
     public function toDatabase(User $notifiable): array
     {
+        $progress = app(OrderProgressService::class)->forViewer($this->order, $notifiable);
+
         return [
             'order_id' => $this->order->id,
             'order_number' => $this->order->order_number,
             'status' => $this->status,
             'event_type' => $this->eventType,
             'message' => $this->message,
+            'next_step' => $progress['message'],
+            'action_owner' => $progress['owner_label'],
+            'requires_action' => $progress['requires_action'],
             'url' => $this->destinationUrl($notifiable),
         ];
     }

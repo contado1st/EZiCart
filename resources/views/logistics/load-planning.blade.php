@@ -1,0 +1,16 @@
+@extends('layouts.app')
+@section('title', 'Weight & load planning | EZiCart')
+@section('content')
+<main class="web-operations">
+    <header><h1>Weight & load planning</h1><p>Plan pickup, delivery, returns and hub transport using actual packed weights and verified vehicle cargo limits.</p></header>
+    @include('components.feature-feedback')
+    <section class="dash-panel"><h2>Vehicle reservations</h2><p class="web-muted">Loads include assigned pickups, active delivery/return parcels and in-transit hub transfers. Reservations clear when a parcel is unloaded or its assignment is released. Unknown weights never count as zero available cargo.</p>
+        <div class="dash-table-wrapper"><table class="dash-table"><thead><tr><th>Rider / vehicle</th><th>Verified cargo limit</th><th>Reserved load</th><th>Remaining capacity</th><th>Planning status</th></tr></thead><tbody>
+        @forelse($riders as $rider)@php($load = $loadSummaries[$rider->id])<tr><td><strong>{{ $rider->first_name }} {{ $rider->last_name }}</strong><div>{{ $rider->vehicle_type ?: 'Not recorded' }} · {{ $rider->plate_number ?: 'No plate recorded' }}</div>@if($actor->isLogisticsAdmin())<a href="{{ route('staff.show', $rider) }}">Verify vehicle capacity</a>@endif</td><td>{{ \App\Services\ParcelLoadService::kg($load['capacity']) }}</td><td>{{ \App\Services\ParcelLoadService::kg($load['grams']) }} / {{ $load['count'] }} parcels @if($load['unknown'])<strong class="profile-field-error">+ {{ $load['unknown'] }} unweighed</strong>@endif</td><td>{{ \App\Services\ParcelLoadService::kg($load['remaining']) }}</td><td>@if($load['capacity'] === null)<strong class="profile-field-error">Blocked: admin capacity verification needed</strong>@elseif($load['unknown'])<strong class="profile-field-error">Blocked: weigh all assigned parcels</strong>@elseif($load['overweight'])<strong class="profile-field-error">Over capacity: reassign before movement</strong>@else Within verified capacity @endif</td></tr>@empty<tr><td colspan="5">No assigned or managed riders are available in this view.</td></tr>@endforelse
+        </tbody></table></div>
+    </section>
+    <section class="dash-panel"><h2>Parcels awaiting movement</h2><div class="dash-table-wrapper"><table class="dash-table"><thead><tr><th>Parcel</th><th>Status</th><th>Actual packed weight</th><th>Assigned pickup / delivery / transport</th><th>Record / inspect weight</th></tr></thead><tbody>
+    @forelse($orders as $order)<tr><td>{{ $order->order_number }}</td><td>{{ Str::headline($order->status) }}</td><td><x-parcel-weight :order="$order" compact /></td><td>{{ $order->pickupCourier?->first_name ?: 'No pickup rider' }} / {{ $order->deliveryCourier?->first_name ?: 'No delivery rider' }}@if($order->activeTransfer?->carrier) / {{ $order->activeTransfer->carrier->first_name }} (hub transport)@endif</td><td>@if($actor->role !== 'courier' || in_array($actor->id, [$order->pickup_courier_id, $order->delivery_courier_id], true))<a class="dash-btn-sm dash-btn-outline" href="{{ route('parcel-evidence.show', $order) }}">Parcel weight & journey</a>@else Hub transport assigned @endif</td></tr>@empty<tr><td colspan="5">No parcels currently require movement planning.</td></tr>@endforelse
+    </tbody></table></div>{{ $orders->links() }}</section>
+</main>
+@endsection

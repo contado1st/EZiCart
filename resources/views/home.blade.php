@@ -102,7 +102,7 @@
                                     @else
                                         <span class="buyer-image-placeholder" aria-hidden="true">EZ</span>
                                     @endif
-                                    <span class="buyer-arrival-category">{{ $product->category }}</span>
+                                    <span class="buyer-arrival-category">{{ $product->category_label }}</span>
                                 </span>
                                 <span class="buyer-arrival-meta">
                                     <strong>{{ $product->name }}</strong>
@@ -154,7 +154,7 @@
                                     @else
                                         <span class="buyer-image-placeholder" aria-hidden="true">EZ</span>
                                     @endif
-                                    <span class="buyer-product-category">{{ $product->category }}</span>
+                                    <span class="buyer-product-category">{{ $product->category_label }}</span>
                                 </span>
                                 <span class="buyer-product-details">
                                     <strong>{{ $product->name }}</strong>

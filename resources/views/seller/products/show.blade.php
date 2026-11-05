@@ -17,7 +17,7 @@
             <!-- Product Purchase Information -->
             <div class="product-info-column">
                 <div>
-                    <span class="product-badge">{{ $product->category }}</span>
+                    <span class="product-badge">{{ $product->category_label }}</span>
                     <h1 class="product-detail-title">
                         {{ $product->name }}
                     </h1>

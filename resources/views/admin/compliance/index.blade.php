@@ -49,7 +49,7 @@
                         @forelse ($products as $product)
                             <tr>
                                 <td><strong>{{ $product->name }}</strong>
-                                    <div>{{ $product->category }}</div>
+                                    <div>{{ $product->category_label }}</div>
                                     <div class="text-muted-small">{{ $product->description }}</div><span
                                         class="dash-badge dash-badge-archived">{{ str_replace('_', ' ', ucfirst($product->compliance_status)) }}</span>
                                     <details class="product-compliance-media"><summary>Review photos &amp; video</summary><x-product-gallery :product="$product" compact /></details>

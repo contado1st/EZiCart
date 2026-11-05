@@ -75,7 +75,7 @@ class AnalyticsService
             ->when(filled($filters['seller_id'] ?? null), fn ($q) => $q->where('seller_id', $filters['seller_id']))
             ->when(filled($filters['rider_id'] ?? null), fn ($q) => $q->where(fn ($r) => $r->where('pickup_courier_id', $filters['rider_id'])->orWhere('delivery_courier_id', $filters['rider_id'])))
             ->when(filled($filters['product_id'] ?? null), fn ($q) => $q->whereHas('items', fn ($items) => $items->where('product_id', $filters['product_id'])))
-            ->when(filled($filters['category'] ?? null), fn ($q) => $q->whereHas('items.product', fn ($p) => $p->where('category', $filters['category'])))
+            ->when(filled($filters['category'] ?? null), fn ($q) => $q->whereHas('items.product', fn ($p) => app(ProductCategoryService::class)->filter($p, $filters['category'])))
             ->when(filled($filters['status'] ?? null), fn ($q) => $q->where('status', $filters['status']))
             ->when(filled($filters['municipality'] ?? null), fn ($q) => $q->where('municipality', $filters['municipality']))
             ->when(filled($filters['barangay'] ?? null), fn ($q) => $q->where('barangay', $filters['barangay']))
@@ -164,7 +164,7 @@ class AnalyticsService
                     $productRows[$id] ??= ['Product' => $item->product_name, 'Units fulfilled' => 0, 'Gross PHP' => 0];
                     $productRows[$id]['Units fulfilled'] += $item->quantity;
                     $productRows[$id]['Gross PHP'] += CheckoutPricingService::cents($item->item_total) / 100;
-                    $category = $item->product?->category ?: 'Uncategorized / deleted';
+                    $category = $item->product?->category_label ?: 'Uncategorized / deleted';
                     $categoryRows[$category] ??= ['Category' => $category, 'Units fulfilled' => 0, 'Gross PHP' => 0];
                     $categoryRows[$category]['Units fulfilled'] += $item->quantity;
                     $categoryRows[$category]['Gross PHP'] += CheckoutPricingService::cents($item->item_total) / 100;
@@ -225,7 +225,7 @@ class AnalyticsService
                 ->when($actor->role === 'seller', fn ($q) => $q->where('user_id', $actor->id))
                 ->when(filled($filters['seller_id'] ?? null), fn ($q) => $q->where('user_id', $filters['seller_id']))
                 ->when(filled($filters['product_id'] ?? null), fn ($q) => $q->whereKey($filters['product_id']))
-                ->when(filled($filters['category'] ?? null), fn ($q) => $q->where('category', $filters['category']))
+                ->when(filled($filters['category'] ?? null), fn ($q) => app(ProductCategoryService::class)->filter($q, $filters['category']))
                 ->where('stock', '<=', config('commerce.low_stock_threshold', 5))->orderBy('stock')->orderBy('id');
             if ((clone $inventory)->count() > config('analytics.maximum_orders', 10000)) {
                 throw ValidationException::withMessages(['category' => 'Narrow the product or category filters to export the complete low-stock inventory snapshot.']);

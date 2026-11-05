@@ -175,14 +175,14 @@ class ProductMediaTest extends TestCase
 
     private function payload(): array
     {
-        return ['name' => 'Media test product', 'description' => 'Product media demonstration.', 'category' => 'Fashion', 'price' => 100, 'stock' => 3];
+        return ['name' => 'Media test product', 'description' => 'Product media demonstration.', 'category' => "Women's Apparel", 'price' => 100, 'stock' => 3, 'weight_kg' => 1];
     }
 
     private function product(User $seller): Product
     {
         Storage::disk('public')->put('products/cover-'.$seller->id.'.jpg', 'sample');
 
-        return Product::forceCreate([...$this->payload(), 'user_id' => $seller->id, 'image_path' => 'products/cover-'.$seller->id.'.jpg', 'compliance_status' => 'approved', 'is_archived' => false]);
+        return Product::forceCreate([...array_diff_key($this->payload(), ['weight_kg' => true]), 'weight_grams' => 1000, 'user_id' => $seller->id, 'image_path' => 'products/cover-'.$seller->id.'.jpg', 'compliance_status' => 'approved', 'is_archived' => false]);
     }
 
     private function savedMedia(Product $product, string $kind, string $path): ProductMedia

@@ -1,0 +1,66 @@
+/* Web additions reuse each workspace's existing accent and spacing. */
+.parcel-weight-label { display: block; margin-block: 4px; font-size: 11px; font-weight: 600; color: #71384f; white-space: normal; }
+.parcel-weight-label.is-missing { color: #a42849; }
+.parcel-weight-editor { margin-block: 10px; }
+.parcel-weight-editor summary { cursor: pointer; color: var(--workspace-accent, #be2854); font-size: 12px; font-weight: 600; }
+.profile-review-changes { display: grid; gap: 12px; margin: 12px 0; }
+.profile-review-changes > div { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px 16px; padding-bottom: 12px; border-bottom: 1px solid #e7e9ef; }
+.profile-review-changes dt { grid-column: 1 / -1; font-weight: 600; }
+.profile-review-changes dd { display: grid; gap: 4px; margin: 0; align-content: start; overflow-wrap: anywhere; }
+.profile-review-image { width: 100px; max-height: 90px; object-fit: contain; border-radius: 5px; }
+.profile-request-history { padding-block: 14px; border-bottom: 1px solid #e7e9ef; }
+.profile-request-history summary { margin-top: 8px; cursor: pointer; color: var(--workspace-accent, #be2854); }
+.profile-review-table { min-width: 820px; }
+.profile-review-table td { vertical-align: top; }
+.profile-review-table td:nth-child(2) { min-width: 300px; }
+.profile-review-table .profile-review-decision { display: grid; gap: 8px; min-width: 185px; }
+.profile-review-decision textarea { width: 100%; padding: 8px; border: 1px solid #dce0e8; border-radius: 6px; font: inherit; }
+.registration-review-details { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr)); gap: 16px; }
+.registration-review-fields { display: grid; gap: 12px; margin: 0; }
+.registration-review-fields > div { display: grid; grid-template-columns: minmax(110px, 1fr) minmax(0, 2fr); gap: 12px; padding-bottom: 10px; border-bottom: 1px solid #e7e9ef; }
+.registration-review-fields dt { color: #657084; }
+.registration-review-fields dd { margin: 0; overflow-wrap: anywhere; }
+.registration-review-documents { list-style: none; padding: 0; margin: 0; }
+.registration-review-documents > li { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; padding-block: 14px; border-bottom: 1px solid #e7e9ef; }
+.registration-review-documents > li > div:first-child { display: grid; gap: 4px; }
+.registration-review .web-actions > form { margin: 0; }
+@media (max-width: 480px) { .registration-review-fields > div { grid-template-columns: 1fr; gap: 4px; } }
+.web-operations { display: grid; gap: 20px; min-width: 0; }
+.web-operations h1 { font-size: 25px; font-weight: 650; margin: 0; }
+.web-operations h2 { font-size: 16px; font-weight: 650; margin: 0 0 12px; }
+.web-operations p { line-height: 1.6; }
+.web-operations .web-form, .web-form { display: flex; align-items: flex-end; flex-wrap: wrap; gap: 12px; margin-block: 12px; }
+.web-form > label { display: grid; gap: 6px; flex: 1 1 180px; min-width: 0; font-size: 12px; }
+.web-form :is(input:not([type="checkbox"]), select, textarea) { width: 100%; min-height: 40px; padding: 9px 11px; border: 1px solid #dce0e8; border-radius: 7px; background: #fff; color: #202634; font: inherit; }
+.web-form .web-wide { flex-basis: 100%; }
+.web-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.web-section { margin-block: 16px; }
+.web-staff-photo { width: 80px; height: 80px; object-fit: cover; border-radius: 50%; }
+.web-evidence-photo { width: 140px; height: 110px; object-fit: cover; border-radius: 8px; }
+.web-history { display: grid; gap: 16px; padding: 0; list-style: none; }
+.web-history > li { padding-block: 12px; border-bottom: 1px solid #e7e9ef; }
+.web-history time, .web-muted { color: #657084; font-size: 12px; }
+.web-person-status { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; padding-block: 8px; font-size: 12px; }
+.web-status-dot { width: 7px; height: 7px; border-radius: 50%; background: #7c8593; }
+.web-status-dot.is-online { background: #21845e; }
+.web-availability-note { padding: 12px 16px; border: 1px solid #e9cad5; border-radius: 8px; background: #fff5f8; color: #71384f; line-height: 1.6; }
+.web-attachment-list { display: flex; flex-wrap: wrap; gap: 10px; padding-block: 8px; }
+.web-attachment { display: grid; gap: 5px; padding: 10px; max-width: 220px; border: 1px solid #dce0e8; border-radius: 8px; background: #fff; color: #202634; overflow-wrap: anywhere; }
+.web-attachment img { width: 150px; max-height: 150px; object-fit: contain; }
+.web-attachment small { color: #657084; }
+.web-upload-feedback { margin-block: 8px; font-size: 11px; color: #657084; }
+.conversation-composer > label[for="message-files"] { margin-top: 8px; }
+.conversation-composer input[type="file"] { max-width: 100%; font-size: 11px; }
+[data-message-file-preview] { max-height: 115px; overflow-y: auto; }
+[data-message-file-preview]:empty { display: none; }
+[data-message-file-preview] .web-attachment img { width: 54px; height: 44px; }
+.web-promotion-label { font-size: 10px; font-weight: 650; color: var(--workspace-accent, #be2854); }
+.web-variation-editor { margin-block: 20px; padding-block: 16px; border-block: 1px solid #e7e9ef; }
+.web-variation-editor .web-form { align-items: end; }
+.web-variation-editor table input { width: 100%; min-width: 85px; padding: 8px; border: 1px solid #dce0e8; border-radius: 6px; }
+.web-variation-editor .dash-table-wrapper { overflow-x: auto; }
+.web-variation-editor table { min-width: 700px; }
+.web-variation-editor fieldset { border: 0; padding: 0; }
+.web-variation-preview { max-width: 120px; max-height: 100px; object-fit: contain; margin-block: 8px; }
+@media (max-width: 600px) { .web-form > label { flex-basis: 100%; } .web-operations { gap: 16px; } }
+@media print { .web-form, .web-actions { display: none; } }

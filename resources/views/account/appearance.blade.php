@@ -1,4 +1,4 @@
-<section class="profile-editor profile-theme-{{ $user->profile_theme ?: 'rose' }}" id="profile-appearance" aria-labelledby="profile-appearance-title" data-profile-editor>
+<section class="profile-editor profile-theme-{{ $user->profile_theme ?: 'rose' }}" id="profile-appearance" aria-labelledby="profile-appearance-title" data-profile-editor data-profile-review="{{ in_array($user->role, ['seller', 'courier', 'sorting_center'], true) ? '1' : '0' }}">
     <div class="profile-cover">
         <img data-profile-preview="banner" @if($user->profile_banner_path) src="{{ route('profiles.media', [$user, 'banner', 'v' => $user->updated_at?->timestamp]) }}" @else hidden @endif alt="Your profile banner" width="1600" height="500">
         <span class="profile-cover-wordmark">EZiCart</span>
@@ -20,7 +20,7 @@
                 <div class="profile-upload"><label for="profile-banner-file">Banner image<input id="profile-banner-file" name="banner" type="file" accept="image/jpeg,image/png,image/webp" data-profile-upload="banner" aria-describedby="banner-help"></label><small id="banner-help">JPEG, PNG or WebP, up to 2 MB. At least 600 × 200 px; at most 4096 × 2048 px. Recommended 1600 × 500 px. Center-cropped.</small>@if($user->profile_banner_path)<label class="profile-check"><input type="checkbox" name="remove_banner" value="1" data-profile-remove="banner"> Remove current banner</label>@endif @error('banner')<span class="profile-field-error">{{ $message }}</span>@enderror @error('remove_banner')<span class="profile-field-error">{{ $message }}</span>@enderror</div>
             </div>
             @error('profile_theme')<p class="profile-field-error">{{ $message }}</p>@enderror
-            <div class="profile-save-row"><p data-profile-preview-status role="status">Image and color previews are saved only when you select Save appearance.</p><button class="profile-button profile-button-primary" type="submit">Save appearance</button></div>
+            <div class="profile-save-row"><p data-profile-preview-status role="status">{{ in_array($user->role, ['seller', 'courier', 'sorting_center'], true) ? 'These are previews. Your current appearance stays active until an admin approves your request.' : 'Image and color previews are saved only when you select Save appearance.' }}</p><button class="profile-button profile-button-primary" type="submit">{{ in_array($user->role, ['seller', 'courier', 'sorting_center'], true) ? 'Request appearance update' : 'Save appearance' }}</button></div>
         </form>
     </div>
 </section>

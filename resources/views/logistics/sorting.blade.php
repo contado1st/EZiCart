@@ -34,7 +34,7 @@
                     @forelse($parcels as $order)
                         <tr>
                             <td class="ops-mono">
-                                <strong>{{ $order->order_number }}</strong>
+                                <strong>{{ $order->order_number }}</strong><x-parcel-weight :order="$order" compact />
                                 @if ($order->parcel_code)
                                     <div class="ops-muted">EZP:{{ $order->parcel_code }}</div>
                                 @endif

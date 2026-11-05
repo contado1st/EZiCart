@@ -9,6 +9,11 @@ class ParcelTransfer extends Model
 {
     protected $guarded = ['id'];
 
+    public function carrier(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'carrier_rider_id');
+    }
+
     public function order(): BelongsTo
     {
         return $this->belongsTo(Order::class);

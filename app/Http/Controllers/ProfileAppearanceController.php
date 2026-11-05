@@ -22,7 +22,9 @@ class ProfileAppearanceController extends Controller
         ]);
         $profiles->update($request->user(), $data);
 
-        return back()->with('success', 'Your profile appearance has been saved.');
+        return back()->with('success', in_array($request->user()->role, ['seller', 'courier', 'sorting_center'], true)
+            ? 'Your profile appearance was submitted for admin review. Your current appearance stays active until approved.'
+            : 'Your profile appearance has been saved.');
     }
 
     public function media(Request $request, User $user, string $type)

@@ -25,7 +25,7 @@
             if (refreshAgain) { refreshAgain = false; update(); }
         }
     };
-    window.setInterval(update, 30000);
+    window.setInterval(update, 15000);
     window.addEventListener('focus', update);
     document.addEventListener('visibilitychange', update);
     document.addEventListener('ezicart:message-panel-loaded', update);

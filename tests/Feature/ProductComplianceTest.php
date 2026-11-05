@@ -24,6 +24,7 @@ class ProductComplianceTest extends TestCase
         $seller->forceFill(['line_of_business' => 'Local tea and groceries'])->save();
         $product = $this->actingAsUser($seller)->post(route('seller.products.store'), [
             'name' => 'Unreviewed tea',
+            'weight_kg' => 1,
             'category' => 'Groceries',
             'description' => 'A locally packed tea.',
             'price' => 80,
@@ -114,6 +115,7 @@ class ProductComplianceTest extends TestCase
         $this->actingAsUser($seller)->put(route('seller.products.update', $product), [
             'name' => 'Reviewed product',
             'description' => 'Changed product details.',
+            'weight_kg' => 1,
             'category' => 'Electronics',
             'price' => 100,
             'stock' => 4,

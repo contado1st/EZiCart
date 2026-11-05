@@ -4,7 +4,7 @@ const fs = require('node:fs');
 const vm = require('node:vm');
 const source = fs.readFileSync('public/js/profiles.js', 'utf8');
 
-function setup() {
+function setup(review = false) {
     class Node {
         constructor() { this.events = {}; this.value = ''; this.files = []; this.hidden = false; this.checked = false; this.dataset = {}; this.attrs = new Map(); this.textContent = ''; }
         addEventListener(type, fn) { this.events[type] = fn; }
@@ -23,6 +23,7 @@ function setup() {
         removes[type] = new Node();
     }
     const classes = new Set(); const editor = {
+        dataset: {profileReview: review ? '1' : '0'},
         classList: {toggle: (name, active) => active ? classes.add(name) : classes.delete(name)},
         querySelector(selector) {
             if(selector === '[data-profile-name]') return name;
@@ -70,4 +71,11 @@ test('removal preview can be cancelled without deleting the saved image', () => 
     assert.equal(h.images.avatar.hidden, true); assert.equal(h.fallback.hidden, false);
     h.removes.avatar.checked = false; h.removes.avatar.events.change();
     assert.equal(h.images.avatar.getAttribute('src'), '/existing-avatar'); assert.equal(h.images.avatar.hidden, false);
+});
+
+test('reviewed roles are told previews still require admin approval', () => {
+    const h = setup(true);
+    h.uploads.avatar.files = [{size: 1000, type: 'image/png'}];
+    h.uploads.avatar.events.change();
+    assert.match(h.status.textContent, /admin approval/);
 });

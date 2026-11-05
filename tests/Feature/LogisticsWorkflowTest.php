@@ -1032,8 +1032,9 @@ class LogisticsWorkflowTest extends TestCase
         $seller = $this->user('seller', 'approved');
         $this->actingAsUser($seller)->post(route('seller.products.store'), [
             'name' => 'Professor Flow Product',
+            'weight_kg' => 1,
             'description' => 'Approved test listing',
-            'category' => 'Test',
+            'category' => 'Pet Supplies',
             'price' => 100,
             'stock' => 3,
         ])->assertRedirect(route('seller.products.index'))->assertSessionHasNoErrors();
@@ -1082,6 +1083,7 @@ class LogisticsWorkflowTest extends TestCase
         $this->actingAsUser($seller)->patch(route('seller.orders.updateStatus', $order), ['status' => 'CONFIRMED'])->assertRedirect();
         $this->patch(route('seller.orders.updateStatus', $order), ['status' => 'PREPARING'])->assertRedirect();
         $this->patch(route('seller.orders.updateStatus', $order), ['status' => 'READY_FOR_PICKUP'])->assertRedirect();
+        $this->patch(route('orders.weight', $order), ['parcel_weight_kg' => 1.25, 'reason' => 'Packed parcel weighed for the complete journey.'])->assertSessionHasNoErrors();
         $this->post(route('seller.orders.schedulePickup', $order), [
             'pickup_scheduled_for' => now()->addDay()->format('Y-m-d\\TH:i'),
             'pickup_window' => 'Morning (8 AM–12 PM)',
@@ -3120,6 +3122,8 @@ class LogisticsWorkflowTest extends TestCase
             'password' => 'password',
             'role' => $role,
             'status' => $status,
+            'vehicle_capacity_grams' => $role === 'courier' ? 100000 : null,
+            'vehicle_capacity_verified_at' => $role === 'courier' ? now() : null,
             'first_name' => fake()->firstName(),
             'last_name' => fake()->lastName(),
             'sex' => 'Other',
@@ -3160,6 +3164,7 @@ class LogisticsWorkflowTest extends TestCase
 
         return Order::query()->forceCreate(array_merge([
             'order_number' => 'EZC-'.strtoupper(fake()->unique()->bothify('??????????')),
+            'parcel_weight_grams' => 1000,
             'buyer_id' => $buyer->id,
             'seller_id' => $seller->id,
             'recipient_name' => 'Recipient Test',
