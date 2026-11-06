@@ -6,6 +6,9 @@
     const status = editor.querySelector('[data-profile-preview-status]');
     const name = editor.querySelector('[data-profile-name]');
     const originalName = name.textContent;
+    const previewMessage = editor.dataset.profileReview === '1'
+        ? 'Preview updated. Request an appearance update to send these changes for admin approval.'
+        : 'Preview updated. Select Save appearance to keep your changes.';
     const setTheme = () => {
         const selected = editor.querySelector('[data-profile-theme]').value;
         themes.forEach(theme => editor.classList.toggle('profile-theme-'+theme, theme === selected));
@@ -37,12 +40,12 @@
             }
             if (remove) remove.checked = false;
             const url = URL.createObjectURL(file); urls.set(type, url); show(url);
-            status.textContent = 'Preview updated. Select Save appearance to keep your changes.';
+            status.textContent = previewMessage;
         });
         remove?.addEventListener('change', () => {
             if (remove.checked) { input.value = ''; input.setCustomValidity(''); if (urls.has(type)) { URL.revokeObjectURL(urls.get(type)); urls.delete(type); } }
             show(remove.checked ? null : (urls.get(type) || originalSrc));
-            status.textContent = 'Preview updated. Select Save appearance to keep your changes.';
+            status.textContent = previewMessage;
         });
     });
     window.addEventListener('pagehide', () => { urls.forEach(url => URL.revokeObjectURL(url)); urls.clear(); });

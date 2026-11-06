@@ -89,8 +89,8 @@ class TabSessionIsolationTest extends TestCase
         ])
             ->get('/__test/tab-bootstrap?filter=products');
 
-        $response->assertRedirect();
-        $this->assertMatchesRegularExpression('/__tab=[a-f0-9]{32}/', (string) $response->headers->get('Location'));
-        $this->assertStringContainsString('filter=products', (string) $response->headers->get('Location'));
+        $response->assertOk()->assertViewIs('auth.tab-bootstrap')
+            ->assertSee('filter=products')->assertDontSee('The page should not render yet.');
+        $this->assertStringContainsString('no-store', $response->headers->get('Cache-Control'));
     }
 }

@@ -89,6 +89,18 @@
         ],
     };
     $navigation['Insights'] = [['analytics.index', 'diagram', 'Analytics', 'analytics.*']];
+    $navigation['Parcel records'] = [['parcel-evidence.index', 'package1', 'Journey & evidence', 'parcel-evidence.*']];
+    if (in_array($sidebarUser->role, ['seller', 'courier', 'sorting_center', 'logistics_admin'], true)) $navigation['Planning'] = [['load-planning.index', 'delivery1', 'Weight & load planning', 'load-planning.*']];
+    if ($sidebarUser->role === 'courier' && $sidebarUser->hub_transfer_only) {
+        $navigation['Delivery operations'] = [['parcel-transfers.index', 'delivery1', 'Assigned hub transfers', 'parcel-transfers.*']];
+    }
+    if ($sidebarUser->isCommerceAdmin() || $sidebarUser->isLogisticsAdmin()) {
+        $navigation['Staff'] = [['staff.index', 'account', 'Staff profiles', 'staff.index']];
+        $navigation['Staff'][] = [$sidebarUser->isCommerceAdmin() ? 'admin.profile-reviews.index' : 'logistics-admin.profile-reviews.index', 'shield', 'Profile change approvals', $sidebarUser->isCommerceAdmin() ? 'admin.profile-reviews.*' : 'logistics-admin.profile-reviews.*'];
+    }
+    if ($sidebarUser->role === 'buyer') $navigation['Offers'] = [['buyer.vouchers.index', 'voucher', 'My vouchers', 'buyer.vouchers.*']];
+    if ($sidebarUser->role === 'seller') $navigation['Shop settings'] = [['seller.availability.edit', 'settings', 'Availability', 'seller.availability.*'], ['seller.promotions.index', 'megaphone', 'Promotions', 'seller.promotions.*']];
+    if ($sidebarUser->isCommerceAdmin()) $navigation['Administration'][] = ['admin.promotions.index', 'megaphone', 'Seller promotions', 'admin.promotions.*'];
     $sidebarRole = match ($sidebarUser->role) {
         'admin', 'ecommerce_admin' => 'E-commerce admin',
         'logistics_admin' => 'Logistics admin',
@@ -111,6 +123,7 @@
             </div>
         @endforeach
         <div class="workspace-nav-group"><p class="workspace-nav-heading">Account</p>
+            <a href="{{ route('login', ['__tab' => bin2hex(random_bytes(16)), '__new_account' => 1]) }}" target="_blank" rel="noopener" data-tab-session="new-tab" class="workspace-nav-link" title="Sign in another account in a new tab"><x-shop-icon name="account" /><span class="workspace-nav-label">Sign in another account</span></a>
             @if($sidebarUser->role === 'seller' && $sidebarUser->status === 'approved')<a class="workspace-nav-link" href="{{ route('shops.show', $sidebarUser) }}" title="View my shop"><x-shop-icon name="package1" /><span class="workspace-nav-label">View my shop</span></a>@endif
             <a href="{{ route('notifications.index') }}" @class(['workspace-nav-link', 'is-active' => request()->routeIs('notifications.*')]) title="Notifications" data-communication-label="Notifications" aria-label="Notifications{{ $communicationCounts['notifications'] ? ', '.$communicationCounts['notifications'].' unread' : '' }}"><x-shop-icon name="bell" /><span class="workspace-nav-label">Notifications</span><x-communication-count kind="notifications" :count="$communicationCounts['notifications']" /></a>
             <a href="{{ route('account.profile.edit') }}" @class(['workspace-nav-link', 'is-active' => request()->routeIs('account.profile.*')]) title="Account & profile"><x-shop-icon name="settings" /><span class="workspace-nav-label">Account & profile</span></a>

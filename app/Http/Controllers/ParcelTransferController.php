@@ -16,11 +16,17 @@ class ParcelTransferController extends Controller
     public function index(Request $request)
     {
         $actor = $request->user();
-        $transfers = ParcelTransfer::query()->with(['order', 'sourceHub', 'destinationHub'])
-            ->when(! $actor->isLogisticsAdmin(), fn ($query) => $query->where(fn ($q) => $q->where('source_hub_id', $actor->id)->orWhere('destination_hub_id', $actor->id)))
+        abort_if($actor->role === 'courier' && ! $actor->hub_transfer_only, 403);
+        $transfers = ParcelTransfer::query()->with(['order', 'sourceHub', 'destinationHub', 'carrier'])
+            ->when($actor->role === 'courier', fn ($query) => $query->where('carrier_rider_id', $actor->id))
+            ->when($actor->role === 'sorting_center', fn ($query) => $query->where(fn ($q) => $q->where('source_hub_id', $actor->id)->orWhere('destination_hub_id', $actor->id)))
             ->latest('id')->paginate(20);
 
-        return view('logistics.transfers', compact('transfers', 'actor'));
+        $carriers = User::where('role', 'courier')->where('status', 'approved')
+            ->where('hub_transfer_only', true)
+            ->where(fn ($q) => $q->where('logistics_owner_id', $actor->id)->orWhereHas('serviceAreas', fn ($a) => $a->where('sorting_center_id', $actor->id)))->get();
+
+        return view('logistics.transfers', compact('transfers', 'actor', 'carriers'));
     }
 
     public function plan(Request $request, Order $order, ParcelTransferService $service)
@@ -33,8 +39,8 @@ class ParcelTransferController extends Controller
 
     public function release(Request $request, ParcelTransfer $transfer, ParcelTransferService $service)
     {
-        $data = $request->validate(['parcel_reference' => ['required', 'string', 'max:100'], 'transport_reference' => ['required', 'string', 'max:120']]);
-        $service->release($transfer, $request->user(), $data['parcel_reference'], $data['transport_reference']);
+        $data = $request->validate(['parcel_reference' => ['required', 'string', 'max:100'], 'transport_reference' => ['required', 'string', 'max:120'], 'carrier_rider_id' => ['required', 'integer', 'exists:users,id']]);
+        $service->release($transfer, $request->user(), $data['parcel_reference'], $data['transport_reference'], User::findOrFail($data['carrier_rider_id']));
 
         return back()->with('success', 'Transfer released to transport. Destination receipt is pending.');
     }

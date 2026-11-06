@@ -11,7 +11,7 @@
     $isDashboardWorkspace = auth()->check() && request()->routeIs(
         'admin.*', 'seller.*', 'courier.*', 'logistics.*', 'logistics-admin.*',
         'buyer.dashboard', 'buyer.orders.*', 'buyer.addresses.*', 'finance.*', 'parcel-transfers.*',
-        'account.profile.*', 'notifications.*', 'buyer.for-you*', 'buyer.stock.*', 'chat.*', 'sales-reports.*', 'activity-logs.*', 'coverage.*', 'analytics.*'
+        'account.profile.*', 'notifications.*', 'buyer.for-you*', 'buyer.stock.*', 'chat.*', 'sales-reports.*', 'activity-logs.*', 'coverage.*', 'analytics.*', 'staff.*', 'parcel-evidence.*', 'buyer.vouchers.*', 'load-planning.*'
     );
 @endphp
 
@@ -20,6 +20,8 @@
 
 <head>
     <meta charset="UTF-8">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+    <script src="{{ asset('js/tab-sessions.js') }}?v={{ filemtime(public_path('js/tab-sessions.js')) }}" data-tab-login-url="{{ route('login') }}" data-tab-authenticated="{{ auth()->check() ? '1' : '0' }}" defer></script>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>@yield('title', 'EZiCart - A Better Marketplace')</title>
     <meta name="description" content="@yield('meta-description', 'Shop available products from sellers on the EZiCart marketplace.')">
@@ -37,10 +39,13 @@
     @if(auth()->check())
         <link rel="stylesheet" href="{{ asset('css/communication-badges.css') }}?v={{ filemtime(public_path('css/communication-badges.css')) }}">
         <script src="{{ asset('js/communication-badges.js') }}?v={{ filemtime(public_path('js/communication-badges.js')) }}" data-communication-count-url="{{ route('communications.counts') }}" defer></script>
+        <link rel="stylesheet" href="{{ asset('css/workflow-progress.css') }}?v={{ filemtime(public_path('css/workflow-progress.css')) }}">
+        <script src="{{ asset('js/workflow-progress.js') }}?v={{ filemtime(public_path('js/workflow-progress.js')) }}" data-workflow-url="{{ route('workflow.attention') }}" defer></script>
         <link rel="stylesheet" href="{{ asset('css/message-drawer.css') }}?v={{ filemtime(public_path('css/message-drawer.css')) }}">
         <script src="{{ asset('js/message-drawer.js') }}?v={{ filemtime(public_path('js/message-drawer.js')) }}" defer></script>
     @endif
     <link rel="stylesheet" href="{{ asset('css/roadmap-features.css') }}?v={{ filemtime(public_path('css/roadmap-features.css')) }}">
+    <link rel="stylesheet" href="{{ asset('css/web-operations.css') }}?v={{ filemtime(public_path('css/web-operations.css')) }}">
     <script src="{{ asset('js/order-deadlines.js') }}?v={{ filemtime(public_path('js/order-deadlines.js')) }}" defer></script>
     @if ($isDashboardWorkspace)
         <link rel="stylesheet" href="{{ asset('css/workspace.css') }}?v={{ filemtime(public_path('css/workspace.css')) }}">
@@ -52,7 +57,6 @@
     <link rel="stylesheet" href="{{ asset('css/loading-skeleton.css') }}?v={{ filemtime(public_path('css/loading-skeleton.css')) }}">
     <script src="{{ asset('js/page-loading.js') }}?v={{ filemtime(public_path('js/page-loading.js')) }}" defer></script>
     @vite('resources/js/app.js')
-    <script src="{{ asset('js/tab-sessions.js') }}?v={{ filemtime(public_path('js/tab-sessions.js')) }}" defer></script>
     <script src="{{ asset('js/password-visibility.js') }}?v={{ filemtime(public_path('js/password-visibility.js')) }}" defer></script>
     <script src="{{ asset('js/registration-name-inputs.js') }}?v={{ filemtime(public_path('js/registration-name-inputs.js')) }}" defer></script>
     <script src="{{ asset('js/email-input-constraint.js') }}?v={{ filemtime(public_path('js/email-input-constraint.js')) }}" defer></script>
@@ -197,6 +201,7 @@
             @include('components.workspace-sidebar')
             <button type="button" class="workspace-overlay" data-workspace-close aria-label="Close navigation" tabindex="-1" hidden></button>
             <div class="workspace-page" id="workspace-content" tabindex="-1" data-page-content>
+                @include('components.workflow-attention')
                 @yield('content')
             </div>
         </div>

@@ -10,12 +10,15 @@ class ProductVariation extends Model
 {
     use HasFactory;
 
+    protected $hidden = ['sku', 'image_path'];
+
     protected $fillable = [
         'product_id',
         'type',
         'value',
         'price_adjustment',
         'stock',
+        'sku', 'image_path',
     ];
 
     public function product(): BelongsTo

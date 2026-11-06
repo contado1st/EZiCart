@@ -211,7 +211,7 @@
                                         @else
                                             <span class="product-image-empty" aria-hidden="true">EZ</span>
                                         @endif
-                                        <span class="product-category">{{ $product->category }}</span>
+                                        <span class="product-category">{{ $product->category_label }}</span>
                                     </span>
                                     <span class="product-meta">
                                         <span class="product-name">{{ $product->name }}</span>

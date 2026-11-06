@@ -7,6 +7,7 @@ use App\Models\EmailVerificationCode;
 use App\Models\User;
 use App\Notifications\EmailVerificationCodeNotification;
 use App\Notifications\PasswordRecoveryCodeNotification;
+use App\Services\ProductCategoryService;
 use App\Services\PsgcAddressService;
 use App\Services\RegistrationIdentityService;
 use Carbon\Carbon;
@@ -23,6 +24,7 @@ use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Password as PasswordRule;
 use Illuminate\Validation\ValidationException;
+use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
 
 class AuthController extends Controller
 {
@@ -209,13 +211,15 @@ class AuthController extends Controller
         $account = User::query()->whereRaw('LOWER(TRIM(email)) = ?', [$credentials['email']])->first();
         // The remember-me cookie is shared across browser tabs. Tab-isolated
         // sessions must rely on their own session cookie instead.
-        $remember = ! $request->query('__tab') && $request->boolean('remember');
+        $remember = ! $request->query('__tab') && ! $request->header('X-Ezi-Tab-Session') && $request->boolean('remember');
 
         if (! $account || ! Auth::attempt(['email' => $account->email, 'password' => $credentials['password']], $remember)) {
             return back()->withErrors(['email' => 'The provided credentials do not match our records.'])->onlyInput('email');
         }
 
         $user = $request->user();
+
+        $this->discardIncompatibleIntendedUrl($request, $user);
 
         // 1. Admin accounts bypass OTP verification
         if ($user->administrationDashboardRoute() !== null) {
@@ -310,6 +314,32 @@ class AuthController extends Controller
         };
     }
 
+    private function discardIncompatibleIntendedUrl(Request $request, User $user): void
+    {
+        $intended = $request->session()->get('url.intended');
+        if (! is_string($intended)) {
+            return;
+        }
+
+        try {
+            $target = Request::create($intended);
+            $sameOrigin = $target->getSchemeAndHttpHost() === $request->getSchemeAndHttpHost();
+            $route = app('router')->getRoutes()->match($target);
+            $allowed = $sameOrigin;
+            foreach ($route->gatherMiddleware() as $middleware) {
+                if (is_string($middleware) && str_starts_with($middleware, 'role:')) {
+                    $allowed = $allowed && in_array($user->role, explode(',', substr($middleware, 5)), true);
+                }
+            }
+        } catch (HttpExceptionInterface) {
+            $allowed = false;
+        }
+
+        if (! $allowed) {
+            $request->session()->forget('url.intended');
+        }
+    }
+
     public function resendPasswordResetOtp(Request $request): RedirectResponse
     {
         $challenge = $request->session()->get('password_reset_otp');
@@ -387,6 +417,9 @@ class AuthController extends Controller
 
     public function sellerRegister(Request $request): RedirectResponse
     {
+        if (is_string($request->input('line_of_business'))) {
+            $request->merge(['line_of_business' => app(ProductCategoryService::class)->label($request->input('line_of_business'))]);
+        }
         $this->normalizeIdentity($request);
         $this->normalizeBusinessIdentifiers($request);
         $validated = $request->validate($this->identityRules() + $this->psgcAddressRules(true, true) + [
@@ -522,6 +555,9 @@ class AuthController extends Controller
         $commonRules = $this->identityRules($applicant);
 
         if ($applicant->role === 'seller') {
+            if (is_string($request->input('line_of_business'))) {
+                $request->merge(['line_of_business' => app(ProductCategoryService::class)->label($request->input('line_of_business'))]);
+            }
             $validated = $request->validate($commonRules + $this->psgcAddressRules(true, true) + [
                 'shop_name' => ['required', 'string', 'min:3', 'max:30'],
                 'canonical_shop_name' => ['required', 'string', 'max:30', Rule::unique('users', 'canonical_shop_name')->ignore($applicant->id)],

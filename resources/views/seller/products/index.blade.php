@@ -53,7 +53,7 @@
                                         </div>
                                     </div>
                                 </td>
-                                <td><span class="dash-badge dash-badge-category">{{ $product->category }}</span></td>
+                                <td><span class="dash-badge dash-badge-category">{{ $product->category_label }}</span></td>
                                 <td class="u-extracted-6b1af052d3">₱{{ number_format($product->price, 2) }}</td>
                                 <td>
                                     <span

@@ -6,6 +6,7 @@ use App\Models\DirectConversation;
 use App\Models\Order;
 use App\Models\User;
 use App\Notifications\DirectMessageNotification;
+use App\Services\ChatAttachmentService;
 use App\Services\DirectMessagingService;
 use App\Services\MessagingInboxService;
 use Illuminate\Http\Request;
@@ -50,7 +51,7 @@ class DirectMessageController extends Controller
         }
         $conversation->messages()->where('recipient_id', $actor->id)->whereNull('read_at')->update(['read_at' => now()]);
         $actor->unreadNotifications()->where('type', DirectMessageNotification::class)->where('data->conversation_id', $conversation->id)->update(['read_at' => now()]);
-        $messages = $conversation->messages()->with('sender')->latest('id')->paginate(40, ['*'], 'messages_page')->withQueryString();
+        $messages = $conversation->messages()->with(['sender', 'attachments'])->latest('id')->paginate(40, ['*'], 'messages_page')->withQueryString();
         $messages->setCollection($messages->getCollection()->reverse()->values());
 
         return view('orders.messages', ['conversation' => $conversation, 'partner' => $partner, 'messages' => $messages,
@@ -61,8 +62,13 @@ class DirectMessageController extends Controller
     public function store(Request $request, DirectConversation $conversation, DirectMessagingService $messaging)
     {
         abort_unless($conversation->hasParticipant($request->user()), 403);
-        $data = $request->validate(['body' => ['required', 'string', 'max:2000'], 'order_id' => ['nullable', 'integer', 'exists:orders,id'], 'panel' => ['nullable', 'boolean']]);
-        $messaging->send($conversation, $request->user(), $data['body'], isset($data['order_id']) ? Order::findOrFail($data['order_id']) : null);
+        $data = $request->validate([
+            'body' => ['nullable', 'required_without:attachments', 'string', 'max:2000'],
+            'attachments' => ['nullable', 'array', 'max:3'],
+            'attachments.*' => ['required', 'file', 'extensions:jpg,jpeg,png,webp,pdf,doc,docx,xls,xlsx,txt', 'mimes:jpg,jpeg,png,webp,pdf,doc,docx,xls,xlsx,txt', 'max:'.ChatAttachmentService::maxKilobytes()],
+            'order_id' => ['nullable', 'integer', 'exists:orders,id'], 'panel' => ['nullable', 'boolean'],
+        ]);
+        app(ChatAttachmentService::class)->send($conversation, $request->user(), $data['body'] ?? null, $request->file('attachments', []), isset($data['order_id']) ? Order::findOrFail($data['order_id']) : null);
 
         return redirect()->route('chat.show', [$conversation, 'panel' => $request->boolean('panel') ? 1 : null, 'order_id' => $data['order_id'] ?? null])->with('success', 'Message sent.');
     }

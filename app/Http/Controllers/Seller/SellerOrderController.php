@@ -11,6 +11,7 @@ use App\Notifications\OrderWorkflowNotification;
 use App\Services\LogisticsHubNotificationService;
 use App\Services\OrderTransitionService;
 use App\Services\ParcelLabelService;
+use App\Services\ParcelLoadService;
 use App\Services\QrCodeService;
 use App\Services\RiderBadgeService;
 use App\Services\TransactionAwareNotificationSender;
@@ -177,6 +178,7 @@ class SellerOrderController extends Controller
                 'This order is not eligible for pickup scheduling.',
             );
 
+            app(ParcelLoadService::class)->requireWeight($lockedOrder);
             $lockedOrder->forceFill([
                 'pickup_requested_at' => now(),
                 'pickup_scheduled_for' => $validated['pickup_scheduled_for'],
@@ -192,6 +194,7 @@ class SellerOrderController extends Controller
                 'notes' => 'Seller requested pickup for '.$lockedOrder->pickup_scheduled_for->format('M j, Y g:i A').' ('.$lockedOrder->pickup_window.').',
             ]);
             $hubNotifications->sendForOrder($lockedOrder, $notifications, new OrderWorkflowNotification($lockedOrder, 'pickup_requested', 'A seller requested pickup for an order.'));
+            $notifications->send([$lockedOrder->buyer, $lockedOrder->seller], new OrderWorkflowNotification($lockedOrder, 'pickup_requested', 'The seller scheduled pickup. The parcel is awaiting logistics assignment and rider collection.'));
 
             return back()->with('success', 'Pickup request sent to Logistics.');
         });
@@ -237,6 +240,9 @@ class SellerOrderController extends Controller
         }
 
         return DB::transaction(function () use ($order, $seller, $notifications, $validated, $badgeRiderId, $request): RedirectResponse {
+            if ($order->pickup_courier_id) {
+                app(ParcelLoadService::class)->lockVehicle((int) $order->pickup_courier_id);
+            }
             $lockedOrder = Order::query()->whereKey($order->id)->lockForUpdate()->firstOrFail();
             abort_if($lockedOrder->pendingCancellation()->exists(), 422, 'Resolve the pending cancellation request before parcel handover.');
             abort_unless(
@@ -249,6 +255,7 @@ class SellerOrderController extends Controller
                 'Seller handover is not ready to confirm.',
             );
             abort_unless((int) $lockedOrder->pickup_courier_id === $badgeRiderId, 422, 'The pickup assignment changed after the badge scan. Scan the current rider badge again.');
+            app(ParcelLoadService::class)->assertFits($lockedOrder, $lockedOrder->pickupCourier);
             $lockedOrder->forceFill(['seller_handover_at' => now()])->save();
             DB::table('scan_events')->insert([
                 'order_id' => $lockedOrder->id,
@@ -267,7 +274,7 @@ class SellerOrderController extends Controller
                 'location' => $seller->municipality,
                 'notes' => 'Seller confirmed releasing the parcel to the assigned rider.',
             ]);
-            $notifications->send($lockedOrder->pickupCourier, new OrderWorkflowNotification($lockedOrder, 'seller_handover_confirmed', 'The seller confirmed parcel handover. Confirm possession to complete pickup.'));
+            $notifications->send([$lockedOrder->pickupCourier, $lockedOrder->buyer], new OrderWorkflowNotification($lockedOrder, 'seller_handover_confirmed', 'The seller confirmed parcel handover. The rider must scan the parcel to confirm possession and complete pickup.'));
 
             return back()->with('success', 'Handover recorded. The rider must confirm possession to complete pickup.');
         });

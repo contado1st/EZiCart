@@ -50,7 +50,7 @@
                     <div class="order-card-header">
                         <div>
                             <a href="{{ route('seller.orders.show', $order->id) }}"
-                                class="order-number">{{ $order->order_number }}</a>
+                                class="order-number">{{ $order->order_number }}</a><x-parcel-weight :order="$order" compact />
                             <div class="order-date">
                                 Ordered on {{ $order->created_at->format('M d, Y h:i A') }}
                             </div>

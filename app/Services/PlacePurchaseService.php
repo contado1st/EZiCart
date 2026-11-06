@@ -39,6 +39,13 @@ class PlacePurchaseService
             if ($voucherId && ! $voucher) {
                 throw ValidationException::withMessages(['voucher_code' => 'The voucher is no longer available. Review checkout again.']);
             }
+            // Additive rules for newly configured offers/closures, shared by every checkout caller.
+            // Legacy vouchers have null recipient/per-buyer limits and open shops retain existing behavior.
+            if ($voucher) {
+                app(VoucherClaimService::class)->claim($buyer, $voucher);
+                app(VoucherClaimService::class)->assertUsable($buyer, $voucher);
+            }
+            app(ShopAvailabilityService::class)->assertOpen($cart);
             $quote = $this->pricing->quote($cart, $voucher, true);
             if (! hash_equals($quote['hash'], $reviewedHash)) {
                 throw ValidationException::withMessages(['quote' => 'Prices or discounts changed. Review the updated checkout total before placing your order.']);
@@ -77,6 +84,7 @@ class PlacePurchaseService
                         'order_id' => $order->id, 'product_id' => $line['product_id'], 'variation_id' => $line['variation_id'],
                         'variation_info' => $line['variation_info'], 'product_name' => $line['name'],
                         'unit_price' => $line['unit_cents'] / 100, 'quantity' => $line['quantity'], 'item_total' => $line['item_cents'] / 100,
+                        'unit_weight_grams' => $line['product']->weight_grams,
                     ]);
                 }
                 ParcelTrackingEvent::query()->create([
@@ -87,6 +95,7 @@ class PlacePurchaseService
             }
             if ($voucher) {
                 $voucher->increment('used_count');
+                DB::table('voucher_claims')->where('voucher_id', $voucher->id)->where('buyer_id', $buyer->id)->increment('redemption_count', 1, ['updated_at' => now()]);
             }
 
             return $purchase;

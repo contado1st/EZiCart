@@ -1,219 +1,78 @@
 @extends('layouts.app')
-
+@section('title', $product->name.' | EZiCart')
 @push('styles')
-    @vite('resources/css/storefront/marketplace.css')
-    @vite('resources/css/buyer/reviews.css')
+    <link rel="stylesheet" href="{{ asset('css/product-detail.css') }}?v={{ filemtime(public_path('css/product-detail.css')) }}">
 @endpush
-
 @section('content')
-    <div class="container product-show-container">
-        <a href="{{ route('home') }}" class="product-back-link">
-            ← Back to Marketplace
-        </a>
-
-        <div class="product-show-layout">
-            <!-- Product Image Preview -->
+@php
+    $seller = $product->seller;
+    $shopName = $seller->profile_display_name ?: $seller->business_name ?: 'Seller shop';
+    $publicShop = $seller->role === 'seller' && $seller->status === 'approved';
+    $location = implode(', ', array_filter([$seller->municipality, $seller->province]));
+@endphp
+<main class="pdp">
+    <nav class="pdp-breadcrumb" aria-label="Breadcrumb"><a href="{{ route('home') }}">EZiCart</a><span aria-hidden="true">/</span><a href="{{ route('search.index', ['category' => $product->category]) }}">{{ $product->category_label }}</a><span aria-hidden="true">/</span><span>{{ $product->name }}</span></nav>
+    @if(session('success'))<p class="pdp-feedback" role="status">{{ session('success') }}</p>@endif
+    @if(session('error') || $errors->any())<div class="pdp-feedback pdp-error" role="alert">{{ session('error') }}@foreach($errors->all() as $error)<p>{{ $error }}</p>@endforeach</div>@endif
+    <section class="pdp-overview" aria-labelledby="product-title">
+        <div class="pdp-media">
             <x-product-gallery :product="$product" />
-
-            <!-- Product Purchase Information -->
-            <div class="product-info-column">
-                @if (auth()->user()?->role === 'buyer')
-                    <form method="POST" action="{{ route('buyer.stock.watch', $product) }}">@csrf<button class="feature-button" type="submit"><x-shop-icon name="bell" /> Watch stock availability</button></form>
-                    <a href="{{ route('buyer.stock.index') }}">Manage stock alerts</a>
-                @endif
-                <div>
-                    <span class="product-badge">{{ $product->category }}</span>
-                    <h1 class="product-detail-title">{{ $product->name }}</h1>
-
-                    <!-- Rating Quick Peek -->
-                    <div class="u-extracted-a6cebd5458">
-                        <span class="star-rating-stars">
-                            @for ($i = 1; $i <= 5; $i++)
-                                {{ $i <= round($product->average_rating) ? '★' : '☆' }}
-                            @endfor
-                        </span>
-                        <span class="u-extracted-06e25e83fe">
-                            {{ $product->average_rating > 0 ? $product->average_rating : 'New' }}
-                        </span>
-                        <span class="u-extracted-91a8a8ba10">
-                            ({{ $product->review_count }} reviews)
-                        </span>
-                    </div>
-
-                    <!-- Seller Details -->
-                    <div class="product-seller-card">
-                        <div class="product-seller-label">Sold By</div>
-                        <div class="product-seller-name">
-                            @if($product->seller->role === 'seller' && $product->seller->status === 'approved')<a href="{{ route('shops.show', $product->seller) }}">{{ $product->seller->profile_display_name ?: $product->seller->business_name }}</a>@else{{ $product->seller->business_name ?? 'EZiCart Merchant' }}@endif</div>
-                        <div class="product-seller-location">
-                            Location: {{ $product->seller->municipality ?? 'Majayjay' }},
-                            {{ $product->seller->province ?? 'Laguna' }}
-                        </div>
-                    </div>
-
-                    <!-- Price Block -->
-                    <div class="product-detail-price" id="basePriceDisplay">
-                        ₱{{ number_format($product->price, 2) }}
-                    </div>
-
-                    <!-- Description -->
-                    <div class="product-detail-desc">
-                        {{ $product->description ?? 'No description provided by the seller for this item.' }}
-                    </div>
-                </div>
-
-                <!-- Role Guarded Cart Submission -->
-                @auth
-                    @if (auth()->user()->role === 'buyer')
-                        <form action="{{ route('cart.add', $product->id) }}" method="POST" class="product-cart-form">
-                            @csrf
-
-                            @if ($product->variations->count() > 0)
-                                <div class="u-extracted-1bd4b9f576">
-                                    <label class="u-extracted-8ae6619ca2">
-                                        Select Variation (Color / Size / Option)
-                                    </label>
-                                    <select name="variation_id" id="variationSelect" class="search-input u-extracted-76a6870449"
-                                        required>
-                                        <option value="">-- Choose an option --</option>
-                                        @foreach ($product->variations as $variation)
-                                            <option value="{{ $variation->id }}"
-                                                data-adjustment="{{ $variation->price_adjustment }}"
-                                                data-stock="{{ $variation->stock }}">
-                                                {{ $variation->type }}: {{ $variation->value }}
-                                                @if ($variation->price_adjustment != 0)
-                                                    ({{ $variation->price_adjustment > 0 ? '+' : '' }}₱{{ number_format($variation->price_adjustment, 2) }})
-                                                @endif
-                                                &bull; Stock: {{ $variation->stock }}
-                                            </option>
-                                        @endforeach
-                                    </select>
-                                </div>
-                            @endif
-
-                            <div class="product-qty-row">
-                                <label class="product-qty-label">Quantity:</label>
-                                <input type="number" name="quantity" id="qtyInput" value="1" min="1"
-                                    max="{{ $product->stock }}" class="product-qty-input">
-                                <span class="product-stock-available" id="stockDisplay">
-                                    {{ $product->stock }} pieces available
-                                </span>
-                            </div>
-
-                            <div class="product-actions-row">
-                                <button type="submit" class="btn-primary product-btn-add-cart">
-                                    <x-shop-icon name="cart2" /> Add to Cart
-                                </button>
-                            </div>
-                        </form>
-                    @else
-                        <div class="role-restriction-box">
-                            <span class="role-restriction-icon"><x-shop-icon name="lock" /></span>
-                            <div>
-                                <div class="role-restriction-title">Role Restriction Active</div>
-                                <div class="role-restriction-text">
-                                    You are signed in as a <strong>{{ ucfirst(auth()->user()->role) }}</strong>. Only Buyer
-                                    accounts can purchase items and use the cart.
-                                </div>
-                            </div>
-                        </div>
-                    @endif
-                @else
-                    <div class="role-restriction-box">
-                        <span class="role-restriction-icon"><x-shop-icon name="lightbulb" /></span>
-                        <div>
-                            <div class="role-restriction-title">Buyer Sign-in Required</div>
-                            <div class="role-restriction-text">
-                                Please <a href="{{ route('login') }}" class="u-extracted-b40098ff4c">login</a> or <a
-                                    href="{{ route('register') }}" class="u-extracted-b40098ff4c">create
-                                    a buyer account</a> to purchase this item.
-                            </div>
-                        </div>
-                    </div>
-                @endauth
-            </div>
+            <div class="pdp-media-actions"><button type="button" class="pdp-text-button" data-product-share>Share product</button><span data-share-status role="status"></span>@if(auth()->user()?->role === 'buyer' && $publicShop)<form method="POST" action="{{ route('shops.follow', $seller) }}">@csrf<input type="hidden" name="following" value="1"><button class="pdp-text-button" type="submit">Follow shop</button></form>@endif</div>
         </div>
-
-        <!-- Customer Reviews & Feedback Section -->
-        <div class="reviews-section">
-            <div class="reviews-header">
-                <h2 class="reviews-title">Customer Reviews & Ratings</h2>
-            </div>
-
-            <div class="rating-overview-card">
-                <div>
-                    <div class="rating-score-num">{{ $product->average_rating > 0 ? $product->average_rating : '0.0' }}
-                    </div>
-                    <div class="star-rating-stars">
-                        @for ($i = 1; $i <= 5; $i++)
-                            {{ $i <= round($product->average_rating) ? '★' : '☆' }}
-                        @endfor
-                    </div>
-                </div>
-                <div>
-                    <strong class="u-extracted-0857a1d44e">Based on {{ $product->review_count }}
-                        verified reviews</strong>
-                    <p class="u-extracted-81b36598ce">Ratings submitted by verified
-                        buyers upon completed delivery.</p>
-                </div>
-            </div>
-
-            @forelse($product->reviews()->with('buyer')->latest()->get() as $review)
-                <div class="review-card-item">
-                    <div class="review-card-top">
-                        <div>
-                            <span class="reviewer-name">{{ $review->buyer->first_name }}
-                                {{ substr($review->buyer->last_name, 0, 1) }}.</span>
-                            <span class="star-rating-stars u-extracted-ec61366f4a">
-                                @for ($i = 1; $i <= 5; $i++)
-                                    {{ $i <= $review->rating ? '★' : '☆' }}
-                                @endfor
-                            </span>
-                        </div>
-                        <span class="review-date">{{ $review->created_at->format('M d, Y') }}</span>
-                    </div>
-                    <div class="review-comment-body">
-                        {{ $review->comment ?? 'Customer provided a rating without written commentary.' }}
-                    </div>
-                </div>
-            @empty
-                <div class="u-extracted-3a61d5cdbb">
-                    No reviews yet for this product. Be the first to purchase and review!
-                </div>
-            @endforelse
+        <div class="pdp-purchase">
+            <h1 id="product-title">{{ $product->name }}</h1>
+            <div class="pdp-rating-line"><a href="#product-ratings"><strong>{{ $reviewCount ? number_format($averageRating, 1) : 'New' }}</strong><span class="pdp-stars" aria-label="{{ $averageRating }} out of 5 stars">@for($i=1; $i<=5; $i++)<x-shop-icon name="star" @class(['is-filled' => $i <= round($averageRating)]) />@endfor</span></a><a href="#product-ratings">{{ number_format($reviewCount) }} Ratings</a><span>{{ $product->stock > 0 ? 'In stock' : 'Out of stock' }}</span></div>
+            <div class="pdp-price-band"><strong id="basePriceDisplay">?{{ number_format($product->price, 2) }}</strong><span>Cash on delivery</span></div>
+            <dl class="pdp-purchase-facts">
+                @if($vouchers->isNotEmpty())<div><dt>Shop vouchers</dt><dd><a class="pdp-voucher-tag" href="#shop-vouchers">{{ $vouchers->first()->type === 'percent' ? $vouchers->first()->value.'%' : '?'.number_format($vouchers->first()->value) }} off � View vouchers</a></dd></div>@endif
+                <div><dt>Shipping</dt><dd><x-shop-icon name="delivery1" /><div>Ships from {{ $location ?: 'the seller�s registered address' }}<small>Delivery availability and shipping fees are shown at checkout.</small></div></dd></div>
+                <div><dt>Payment</dt><dd><x-shop-icon name="shield" /><div>Pay when your order arrives<small>Cash on delivery is the available payment method.</small></div></dd></div>
+            </dl>
+            <x-user-activity :user="$seller" />
+            @if(auth()->user()?->role === 'buyer')
+                <form action="{{ route('cart.add', $product) }}" method="POST" class="pdp-cart-form" data-product-selection data-stock="{{ $product->stock }}" data-price="{{ $product->price }}" data-shop-open="{{ $seller->acceptsWebOrders() ? '1' : '0' }}">
+                    @csrf
+                    @if($product->variations->isNotEmpty())
+                        <div class="pdp-option-row"><label for="variationSelect">Variation</label><div>
+                            <select name="variation_id" id="variationSelect" required aria-describedby="variation-hint"><option value="">Choose an option</option>@foreach($product->variations as $variation)<option value="{{ $variation->id }}" data-adjustment="{{ $variation->price_adjustment }}" data-image="{{ $variation->image_path ? asset('storage/'.$variation->image_path) : '' }}" data-stock="{{ $variation->stock }}" @disabled($variation->stock < 1)>{{ $variation->type }}: {{ $variation->value }} � {{ $variation->stock }} available</option>@endforeach</select>
+                            <div class="pdp-variation-buttons" data-variation-buttons hidden>@foreach($product->variations as $variation)<button type="button" data-variation-choice="{{ $variation->id }}" aria-pressed="false" @disabled($variation->stock < 1)>@if($variation->image_path)<img src="{{ asset('storage/'.$variation->image_path) }}" alt="">@endif{{ $variation->value }}</button>@endforeach</div>
+                            <small id="variation-hint">Choose a variation to see its price and available stock.</small><img data-variation-image class="pdp-variation-image" hidden alt="Selected variation">
+                        </div></div>
+                    @else<img data-variation-image hidden alt="Selected variation">@endif
+                    <div class="pdp-option-row"><label for="qtyInput">Quantity</label><div class="pdp-quantity-line"><div class="pdp-quantity-control"><button type="button" data-quantity-step="-1" aria-label="Decrease quantity">-</button><input type="number" name="quantity" id="qtyInput" value="1" min="1" max="{{ min(20, $product->stock) }}" required><button type="button" data-quantity-step="1" aria-label="Increase quantity">+</button></div><span id="stockDisplay">{{ $product->stock }} pieces available</span></div></div>
+                    <div class="pdp-buy-actions"><button type="submit" class="pdp-button pdp-button-soft" @disabled(! $seller->acceptsWebOrders())><x-shop-icon name="cart2" /> Add to cart</button><button type="submit" name="intent" value="buy_now" class="pdp-button pdp-button-primary" @disabled(! $seller->acceptsWebOrders())>Buy now</button></div><p class="pdp-checkout-note">Buy now adds this item and opens checkout with your cart.</p>
+                </form>
+                <div class="pdp-stock-actions"><form method="POST" action="{{ route('buyer.stock.watch', $product) }}">@csrf<button class="pdp-text-button" type="submit"><x-shop-icon name="bell" /> Watch stock availability</button></form><a href="{{ route('buyer.stock.index') }}">Manage stock alerts</a></div>
+            @elseif(auth()->check())<p class="pdp-sign-in">You are signed in as {{ str_replace('_', ' ', auth()->user()->role) }}. A buyer account is required to purchase.</p>
+            @else<p class="pdp-sign-in"><a href="{{ route('login') }}">Sign in</a> or <a href="{{ route('register') }}">create a buyer account</a> to choose options and purchase.</p>@endif
         </div>
-    </div>
-
-    <script>
-        const basePrice = {{ $product->price }};
-        const variationSelect = document.getElementById('variationSelect');
-        const priceDisplay = document.getElementById('basePriceDisplay');
-        const stockDisplay = document.getElementById('stockDisplay');
-        const qtyInput = document.getElementById('qtyInput');
-
-        if (variationSelect) {
-            variationSelect.addEventListener('change', function() {
-                const selected = this.options[this.selectedIndex];
-                if (this.value) {
-                    const adjustment = parseFloat(selected.dataset.adjustment) || 0;
-                    const newPrice = basePrice + adjustment;
-                    const varStock = parseInt(selected.dataset.stock) || 0;
-
-                    priceDisplay.textContent = '₱' + newPrice.toLocaleString('en-US', {
-                        minimumFractionDigits: 2,
-                        maximumFractionDigits: 2
-                    });
-                    stockDisplay.textContent = varStock + ' variation pieces available';
-                    qtyInput.max = varStock > 0 ? varStock : 1;
-                } else {
-                    priceDisplay.textContent = '₱' + basePrice.toLocaleString('en-US', {
-                        minimumFractionDigits: 2,
-                        maximumFractionDigits: 2
-                    });
-                    stockDisplay.textContent = '{{ $product->stock }} pieces available';
-                    qtyInput.max = {{ $product->stock }};
-                }
-            });
-        }
-    </script>
+    </section>
+    <section class="pdp-shop" aria-label="Seller information"><div class="pdp-shop-identity"><x-profile-avatar :user="$seller" /><div><h2>{{ $shopName }}</h2><span>{{ $location ?: 'EZiCart seller' }}</span><div class="pdp-shop-actions">@if(auth()->user()?->role === 'buyer' && $publicShop)<form action="{{ route('chat.start', $seller) }}" method="POST">@csrf<button class="pdp-button pdp-button-soft" type="submit"><x-shop-icon name="chat" /> Chat now</button></form>@elseif(!auth()->check())<a class="pdp-button pdp-button-soft" href="{{ route('login') }}">Chat with seller</a>@endif @if($publicShop)<a class="pdp-button" href="{{ route('shops.show', $seller) }}"><x-shop-icon name="package1" /> View shop</a>@endif</div></div></div><dl class="pdp-shop-stats"><div><dt>Products</dt><dd>{{ number_format($shopProductCount) }}</dd></div><div><dt>Followers</dt><dd>{{ number_format($followerCount) }}</dd></div><div><dt>Joined</dt><dd>{{ $seller->created_at?->format('M Y') ?: 'Not recorded' }}</dd></div></dl></section>
+    <div @class(['pdp-content-grid', 'pdp-content-grid--full' => $vouchers->isEmpty() && $sameShop->isEmpty()])><div class="pdp-details">
+        <section class="pdp-panel"><h2>Product specifications</h2><dl class="pdp-specifications"><div><dt>Category</dt><dd>{{ $product->category_label }}</dd></div><div><dt>Stock</dt><dd>{{ number_format($product->stock) }} available</dd></div><div><dt>Weight per unit</dt><dd>{{ \App\Services\ParcelLoadService::kg($product->weight_grams) }}</dd></div><div><dt>Shop</dt><dd>{{ $shopName }}</dd></div><div><dt>Ships from</dt><dd>{{ $location ?: 'Not specified' }}</dd></div>@if($product->variations->isNotEmpty())<div><dt>Available options</dt><dd>{{ $product->variations->pluck('value')->join(', ') }}</dd></div>@endif</dl><h2>Product description</h2><div class="pdp-description">{{ $product->description ?: 'The seller has not added a description for this product.' }}</div></section>
+        <section class="pdp-panel" id="product-ratings"><h2>Product ratings</h2><div class="pdp-review-overview"><div class="pdp-review-score"><strong>{{ number_format($averageRating, 1) }}</strong><span>out of 5</span><small>{{ $reviewCount }} {{ Str::plural('review', $reviewCount) }}</small></div><nav class="pdp-review-filters" aria-label="Filter product reviews"><a href="{{ request()->fullUrlWithQuery(['rating' => null, 'comments' => null, 'reviews_page' => null]) }}#product-ratings" @class(['is-active' => !request('rating') && !request()->boolean('comments')])>All ({{ $reviewCount }})</a>@for($i=5; $i>=1; $i--)<a href="{{ request()->fullUrlWithQuery(['rating' => $i, 'comments' => null, 'reviews_page' => null]) }}#product-ratings" @class(['is-active' => (int)request('rating') === $i])>{{ $i }} star ({{ $ratingCounts[$i] ?? 0 }})</a>@endfor<a href="{{ request()->fullUrlWithQuery(['rating' => null, 'comments' => 1, 'reviews_page' => null]) }}#product-ratings" @class(['is-active' => request()->boolean('comments')])>With comments</a></nav></div>
+            @forelse($reviews as $review)<article class="pdp-review"><x-profile-avatar :user="$review->buyer" /><div><strong>{{ $review->buyer->first_name }} {{ mb_substr($review->buyer->last_name, 0, 1) }}.</strong><div class="pdp-stars" aria-label="{{ $review->rating }} out of 5">@for($i=1; $i<=5; $i++)<x-shop-icon name="star" @class(['is-filled' => $i <= $review->rating]) />@endfor</div><time datetime="{{ $review->created_at->toIso8601String() }}">{{ $review->created_at->format('d M Y, h:i A') }}</time><p>{{ $review->comment ?: 'The buyer left a rating without a comment.' }}</p></div></article>@empty<p class="pdp-empty">{{ $reviewCount ? 'No reviews match this filter. Choose another rating or view all reviews.' : 'No reviews yet. Reviews appear after buyers receive and review their orders.' }}</p>@endforelse
+            {{ $reviews->fragment('product-ratings')->links() }}
+        </section>
+    </div><aside class="pdp-sidebar">@if($vouchers->isNotEmpty())<section class="pdp-panel" id="shop-vouchers"><h2>Shop vouchers</h2>@foreach($vouchers as $voucher)<article class="pdp-voucher"><strong>{{ $voucher->type === 'percent' ? $voucher->value.'%' : '?'.number_format($voucher->value, 2) }} off</strong><span>Min. spend ?{{ number_format($voucher->min_spend, 2) }}</span><code>{{ $voucher->code }}</code>@if($voucher->expires_at)<small>Valid until {{ $voucher->expires_at->format('d M Y') }}</small>@endif @if(auth()->user()?->role === 'buyer')<form method="POST" action="{{ route('buyer.vouchers.claim', $voucher) }}">@csrf<button class="pdp-button pdp-button-primary" type="submit">Save voucher</button></form>@else<a href="{{ route('login') }}">Sign in to save</a>@endif</article>@endforeach</section>@endif @if($sameShop->isNotEmpty())<section class="pdp-panel"><h2>More from this shop</h2><div class="pdp-sidebar-products">@foreach($sameShop->take(3) as $item)@include('products.partials.recommendation', ['item' => $item])@endforeach</div></section>@endif</aside></div>
+    @if($sameShop->isNotEmpty())<section class="pdp-recommendations"><div class="pdp-section-heading"><h2>From the same shop</h2>@if($publicShop)<a href="{{ route('shops.show', $seller) }}">View all</a>@endif</div><div class="pdp-product-grid">@foreach($sameShop as $item)@include('products.partials.recommendation', ['item' => $item])@endforeach</div></section>@endif
+    <section class="pdp-recommendations pdp-other-shops" id="you-may-also-like" aria-labelledby="other-shops-title">
+        <div class="pdp-section-heading"><h2 id="other-shops-title">You may also like</h2></div>
+        @if($suggestions->isNotEmpty())
+            <div class="pdp-product-grid">
+                @foreach($suggestions as $item)
+                    @include('products.partials.recommendation', ['item' => $item, 'showShop' => true])
+                @endforeach
+            </div>
+            <nav class="pdp-recommendation-pages" aria-label="More products from other shops">
+                @if($suggestions->onFirstPage() === false)<a class="pdp-button" href="{{ $suggestions->previousPageUrl() }}">Previous products</a>@endif
+                @if($suggestions->hasMorePages())<a class="pdp-button" href="{{ $suggestions->nextPageUrl() }}">See more</a>@endif
+            </nav>
+        @else
+            <p class="pdp-empty pdp-recommendation-empty">Products from other shops will appear here when approved, in-stock listings are available.</p>
+        @endif
+    </section>
+</main>
+<script src="{{ asset('js/product-selection.js') }}?v={{ filemtime(public_path('js/product-selection.js')) }}" defer></script>
+<script src="{{ asset('js/product-detail.js') }}?v={{ filemtime(public_path('js/product-detail.js')) }}" defer></script>
 @endsection

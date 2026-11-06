@@ -102,6 +102,8 @@
             <!-- Footnote & Collection Protocol -->
             <div class="waybill-footer-grid">
                 <div class="waybill-instructions-cell">
+                    <div class="waybill-section-tag">Actual packed parcel weight</div>
+                    <div class="waybill-party-text">{{ \App\Services\ParcelLoadService::kg($order->parcel_weight_grams) }}</div>
                     <div class="waybill-section-tag">Delivery Instructions & Remarks</div>
                     <div>
                         {{ $order->notes ?? 'No special courier notes provided. Deliver during standard dispatch hours.' }}

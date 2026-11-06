@@ -115,7 +115,7 @@
                 <tbody>
                     @forelse($parcels as $order)
                         <tr>
-                            <td class="ops-mono">{{ $order->order_number }}</td>
+                            <td class="ops-mono">{{ $order->order_number }}<x-parcel-weight :order="$order" compact /></td>
                             <td>
                                 <strong>{{ $order->seller?->business_name ?? $order->seller?->first_name }}</strong>
                                 <div class="ops-muted">{{ $order->seller?->municipality }}</div>

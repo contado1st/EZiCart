@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Product;
 use App\Models\Review;
 use App\Models\User;
+use App\Services\ProductCategoryService;
 use App\Services\ShopFollowService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
@@ -22,6 +23,7 @@ class SellerShopController extends Controller
         $base = Product::query()->where('user_id', $seller->id)->availableForMarketplace();
         $productCount = (clone $base)->count();
         $categories = (clone $base)->distinct()->orderBy('category')->pluck('category')->filter();
+        $categories = collect(app(ProductCategoryService::class)->browseOptions($categories));
         $reviews = Review::query()->whereHas('product', fn (Builder $q) => $q->where('user_id', $seller->id)->where('compliance_status', 'approved')->where('is_archived', false));
         $rating = (clone $reviews)->avg('rating');
         $reviewCount = (clone $reviews)->count();
@@ -31,7 +33,7 @@ class SellerShopController extends Controller
             $query->where(fn (Builder $q) => $q->whereRaw("LOWER(name) LIKE ? ESCAPE '!'", [$pattern])->orWhereRaw("LOWER(description) LIKE ? ESCAPE '!'", [$pattern]));
         }
         if (filled($filters['category'] ?? null)) {
-            $query->where('category', $filters['category']);
+            app(ProductCategoryService::class)->filter($query, $filters['category']);
         }
         match ($filters['sort']) {
             'price_asc' => $query->orderBy('price'), 'price_desc' => $query->orderByDesc('price'),

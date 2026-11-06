@@ -10,6 +10,8 @@ class Voucher extends Model
 {
     use HasFactory;
 
+    protected $hidden = ['recipient_limit', 'claimed_count', 'per_buyer_limit'];
+
     protected $fillable = [
         'seller_id',
         'code',
@@ -21,6 +23,7 @@ class Voucher extends Model
         'expires_at',
         'is_active',
         'max_discount',
+        'recipient_limit', 'claimed_count', 'per_buyer_limit',
     ];
 
     protected $casts = [

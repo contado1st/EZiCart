@@ -179,7 +179,8 @@ class RoadmapFeaturesTest extends TestCase
         $this->assertDatabaseCount('barangay_rider_assignments', 1);
         $this->assertDatabaseHas('barangay_rider_assignments', ['primary_rider_id' => $backup->id]);
         $this->patch(route('coverage.vehicle', $rider), ['vehicle_category' => 'four_wheel', 'vehicle_description' => 'Delivery van', 'reason' => 'Updated vehicle category.'])->assertRedirect();
-        $this->assertSame('four_wheel', $rider->fresh()->vehicle_category);
+        $this->assertNull($rider->fresh()->vehicle_category);
+        $this->assertDatabaseHas('staff_profile_revisions', ['user_id' => $rider->id, 'status' => 'pending']);
     }
 
     public function test_shipping_fee_is_authorized_validated_and_used_by_new_quotes(): void
@@ -296,7 +297,7 @@ class RoadmapFeaturesTest extends TestCase
 
     private function user(string $role): User
     {
-        return User::forceCreate(['email' => Str::uuid().'@example.com', 'password' => 'password', 'role' => $role, 'status' => 'approved', 'first_name' => 'Roadmap', 'last_name' => 'User', 'business_name' => 'Roadmap Shop', 'contact_no' => '09123456789', 'province' => 'Laguna', 'municipality' => 'Majayjay']);
+        return User::forceCreate(['email' => Str::uuid().'@example.com', 'password' => 'password', 'vehicle_capacity_grams' => $role === 'courier' ? 100000 : null, 'vehicle_capacity_verified_at' => $role === 'courier' ? now() : null, 'role' => $role, 'status' => 'approved', 'first_name' => 'Roadmap', 'last_name' => 'User', 'business_name' => 'Roadmap Shop', 'contact_no' => '09123456789', 'province' => 'Laguna', 'municipality' => 'Majayjay']);
     }
 
     private function product(array $data = []): Product
@@ -306,7 +307,7 @@ class RoadmapFeaturesTest extends TestCase
 
     private function order(array $data = []): Order
     {
-        return Order::forceCreate(array_replace(['order_number' => 'ROAD-'.Str::random(12), 'buyer_id' => $this->user('buyer')->id, 'seller_id' => $this->user('seller')->id, 'recipient_name' => 'Buyer', 'recipient_contact' => '09123456789', 'province' => 'Laguna', 'municipality' => 'Majayjay', 'barangay' => 'Poblacion', 'street_address' => '1 Street', 'subtotal' => 100, 'shipping_fee' => 50, 'discount_amount' => 0, 'commission_fee' => 10, 'total_amount' => 150, 'payment_method' => 'COD', 'status' => 'PLACED'], $data));
+        return Order::forceCreate(array_replace(['order_number' => 'ROAD-'.Str::random(12), 'buyer_id' => $this->user('buyer')->id, 'seller_id' => $this->user('seller')->id, 'recipient_name' => 'Buyer', 'recipient_contact' => '09123456789', 'province' => 'Laguna', 'municipality' => 'Majayjay', 'barangay' => 'Poblacion', 'street_address' => '1 Street', 'subtotal' => 100, 'shipping_fee' => 50, 'discount_amount' => 0, 'commission_fee' => 10, 'total_amount' => 150, 'parcel_weight_grams' => 1000, 'payment_method' => 'COD', 'status' => 'PLACED'], $data));
     }
 
     private function reserved(Order $order): Product

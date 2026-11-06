@@ -14,6 +14,8 @@ use LogicException;
 
 class Order extends Model
 {
+    protected $hidden = ['parcel_weight_grams', 'weight_recorded_by', 'weight_recorded_at'];
+
     use HasFactory;
 
     private bool $parcelCodeRotationAllowed = false;
@@ -199,6 +201,7 @@ class Order extends Model
     protected function casts(): array
     {
         return [
+            'weight_recorded_at' => 'datetime',
             'seller_response_due_at' => 'datetime',
             'preparation_due_at' => 'datetime',
             'seller_reminded_at' => 'datetime',

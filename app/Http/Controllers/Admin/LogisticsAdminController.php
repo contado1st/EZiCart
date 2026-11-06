@@ -10,6 +10,7 @@ use App\Models\User;
 use App\Notifications\OrderWorkflowNotification;
 use App\Services\AdministrativeAuditService;
 use App\Services\OrderAreaService;
+use App\Services\ParcelLoadService;
 use App\Services\TransactionAwareNotificationSender;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -27,7 +28,7 @@ class LogisticsAdminController extends Controller
             ->latest('id')->paginate(20)->withQueryString();
         $pendingUsers = User::query()->whereIn('role', ['courier', 'sorting_center'])->where('status', 'pending')->latest()->limit(25)->get();
         $centers = User::query()->where('role', 'sorting_center')->where('status', 'approved')->orderBy('business_name')->get();
-        $riders = User::query()->where('role', 'courier')->where('status', 'approved')->orderBy('first_name')->limit(100)->get();
+        $riders = User::query()->where('role', 'courier')->where('status', 'approved')->where('hub_transfer_only', false)->orderBy('first_name')->limit(100)->get();
         $managedUsers = User::query()->whereIn('role', ['courier', 'sorting_center'])->whereIn('status', ['approved', 'suspended'])
             ->withCount(['finalDeliveries as active_parcels_count' => fn ($query) => $query->whereIn('status', ['ASSIGNED_TO_RIDER', 'OUT_FOR_DELIVERY', 'DELIVERY_FAILED', 'RETURN_IN_TRANSIT'])])
             ->latest('id')->paginate(25, ['*'], 'users_page');
@@ -60,6 +61,7 @@ class LogisticsAdminController extends Controller
     {
         $data = $request->validate(['pickup_courier_id' => ['required', 'integer', 'exists:users,id'], 'reason' => ['required', 'string', 'min:5', 'max:500']]);
         DB::transaction(function () use ($request, $order, $data, $areas, $audits, $notifications): void {
+            app(ParcelLoadService::class)->lockVehicle((int) $data['pickup_courier_id']);
             $locked = Order::query()->whereKey($order->id)->lockForUpdate()->firstOrFail();
             abort_unless($locked->status === 'READY_FOR_PICKUP' && $locked->pickup_requested_at !== null && $locked->pickup_arrived_at === null && $locked->seller_handover_at === null && $locked->picked_up_at === null, 422, 'Only pickups awaiting rider arrival may be reassigned.');
             $rider = User::query()->whereKey($data['pickup_courier_id'])->lockForUpdate()->firstOrFail();
@@ -68,6 +70,7 @@ class LogisticsAdminController extends Controller
             abort_unless($rider->role === 'courier' && $rider->status === 'approved' && $rider->id !== $locked->pickup_courier_id, 422, 'Choose a different approved rider.');
             $origin = $areas->findForAddress($locked->seller->province, $locked->seller->municipality);
             abort_unless($origin && $rider->serviceAreas()->where('areas.id', $origin->id)->exists(), 422, 'The rider must serve the seller pickup area.');
+            app(ParcelLoadService::class)->assertFits($locked, $rider);
             $locked->forceFill(['pickup_courier_id' => $rider->id, 'pickup_claimed_at' => null])->save();
             $audits->record($request->user(), $locked, 'control_tower_pickup_reassigned', ['rider_id' => $previous?->id], ['rider_id' => $rider->id], $data['reason']);
             ParcelTrackingEvent::create(['order_id' => $locked->id, 'actor_id' => $request->user()->id, 'event_type' => 'pickup_reassigned', 'status' => $locked->status, 'notes' => $data['reason']]);

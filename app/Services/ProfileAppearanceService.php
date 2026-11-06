@@ -28,6 +28,18 @@ class ProfileAppearanceService
                     }
                 }
             }
+            if (in_array($actor->role, ['seller', 'courier', 'sorting_center'], true)) {
+                $attributes = ['profile_display_name' => $data['profile_display_name'] ?? null,
+                    'profile_bio' => $data['profile_bio'] ?? null, 'profile_theme' => $data['profile_theme']];
+                foreach (['avatar', 'banner'] as $type) {
+                    if (isset($newFiles[$type]) || ! empty($data['remove_'.$type])) {
+                        $attributes['profile_'.$type.'_path'] = $newFiles[$type] ?? null;
+                    }
+                }
+                app(StaffProfileService::class)->submit($actor, $actor, $attributes);
+
+                return;
+            }
             DB::transaction(function () use ($actor, $data, $newFiles): void {
                 $user = User::query()->whereKey($actor->id)->lockForUpdate()->firstOrFail();
                 $attributes = ['profile_display_name' => $data['profile_display_name'] ?? null,
@@ -61,7 +73,7 @@ class ProfileAppearanceService
         }
     }
 
-    private function jpeg(UploadedFile $file, int $width, int $height, string $field): string
+    public function jpeg(UploadedFile $file, int $width, int $height, string $field): string
     {
         $source = @imagecreatefromstring(file_get_contents($file->getRealPath()));
         if (! $source) {

@@ -7,8 +7,10 @@ use App\Models\AreaMunicipality;
 use App\Models\User;
 use App\Services\AdministrativeAuditService;
 use App\Services\OrderAreaService;
+use App\Services\StaffProfileService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
 
 class CoverageController extends Controller
 {
@@ -54,16 +56,14 @@ class CoverageController extends Controller
 
     public function vehicle(Request $request, User $rider, AdministrativeAuditService $audits)
     {
-        $data = $request->validate(['vehicle_category' => ['required', 'in:two_wheel,four_wheel'], 'vehicle_description' => ['required', 'string', 'max:120'], 'reason' => ['required', 'string', 'min:5', 'max:500']]);
-        DB::transaction(function () use ($request, $rider, $data, $audits) {
+        $data = $request->validate(['vehicle_category' => ['required', Rule::in(array_keys(config('rider-vehicles.categories')))], 'vehicle_type' => ['sometimes', 'nullable', Rule::in(array_filter([...array_keys(config('rider-vehicles.types')), $rider->vehicle_type]))], 'vehicle_description' => ['required', 'string', 'max:120'], 'reason' => ['required', 'string', 'min:5', 'max:500']]);
+        DB::transaction(function () use ($request, $rider, $data) {
             $locked = User::whereKey($rider->id)->lockForUpdate()->firstOrFail();
             abort_unless($locked->role === 'courier' && ($request->user()->isLogisticsAdmin() || $locked->serviceAreas()->where('sorting_center_id', $request->user()->id)->exists()), 403);
-            $previous = $locked->only(['vehicle_category', 'vehicle_description']);
-            $locked->forceFill(collect($data)->only(['vehicle_category', 'vehicle_description'])->all())->save();
-            $audits->record($request->user(), $locked, 'rider_vehicle_updated', $previous, $locked->only(['vehicle_category', 'vehicle_description']), $data['reason']);
+            app(StaffProfileService::class)->submit($request->user(), $locked, collect($data)->only(['vehicle_type', 'vehicle_category', 'vehicle_description'])->all(), $data['reason']);
         });
 
-        return back()->with('success', 'Rider vehicle classification updated.');
+        return back()->with('success', 'Rider vehicle changes submitted for logistics admin review.');
     }
 
     public function shipping(Request $request, AdministrativeAuditService $audits)
