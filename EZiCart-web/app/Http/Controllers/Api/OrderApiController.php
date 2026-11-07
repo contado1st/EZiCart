@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Enums\OrderStatus;
 use App\Http\Controllers\Controller;
+use App\Models\Dispute;
 use App\Models\Order;
 use App\Models\Review;
 use App\Services\DeliveryCodeService;
@@ -95,10 +96,10 @@ class OrderApiController extends Controller
 
         $courier = $order->deliveryCourier ?? $order->pickupCourier;
 
-        $totalAmount = (float) ($order->total_amount ?? ($order->total_cents ? $order->total_cents / 100 : 0));
-        $subtotal = (float) ($order->subtotal ?? ($order->subtotal_cents ? $order->subtotal_cents / 100 : $totalAmount));
-        $shippingFee = (float) ($order->shipping_fee ?? ($order->shipping_cents ? $order->shipping_cents / 100 : 0));
-        $discount = (float) ($order->discount_cents ? $order->discount_cents / 100 : 0);
+        $totalAmount = (float) $order->total_amount;
+        $subtotal = (float) $order->subtotal;
+        $shippingFee = (float) $order->shipping_fee;
+        $discount = (float) $order->discount_amount;
 
         return response()->json([
             'success' => true,
@@ -133,16 +134,16 @@ class OrderApiController extends Controller
                 'items' => $order->items->map(fn ($item) => [
                     'id' => $item->id,
                     'product_id' => $item->product_id,
-                    'name' => $item->product->name ?? 'Product',
+                    'name' => $item->product_name ?: ($item->product->name ?? 'Product'),
                     'image_path' => $item->product->image_path ?? null,
                     'quantity' => (int) $item->quantity,
-                    'price' => (float) $item->price,
-                    'total' => (float) ($item->price * $item->quantity),
+                    'price' => (float) $item->unit_price,
+                    'total' => (float) $item->item_total,
                     'variation_info' => $item->variation_info,
                 ]),
                 'tracking_timeline' => $order->trackingEvents->map(fn ($e) => [
                     'status' => $e->status,
-                    'description' => $e->description ?? $e->remarks ?? '',
+                    'description' => $e->notes ?? '',
                     'location' => $e->location,
                     'timestamp' => $e->created_at->toIso8601String(),
                 ]),
@@ -327,7 +328,7 @@ class OrderApiController extends Controller
             $evidencePath = $request->file('evidence_file')->store('disputes/evidence', 'public');
         }
 
-        $dispute = \App\Models\Dispute::create([
+        $dispute = Dispute::create([
             'order_id' => $order->id,
             'buyer_id' => $buyer->id,
             'seller_id' => $order->seller_id,
@@ -385,7 +386,7 @@ class OrderApiController extends Controller
     public function disputesList(Request $request): JsonResponse
     {
         $buyer = $request->user();
-        $disputes = \App\Models\Dispute::with(['order:id,parcel_code,status,total_cents,seller_id', 'order.seller:id,business_name'])
+        $disputes = Dispute::with(['order:id,parcel_code,status,total_cents,seller_id', 'order.seller:id,business_name'])
             ->where('buyer_id', $buyer->id)
             ->latest('id')
             ->get();
@@ -396,4 +397,3 @@ class OrderApiController extends Controller
         ]);
     }
 }
-

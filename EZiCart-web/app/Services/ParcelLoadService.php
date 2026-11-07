@@ -29,6 +29,7 @@ class ParcelLoadService
             $query->where(fn ($pickup) => $pickup->where('pickup_courier_id', $riderId)->whereIn('status', ['READY_FOR_PICKUP', 'PICKED_UP']))
                 ->orWhere(fn ($delivery) => $delivery->where('delivery_courier_id', $riderId)->activeCourierWorkload())
                 ->orWhereHas('activeTransfer', fn ($transfer) => $transfer->where('carrier_rider_id', $riderId)->where('status', 'IN_TRANSIT'));
+            $query->orWhereHas('returnPickupAssignment', fn ($assignment) => $assignment->where('rider_id', $riderId));
         });
     }
 
@@ -46,12 +47,14 @@ class ParcelLoadService
         $rows = Order::where(fn ($q) => $q
             ->where(fn ($p) => $p->whereIn('pickup_courier_id', $ids)->whereIn('status', ['READY_FOR_PICKUP', 'PICKED_UP']))
             ->orWhere(fn ($d) => $d->whereIn('delivery_courier_id', $ids)->activeCourierWorkload())
-            ->orWhereHas('activeTransfer', fn ($t) => $t->whereIn('carrier_rider_id', $ids)->where('status', 'IN_TRANSIT')))->with('activeTransfer')->get();
+            ->orWhereHas('activeTransfer', fn ($t) => $t->whereIn('carrier_rider_id', $ids)->where('status', 'IN_TRANSIT'))
+            ->orWhereHas('returnPickupAssignment', fn ($assignment) => $assignment->whereIn('rider_id', $ids)))->with(['activeTransfer', 'returnPickupAssignment'])->get();
         $result = [];
         foreach ($riders as $rider) {
             $assigned = $rows->filter(fn ($row) => (in_array($row->status, ['READY_FOR_PICKUP', 'PICKED_UP'], true) && (int) $row->pickup_courier_id === $rider->id)
                 || (in_array($row->status, ['ASSIGNED_TO_RIDER', 'OUT_FOR_DELIVERY', 'DELIVERY_FAILED', 'RETURN_IN_TRANSIT'], true) && (int) $row->delivery_courier_id === $rider->id && ! $row->return_handed_to_seller_at)
-                || ((int) $row->activeTransfer?->carrier_rider_id === $rider->id && $row->activeTransfer?->status === 'IN_TRANSIT'));
+                || ((int) $row->activeTransfer?->carrier_rider_id === $rider->id && $row->activeTransfer?->status === 'IN_TRANSIT')
+                || (int) $row->returnPickupAssignment?->rider_id === $rider->id);
             $result[$rider->id] = $this->summarize($rider, $assigned);
         }
 
@@ -90,6 +93,9 @@ class ParcelLoadService
                 : 'This driver is dedicated to hub transfers. Choose a local pickup or delivery rider.']);
         }
         abort_unless($rider->role === 'courier' && $rider->status === 'approved', 422, 'Choose an approved rider with a verified vehicle.');
+        if ($rider->license_expires_at !== null && $rider->license_expires_at->startOfDay()->lt(today())) {
+            throw ValidationException::withMessages(['license_expires_at' => 'This rider license has expired. Obtain approval for the renewed license before assignment or dispatch.']);
+        }
         if (! $rider->vehicle_capacity_grams || ! $rider->vehicle_capacity_verified_at) {
             throw ValidationException::withMessages(['vehicle_capacity_kg' => 'A logistics admin must verify this vehicle’s maximum cargo capacity in kg before assignment or movement.']);
         }

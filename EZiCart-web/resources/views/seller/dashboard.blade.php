@@ -26,9 +26,9 @@
             <div class="dash-stats-grid">
                 <div class="dash-stat-card">
                     <span class="workspace-stat-icon" aria-hidden="true"><x-shop-icon name="money" /></span>
-                    <div class="dash-stat-label">Net Sales</div>
+                    <div class="dash-stat-label">Accrued seller earnings</div>
                     <div class="dash-stat-value">₱{{ number_format($stats['total_sales'], 2) }}</div>
-                    <div class="dash-stat-subtext success">Real-time fulfilled revenue</div>
+                    <div class="dash-stat-subtext success">After discounts and commission; not settled cash</div>
                 </div>
 
                 <div class="dash-stat-card">
@@ -49,7 +49,7 @@
                     <span class="workspace-stat-icon" aria-hidden="true"><x-shop-icon name="star" /></span>
                     <div class="dash-stat-label">Store Rating</div>
                     <div class="dash-stat-value warning">⭐ {{ $stats['rating'] }}</div>
-                    <div class="dash-stat-subtext">Based on customer feedback</div>
+                    <div class="dash-stat-subtext">{{ $stats['review_count'] }} customer reviews</div>
                 </div>
             </div>
 

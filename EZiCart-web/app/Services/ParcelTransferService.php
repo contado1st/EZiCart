@@ -61,4 +61,29 @@ class ParcelTransferService
             ]));
         }, 3);
     }
+
+    public function replaceCarrier(ParcelTransfer $transfer, User $actor, User $replacement, string $reference, string $reason): void
+    {
+        abort_unless($actor->isLogisticsAdmin() && $actor->status === 'approved', 403);
+        DB::transaction(function () use ($transfer, $actor, $replacement, $reference, $reason): void {
+            $replacement = app(ParcelLoadService::class)->lockVehicle($replacement->id);
+            $order = Order::whereKey($transfer->order_id)->lockForUpdate()->firstOrFail();
+            $locked = ParcelTransfer::whereKey($transfer->id)->lockForUpdate()->firstOrFail();
+            abort_unless($locked->status === 'IN_TRANSIT' && $locked->active_order_id === $order->id, 422, 'Only an active in-transit transfer can change carrier.');
+            $previous = $locked->carrier;
+            abort_unless($previous && $previous->status === 'suspended' && $replacement->id !== $previous->id, 422, 'Recovery requires a suspended carrier and a different replacement driver.');
+            abort_unless(hash_equals('EZP:'.$order->parcel_code, $reference), 422, 'Scan the parcel label at the physical replacement handover.');
+            abort_unless((int) $replacement->logistics_owner_id === (int) $locked->source_hub_id || $replacement->serviceAreas()->where('sorting_center_id', $locked->source_hub_id)->exists(), 422, 'The replacement driver must belong to the source hub.');
+            app(ParcelLoadService::class)->assertFits($order, $replacement, hubTransfer: true);
+            $locked->forceFill(['carrier_rider_id' => $replacement->id])->save();
+            ParcelTrackingEvent::create(['order_id' => $order->id, 'actor_id' => $actor->id, 'event_type' => 'hub_carrier_recovered', 'status' => $order->status, 'notes' => 'Physical handover from driver #'.$previous->id.' to #'.$replacement->id.'. '.$reason]);
+            $this->audits->record($actor, $locked, 'hub_carrier_recovered', ['carrier_rider_id' => $previous->id], ['carrier_rider_id' => $replacement->id], $reason);
+            DB::table('logistics_exceptions')->where('order_id', $order->id)->where('previous_rider_id', $previous->id)->where('status', 'OPEN')->update([
+                'status' => 'RESOLVED', 'new_rider_id' => $replacement->id, 'resolution' => $reason, 'resolved_by' => $actor->id, 'resolved_at' => now(), 'updated_at' => now(),
+            ]);
+            $this->notifications->send([$locked->sourceHub, $locked->destinationHub, $replacement], new WebOperationsNotification([
+                'message' => 'Transport recovered for '.$order->order_number.'. Replacement driver '.$replacement->first_name.' now holds the scanned parcel. Destination receipt is still required.', 'url' => route('parcel-transfers.index'),
+            ]));
+        }, 3);
+    }
 }

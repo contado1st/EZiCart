@@ -2,9 +2,46 @@
 
 Audit date: **7 November 2026**. Scope: buyer, seller, rider, sorting center, marketplace administrator, logistics administrator, shared messaging/analytics, and buyer API integration.
 
-The existing suite passes, but isolated checks reproduce workflow and reporting defects outside its current coverage. This report recommends revisions; application fixes have not been applied as part of this audit. Existing uncommitted cart/checkout work was preserved.
+This report preserves the original findings and records their subsequent implementation. The user authorized application fixes and document updates after reviewing the [implementation plan](module-revision-implementation-plan.md). Original reproductions below describe the baseline, not the current behavior.
 
-## Priorities
+## Implementation assessment and current results
+
+All twelve findings have implementation changes and passing isolated behavior checks. The current probe checks response values and custody outcomes instead of equating HTTP 200 with correctness. See [ModuleRevisionTest](../tests/Feature/ModuleRevisionTest.php) for HTTP regression coverage and refusal cases. The final full suite passed **351 tests with 3,244 assertions**; all **47 frontend tests** and the production build also passed.
+
+| ID | Implemented revision | Verification and limits |
+| --- | --- | --- |
+| F01 | Existing API response keys now map to current decimal amounts, purchased item snapshots and event notes. Courier lookup uses pickup/delivery relationships. Checkout failures return a generic message and log the exception. | Own-order content and foreign-buyer 404 tested; assigned rider behavior retains the existing contract. |
+| F02 | Assigned pickup-hub identity authorizes origin intake. Current physical custody authorizes sorting/storage; destination ownership still gates final delivery assignment. | HTTP flow covers unrelated-hub refusal, origin intake, sorting, transfer release/receipt, final delivery and buyer confirmation. |
+| F03 | Approved disputes authorize a return without changing physical status. A separate return-pickup page requires local rider assignment, acceptance, buyer handover confirmation and possession scan before transit. | Uses existing dispute/assignment records; no schema migration or fabricated historical custody. Existing seller badge receipt and financial execution checks remain required. |
+| F04 | Suspension opens an idempotent exception for active transport custody and alerts operations. Logistics admins record a scanned physical handover to a verified replacement driver without resetting transfer status. | Replacement scope, wrong scan, reservation movement, destination receipt and exception resolution tested. Audit history retains previous/new carrier IDs. |
+| F05 | Transfer carriers and involved hubs are scoped order participants. Approved participants can contact each other and open parcel evidence. Pending return riders can contact involved participants. | Unrelated riders and suspended actors remain excluded. Transfer history retains access for the recorded carrier and involved hubs; it does not expose all parcels. |
+| F06 | Seller dashboard shows accrued earnings after seller-funded discounts and commission, using finance snapshots when present and subtracting executed refunds. | Not settled cash. Reporting recognition timing remains distinct and is documented below; seller/platform discount examples tested. |
+| F07 | Dashboard ratings aggregate actual product reviews and include the review count; unrated stores display Unrated. | Empty and one-star review cases tested. |
+| F08 | Rider scope/filter includes transport assignments. Analytics reports a separate transport-leg section with cargo, hubs, status, timestamps and elapsed transit time. | Linehaul does not count as that rider's customer delivery or shipping revenue. Transport metrics use the selected order cohort. |
+| F09 | API quote rejects mixed-shop selection before issuing checkout credentials. Purchase placement retains its independent guard. | Same-shop multiple items accepted; mixed-shop quote rejected; no cart deletion. |
+| F10 | Outgoing load checks reject known expired licenses, including return pickups and transport recovery. Expiring/expired license tasks appear for logistics admins, and vehicle displays explain renewal needs. | Expiry date itself remains valid through that day. Legacy missing dates are flagged; existing approved riders still need verified capacity. Renewals use existing profile approval. Receipt/unloading remains available. |
+| F11 | Pending applications are searchable, oldest-first and paginated with matching totals and age indicators. Open exception queues also paginate. | Twenty-six applications, next-page reachability and search tested. |
+| F12 | The single Windows-1252 separator byte in load planning was normalized to UTF-8 without restyling the template. | Strict UTF-8 check and complete layout source detector now pass. This is not a browser/accessibility certification. |
+
+### Financial definitions
+
+The dashboard's **Accrued seller earnings** is a fulfilled-order payable estimate after discounts, commission and recorded refunds. Finance snapshots take precedence over recalculating historical orders. **Net seller sales** in analytics follows the existing completion/refund and verified-remittance recognition policy. **Settled payouts** require their own recorded settlement. These measures have different timing and must not be presented as interchangeable cash balances or profit.
+
+### Reproduce the current checks
+
+Run from the Laravel folder, not the repository root:
+
+```powershell
+cd EZiCart-web
+php scripts/audit-module-revision-probes.php --check
+php vendor/phpunit/phpunit/phpunit tests/Feature/ModuleRevisionTest.php --no-progress
+```
+
+The probe writes JSON to standard output. `--help` explains usage; `--check` returns 0 when all expectations pass, 1 for unmet expectations and 2 for an unexpected probe/setup error. Expected validation refusals are captured as observations. Unexpected setup failure produces an incomplete JSON result and stops rather than pretending remaining checks ran. Output is not written to the database or committed automatically.
+
+Each finding has a narrow machine-readable check; passing that check does not replace all HTTP, concurrency, visual or operational acceptance criteria.
+
+## Original priorities
 
 P1 means a broken customer operation or incorrect physical-custody workflow. P2 means a functional gap, misleading information, or operational backlog risk. P3 means tooling/maintenance work. These are revision priorities, not security vulnerability ratings.
 
@@ -23,7 +60,7 @@ P1 means a broken customer operation or incorrect physical-custody workflow. P2 
 | F11 | P2 | Logistics admin | Application queue hides older records beyond its first 25 |
 | F12 | P3 | Logistics UI, developer tooling | Load-planning template contains invalid UTF-8 |
 
-## Confirmed findings and acceptance criteria
+## Original findings and acceptance criteria (historical baseline)
 
 ### F01 — Buyer API order details fail
 
@@ -159,6 +196,25 @@ These are recommendations from inspection, not additional reproduced defects:
 
 ## Verification and limits
 
+Current revision evidence:
+
+| Check | Result | Evidence / limit |
+| --- | --- | --- |
+| Isolated behavior probes | **12/12 passed, no recorded probe errors** | `storage/logs/module-revision-implemented-probes.json`; direct service/controller checks, isolated SQLite only |
+| Focused existing workflow/transfer/load/analytics tests | **49 passed, 452 assertions** | `storage/logs/revision-targeted-existing.json` |
+| New module regression tests | **All 9 passed in the final full run** | Includes complete origin-to-buyer and approved-return-to-seller paths, ownership refusals and page-scope checks |
+| Workflow attention plus module tests | **14 passed, 133 assertions** | Intermediate focused run; later extended flow coverage runs in the full suite |
+| Frontend regression suite | **47 passed** | `storage/logs/module-revision-frontend-tests.txt` |
+| Production frontend build | **Passed** | `storage/logs/module-revision-build.txt`; existing optional font fallback warning does not prevent compilation |
+| Layout source detector | **Completed successfully (exit 0)** | `storage/logs/module-revision-layout-scan.json`; original invalid-UTF-8 blocker removed |
+| Final full PHP suite | **351 passed, 3,244 assertions** | `storage/logs/module-revision-full-tests.json`; approximately 372 seconds. The legacy test now asserts that authorization leaves custody unchanged. |
+| PHP syntax | **317 files passed** | `storage/logs/module-revision-php-lint.json`; includes the probe script |
+| Blade compilation and routes | **Passed; 372 routes loaded** | Includes five return-pickup routes and the carrier-recovery route; `storage/logs/module-revision-routes.json` |
+| Documentation links/encoding | **Passed for all three documents** | No missing local Markdown link targets; strict UTF-8 decoding succeeded |
+| Live browser, SMTP, queue delivery and physical operations | **Not verified** | Tests and source checks do not establish production or device behavior |
+
+Original audit evidence, retained for traceability:
+
 | Check | Result | Evidence / limit |
 | --- | --- | --- |
 | `php artisan test --compact` | **Passed: 342 tests, 3,136 assertions** | Approximately 407 seconds; result in `storage/logs/modules-audit-tests.json` |
@@ -172,11 +228,11 @@ These are recommendations from inspection, not additional reproduced defects:
 
 The probe script verifies that its database is SQLite `:memory:` before migrating disposable fixtures. Notifications are faked and mail uses the array transport. It does not seed, reset or change the configured MySQL application data. These direct controller/service checks do not replace HTTP middleware/authorization tests or a real browser walkthrough. Diagnostic JSON files are local artifacts; the reproducible script and this report are the durable audit outputs.
 
-## Recommended implementation order
+## Original implementation order (completed implementation sequence)
 
 1. Repair buyer API order details, origin-hub routing and return custody separation (F01–F03). Add end-to-end regression coverage for each corrected path.
 2. Complete transport-driver integration: suspension recovery, participant access and analytics (F04, F05, F08), then enforce outgoing license eligibility (F10).
 3. Reconcile seller metrics and ratings (F06–F07), align API quote restrictions (F09), and paginate approvals (F11).
 4. Normalize the affected template (F12), rerun source checks and conduct authenticated responsive/keyboard review across all six modules.
 
-Avoid a broad redesign or state/schema rewrite before these specific behavior gaps have defined regression checks.
+The optional improvement backlog remains open. No production database migration, dependency installation or seed run was performed for this revision. Browser review and live operational verification remain separate checks.

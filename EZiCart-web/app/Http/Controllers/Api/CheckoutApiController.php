@@ -3,16 +3,13 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Models\Purchase;
 use App\Models\User;
-use App\Models\Voucher;
 use App\Services\BuyerAddressService;
 use App\Services\OrderAreaService;
 use App\Services\PlacePurchaseService;
 use App\Services\PsgcAddressService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
 class CheckoutApiController extends Controller
@@ -137,7 +134,7 @@ class CheckoutApiController extends Controller
 
             return response()->json([
                 'success' => false,
-                'message' => 'Unable to place order at this time: '.$e->getMessage(),
+                'message' => 'Unable to place order at this time. Please try again.',
             ], 500);
         }
 
@@ -158,4 +155,3 @@ class CheckoutApiController extends Controller
         ], 201);
     }
 }
-

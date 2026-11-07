@@ -38,6 +38,9 @@ class CartApiController extends Controller
 
         try {
             $quote = $pricing->quote($validated['items'], $voucher);
+            if (count(array_unique(array_column($quote['lines'], 'seller_id'))) > 1) {
+                throw ValidationException::withMessages(['items' => 'Choose products from one shop per checkout. Items from other shops stay saved in your cart.']);
+            }
         } catch (ValidationException $e) {
             return response()->json([
                 'success' => false,
@@ -80,4 +83,3 @@ class CartApiController extends Controller
         ]);
     }
 }
-

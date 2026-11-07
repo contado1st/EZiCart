@@ -470,7 +470,7 @@ class LogisticsController extends Controller
                     abort_if($this->isMultiHubOperation(), 422, 'Assign this routing area to a hub before receiving its parcels.');
                     $area->forceFill(['sorting_center_id' => $center->id])->save();
                 }
-                abort_unless((int) $area->sorting_center_id === $center->id, 403, 'This parcel destination belongs to another sorting center.');
+                abort_unless((int) $area->sorting_center_id === $center->id || app(HubOrderScope::class)->isPickupHub($lockedOrder, $center), 403, 'This parcel destination belongs to another sorting center.');
             }
 
             $transitions->transition(
@@ -1661,7 +1661,7 @@ class LogisticsController extends Controller
         $areaHubId = $order->destination_area_id === null
             ? null
             : Area::query()->whereKey($order->destination_area_id)->value('sorting_center_id');
-        abort_unless($areaHubId === null || (int) $areaHubId === $operator->id, 403, 'This destination area belongs to another sorting center.');
+        abort_unless($order->sorting_center_id === $operator->id || $areaHubId === null || (int) $areaHubId === $operator->id, 403, 'This destination area belongs to another sorting center.');
         abort_unless($areaHubId !== null || $order->sorting_center_id !== null || ! $this->isMultiHubOperation(), 403, 'Assign the destination area to this hub before operating the parcel.');
     }
 

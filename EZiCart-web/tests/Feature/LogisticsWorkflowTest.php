@@ -658,7 +658,7 @@ class LogisticsWorkflowTest extends TestCase
         $this->assertDatabaseHas('scan_events', ['station' => 'intake', 'result' => 'rejected', 'method' => 'manual']);
     }
 
-    public function test_parcel_qr_intake_records_the_scan_and_dispute_resolution_starts_return_workflow(): void
+    public function test_parcel_qr_intake_records_the_scan_and_dispute_resolution_authorizes_return_without_moving_custody(): void
     {
         $center = $this->user('sorting_center', 'approved');
         $parcel = $this->order(['status' => 'PICKED_UP']);
@@ -692,7 +692,8 @@ class LogisticsWorkflowTest extends TestCase
             'status' => 'REFUND_APPROVED',
             'admin_notes' => 'Return required before a manual refund reconciliation.',
         ])->assertRedirect();
-        $this->assertDatabaseHas('orders', ['id' => $order->id, 'status' => 'RETURN_IN_TRANSIT']);
+        $this->assertDatabaseHas('orders', ['id' => $order->id, 'status' => 'DELIVERED']);
+        $this->assertDatabaseMissing('delivery_assignments', ['active_order_id' => $order->id]);
         $this->assertDatabaseHas('disputes', ['id' => $dispute->id, 'status' => 'REFUND_APPROVED', 'resolved_by' => $admin->id]);
         $this->actingAsUser($admin)->patch(route('admin.disputes.resolve', $dispute), [
             'status' => 'UNDER_REVIEW',

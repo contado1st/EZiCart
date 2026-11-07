@@ -12,7 +12,7 @@ class OrderProgressService
 
     public function describe(Order $order): array
     {
-        $order->loadMissing(['pendingCancellation', 'activeTransfer', 'deliveryAssignments', 'dispute']);
+        $order->loadMissing(['pendingCancellation', 'activeTransfer', 'deliveryAssignments', 'dispute', 'returnPickupAssignment']);
         $stage = match ($order->status) {
             'PLACED' => 0, 'CONFIRMED', 'PREPARING' => 1, 'READY_FOR_PICKUP' => 2, 'PICKED_UP' => 3,
             'AT_SORTING_CENTER', 'SORTED', 'ASSIGNED_TO_RIDER' => 4, 'OUT_FOR_DELIVERY', 'DELIVERY_FAILED' => 5,
@@ -48,6 +48,15 @@ class OrderProgressService
             [$owner, $label, $route] = ['sorting_center', 'A hub transfer is active. Complete the physical dispatch and receiving scans in Hub transfers.', ''];
         } elseif (in_array($order->dispute?->status, ['PENDING', 'UNDER_REVIEW'], true)) {
             [$owner, $label, $route] = ['ecommerce_admin', 'A dispute is under review. Wait for the marketplace administrator’s decision.', ''];
+        } elseif (in_array($order->status, ['DELIVERED', 'COMPLETED'], true) && in_array($order->dispute?->status, ['REFUND_APPROVED', 'REPLACEMENT_APPROVED'], true)) {
+            $assignment = $order->returnPickupAssignment;
+            $handedOver = $assignment && $order->trackingEvents()->where('event_type', 'return_buyer_handover')->where('actor_id', $order->buyer_id)->where('notes', 'Return pickup assignment #'.$assignment->id)->exists();
+            [$owner, $label, $route] = ! $assignment
+                ? ['sorting_center', 'Return approved. Assign a verified rider for collection from the buyer.', 'return-pickups.index']
+                : (! $assignment->accepted_at
+                    ? ['courier', 'Return pickup assigned. The rider must accept before buyer handover.', 'return-pickups.accept']
+                    : ($handedOver ? ['courier', 'Buyer confirmed handover. Scan the return parcel to confirm possession.', 'return-pickups.collect']
+                        : ['buyer', 'Return rider accepted. Confirm handover only after physically giving the parcel to that rider.', 'return-pickups.handover']));
         } elseif (! $order->parcel_weight_grams && $order->status === 'READY_FOR_PICKUP') {
             [$owner, $label, $route] = ['seller', 'Record the actual packed parcel weight before pickup or assignment.', 'orders.weight'];
         } elseif (! $order->parcel_weight_grams && in_array($order->status, ['AT_SORTING_CENTER', 'SORTED', 'ASSIGNED_TO_RIDER'], true) && ! $order->hub_released_at) {
@@ -85,7 +94,8 @@ class OrderProgressService
         }
         $responsible = $progress['owner'] === $role;
         if ($role === 'courier') {
-            $responsible = $responsible && (int) (in_array($order->status, ['READY_FOR_PICKUP', 'PICKED_UP'], true) ? $order->pickup_courier_id : $order->delivery_courier_id) === $viewer->id;
+            $assignedRider = $order->returnPickupAssignment?->rider_id ?? (in_array($order->status, ['READY_FOR_PICKUP', 'PICKED_UP'], true) ? $order->pickup_courier_id : $order->delivery_courier_id);
+            $responsible = $responsible && (int) $assignedRider === $viewer->id;
         }
 
         return $progress + ['requires_action' => $responsible, 'action_url' => $progress['action_route'] && Route::has($progress['action_route']) ? route($progress['action_route'], ['order' => $order->id]) : null, 'owner_label' => match ($progress['owner']) {

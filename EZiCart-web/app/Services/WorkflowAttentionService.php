@@ -29,6 +29,7 @@ class WorkflowAttentionService
             } else {
                 $groups[] = ['query' => DB::table('logistics_exceptions')->where('status', 'OPEN'), 'label' => 'Review logistics recovery exceptions', 'route' => 'logistics-admin.dashboard'];
                 $groups[] = ['query' => User::where('role', 'courier')->where('status', 'approved')->where(fn ($q) => $q->whereNull('vehicle_capacity_verified_at')->orWhereNull('vehicle_capacity_grams')), 'label' => 'Verify rider vehicle cargo capacities', 'route' => 'load-planning.index'];
+                $groups[] = ['query' => User::where('role', 'courier')->where('status', 'approved')->whereNotNull('license_expires_at')->whereDate('license_expires_at', '<=', today()->addDays(30)), 'label' => 'Review expired or expiring rider licenses', 'route' => 'staff.index'];
             }
             foreach ($groups as $group) {
                 $total = $group['query']->count();
@@ -62,6 +63,11 @@ class WorkflowAttentionService
                 }
             }
         }
+        $returns = $this->returnTasks($user)->count();
+        if ($returns) {
+            $count += $returns;
+            $items[] = ['label' => 'Complete approved return pickup steps', 'url' => route('return-pickups.index'), 'count' => $returns, 'target' => null];
+        }
         $states = [];
         if ($visibleIds !== []) {
             foreach ($this->scoped($user)->whereIn('orders.id', $visibleIds)->with(['pendingCancellation', 'activeTransfer', 'deliveryAssignments', 'dispute', 'items', 'reviews'])->get() as $order) {
@@ -77,17 +83,38 @@ class WorkflowAttentionService
         return match ($user->role) {
             'buyer' => Order::where('buyer_id', $user->id),
             'seller' => Order::where('seller_id', $user->id),
-            'courier' => Order::where(fn ($q) => $q->where('pickup_courier_id', $user->id)->orWhere('delivery_courier_id', $user->id)),
+            'courier' => Order::where(fn ($q) => $q->where('pickup_courier_id', $user->id)->orWhere('delivery_courier_id', $user->id)->orWhereHas('returnPickupAssignment', fn ($assignment) => $assignment->where('rider_id', $user->id))),
             'sorting_center' => $this->hubs->query($user),
             'admin', 'ecommerce_admin', 'logistics_admin' => Order::query(),
             default => Order::whereRaw('1 = 0'),
         };
     }
 
+    private function returnTasks(User $user): Builder
+    {
+        $query = $this->scoped($user)->whereIn('status', ['DELIVERED', 'COMPLETED'])
+            ->whereHas('dispute', fn ($q) => $q->whereIn('status', ['REFUND_APPROVED', 'REPLACEMENT_APPROVED']));
+        if ($user->isLogisticsAdmin() || $user->role === 'sorting_center') {
+            return $query->whereDoesntHave('returnPickupAssignment');
+        }
+        if ($user->role === 'courier') {
+            return $query->whereHas('returnPickupAssignment', fn ($assignment) => $assignment->where('rider_id', $user->id)
+                ->where(fn ($step) => $step->whereNull('accepted_at')->orWhereExists(fn ($events) => $events->selectRaw('1')->from('parcel_tracking_events')
+                    ->whereColumn('order_id', 'delivery_assignments.order_id')->where('event_type', 'return_buyer_handover')->whereColumn('actor_id', 'orders.buyer_id')->whereColumn('created_at', '>=', 'delivery_assignments.assigned_at'))));
+        }
+        if ($user->role === 'buyer') {
+            return $query->whereHas('returnPickupAssignment', fn ($assignment) => $assignment->whereNotNull('accepted_at')
+                ->whereNotExists(fn ($events) => $events->selectRaw('1')->from('parcel_tracking_events')
+                    ->whereColumn('order_id', 'delivery_assignments.order_id')->where('event_type', 'return_buyer_handover')->where('actor_id', $user->id)->whereColumn('created_at', '>=', 'delivery_assignments.assigned_at')));
+        }
+
+        return $query->whereRaw('1 = 0');
+    }
+
     private function candidates(User $user): Builder
     {
         $query = $this->scoped($user)->where('payment_method', 'COD')->whereDoesntHave('activeTransfer')
-            ->whereDoesntHave('dispute', fn ($q) => $q->whereIn('status', ['PENDING', 'UNDER_REVIEW']));
+            ->whereDoesntHave('dispute', fn ($q) => $q->whereIn('status', ['PENDING', 'UNDER_REVIEW', 'REFUND_APPROVED', 'REPLACEMENT_APPROVED']));
         if ($user->role !== 'seller') {
             $query->whereDoesntHave('pendingCancellation');
         }
