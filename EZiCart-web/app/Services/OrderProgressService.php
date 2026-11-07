@@ -98,7 +98,9 @@ class OrderProgressService
             $responsible = $responsible && (int) $assignedRider === $viewer->id;
         }
 
-        return $progress + ['requires_action' => $responsible, 'action_url' => $progress['action_route'] && Route::has($progress['action_route']) ? route($progress['action_route'], ['order' => $order->id]) : null, 'owner_label' => match ($progress['owner']) {
+        $actionRoute = $progress['action_route'];
+
+        return $progress + ['requires_action' => $responsible, 'action_url' => $actionRoute && Route::has($actionRoute) ? route($actionRoute, ['order' => $order->id]) : null, 'owner_label' => match ($progress['owner']) {
             'seller' => 'seller', 'buyer' => 'buyer', 'courier' => 'assigned rider', 'sorting_center' => 'sorting hub', 'ecommerce_admin' => 'marketplace admin', default => 'no further action',
         }];
     }

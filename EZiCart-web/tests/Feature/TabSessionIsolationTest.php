@@ -93,4 +93,41 @@ class TabSessionIsolationTest extends TestCase
             ->assertSee('filter=products')->assertDontSee('The page should not render yet.');
         $this->assertStringContainsString('no-store', $response->headers->get('Cache-Control'));
     }
+
+    public function test_domain_bootstrap_loads_its_session_script_from_the_current_site_even_with_a_local_asset_override(): void
+    {
+        app('url')->useAssetOrigin('http://localhost:8000');
+        Route::middleware('web')->get('/__test/domain-bootstrap', fn () => response('Actual page'));
+
+        $this->withHeaders(['Accept' => 'text/html', 'Sec-Fetch-Dest' => 'document'])
+            ->get('https://shop.ezicart.trade/__test/domain-bootstrap')
+            ->assertOk()->assertViewIs('auth.tab-bootstrap')
+            ->assertSee('src="/js/tab-sessions.js?v=', false)
+            ->assertDontSee('http://localhost:8000', false);
+    }
+
+    public function test_trusted_tunnel_preserves_https_in_bootstrap_targets_and_session_redirects(): void
+    {
+        config(['trustedproxy.proxies' => ['127.0.0.1']]);
+        Route::middleware('web')->get('/__test/tunnel-bootstrap', fn () => response('Actual page'));
+        Route::middleware('web')->get('/__test/tunnel-redirect', fn () => redirect()->route('login'));
+        $headers = ['Accept' => 'text/html', 'Sec-Fetch-Dest' => 'document', 'X-Forwarded-Proto' => 'https', 'X-Forwarded-Port' => '443'];
+
+        $this->withHeaders($headers)->get('http://shop.ezicart.trade/__test/tunnel-bootstrap')
+            ->assertOk()->assertSee('data-tab-target="https://shop.ezicart.trade/__test/tunnel-bootstrap"', false)
+            ->assertSee('data-tab-login-url="https://shop.ezicart.trade/login"', false);
+        $token = str_repeat('e', 32);
+        $this->get('http://shop.ezicart.trade/__test/tunnel-redirect?__tab='.$token)
+            ->assertRedirect('https://shop.ezicart.trade/login?__tab='.$token);
+    }
+
+    public function test_untrusted_clients_cannot_change_the_session_origin_with_forwarded_headers(): void
+    {
+        config(['trustedproxy.proxies' => ['192.0.2.10']]);
+        Route::middleware('web')->get('/__test/untrusted-bootstrap', fn () => response('Actual page'));
+
+        $this->withHeaders(['Accept' => 'text/html', 'Sec-Fetch-Dest' => 'document', 'X-Forwarded-Proto' => 'https'])
+            ->get('http://shop.ezicart.trade/__test/untrusted-bootstrap')
+            ->assertOk()->assertSee('data-tab-target="http://shop.ezicart.trade/__test/untrusted-bootstrap"', false);
+    }
 }

@@ -106,6 +106,8 @@ After installing this fix, reload existing tabs once so they load the new sessio
 
 The tab middleware now clears a cached session-store binding and authentication guard after selecting a tab cookie, preventing identity reuse when a Laravel application container handles multiple requests. Existing CSRF, session regeneration, approval checks and server role restrictions remain in place.
 
+**Domain/device troubleshooting:** “Opening your tab’s account” is a brief initialization page, not an error by itself. If it stays visible, verify that `/js/tab-sessions.js` loads from the website's own origin. Leave `ASSET_URL` blank when assets should follow the requested host; pointing it at `localhost` breaks access from other devices. The critical session script uses a same-origin path independently of that override. Tunnel HTTPS headers are handled through `config/trustedproxy.php`, after environment configuration loads. Local mode defaults to loopback proxy addresses; other deployments must configure their actual trusted proxy IPs/CIDRs through `TRUSTED_PROXIES`. Clear configuration with `php artisan config:clear` after changing these settings, then refresh the affected device. Do not disable tab isolation to work around an asset or proxy configuration issue.
+
 ## Mobile boundary
 
 The combined branch includes both web and mobile work. This audit-driven revision does not edit Flutter/Dart files or add native screens. It does correct buyer API order values and enforce the existing one-shop rule during API quote preview; therefore API controllers are not described as untouched. Existing response field names are preserved. Shared purchase services continue to enforce recipient/per-buyer caps, shop closures and one-shop checkout for every caller.

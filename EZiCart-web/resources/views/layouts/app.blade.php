@@ -21,7 +21,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    <script src="{{ asset('js/tab-sessions.js') }}?v={{ filemtime(public_path('js/tab-sessions.js')) }}" data-tab-login-url="{{ route('login') }}" data-tab-authenticated="{{ auth()->check() ? '1' : '0' }}" defer></script>
+    <script src="{{ request()->getBasePath() }}/js/tab-sessions.js?v={{ filemtime(public_path('js/tab-sessions.js')) }}" data-tab-login-url="{{ route('login') }}" data-tab-authenticated="{{ auth()->check() ? '1' : '0' }}" defer></script>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>@yield('title', 'EZiCart - A Better Marketplace')</title>
     <meta name="description" content="@yield('meta-description', 'Shop available products from sellers on the EZiCart marketplace.')">

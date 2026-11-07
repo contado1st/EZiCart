@@ -43,7 +43,6 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
 
         $middleware->trustProxies(
-            at: env('TRUSTED_PROXIES') ?? (env('APP_ENV') === 'local' ? '*' : null),
             headers: Request::HEADER_X_FORWARDED_FOR |
             Request::HEADER_X_FORWARDED_HOST |
             Request::HEADER_X_FORWARDED_PORT |
