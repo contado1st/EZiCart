@@ -209,6 +209,7 @@ Route::middleware(['auth', 'account.active', 'auth.session'])->group(function ()
         // Cart Actions
         Route::prefix('cart')->name('cart.')->group(function () {
             Route::get('/', [CartController::class, 'index'])->name('index');
+            Route::post('/checkout', [CartController::class, 'select'])->middleware('throttle:operational-action')->name('checkout');
             Route::post('/add/{product}', [CartController::class, 'add'])->middleware('throttle:operational-action')->name('add');
             Route::patch('/update/{cartKey}', [CartController::class, 'update'])->middleware('throttle:operational-action')->name('update');
             Route::delete('/remove/{cartKey}', [CartController::class, 'remove'])->middleware('throttle:operational-action')->name('remove');
@@ -216,6 +217,7 @@ Route::middleware(['auth', 'account.active', 'auth.session'])->group(function ()
 
         // Checkout Actions & Voucher Application
         Route::get('/checkout', [CheckoutController::class, 'index'])->name('checkout.index');
+        Route::post('/checkout/cancel', [CheckoutController::class, 'cancel'])->name('checkout.cancel');
         Route::post('/checkout', [CheckoutController::class, 'process'])->middleware('throttle:operational-action')->name('checkout.process');
         Route::post('/checkout/voucher', [CheckoutController::class, 'applyVoucher'])->middleware('throttle:operational-action')->name('checkout.voucher.apply');
         Route::delete('/checkout/voucher', [CheckoutController::class, 'removeVoucher'])->middleware('throttle:operational-action')->name('checkout.voucher.remove');

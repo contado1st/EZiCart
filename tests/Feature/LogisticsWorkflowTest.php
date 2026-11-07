@@ -2778,7 +2778,7 @@ class LogisticsWorkflowTest extends TestCase
             ->assertSee('value="COD"', false)
             ->assertDontSee('value="GCash"', false)
             ->assertDontSee('value="Bank Transfer"', false)
-            ->assertSee('Cash on delivery is the available payment method while payment verification for other methods is being configured.');
+            ->assertSee('Pay your courier when your parcel arrives.');
 
         $this->actingAsUser($order->buyer)->withSession(['cart' => [[
             'product_id' => $product->id,

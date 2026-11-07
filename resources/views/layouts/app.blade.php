@@ -112,11 +112,7 @@
                     @if (!auth()->check() || auth()->user()->role === 'buyer')
                         <a href="{{ route('cart.index') }}" class="nav-link cart-link">
                             <span><x-shop-icon name="cart2" /> Cart</span>
-                            @if (session('cart') && count(session('cart')) > 0)
-                                <span class="cart-count-badge">
-                                    {{ count(session('cart')) }}
-                                </span>
-                            @endif
+                            <span class="cart-count-badge" data-cart-count @if(count(session('cart', [])) < 1) hidden @endif>{{ count(session('cart', [])) }}</span>
                         </a>
                     @endif
 

@@ -24,25 +24,26 @@ class CheckoutIntegrityTest extends TestCase
         $this->withoutVite();
     }
 
-    public function test_multi_seller_page_total_equals_orders_and_seller_voucher_does_not_discount_other_store(): void
+    public function test_single_shop_multi_product_page_total_matches_one_order_and_replay_is_safe(): void
     {
         $buyer = $this->user('buyer');
         $a = $this->product(100);
         $b = $this->product(200);
+        $b->update(['user_id' => $a->user_id]);
         $voucher = Voucher::create(['seller_id' => $a->user_id, 'code' => 'ONLY-A', 'type' => 'fixed', 'value' => 30, 'min_spend' => 100, 'is_active' => true, 'usage_limit' => 1]);
         $page = $this->actingAs($buyer)->withSession(['cart' => $this->cart($a, $b), 'applied_voucher' => ['id' => $voucher->id]])->get(route('checkout.index'))->assertOk();
-        $page->assertViewHas('total', 370)->assertViewHas('shippingFee', 100)->assertViewHas('discount', 30);
+        $page->assertViewHas('total', 320)->assertViewHas('shippingFee', 50)->assertViewHas('discount', 30);
         $payload = $this->payload();
         $this->post(route('checkout.process'), $payload)->assertRedirect(route('buyer.dashboard'));
-        $this->assertSame(37000, CheckoutPricingService::cents(Order::sum('total_amount')));
-        $this->assertDatabaseHas('orders', ['seller_id' => $a->user_id, 'discount_amount' => 30, 'total_amount' => 120]);
-        $this->assertDatabaseHas('orders', ['seller_id' => $b->user_id, 'discount_amount' => 0, 'total_amount' => 250]);
+        $this->assertSame(32000, CheckoutPricingService::cents(Order::sum('total_amount')));
+        $this->assertDatabaseHas('orders', ['seller_id' => $a->user_id, 'discount_amount' => 30, 'total_amount' => 320]);
+        $this->assertDatabaseCount('order_items', 2);
         $this->assertDatabaseCount('purchases', 1);
-        $this->assertEquals(37000, Purchase::firstOrFail()->total_cents);
+        $this->assertEquals(32000, Purchase::firstOrFail()->total_cents);
         $this->assertEquals(1, $voucher->fresh()->used_count);
         // Retrying after the cart was cleared must return the same purchase.
         $this->post(route('checkout.process'), $payload)->assertRedirect(route('buyer.dashboard'));
-        $this->assertDatabaseCount('orders', 2);
+        $this->assertDatabaseCount('orders', 1);
         $this->assertEquals(1, $voucher->fresh()->used_count);
         $this->assertEquals(4, $a->fresh()->stock);
         $payload['recipient_name'] = 'Different recipient';

@@ -1,5 +1,13 @@
 # Web operations user guide
 
+See the [all-module revision audit](all-modules-revision-audit.md) for confirmed workflow gaps, priorities and verification results from 7 November 2026.
+
+## Saved cart and selected checkout
+
+Use **Add to cart** to save products to your buyer account, including after logout. In the cart, select several products from **one shop** or use that shop's checkbox before choosing **Check out**. Selecting another shop switches your selection. Only selected products from that shop are purchased; everything else stays saved. Mixed-shop checkout is blocked on the server. **Buy now** checks out one product/variation separately, and **Cancel Buy Now** returns to that product without adding it to the cart. Checkout supports saved addresses, eligible vouchers and COD.
+
+See the [cart and checkout revision audit](cart-checkout-revision-audit.md) for implementation details, verification results and the buyer walkthrough.
+
 ## Parcel progress, notifications and required actions
 
 - Dashboard pages have a **Next steps** panel. It lists your current tasks and links to the relevant order, hub queue or administrator review page. Buyer, seller, rider, sorting hub and both administrator modules receive tasks within their own permissions.
