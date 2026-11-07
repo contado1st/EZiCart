@@ -1,0 +1,233 @@
+{
+  "_fonts-DMOSjcMr.css": {
+    "file": "assets/fonts-DMOSjcMr.css",
+    "src": "_fonts-DMOSjcMr.css"
+  },
+  "_instrument-sans-400-normal-D1W7dsQl.woff": {
+    "file": "assets/instrument-sans-400-normal-D1W7dsQl.woff",
+    "src": "_instrument-sans-400-normal-D1W7dsQl.woff"
+  },
+  "_instrument-sans-400-normal-DRC__1Mx.woff2": {
+    "file": "assets/instrument-sans-400-normal-DRC__1Mx.woff2",
+    "src": "_instrument-sans-400-normal-DRC__1Mx.woff2"
+  },
+  "_instrument-sans-500-normal-Dk9ku72i.woff2": {
+    "file": "assets/instrument-sans-500-normal-Dk9ku72i.woff2",
+    "src": "_instrument-sans-500-normal-Dk9ku72i.woff2"
+  },
+  "_instrument-sans-500-normal-Z6ESRlEs.woff": {
+    "file": "assets/instrument-sans-500-normal-Z6ESRlEs.woff",
+    "src": "_instrument-sans-500-normal-Z6ESRlEs.woff"
+  },
+  "_instrument-sans-600-normal-B7fBEWYG.woff2": {
+    "file": "assets/instrument-sans-600-normal-B7fBEWYG.woff2",
+    "src": "_instrument-sans-600-normal-B7fBEWYG.woff2"
+  },
+  "_instrument-sans-600-normal-B9e8oLYv.woff": {
+    "file": "assets/instrument-sans-600-normal-B9e8oLYv.woff",
+    "src": "_instrument-sans-600-normal-B9e8oLYv.woff"
+  },
+  "_jsx-runtime-D8C13vmi.js": {
+    "file": "assets/jsx-runtime-D8C13vmi.js",
+    "name": "jsx-runtime"
+  },
+  "resources/css/admin/riders.css": {
+    "file": "assets/riders-K_434Drg.css",
+    "name": "riders",
+    "names": [
+      "riders.css"
+    ],
+    "src": "resources/css/admin/riders.css",
+    "isEntry": true
+  },
+  "resources/css/app.css": {
+    "file": "assets/app-DOVWHwcs.css",
+    "name": "app",
+    "names": [
+      "app.css"
+    ],
+    "src": "resources/css/app.css",
+    "isEntry": true
+  },
+  "resources/css/auth/auth.css": {
+    "file": "assets/auth-W5Agrzuo.css",
+    "name": "auth",
+    "names": [
+      "auth.css"
+    ],
+    "src": "resources/css/auth/auth.css",
+    "isEntry": true
+  },
+  "resources/css/auth/register-sorting.css": {
+    "file": "assets/register-sorting-DDWXX_Uc.css",
+    "name": "register-sorting",
+    "names": [
+      "register-sorting.css"
+    ],
+    "src": "resources/css/auth/register-sorting.css",
+    "isEntry": true
+  },
+  "resources/css/buyer/cart.css": {
+    "file": "assets/cart-Bax2Qugm.css",
+    "name": "cart",
+    "names": [
+      "cart.css"
+    ],
+    "src": "resources/css/buyer/cart.css",
+    "isEntry": true
+  },
+  "resources/css/buyer/checkout.css": {
+    "file": "assets/checkout-Beuc0vMR.css",
+    "name": "checkout",
+    "names": [
+      "checkout.css"
+    ],
+    "src": "resources/css/buyer/checkout.css",
+    "isEntry": true
+  },
+  "resources/css/buyer/reviews.css": {
+    "file": "assets/reviews-Ba1pQnsO.css",
+    "name": "reviews",
+    "names": [
+      "reviews.css"
+    ],
+    "src": "resources/css/buyer/reviews.css",
+    "isEntry": true
+  },
+  "resources/css/courier/courier.css": {
+    "file": "assets/courier-HxDm3J7S.css",
+    "name": "courier",
+    "names": [
+      "courier.css"
+    ],
+    "src": "resources/css/courier/courier.css",
+    "isEntry": true
+  },
+  "resources/css/logistics/logistics.css": {
+    "file": "assets/logistics-qh47dgec.css",
+    "name": "logistics",
+    "names": [
+      "logistics.css"
+    ],
+    "src": "resources/css/logistics/logistics.css",
+    "isEntry": true
+  },
+  "resources/css/seller/seller-vouchers.css": {
+    "file": "assets/seller-vouchers-B2CYMi3r.css",
+    "name": "seller-vouchers",
+    "names": [
+      "seller-vouchers.css"
+    ],
+    "src": "resources/css/seller/seller-vouchers.css",
+    "isEntry": true
+  },
+  "resources/css/seller/waybill.css": {
+    "file": "assets/waybill-CXefknk4.css",
+    "name": "waybill",
+    "names": [
+      "waybill.css"
+    ],
+    "src": "resources/css/seller/waybill.css",
+    "isEntry": true
+  },
+  "resources/css/shared/app.css": {
+    "file": "assets/app-P6n6ZsML.css",
+    "name": "app",
+    "names": [
+      "app.css"
+    ],
+    "src": "resources/css/shared/app.css",
+    "isEntry": true
+  },
+  "resources/css/shared/dashboard.css": {
+    "file": "assets/dashboard-BaO3-azJ.css",
+    "name": "dashboard",
+    "names": [
+      "dashboard.css"
+    ],
+    "src": "resources/css/shared/dashboard.css",
+    "isEntry": true
+  },
+  "resources/css/shared/disputes.css": {
+    "file": "assets/disputes-1VpppEKi.css",
+    "name": "disputes",
+    "names": [
+      "disputes.css"
+    ],
+    "src": "resources/css/shared/disputes.css",
+    "isEntry": true
+  },
+  "resources/css/shared/operations.css": {
+    "file": "assets/operations-CGtlE3db.css",
+    "name": "operations",
+    "names": [
+      "operations.css"
+    ],
+    "src": "resources/css/shared/operations.css",
+    "isEntry": true
+  },
+  "resources/css/shared/platform-controls.css": {
+    "file": "assets/platform-controls-D7XNYasj.css",
+    "name": "platform-controls",
+    "names": [
+      "platform-controls.css"
+    ],
+    "src": "resources/css/shared/platform-controls.css",
+    "isEntry": true
+  },
+  "resources/css/shared/reports.css": {
+    "file": "assets/reports-DauaM8xT.css",
+    "name": "reports",
+    "names": [
+      "reports.css"
+    ],
+    "src": "resources/css/shared/reports.css",
+    "isEntry": true
+  },
+  "resources/css/storefront/landing.css": {
+    "file": "assets/landing-B7Lx25ZP.css",
+    "name": "landing",
+    "names": [
+      "landing.css"
+    ],
+    "src": "resources/css/storefront/landing.css",
+    "isEntry": true
+  },
+  "resources/css/storefront/marketplace.css": {
+    "file": "assets/marketplace-B330S6Si.css",
+    "name": "marketplace",
+    "names": [
+      "marketplace.css"
+    ],
+    "src": "resources/css/storefront/marketplace.css",
+    "isEntry": true
+  },
+  "resources/js/analytics-charts.jsx": {
+    "file": "assets/analytics-charts-UHu0JMaP.js",
+    "name": "analytics-charts",
+    "src": "resources/js/analytics-charts.jsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "_jsx-runtime-D8C13vmi.js"
+    ]
+  },
+  "resources/js/app.js": {
+    "file": "assets/app-DCIcmqWw.js",
+    "name": "app",
+    "src": "resources/js/app.js",
+    "isEntry": true,
+    "dynamicImports": [
+      "resources/js/interactions/decision-dialog.jsx",
+      "resources/js/analytics-charts.jsx"
+    ]
+  },
+  "resources/js/interactions/decision-dialog.jsx": {
+    "file": "assets/decision-dialog-CRJX3rGK.js",
+    "name": "decision-dialog",
+    "src": "resources/js/interactions/decision-dialog.jsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "_jsx-runtime-D8C13vmi.js"
+    ]
+  }
+}

@@ -78,13 +78,13 @@ class ProductDetailPageTest extends TestCase
             ->assertViewHas('suggestions', fn ($items) => $items->isEmpty());
     }
 
-    public function test_buy_now_uses_existing_cart_and_checkout_while_add_to_cart_keeps_its_destination(): void
+    public function test_buy_now_opens_a_separate_draft_while_add_to_cart_saves_the_item(): void
     {
         $product = $this->product($this->user('seller'), 'Buy now bag');
         $this->actingAs($this->user('buyer'))->post(route('cart.add', $product), ['quantity' => 1, 'intent' => 'buy_now'])
-            ->assertRedirect(route('checkout.index'))->assertSessionHas('cart.'.$product->id.'.quantity', 1);
+            ->assertRedirect(route('checkout.index'))->assertSessionHas('checkout_context.mode', 'buy_now')->assertSessionHas('checkout_context.items.'.$product->id.'.quantity', 1)->assertSessionHas('cart', []);
         $this->post(route('cart.add', $product), ['quantity' => 1])->assertRedirect(route('cart.index'))
-            ->assertSessionHas('cart.'.$product->id.'.quantity', 2);
+            ->assertSessionHas('cart.'.$product->id.'.quantity', 1);
     }
 
     private function user(string $role, array $attributes = []): User

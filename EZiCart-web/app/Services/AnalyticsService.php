@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Enums\OrderStatus;
 use App\Models\Order;
 use App\Models\OrderCancellationRequest;
+use App\Models\ParcelTransfer;
 use App\Models\Product;
 use App\Models\User;
 use Carbon\CarbonImmutable;
@@ -63,7 +64,7 @@ class AnalyticsService
         return match ($actor->role) {
             'buyer' => $query->where('buyer_id', $actor->id),
             'seller' => $query->where('seller_id', $actor->id),
-            'courier' => $query->where(fn ($q) => $q->where('pickup_courier_id', $actor->id)->orWhere('delivery_courier_id', $actor->id)),
+            'courier' => $query->where(fn ($q) => $q->where('pickup_courier_id', $actor->id)->orWhere('delivery_courier_id', $actor->id)->orWhereHas('transfers', fn ($t) => $t->where('carrier_rider_id', $actor->id))),
             'sorting_center' => $query->where(fn ($q) => $q->where('sorting_center_id', $actor->id)->orWhereHas('trackingEvents', fn ($events) => $events->where('actor_id', $actor->id))),
             default => $query,
         };
@@ -73,7 +74,7 @@ class AnalyticsService
     {
         $query = $this->scope($actor)->whereBetween('created_at', [$from.' 00:00:00', $to.' 23:59:59'])
             ->when(filled($filters['seller_id'] ?? null), fn ($q) => $q->where('seller_id', $filters['seller_id']))
-            ->when(filled($filters['rider_id'] ?? null), fn ($q) => $q->where(fn ($r) => $r->where('pickup_courier_id', $filters['rider_id'])->orWhere('delivery_courier_id', $filters['rider_id'])))
+            ->when(filled($filters['rider_id'] ?? null), fn ($q) => $q->where(fn ($r) => $r->where('pickup_courier_id', $filters['rider_id'])->orWhere('delivery_courier_id', $filters['rider_id'])->orWhereHas('transfers', fn ($t) => $t->where('carrier_rider_id', $filters['rider_id']))))
             ->when(filled($filters['product_id'] ?? null), fn ($q) => $q->whereHas('items', fn ($items) => $items->where('product_id', $filters['product_id'])))
             ->when(filled($filters['category'] ?? null), fn ($q) => $q->whereHas('items.product', fn ($p) => app(ProductCategoryService::class)->filter($p, $filters['category'])))
             ->when(filled($filters['status'] ?? null), fn ($q) => $q->where('status', $filters['status']))
@@ -143,7 +144,7 @@ class AnalyticsService
             $period = $this->period(CarbonImmutable::instance($order->created_at), $filters['interval']);
             $trend[$period]['orders']++;
             $trend[$period]['completed'] += (int) ($order->status === OrderStatus::Completed->value);
-            $trend[$period]['delivered'] += (int) ($order->delivered_at !== null);
+            $trend[$period]['delivered'] += (int) ($order->delivered_at !== null && ($actor->role !== 'courier' || $order->delivery_courier_id === $actor->id));
             $trend[$period]['net'] += $commercial ? $row['net'] / 100 : 0;
             $record = ['Order' => $order->order_number, 'Placed' => $order->created_at->format('Y-m-d'), 'Status' => $order->status, 'Municipality' => $order->municipality];
             if ($commercial) {
@@ -195,6 +196,20 @@ class AnalyticsService
         $add = static function ($key, $label, array $rows) use (&$sections) {
             $sections[] = ['key' => $key, 'title' => $label, 'rows' => array_values($rows)];
         };
+        if ($actor->role === 'courier' || $actor->role === 'sorting_center' || $actor->isLogisticsAdmin()) {
+            $legs = ParcelTransfer::query()->whereIn('order_id', $orders->modelKeys())
+                ->when($actor->role === 'courier', fn ($query) => $query->where('carrier_rider_id', $actor->id))
+                ->when(filled($filters['rider_id'] ?? null), fn ($query) => $query->where('carrier_rider_id', $filters['rider_id']))
+                ->with(['order', 'sourceHub', 'destinationHub'])->get();
+            $add('transport', 'Hub transport legs (separate from customer delivery and COD)', $legs->map(fn ($leg) => [
+                'Order' => $leg->order->order_number, 'Source hub' => $leg->sourceHub?->business_name,
+                'Destination hub' => $leg->destinationHub?->business_name, 'Status' => $leg->status,
+                'Cargo kg' => $leg->order->parcel_weight_grams === null ? null : $leg->order->parcel_weight_grams / 1000,
+                'Released' => $leg->released_at, 'Received' => $leg->received_at,
+                'Transit hours' => $leg->released_at && $leg->received_at ? round(CarbonImmutable::parse($leg->released_at)->diffInMinutes(CarbonImmutable::parse($leg->received_at)) / 60, 2) : null,
+            ])->all());
+            $metrics[] = ['key' => 'transport_legs', 'label' => 'Hub transport legs', 'unit' => 'count', 'value' => $legs->count(), 'previous' => null, 'change' => null];
+        }
         $statuses = $orders->countBy('status')->map(fn ($count, $status) => ['label' => Str::headline(strtolower($status)), 'value' => $count])->values()->all();
         $add('statuses', 'Order status distribution', $orders->countBy('status')->map(fn ($count, $status) => ['Status' => $status, 'Orders' => $count])->all());
         $add('locations', 'Orders by municipality', $orders->countBy(fn ($o) => $o->municipality ?: 'Not recorded')->sortDesc()->map(fn ($count, $place) => ['Municipality' => $place, 'Orders' => $count])->all());
@@ -306,11 +321,11 @@ class AnalyticsService
             $row = $this->sales->row($order);
             $totals['orders']++;
             foreach (['gross', 'net', 'commission', 'refund', 'seller_discount', 'platform_discount', 'shipping'] as $key) {
-                $totals[$key] += $row[$key] / 100;
+                $totals[$key] += $actor->role === 'courier' && $order->delivery_courier_id !== $actor->id ? 0 : $row[$key] / 100;
             }
             $totals['completed'] += (int) ($order->status === 'COMPLETED');
             $totals['cancelled'] += (int) ($order->status === 'CANCELLED');
-            $totals['delivered'] += (int) ($order->delivered_at !== null);
+            $totals['delivered'] += (int) ($order->delivered_at !== null && ($actor->role !== 'courier' || $order->delivery_courier_id === $actor->id));
             $totals['returned'] += (int) ($order->status === 'RETURNED_TO_SELLER');
             $totals['failed_attempts'] += $order->deliveryAttempts->when($actor->role === 'courier', fn ($attempts) => $attempts->where('rider_id', $actor->id))->where('outcome', 'failed')->count();
             $totals['collected'] += ($order->finance?->collected_cents ?? 0) / 100;
@@ -321,7 +336,7 @@ class AnalyticsService
             if ($order->payout) {
                 $totals[$order->payout->status === 'SETTLED' ? 'settled_payout' : 'pending_payout'] += in_array($order->payout->status, ['REQUESTED', 'APPROVED', 'ON_HOLD', 'SETTLED'], true) ? $order->payout->amount_cents / 100 : 0;
             }
-            if ($order->picked_up_at && $order->delivered_at && $order->delivered_at >= $order->picked_up_at) {
+            if ($order->picked_up_at && $order->delivered_at && $order->delivered_at >= $order->picked_up_at && ($actor->role !== 'courier' || $order->delivery_courier_id === $actor->id)) {
                 $durations[] = $order->picked_up_at->diffInSeconds($order->delivered_at) / 3600;
             }
         }

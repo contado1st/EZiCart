@@ -1,0 +1,9 @@
+{
+    "folders": [
+        { "name": "EZiCart Web", "path": "EZiCart-web" },
+        { "name": "EZiCart Buyer Mobile", "path": "ezicart_buyer_mobile" }
+    ],
+    "settings": {
+        "Laravel.basePath": ""
+    }
+}

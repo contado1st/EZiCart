@@ -1,0 +1,642 @@
+[
+  {
+    "view": "account/appearance.blade.php",
+    "layout": "partial",
+    "title": "Inherited / partial",
+    "tables": 0,
+    "forms": 1,
+    "unassociated_labels": 0,
+    "actions": [
+      "{{ route('account.appearance.update') }}"
+    ]
+  },
+  {
+    "view": "account/edit.blade.php",
+    "layout": "'layouts.app'",
+    "title": "My profile",
+    "tables": 0,
+    "forms": 4,
+    "unassociated_labels": 0,
+    "actions": [
+      "{{ route('account.profile.update') }}",
+      "{{ route('account.password.update') }}",
+      "{{ route('account.profile.update') }}",
+      "{{ route('account.password.update') }}"
+    ]
+  },
+  {
+    "view": "admin/activity.blade.php",
+    "layout": "'layouts.app'",
+    "title": "Activity logs",
+    "tables": 1,
+    "forms": 1,
+    "unassociated_labels": 0,
+    "actions": []
+  },
+  {
+    "view": "admin/announcements/index.blade.php",
+    "layout": "'layouts.app'",
+    "title": "Platform Announcements & Bulletins",
+    "tables": 1,
+    "forms": 3,
+    "unassociated_labels": 5,
+    "actions": [
+      "{{ route('admin.announcements.store') }}",
+      "{{ route('admin.announcements.toggle', $item->id) }}",
+      "{{ route('admin.announcements.destroy', $item->id) }}"
+    ]
+  },
+  {
+    "view": "admin/compliance/index.blade.php",
+    "layout": "'layouts.app'",
+    "title": "Product compliance",
+    "tables": 1,
+    "forms": 3,
+    "unassociated_labels": 0,
+    "actions": [
+      "{{ route('admin.compliance.products.index') }}",
+      "{{ route('admin.compliance.products.review', $product) }}",
+      "{{ route('admin.compliance.products.warn', $product) }}"
+    ]
+  },
+  {
+    "view": "admin/dashboard.blade.php",
+    "layout": "'layouts.app'",
+    "title": "Marketplace overview",
+    "tables": 1,
+    "forms": 3,
+    "unassociated_labels": 0,
+    "actions": [
+      "{{ route('admin.orders.cancel', $order) }}",
+      "{{ route('admin.registrations.approve', $pUser->id) }}",
+      "{{ route('admin.registrations.reject', $pUser->id) }}"
+    ]
+  },
+  {
+    "view": "admin/disputes/index.blade.php",
+    "layout": "'layouts.app'",
+    "title": "Disputes & Complaints Center",
+    "tables": 1,
+    "forms": 0,
+    "unassociated_labels": 0,
+    "actions": []
+  },
+  {
+    "view": "admin/disputes/show.blade.php",
+    "layout": "'layouts.app'",
+    "title": "Case #DIS-{{ str_pad($dispute->id, 4, '0', STR_PAD_LEFT) }}",
+    "tables": 1,
+    "forms": 1,
+    "unassociated_labels": 2,
+    "actions": [
+      "{{ route('admin.disputes.resolve', $dispute->id) }}"
+    ]
+  },
+  {
+    "view": "admin/logistics/index.blade.php",
+    "layout": "'layouts.app'",
+    "title": "Logistics control tower",
+    "tables": 1,
+    "forms": 8,
+    "unassociated_labels": 0,
+    "actions": [
+      "{{ route('logistics-admin.users.approve', $applicant) }}",
+      "{{ route('logistics-admin.users.reject', $applicant) }}",
+      "{{ route('logistics-admin.areas.assign', $area) }}",
+      "{{ route('logistics-admin.users.suspend', $managed) }}",
+      "{{ route('logistics-admin.users.reactivate', $managed) }}",
+      "{{ route('logistics-admin.orders.transfer', $order) }}",
+      "{{ route('logistics-admin.orders.pickup', $order) }}"
+    ]
+  },
+  {
+    "view": "admin/moderation/index.blade.php",
+    "layout": "'layouts.app'",
+    "title": "Platform Account Moderation & Governance",
+    "tables": 1,
+    "forms": 4,
+    "unassociated_labels": 0,
+    "actions": [
+      "{{ route('admin.moderation.index') }}",
+      "{{ route('admin.moderation.reactivate', $user->id) }}",
+      "{{ route('admin.moderation.reactivate', $user->id) }}",
+      "{{ route('admin.moderation.suspend', $user->id) }}"
+    ]
+  },
+  {
+    "view": "admin/registrations.blade.php",
+    "layout": "'layouts.app'",
+    "title": "Account Approval Center",
+    "tables": 1,
+    "forms": 2,
+    "unassociated_labels": 0,
+    "actions": [
+      "{{ route('admin.registrations.approve', $user->id) }}",
+      "{{ route('admin.registrations.reject', $user->id) }}"
+    ]
+  },
+  {
+    "view": "admin/reports/index.blade.php",
+    "layout": "'layouts.app'",
+    "title": "Platform Commission & Sales Summary",
+    "tables": 1,
+    "forms": 1,
+    "unassociated_labels": 2,
+    "actions": [
+      "{{ route('admin.reports.index') }}"
+    ]
+  },
+  {
+    "view": "admin/vouchers.blade.php",
+    "layout": "'layouts.app'",
+    "title": "Platform vouchers",
+    "tables": 0,
+    "forms": 2,
+    "unassociated_labels": 0,
+    "actions": [
+      "{{ route('admin.vouchers.store') }}",
+      "{{ route('admin.vouchers.toggle', $voucher) }}"
+    ]
+  },
+  {
+    "view": "analytics/index.blade.php",
+    "layout": "'layouts.app'",
+    "title": "{{ $report['title'] }}",
+    "tables": 2,
+    "forms": 1,
+    "unassociated_labels": 0,
+    "actions": [
+      "{{ route('analytics.index') }}"
+    ]
+  },
+  {
+    "view": "buyer/addresses/form.blade.php",
+    "layout": "'layouts.app'",
+    "title": "{{ $address ? 'Edit address' : 'Add an address' }}",
+    "tables": 0,
+    "forms": 1,
+    "unassociated_labels": 0,
+    "actions": [
+      "{{ $address ? route('buyer.addresses.update', $address) : route('buyer.addresses.store') }}"
+    ]
+  },
+  {
+    "view": "buyer/addresses/index.blade.php",
+    "layout": "'layouts.app'",
+    "title": "Saved addresses",
+    "tables": 0,
+    "forms": 2,
+    "unassociated_labels": 0,
+    "actions": [
+      "{{ route('buyer.addresses.default', $address) }}",
+      "{{ route('buyer.addresses.destroy', $address) }}"
+    ]
+  },
+  {
+    "view": "buyer/dashboard.blade.php",
+    "layout": "'layouts.app'",
+    "title": "My purchases",
+    "tables": 0,
+    "forms": 4,
+    "unassociated_labels": 0,
+    "actions": [
+      "{{ route('buyer.dashboard') }}",
+      "{{ route('buyer.orders.review', $order->id) }}",
+      "{{ route('buyer.orders.confirm', $order->id) }}",
+      "{{ route('buyer.orders.cancel', $order) }}"
+    ]
+  },
+  {
+    "view": "buyer/disputes/create.blade.php",
+    "layout": "'layouts.app'",
+    "title": "File an Order Dispute",
+    "tables": 0,
+    "forms": 1,
+    "unassociated_labels": 3,
+    "actions": [
+      "{{ route('buyer.orders.dispute.store', $order->id) }}"
+    ]
+  },
+  {
+    "view": "buyer/orders/show.blade.php",
+    "layout": "'layouts.app'",
+    "title": "Order {{ $order->order_number }}",
+    "tables": 0,
+    "forms": 2,
+    "unassociated_labels": 0,
+    "actions": [
+      "{{ route('buyer.orders.delivery-code.refresh', $order) }}",
+      "{{ route('buyer.orders.confirm', $order->id) }}"
+    ]
+  },
+  {
+    "view": "buyer/stock.blade.php",
+    "layout": "'layouts.app'",
+    "title": "Stock alerts",
+    "tables": 0,
+    "forms": 1,
+    "unassociated_labels": 0,
+    "actions": [
+      "{{ route('buyer.stock.unwatch', $product) }}"
+    ]
+  },
+  {
+    "view": "courier/dashboard.blade.php",
+    "layout": "'layouts.courier'",
+    "title": "My dispatch board",
+    "tables": 5,
+    "forms": 9,
+    "unassociated_labels": 0,
+    "actions": [
+      "{{ route('courier.orders.claim', $order) }}",
+      "{{ route('courier.orders.declinePickup', $order) }}",
+      "{{ route('courier.orders.confirmPickup', $order) }}",
+      "{{ route('courier.orders.confirmReturnDelivery', $order) }}",
+      "{{ route('courier.orders.startDelivery', $order) }}",
+      "{{ route('courier.orders.declineDeliveryAssignment', $order) }}",
+      "{{ route('courier.orders.completeDelivery', $order) }}",
+      "{{ route('courier.orders.failDelivery', $order) }}",
+      "{{ route('courier.badge.rotate') }}"
+    ]
+  },
+  {
+    "view": "courier/earnings.blade.php",
+    "layout": "'layouts.courier'",
+    "title": "Earnings",
+    "tables": 0,
+    "forms": 0,
+    "unassociated_labels": 0,
+    "actions": []
+  },
+  {
+    "view": "courier/history.blade.php",
+    "layout": "'layouts.courier'",
+    "title": "Completed and past work",
+    "tables": 1,
+    "forms": 1,
+    "unassociated_labels": 0,
+    "actions": [
+      "{{ route('courier.history') }}"
+    ]
+  },
+  {
+    "view": "courier/orders/show.blade.php",
+    "layout": "'layouts.courier'",
+    "title": "Delivery details",
+    "tables": 2,
+    "forms": 4,
+    "unassociated_labels": 0,
+    "actions": [
+      "{{ route('courier.orders.startDelivery', $order) }}",
+      "{{ route('courier.orders.declineDeliveryAssignment', $order) }}",
+      "{{ route('courier.orders.completeDelivery', $order) }}",
+      "{{ route('courier.orders.failDelivery', $order) }}"
+    ]
+  },
+  {
+    "view": "courier/tracking.blade.php",
+    "layout": "'layouts.courier'",
+    "title": "My active parcels",
+    "tables": 1,
+    "forms": 0,
+    "unassociated_labels": 0,
+    "actions": []
+  },
+  {
+    "view": "finance/index.blade.php",
+    "layout": "'layouts.app'",
+    "title": "Financial records",
+    "tables": 1,
+    "forms": 7,
+    "unassociated_labels": 0,
+    "actions": [
+      "{{ route('finance.subsidy', $finance->order) }}",
+      "{{ route('finance.remittance', $finance->order) }}",
+      "{{ route('finance.remittance.verify', $finance->order) }}",
+      "{{ route('finance.payout.request', $finance->order) }}",
+      "{{ route('finance.refund.execute', $refund) }}",
+      "{{ route('finance.payout.approve', $payout) }}",
+      "{{ route('finance.payout.settle', $payout) }}"
+    ]
+  },
+  {
+    "view": "logistics/areas.blade.php",
+    "layout": "'layouts.logistics'",
+    "title": "Routing areas",
+    "tables": 1,
+    "forms": 4,
+    "unassociated_labels": 0,
+    "actions": [
+      "{{ route('logistics.areas.store') }}",
+      "{{ route('logistics.areas.municipalities.store') }}",
+      "{{ route('logistics.areas.claim', $area) }}",
+      "{{ route('logistics.areas.municipalities.update', $mapping) }}"
+    ]
+  },
+  {
+    "view": "logistics/coverage.blade.php",
+    "layout": "'layouts.app'",
+    "title": "Coverage, vehicles and shipping",
+    "tables": 1,
+    "forms": 3,
+    "unassociated_labels": 0,
+    "actions": [
+      "{{ route('coverage.shipping') }}",
+      "{{ route('coverage.store') }}",
+      "{{ route('coverage.vehicle', $rider) }}"
+    ]
+  },
+  {
+    "view": "logistics/dashboard.blade.php",
+    "layout": "'layouts.logistics'",
+    "title": "Operations overview",
+    "tables": 2,
+    "forms": 1,
+    "unassociated_labels": 0,
+    "actions": [
+      "{{ route('logistics.orders.recoverReleasedParcel', $exception->order_id) }}"
+    ]
+  },
+  {
+    "view": "logistics/dispatch.blade.php",
+    "layout": "'layouts.logistics'",
+    "title": "Dispatch parcels",
+    "tables": 1,
+    "forms": 7,
+    "unassociated_labels": 0,
+    "actions": [
+      "{{ route('logistics.dispatch') }}",
+      "{{ route('logistics.dispatch.releaseBatch') }}",
+      "{{ route('logistics.scan') }}",
+      "{{ route('logistics.orders.recoverReleasedParcel', $order) }}",
+      "{{ route('logistics.orders.assignRider', $order) }}",
+      "{{ route('logistics.orders.return', $order) }}",
+      "{{ route('logistics.orders.releaseToRider', $order) }}"
+    ]
+  },
+  {
+    "view": "logistics/intake.blade.php",
+    "layout": "'layouts.logistics'",
+    "title": "Parcel intake",
+    "tables": 1,
+    "forms": 3,
+    "unassociated_labels": 0,
+    "actions": [
+      "{{ route('logistics.scan') }}",
+      "{{ route('logistics.intake') }}",
+      "{{ route('logistics.orders.receive', $order) }}"
+    ]
+  },
+  {
+    "view": "logistics/pickup-requests.blade.php",
+    "layout": "'layouts.logistics'",
+    "title": "Seller pickup requests",
+    "tables": 1,
+    "forms": 1,
+    "unassociated_labels": 0,
+    "actions": [
+      "{{ route('logistics.orders.assignPickup', $order) }}"
+    ]
+  },
+  {
+    "view": "logistics/reports.blade.php",
+    "layout": "'layouts.logistics'",
+    "title": "Parcel throughput",
+    "tables": 2,
+    "forms": 1,
+    "unassociated_labels": 0,
+    "actions": [
+      "{{ route('logistics.reports') }}"
+    ]
+  },
+  {
+    "view": "logistics/riders.blade.php",
+    "layout": "'layouts.logistics'",
+    "title": "Rider roster",
+    "tables": 1,
+    "forms": 5,
+    "unassociated_labels": 0,
+    "actions": [
+      "{{ route('logistics.riders.store') }}",
+      "{{ route('logistics.riders.areas.update', $rider) }}",
+      "{{ route('logistics.riders.activation.resend', $rider) }}",
+      "{{ route('logistics.riders.suspend', $rider) }}",
+      "{{ route('logistics.riders.reactivate', $rider) }}"
+    ]
+  },
+  {
+    "view": "logistics/scan-history.blade.php",
+    "layout": "'layouts.logistics'",
+    "title": "Scan audit history",
+    "tables": 1,
+    "forms": 1,
+    "unassociated_labels": 0,
+    "actions": [
+      "{{ route('logistics.scan-history') }}"
+    ]
+  },
+  {
+    "view": "logistics/sorting.blade.php",
+    "layout": "'layouts.logistics'",
+    "title": "Sorting queue",
+    "tables": 1,
+    "forms": 1,
+    "unassociated_labels": 0,
+    "actions": [
+      "{{ route('logistics.orders.sort', $order) }}"
+    ]
+  },
+  {
+    "view": "logistics/storage.blade.php",
+    "layout": "'layouts.logistics'",
+    "title": "Storage locations",
+    "tables": 2,
+    "forms": 4,
+    "unassociated_labels": 0,
+    "actions": [
+      "{{ route('logistics.storage.locations.create') }}",
+      "{{ route('logistics.storage.putaway') }}",
+      "{{ route('logistics.storage.cycle-count') }}",
+      "{{ route('logistics.storage.pick') }}"
+    ]
+  },
+  {
+    "view": "logistics/tracking.blade.php",
+    "layout": "'layouts.logistics'",
+    "title": "Delivery tracking",
+    "tables": 1,
+    "forms": 2,
+    "unassociated_labels": 0,
+    "actions": [
+      "{{ route('logistics.tracking') }}",
+      "{{ route('logistics.orders.return', $order) }}"
+    ]
+  },
+  {
+    "view": "logistics/transfers.blade.php",
+    "layout": "'layouts.app'",
+    "title": "Hub transfers",
+    "tables": 0,
+    "forms": 3,
+    "unassociated_labels": 0,
+    "actions": [
+      "{{ route('parcel-transfers.release', $transfer) }}",
+      "{{ route('parcel-transfers.receive', $transfer) }}",
+      "{{ route('parcel-transfers.cancel', $transfer) }}"
+    ]
+  },
+  {
+    "view": "notifications/index.blade.php",
+    "layout": "'layouts.communications'",
+    "title": "Inherited / partial",
+    "tables": 0,
+    "forms": 3,
+    "unassociated_labels": 0,
+    "actions": [
+      "{{ route('notifications.read-all') }}",
+      "{{ route('notifications.open', $notification->id) }}",
+      "{{ route('notifications.read', $notification->id) }}"
+    ]
+  },
+  {
+    "view": "orders/contacts.blade.php",
+    "layout": "'layouts.communications'",
+    "title": "Inherited / partial",
+    "tables": 0,
+    "forms": 2,
+    "unassociated_labels": 0,
+    "actions": [
+      "{{ route('chat.contacts') }}",
+      "{{ route('chat.start', $contact) }}"
+    ]
+  },
+  {
+    "view": "orders/inbox.blade.php",
+    "layout": "'layouts.communications'",
+    "title": "Inherited / partial",
+    "tables": 0,
+    "forms": 0,
+    "unassociated_labels": 0,
+    "actions": []
+  },
+  {
+    "view": "orders/messages.blade.php",
+    "layout": "'layouts.communications'",
+    "title": "Inherited / partial",
+    "tables": 0,
+    "forms": 1,
+    "unassociated_labels": 0,
+    "actions": [
+      "{{ route('chat.store', $conversation) }}"
+    ]
+  },
+  {
+    "view": "reports/sales.blade.php",
+    "layout": "'layouts.app'",
+    "title": "Sales reports and exports",
+    "tables": 1,
+    "forms": 1,
+    "unassociated_labels": 0,
+    "actions": []
+  },
+  {
+    "view": "seller/dashboard.blade.php",
+    "layout": "'layouts.app'",
+    "title": "Welcome back, {{ auth()->user()->first_name }}",
+    "tables": 0,
+    "forms": 0,
+    "unassociated_labels": 0,
+    "actions": []
+  },
+  {
+    "view": "seller/orders/index.blade.php",
+    "layout": "'layouts.app'",
+    "title": "Order Fulfillment & Dispatch",
+    "tables": 0,
+    "forms": 5,
+    "unassociated_labels": 0,
+    "actions": [
+      "{{ route('seller.orders.updateStatus', $order->id) }}",
+      "{{ route('seller.orders.updateStatus', $order->id) }}",
+      "{{ route('seller.orders.updateStatus', $order->id) }}",
+      "{{ route('seller.orders.confirmHandover', $order) }}",
+      "{{ route('seller.orders.confirmReturn', $order) }}"
+    ]
+  },
+  {
+    "view": "seller/orders/show.blade.php",
+    "layout": "'layouts.app'",
+    "title": "Order {{ $order->order_number }}",
+    "tables": 0,
+    "forms": 9,
+    "unassociated_labels": 0,
+    "actions": [
+      "{{ route('seller.orders.updateStatus', $order->id) }}",
+      "{{ route('seller.orders.updateStatus', $order->id) }}",
+      "{{ route('seller.orders.updateStatus', $order->id) }}",
+      "{{ route('seller.orders.schedulePickup', $order) }}",
+      "{{ route('seller.orders.confirmHandover', $order) }}",
+      "{{ route('seller.orders.confirmReturn', $order) }}",
+      "{{ route('seller.orders.cancel', $order) }}",
+      "{{ route('seller.orders.return-inspection', $order) }}",
+      "{{ route('seller.replacements.store', $order->dispute) }}"
+    ]
+  },
+  {
+    "view": "seller/products/create.blade.php",
+    "layout": "'layouts.app'",
+    "title": "Add New Product",
+    "tables": 0,
+    "forms": 1,
+    "unassociated_labels": 6,
+    "actions": [
+      "{{ route('seller.products.store') }}"
+    ]
+  },
+  {
+    "view": "seller/products/edit.blade.php",
+    "layout": "'layouts.app'",
+    "title": "Edit Product",
+    "tables": 0,
+    "forms": 1,
+    "unassociated_labels": 6,
+    "actions": [
+      "{{ route('seller.products.update', $product->id) }}"
+    ]
+  },
+  {
+    "view": "seller/products/index.blade.php",
+    "layout": "'layouts.app'",
+    "title": "Inventory Management",
+    "tables": 1,
+    "forms": 1,
+    "unassociated_labels": 0,
+    "actions": [
+      "{{ route('seller.products.destroy', $product->id) }}"
+    ]
+  },
+  {
+    "view": "seller/reports/index.blade.php",
+    "layout": "'layouts.app'",
+    "title": "Financial & Profit Report",
+    "tables": 1,
+    "forms": 1,
+    "unassociated_labels": 2,
+    "actions": [
+      "{{ route('seller.reports.index') }}"
+    ]
+  },
+  {
+    "view": "seller/vouchers/index.blade.php",
+    "layout": "'layouts.app'",
+    "title": "Promotional Vouchers & Discounts",
+    "tables": 1,
+    "forms": 3,
+    "unassociated_labels": 6,
+    "actions": [
+      "{{ route('seller.vouchers.store') }}",
+      "{{ route('seller.vouchers.toggle', $voucher->id) }}",
+      "{{ route('seller.vouchers.destroy', $voucher->id) }}"
+    ]
+  }
+]

@@ -29,14 +29,17 @@ use App\Http\Controllers\Courier\CourierController;
 use App\Http\Controllers\DirectMessageController;
 use App\Http\Controllers\FinancialController;
 use App\Http\Controllers\HomeController;
+use App\Http\Controllers\LoadPlanningController;
 use App\Http\Controllers\Logistics\CoverageController;
 use App\Http\Controllers\Logistics\LogisticsController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\OrderMessageController;
 use App\Http\Controllers\ParcelEvidenceController;
 use App\Http\Controllers\ParcelTransferController;
+use App\Http\Controllers\ParcelWeightController;
 use App\Http\Controllers\ProfileAppearanceController;
 use App\Http\Controllers\PsgcAddressController;
+use App\Http\Controllers\ReturnPickupController;
 use App\Http\Controllers\SalesReportController;
 use App\Http\Controllers\SearchController;
 use App\Http\Controllers\SecureDocumentController;
@@ -108,8 +111,8 @@ Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
 // 3. Protected Routes (Strictly Isolated by Role)
 Route::middleware(['auth', 'account.active', 'auth.session'])->group(function () {
     Route::get('/workflow-attention', WorkflowAttentionController::class)->name('workflow.attention');
-    Route::get('/load-planning', \App\Http\Controllers\LoadPlanningController::class)->middleware('role:seller,courier,sorting_center,logistics_admin')->name('load-planning.index');
-    Route::patch('/orders/{order}/weight', [\App\Http\Controllers\ParcelWeightController::class, 'record'])->middleware(['role:seller,sorting_center', 'throttle:operational-action'])->name('orders.weight');
+    Route::get('/load-planning', LoadPlanningController::class)->middleware('role:seller,courier,sorting_center,logistics_admin')->name('load-planning.index');
+    Route::patch('/orders/{order}/weight', [ParcelWeightController::class, 'record'])->middleware(['role:seller,sorting_center', 'throttle:operational-action'])->name('orders.weight');
     Route::middleware('role:admin,ecommerce_admin,logistics_admin')->group(function () {
         Route::get('/staff', [StaffProfileController::class, 'index'])->name('staff.index');
         Route::get('/staff/reviews', [StaffProfileController::class, 'reviews'])->name('staff.reviews');
@@ -120,6 +123,11 @@ Route::middleware(['auth', 'account.active', 'auth.session'])->group(function ()
     });
     Route::get('/account/profile-requests/{revision}/media/{type}', [StaffProfileController::class, 'proposedMedia'])->name('account.profile-requests.media');
     Route::get('/parcel-evidence', [ParcelEvidenceController::class, 'index'])->name('parcel-evidence.index');
+    Route::get('/return-pickups', [ReturnPickupController::class, 'index'])->middleware('role:buyer,seller,courier,sorting_center,logistics_admin,ecommerce_admin,admin')->name('return-pickups.index');
+    Route::post('/return-pickups/{order}/assign', [ReturnPickupController::class, 'assign'])->middleware(['role:sorting_center,logistics_admin', 'throttle:operational-action'])->name('return-pickups.assign');
+    Route::post('/return-pickups/{order}/accept', [ReturnPickupController::class, 'accept'])->middleware(['role:courier', 'throttle:operational-action'])->name('return-pickups.accept');
+    Route::post('/return-pickups/{order}/handover', [ReturnPickupController::class, 'handover'])->middleware(['role:buyer', 'throttle:operational-action'])->name('return-pickups.handover');
+    Route::post('/return-pickups/{order}/collect', [ReturnPickupController::class, 'collect'])->middleware(['role:courier', 'throttle:operational-action'])->name('return-pickups.collect');
     Route::get('/orders/{order}/evidence', [ParcelEvidenceController::class, 'show'])->name('parcel-evidence.show');
     Route::post('/orders/{order}/evidence', [ParcelEvidenceController::class, 'store'])->middleware('throttle:operational-action')->name('parcel-evidence.store');
     Route::get('/parcel-evidence/{evidence}/photo', [ParcelEvidenceController::class, 'photo'])->name('parcel-evidence.photo');
@@ -165,6 +173,7 @@ Route::middleware(['auth', 'account.active', 'auth.session'])->group(function ()
     Route::post('/parcel-transfers/{transfer}/release', [ParcelTransferController::class, 'release'])->middleware(['role:sorting_center', 'throttle:operational-action'])->name('parcel-transfers.release');
     Route::post('/parcel-transfers/{transfer}/receive', [ParcelTransferController::class, 'receive'])->middleware(['role:sorting_center', 'throttle:operational-action'])->name('parcel-transfers.receive');
     Route::post('/parcel-transfers/{transfer}/cancel', [ParcelTransferController::class, 'cancel'])->middleware(['role:logistics_admin', 'throttle:operational-action'])->name('parcel-transfers.cancel');
+    Route::post('/parcel-transfers/{transfer}/replace-carrier', [ParcelTransferController::class, 'replaceCarrier'])->middleware(['role:logistics_admin', 'throttle:operational-action'])->name('parcel-transfers.replace-carrier');
     Route::get('/notifications', [NotificationController::class, 'index'])->name('notifications.index');
     Route::post('/notifications/read-all', [NotificationController::class, 'markAllRead'])->name('notifications.read-all');
     Route::post('/notifications/{notification}/open', [NotificationController::class, 'open'])->name('notifications.open');
@@ -209,6 +218,7 @@ Route::middleware(['auth', 'account.active', 'auth.session'])->group(function ()
         // Cart Actions
         Route::prefix('cart')->name('cart.')->group(function () {
             Route::get('/', [CartController::class, 'index'])->name('index');
+            Route::post('/checkout', [CartController::class, 'select'])->middleware('throttle:operational-action')->name('checkout');
             Route::post('/add/{product}', [CartController::class, 'add'])->middleware('throttle:operational-action')->name('add');
             Route::patch('/update/{cartKey}', [CartController::class, 'update'])->middleware('throttle:operational-action')->name('update');
             Route::delete('/remove/{cartKey}', [CartController::class, 'remove'])->middleware('throttle:operational-action')->name('remove');
@@ -216,6 +226,7 @@ Route::middleware(['auth', 'account.active', 'auth.session'])->group(function ()
 
         // Checkout Actions & Voucher Application
         Route::get('/checkout', [CheckoutController::class, 'index'])->name('checkout.index');
+        Route::post('/checkout/cancel', [CheckoutController::class, 'cancel'])->name('checkout.cancel');
         Route::post('/checkout', [CheckoutController::class, 'process'])->middleware('throttle:operational-action')->name('checkout.process');
         Route::post('/checkout/voucher', [CheckoutController::class, 'applyVoucher'])->middleware('throttle:operational-action')->name('checkout.voucher.apply');
         Route::delete('/checkout/voucher', [CheckoutController::class, 'removeVoucher'])->middleware('throttle:operational-action')->name('checkout.voucher.remove');
@@ -310,7 +321,7 @@ Route::middleware(['auth', 'account.active', 'auth.session'])->group(function ()
     });
 
     Route::middleware(['role:logistics_admin'])->prefix('logistics-admin')->name('logistics-admin.')->group(function () {
-        Route::patch('/riders/{rider}/capacity', [\App\Http\Controllers\ParcelWeightController::class, 'capacity'])->middleware('throttle:operational-action')->name('riders.capacity');
+        Route::patch('/riders/{rider}/capacity', [ParcelWeightController::class, 'capacity'])->middleware('throttle:operational-action')->name('riders.capacity');
         Route::get('/profile-reviews', [StaffProfileController::class, 'reviews'])->name('profile-reviews.index');
         Route::patch('/profile-reviews/{revision}', [StaffProfileController::class, 'review'])->middleware('throttle:operational-action')->name('profile-reviews.review');
         Route::get('/applications/{user}', [RegistrationReviewController::class, 'show'])->name('applications.show');

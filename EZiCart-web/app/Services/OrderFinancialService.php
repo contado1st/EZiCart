@@ -133,6 +133,7 @@ class OrderFinancialService
     {
         $completed = $order->status === 'COMPLETED' || ($order->status === 'RETURNED_TO_SELLER' && Order::query()->where('replacement_for_order_id', $order->id)->where('status', 'COMPLETED')->exists());
         abort_unless($completed && $order->delivered_at !== null && $order->delivered_at->lte(now()->subDays(7))
+            && ! ($order->status !== 'RETURNED_TO_SELLER' && $order->dispute()->where('status', 'REPLACEMENT_APPROVED')->exists())
             && $finance->remittance_status === 'VERIFIED' && $finance->seller_payable_cents > 0 && $finance->funded_cents >= $finance->platform_subsidy_cents
             && ! $order->dispute()->whereIn('status', ['PENDING', 'UNDER_REVIEW', 'REFUND_APPROVED'])->exists()
             && ! RefundExecution::query()->where('order_id', $order->id)->exists(), 422, 'Payout requires a completed purchase, a seven-day delivery hold, verified remittance, funded platform subsidies, and no open refund or dispute.');

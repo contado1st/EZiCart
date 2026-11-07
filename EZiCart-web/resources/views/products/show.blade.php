@@ -40,7 +40,8 @@
                         </div></div>
                     @else<img data-variation-image hidden alt="Selected variation">@endif
                     <div class="pdp-option-row"><label for="qtyInput">Quantity</label><div class="pdp-quantity-line"><div class="pdp-quantity-control"><button type="button" data-quantity-step="-1" aria-label="Decrease quantity">-</button><input type="number" name="quantity" id="qtyInput" value="1" min="1" max="{{ min(20, $product->stock) }}" required><button type="button" data-quantity-step="1" aria-label="Increase quantity">+</button></div><span id="stockDisplay">{{ $product->stock }} pieces available</span></div></div>
-                    <div class="pdp-buy-actions"><button type="submit" class="pdp-button pdp-button-soft" @disabled(! $seller->acceptsWebOrders())><x-shop-icon name="cart2" /> Add to cart</button><button type="submit" name="intent" value="buy_now" class="pdp-button pdp-button-primary" @disabled(! $seller->acceptsWebOrders())>Buy now</button></div><p class="pdp-checkout-note">Buy now adds this item and opens checkout with your cart.</p>
+                    <div class="pdp-buy-actions"><button type="submit" class="pdp-button pdp-button-soft" @disabled(! $seller->acceptsWebOrders())><x-shop-icon name="cart2" /> Add to cart</button><button type="submit" name="intent" value="buy_now" class="pdp-button pdp-button-primary" @disabled(! $seller->acceptsWebOrders())>Buy now</button></div><p class="pdp-checkout-note">Buy now checks out this product separately. Add to cart saves it for later.</p>
+                    <p class="pdp-cart-feedback" data-cart-feedback role="status" aria-live="polite" hidden></p>
                 </form>
                 <div class="pdp-stock-actions"><form method="POST" action="{{ route('buyer.stock.watch', $product) }}">@csrf<button class="pdp-text-button" type="submit"><x-shop-icon name="bell" /> Watch stock availability</button></form><a href="{{ route('buyer.stock.index') }}">Manage stock alerts</a></div>
             @elseif(auth()->check())<p class="pdp-sign-in">You are signed in as {{ str_replace('_', ' ', auth()->user()->role) }}. A buyer account is required to purchase.</p>
@@ -75,4 +76,5 @@
 </main>
 <script src="{{ asset('js/product-selection.js') }}?v={{ filemtime(public_path('js/product-selection.js')) }}" defer></script>
 <script src="{{ asset('js/product-detail.js') }}?v={{ filemtime(public_path('js/product-detail.js')) }}" defer></script>
+<script src="{{ asset('js/cart-feedback.js') }}?v={{ filemtime(public_path('js/cart-feedback.js')) }}" defer></script>
 @endsection

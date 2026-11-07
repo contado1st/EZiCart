@@ -6,7 +6,7 @@
     <section class="workspace-metrics" aria-label="Logistics network summary">
         <x-workspace-metric label="Parcels in view" :value="$orders->total()" icon="package1" detail="Matching the current parcel search" />
         <x-workspace-metric label="Aging parcels" :value="$aging" icon="warning" detail="Awaiting an operational update" tone="warning" />
-        <x-workspace-metric label="Recovery exceptions" :value="$exceptions->count()" icon="shield" detail="Open cases shown for review" tone="danger" />
+        <x-workspace-metric label="Recovery exceptions" :value="$exceptions->total()" icon="shield" detail="Open cases awaiting review" tone="danger" />
         <x-workspace-metric label="Approved sorting hubs" :value="$centers->count()" icon="location" detail="Available centers in the network" tone="success" />
     </section>
     @if(session('success'))<p role="status">{{ session('success') }}</p>@endif
@@ -14,17 +14,21 @@
     <p><a href="{{ route('parcel-transfers.index') }}">Review planned and active hub transfers</a></p>
     <section class="dash-panel" id="network-exceptions"><h2>Aging and exceptions</h2><p>{{ $aging }} parcels have had no operational update for {{ config('commerce.parcel_alert_hours') }} hours.</p>
         @forelse($exceptions as $exception)<p>Order #{{ $exception->order_id }}: {{ $exception->type ?? 'Recovery exception' }} — {{ $exception->reason ?? 'Review parcel custody before reassignment.' }}</p>@empty<p>No open recovery exceptions.</p>@endforelse
+        {{ $exceptions->links() }}
     </section>
     <div class="workspace-admin-grid">
-    <section class="dash-panel" id="applications"><h2>Logistics applications <span class="workspace-count">{{ $pendingUsers->count() }} shown</span></h2>
+    <section class="dash-panel" id="applications"><h2>Logistics applications <span class="workspace-count">{{ $pendingUsers->total() }} pending matching applications</span></h2>
+        <form method="GET"><label for="application-search">Applicant name, business or email</label><input id="application-search" name="application_search" maxlength="100" value="{{ request('application_search') }}"><button class="dash-btn-sm" type="submit">Search applications</button></form>
         @forelse($pendingUsers as $applicant)
             <article><h3>{{ $applicant->business_name ?? trim($applicant->first_name.' '.$applicant->last_name) }} ({{ $applicant->role }})</h3>
                 <p>{{ $applicant->email }} · {{ $applicant->contact_no }}</p>
+                <p>Waiting since {{ $applicant->created_at->format('d M Y') }} ({{ $applicant->created_at->diffForHumans() }})</p>
                 <a class="dash-btn-sm dash-btn-outline" href="{{ route('logistics-admin.applications.show', $applicant) }}">Review details & documents</a>
                 <form method="POST" action="{{ route('logistics-admin.users.approve', $applicant) }}" data-decision="logistics-admin.users.approve" data-decision-title="Approve this account?" data-decision-message="Confirm that you reviewed the submitted credentials and that this account meets the approval requirements." data-decision-label="Approve account" data-decision-tone="normal" onsubmit="return window.eziDecisionReady ? true : window.confirm(this.dataset.decisionMessage)">@csrf<button class="dash-btn-sm" type="submit">Approve reviewed application</button></form>
                 <form method="POST" action="{{ route('logistics-admin.users.reject', $applicant) }}" data-decision="logistics-admin.users.reject" data-decision-title="Reject this application?" data-decision-message="Check the rejection reason before recording your decision." data-decision-label="Reject application" data-decision-tone="danger" onsubmit="return window.eziDecisionReady ? true : window.confirm(this.dataset.decisionMessage)">@csrf<label>Rejection reason<input name="reason" required minlength="5" maxlength="1000"></label><button class="dash-btn-sm" type="submit">Reject</button></form>
             </article>
         @empty<p>No pending logistics applications.</p>@endforelse
+        {{ $pendingUsers->links() }}
     </section>
     <section class="dash-panel" id="service-areas"><h2>Service-area ownership</h2>
         @foreach($areas as $area)

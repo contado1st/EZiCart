@@ -264,7 +264,7 @@ class WebOperationsTest extends TestCase
         $this->assertSame('Electronics', $legacy->fresh()->category);
     }
 
-    public function test_web_only_fields_do_not_expand_existing_mobile_product_response_shapes(): void
+    public function test_mobile_product_details_include_variation_images_without_exposing_private_web_fields(): void
     {
         $seller = $this->user('seller');
         $seller->forceFill(['last_web_activity_at' => now(), 'shop_availability' => 'vacation'])->save();
@@ -273,7 +273,7 @@ class WebOperationsTest extends TestCase
         $data = $this->getJson('/api/products/'.$product->id)->assertOk()->json('data');
         $this->assertSame('Black', $data['variations'][0]['value']);
         $this->assertArrayNotHasKey('sku', $data['variations'][0]);
-        $this->assertArrayNotHasKey('image_path', $data['variations'][0]);
+        $this->assertSame('products/variant.png', $data['variations'][0]['image_path']);
         $this->assertArrayNotHasKey('last_web_activity_at', $data['seller']);
         $this->assertArrayNotHasKey('shop_availability', $data['seller']);
     }

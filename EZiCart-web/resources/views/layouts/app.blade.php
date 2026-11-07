@@ -10,7 +10,7 @@
     $workspaceLabel = auth()->user()?->role === 'courier' ? 'Courier workspace' : 'Logistics workspace';
     $isDashboardWorkspace = auth()->check() && request()->routeIs(
         'admin.*', 'seller.*', 'courier.*', 'logistics.*', 'logistics-admin.*',
-        'buyer.dashboard', 'buyer.orders.*', 'buyer.addresses.*', 'finance.*', 'parcel-transfers.*',
+        'buyer.dashboard', 'buyer.orders.*', 'buyer.addresses.*', 'finance.*', 'parcel-transfers.*', 'return-pickups.*',
         'account.profile.*', 'notifications.*', 'buyer.for-you*', 'buyer.stock.*', 'chat.*', 'sales-reports.*', 'activity-logs.*', 'coverage.*', 'analytics.*', 'staff.*', 'parcel-evidence.*', 'buyer.vouchers.*', 'load-planning.*'
     );
 @endphp
@@ -112,11 +112,7 @@
                     @if (!auth()->check() || auth()->user()->role === 'buyer')
                         <a href="{{ route('cart.index') }}" class="nav-link cart-link">
                             <span><x-shop-icon name="cart2" /> Cart</span>
-                            @if (session('cart') && count(session('cart')) > 0)
-                                <span class="cart-count-badge">
-                                    {{ count(session('cart')) }}
-                                </span>
-                            @endif
+                            <span class="cart-count-badge" data-cart-count @if(count(session('cart', [])) < 1) hidden @endif>{{ count(session('cart', [])) }}</span>
                         </a>
                     @endif
 

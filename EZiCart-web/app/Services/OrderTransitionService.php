@@ -47,7 +47,7 @@ class OrderTransitionService
         'OUT_FOR_DELIVERY' => ['out_for_delivery_at', 'delivery_code_hash', 'delivery_code_encrypted', 'delivery_code_expires_at', 'delivery_code_attempts', 'delivery_code_used_at'],
         'DELIVERY_FAILED' => ['failed_at', 'delivery_failure_reason', 'delivery_notes', 'delivery_code_hash', 'delivery_code_encrypted', 'delivery_code_expires_at', 'delivery_code_attempts', 'delivery_code_used_at'],
         'DELIVERED' => ['delivered_at', 'delivery_notes', 'cod_collected_amount', 'delivery_code_used_at'],
-        'RETURN_IN_TRANSIT' => ['delivery_code_hash', 'delivery_code_encrypted', 'delivery_code_expires_at', 'delivery_code_attempts'],
+        'RETURN_IN_TRANSIT' => ['delivery_code_hash', 'delivery_code_encrypted', 'delivery_code_expires_at', 'delivery_code_attempts', 'delivery_courier_id'],
     ];
 
     public function __construct(
@@ -73,7 +73,7 @@ class OrderTransitionService
         }
 
         return DB::transaction(function () use ($order, $actor, $target, $eventType, $location, $notes, $attributes): Order {
-            if (in_array($target, [OrderStatus::AssignedToRider, OrderStatus::PickedUp, OrderStatus::OutForDelivery], true)) {
+            if (in_array($target, [OrderStatus::AssignedToRider, OrderStatus::PickedUp, OrderStatus::OutForDelivery, OrderStatus::ReturnInTransit], true)) {
                 $vehicleId = $target === OrderStatus::PickedUp ? $order->pickup_courier_id : ($attributes['delivery_courier_id'] ?? $order->delivery_courier_id);
                 if ($vehicleId) {
                     app(ParcelLoadService::class)->lockVehicle((int) $vehicleId);
@@ -116,11 +116,18 @@ class OrderTransitionService
             }
 
             if ($actor->role === 'sorting_center') {
-                $this->assertHubOwnership($lockedOrder, $actor, $attributes['destination_area_id'] ?? null);
+                $this->assertHubOwnership($lockedOrder, $actor, $attributes['destination_area_id'] ?? null, $target);
             }
 
             $this->authorizeActor($lockedOrder, $actor, $target);
-            if (in_array($target, [OrderStatus::AssignedToRider, OrderStatus::PickedUp, OrderStatus::OutForDelivery], true)) {
+            if ($target === OrderStatus::ReturnInTransit && in_array($current, ['DELIVERED', 'COMPLETED'], true)) {
+                $pickup = $lockedOrder->returnPickupAssignment()->lockForUpdate()->first();
+                abort_unless($pickup && $actor->role === 'courier' && $pickup->rider_id === $actor->id && $pickup->accepted_at !== null
+                    && (int) ($attributes['delivery_courier_id'] ?? 0) === $actor->id
+                    && $lockedOrder->dispute()->whereIn('status', ['REFUND_APPROVED', 'REPLACEMENT_APPROVED'])->exists()
+                    && $lockedOrder->trackingEvents()->where('event_type', 'return_buyer_handover')->where('actor_id', $lockedOrder->buyer_id)->where('notes', 'Return pickup assignment #'.$pickup->id)->exists(), 422, 'An approved, accepted return pickup and buyer handover are required before physical return transit.');
+            }
+            if (in_array($target, [OrderStatus::AssignedToRider, OrderStatus::PickedUp, OrderStatus::OutForDelivery, OrderStatus::ReturnInTransit], true)) {
                 $riderId = $target === OrderStatus::PickedUp ? $lockedOrder->pickup_courier_id : ($attributes['delivery_courier_id'] ?? $lockedOrder->delivery_courier_id);
                 abort_unless($riderId, 422, 'Assign a verified vehicle before moving this parcel.');
                 app(ParcelLoadService::class)->assertFits($lockedOrder, User::findOrFail($riderId));
@@ -529,7 +536,7 @@ class OrderTransitionService
             OrderStatus::OutForDelivery, OrderStatus::Delivered, OrderStatus::DeliveryFailed => $actor->role === 'courier' && $order->delivery_courier_id === $actor->id,
             OrderStatus::AtSortingCenter, OrderStatus::AssignedToRider => $actor->role === 'sorting_center',
             OrderStatus::Sorted => $actor->role === 'sorting_center',
-            OrderStatus::ReturnInTransit => $actor->isCommerceAdmin() || $actor->role === 'sorting_center' || ($actor->role === 'courier' && $order->delivery_courier_id === $actor->id),
+            OrderStatus::ReturnInTransit => $actor->role === 'sorting_center' || ($actor->role === 'courier' && ($order->delivery_courier_id === $actor->id || $order->returnPickupAssignment()->where('rider_id', $actor->id)->exists())),
             default => false,
         };
 
@@ -538,14 +545,16 @@ class OrderTransitionService
         }
     }
 
-    private function assertHubOwnership(Order $order, User $actor, ?int $destinationAreaId = null): void
+    private function assertHubOwnership(Order $order, User $actor, ?int $destinationAreaId = null, ?OrderStatus $target = null): void
     {
         abort_unless($actor->role === 'sorting_center' && $actor->status === 'approved', 403, 'Only an approved sorting center can operate this parcel.');
         abort_unless($order->sorting_center_id === null || (int) $order->sorting_center_id === $actor->id, 403, 'This parcel belongs to another sorting center.');
 
         $areaId = $destinationAreaId ?? $order->destination_area_id;
         $areaHubId = $areaId === null ? null : Area::query()->whereKey($areaId)->value('sorting_center_id');
-        abort_unless($areaHubId === null || (int) $areaHubId === $actor->id, 403, 'This destination area belongs to another sorting center.');
+        $originIntake = $target === OrderStatus::AtSortingCenter && app(HubOrderScope::class)->isPickupHub($order, $actor);
+        $localCustody = (int) $order->sorting_center_id === $actor->id && $target !== OrderStatus::AssignedToRider;
+        abort_unless($originIntake || $localCustody || $areaHubId === null || (int) $areaHubId === $actor->id, 403, 'This destination area belongs to another sorting center.');
 
         if ($areaHubId === null && $order->sorting_center_id === null) {
             $hasMultipleHubs = User::query()->where('role', 'sorting_center')->where('status', 'approved')->limit(2)->count() > 1;
@@ -649,7 +658,7 @@ class OrderTransitionService
         $activeAssignment = DeliveryAssignment::query()
             ->where('order_id', $order->id)
             ->where('rider_id', $riderId)
-            ->where('status', 'active')
+            ->whereIn('status', ['active', 'return_pending'])
             ->lockForUpdate()
             ->first();
 
@@ -671,6 +680,8 @@ class OrderTransitionService
         }
 
         if ($target === OrderStatus::ReturnInTransit) {
+            $activeAssignment->update(['status' => 'active']);
+
             return;
         }
 

@@ -1,0 +1,1 @@
+<x-loading-skeleton variant="product" />

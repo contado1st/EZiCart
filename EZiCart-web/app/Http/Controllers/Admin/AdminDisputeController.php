@@ -2,12 +2,12 @@
 
 namespace App\Http\Controllers\Admin;
 
-use App\Enums\OrderStatus;
 use App\Http\Controllers\Controller;
 use App\Models\Dispute;
 use App\Models\Order;
 use App\Services\OrderFinancialService;
 use App\Services\OrderTransitionService;
+use App\Services\ReturnPickupService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Symfony\Component\HttpKernel\Exception\HttpException;
@@ -40,7 +40,7 @@ class AdminDisputeController extends Controller
             'admin_notes' => 'required|string|max:1500',
         ]);
 
-        DB::transaction(function () use ($dispute, $validated, $transitions, $request, $finances): void {
+        DB::transaction(function () use ($dispute, $validated, $request, $finances): void {
             $order = Order::query()->whereKey($dispute->order_id)->lockForUpdate()->firstOrFail();
             $lockedDispute = Dispute::query()->whereKey($dispute->id)->lockForUpdate()->firstOrFail();
 
@@ -58,14 +58,6 @@ class AdminDisputeController extends Controller
                     throw new HttpException(422, 'The order is not in a state that can enter the return workflow.');
                 }
 
-                $transitions->transition(
-                    $order,
-                    $request->user(),
-                    OrderStatus::ReturnInTransit,
-                    $status === 'REFUND_APPROVED' ? 'dispute_refund_approved_return' : 'dispute_replacement_approved_return',
-                    null,
-                    $validated['admin_notes'],
-                );
             }
 
             $final = in_array($status, ['REFUND_APPROVED', 'REPLACEMENT_APPROVED', 'REJECTED', 'RESOLVED'], true);
@@ -77,6 +69,9 @@ class AdminDisputeController extends Controller
             ])->save();
             if ($status === 'REFUND_APPROVED') {
                 $finances->authorizeRefund($lockedDispute, $request->user());
+            }
+            if (in_array($status, ['REFUND_APPROVED', 'REPLACEMENT_APPROVED'], true)) {
+                app(ReturnPickupService::class)->authorized($order, $request->user());
             }
         });
 

@@ -9,6 +9,15 @@
     @forelse($transfers as $transfer)<section class="dash-panel">
         <h2>{{ $transfer->order->order_number }}</h2><x-parcel-weight :order="$transfer->order" compact />@if($transfer->carrier)<p>Transport: {{ $transfer->carrier->first_name }} {{ $transfer->carrier->last_name }}</p><x-vehicle-capacity :rider="$transfer->carrier" />@endif<p>{{ $transfer->sourceHub->business_name ?? $transfer->source_hub_id }} → {{ $transfer->destinationHub->business_name ?? $transfer->destination_hub_id }} — {{ $transfer->status }}</p>
         <p>{{ $transfer->reason }}</p>@if($transfer->transport_reference)<p>Transport manifest: {{ $transfer->transport_reference }}</p>@endif
+        <p><a href="{{ route('parcel-evidence.show', $transfer->order) }}">Journey & evidence</a> · <a href="{{ route('chat.index') }}">Messages</a></p>
+        @if($actor->isLogisticsAdmin() && $transfer->status === 'IN_TRANSIT' && $transfer->carrier?->status === 'suspended')
+            <form method="POST" action="{{ route('parcel-transfers.replace-carrier', $transfer) }}">@csrf
+                <label>Replacement transport driver<select name="carrier_rider_id" required><option value="">Select verified source-hub driver</option>@foreach($carriers as $carrier)<option value="{{ $carrier->id }}">{{ $carrier->first_name }} {{ $carrier->last_name }}</option>@endforeach</select></label>
+                <label>Parcel label scanned at physical handover<input name="parcel_reference" required maxlength="100" placeholder="EZP:"></label>
+                <label>Recovery and handover details<textarea name="reason" required minlength="5" maxlength="500"></textarea></label>
+                <button type="submit" class="dash-btn-sm">Record replacement handover</button>
+            </form>
+        @endif
         <p class="web-muted">Released: {{ $transfer->released_at ? \Illuminate\Support\Carbon::parse($transfer->released_at)->format('d M Y H:i') : 'Awaiting source scan' }} | Received: {{ $transfer->received_at ? \Illuminate\Support\Carbon::parse($transfer->received_at)->format('d M Y H:i') : 'Awaiting destination scan' }}</p>
         @if($actor->role === 'courier' && $transfer->status === 'IN_TRANSIT')<p>Deliver to {{ $transfer->destinationHub->business_name }}: {{ $transfer->destinationHub->street_address }}, {{ $transfer->destinationHub->municipality }}, {{ $transfer->destinationHub->province }}.</p><p>Parcel label: <strong>EZP:{{ $transfer->order->parcel_code }}</strong></p>@endif
         @if($actor->role === 'sorting_center' && $actor->id === $transfer->source_hub_id && $transfer->status === 'PLANNED')

@@ -46,6 +46,9 @@ class DirectMessagingService
                             foreach (['buyer_id', 'seller_id', 'pickup_courier_id', 'delivery_courier_id', 'sorting_center_id'] as $column) {
                                 $q->orWhere($column, $actor->id);
                             }
+                            $q->orWhereExists(fn ($transfers) => $transfers->selectRaw('1')->from('parcel_transfers')->whereColumn('order_id', 'orders.id')
+                                ->whereIn('status', ['PLANNED', 'IN_TRANSIT', 'RECEIVED'])->where(fn ($t) => $t->where('carrier_rider_id', $actor->id)->orWhere('source_hub_id', $actor->id)->orWhere('destination_hub_id', $actor->id)));
+                            $q->orWhereExists(fn ($assignments) => $assignments->selectRaw('1')->from('delivery_assignments')->whereColumn('active_order_id', 'orders.id')->where('status', 'return_pending')->where('rider_id', $actor->id));
                             if ($actor->role === 'sorting_center') {
                                 $q->orWhereExists(fn ($events) => $events->selectRaw('1')->from('parcel_tracking_events')->whereColumn('order_id', 'orders.id')->where('actor_id', $actor->id));
                             }
@@ -53,6 +56,9 @@ class DirectMessagingService
                             foreach (['buyer_id', 'seller_id', 'pickup_courier_id', 'delivery_courier_id', 'sorting_center_id'] as $column) {
                                 $q->orWhereColumn('orders.'.$column, 'users.id');
                             }
+                            $q->orWhereExists(fn ($transfers) => $transfers->selectRaw('1')->from('parcel_transfers')->whereColumn('order_id', 'orders.id')
+                                ->whereIn('status', ['PLANNED', 'IN_TRANSIT', 'RECEIVED'])->where(fn ($t) => $t->whereColumn('carrier_rider_id', 'users.id')->orWhereColumn('source_hub_id', 'users.id')->orWhereColumn('destination_hub_id', 'users.id')));
+                            $q->orWhereExists(fn ($assignments) => $assignments->selectRaw('1')->from('delivery_assignments')->whereColumn('active_order_id', 'orders.id')->where('status', 'return_pending')->whereColumn('rider_id', 'users.id'));
                             $q->orWhere(fn ($centers) => $centers->where('users.role', 'sorting_center')->whereExists(fn ($events) => $events->selectRaw('1')->from('parcel_tracking_events')->whereColumn('order_id', 'orders.id')->whereColumn('actor_id', 'users.id')));
                         });
                 });
@@ -71,6 +77,7 @@ class DirectMessagingService
 
     public function authorizeOrder(Order $order, User $actor): void
     {
+        abort_unless($actor->status === 'approved', 403);
         abort_unless($actor->isCommerceAdmin() || $actor->isLogisticsAdmin() || $order->messageParticipants()->contains('id', $actor->id), 403);
     }
 

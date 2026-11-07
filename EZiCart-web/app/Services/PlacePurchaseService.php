@@ -47,6 +47,9 @@ class PlacePurchaseService
             }
             app(ShopAvailabilityService::class)->assertOpen($cart);
             $quote = $this->pricing->quote($cart, $voucher, true);
+            if (count($quote['groups']) > 1) {
+                throw ValidationException::withMessages(['cart' => 'Choose products from one shop per checkout. Items from other shops stay saved in your cart.']);
+            }
             if (! hash_equals($quote['hash'], $reviewedHash)) {
                 throw ValidationException::withMessages(['quote' => 'Prices or discounts changed. Review the updated checkout total before placing your order.']);
             }

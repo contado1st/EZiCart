@@ -2,10 +2,12 @@
 
 namespace App\Services;
 
+use App\Models\Product;
 use App\Models\Purchase;
 use App\Models\User;
 use App\Models\Voucher;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 /** Web-only checks around the existing checkout shared with mobile. */
 class WebCheckoutService
@@ -15,6 +17,13 @@ class WebCheckoutService
     public function assertShopsOpen(array $cart): void
     {
         app(ShopAvailabilityService::class)->assertOpen($cart);
+        $products = Product::whereKey(array_map(fn ($line) => $line['product_id'] ?? $line['id'] ?? 0, $cart))->orderBy('id');
+        if (DB::transactionLevel() > 0) {
+            $products->lockForUpdate();
+        }
+        if ($products->get(['id', 'user_id'])->pluck('user_id')->unique()->count() > 1) {
+            throw ValidationException::withMessages(['selected_keys' => 'Choose products from one shop per checkout. Items from other shops stay saved in your cart.']);
+        }
     }
 
     public function place(User $buyer, string $token, string $requestHash, array $cart, string $reviewedHash, ?int $voucherId, array $address): Purchase

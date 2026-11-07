@@ -24,7 +24,7 @@ class ParcelTransferController extends Controller
 
         $carriers = User::where('role', 'courier')->where('status', 'approved')
             ->where('hub_transfer_only', true)
-            ->where(fn ($q) => $q->where('logistics_owner_id', $actor->id)->orWhereHas('serviceAreas', fn ($a) => $a->where('sorting_center_id', $actor->id)))->get();
+            ->when(! $actor->isLogisticsAdmin(), fn ($query) => $query->where(fn ($q) => $q->where('logistics_owner_id', $actor->id)->orWhereHas('serviceAreas', fn ($a) => $a->where('sorting_center_id', $actor->id))))->get();
 
         return view('logistics.transfers', compact('transfers', 'actor', 'carriers'));
     }
@@ -51,6 +51,14 @@ class ParcelTransferController extends Controller
         $service->receiveHubTransfer($transfer, $request->user(), $data['parcel_reference']);
 
         return back()->with('success', 'Transfer physically received at the destination hub.');
+    }
+
+    public function replaceCarrier(Request $request, ParcelTransfer $transfer, ParcelTransferService $service)
+    {
+        $data = $request->validate(['carrier_rider_id' => ['required', 'integer', 'exists:users,id'], 'parcel_reference' => ['required', 'string', 'max:100'], 'reason' => ['required', 'string', 'min:5', 'max:500']]);
+        $service->replaceCarrier($transfer, $request->user(), User::findOrFail($data['carrier_rider_id']), $data['parcel_reference'], $data['reason']);
+
+        return back()->with('success', 'Replacement custody recorded. Continue to the original destination hub.');
     }
 
     public function cancel(Request $request, ParcelTransfer $transfer, AdministrativeAuditService $audits)
