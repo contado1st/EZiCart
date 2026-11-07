@@ -1,0 +1,49 @@
+<?php $__env->startSection('content'); ?><main class="web-operations"><header><h1>Parcel journey and evidence</h1><p>Look up an involved parcel using its label QR/code or order number. Only existing authorized workflow actions can change its status.</p></header><?php echo $__env->make('components.feature-feedback', array_diff_key(get_defined_vars(), ['__data' => 1, '__path' => 1]))->render(); ?>
+<section class="dash-panel"><form class="web-form" method="GET" action="<?php echo e(route('parcel-evidence.index')); ?>"><label for="journey-reference">Parcel label or order number<input id="journey-reference" name="reference" data-qr-input maxlength="100" placeholder="EZP:…" required></label><button class="dash-btn-sm" type="button" data-qr-start>Use camera</button><button class="dash-btn-sm" type="button" data-qr-stop hidden>Stop camera</button><video data-qr-video playsinline hidden></video><p data-qr-status role="status" class="web-muted">Camera, handheld scanner or manual reference.</p><button class="dash-btn-primary" type="submit">View journey</button></form></section>
+<?php if($order): ?>
+<?php echo $__env->make('components.order-progress', ['order' => $order], array_diff_key(get_defined_vars(), ['__data' => 1, '__path' => 1]))->render(); ?>
+<section class="dash-panel"><h2><?php echo e($order->order_number); ?> · <?php echo e(ucwords(strtolower(str_replace('_', ' ', $order->status)))); ?></h2><p class="web-availability-note"><?php echo e($nextAction); ?></p><dl class="web-form"><div><dt>Pickup rider</dt><dd><?php if($order->pickupCourier): ?><?php if(auth()->user()->isLogisticsAdmin()): ?><a href="<?php echo e(route('staff.show', $order->pickupCourier)); ?>"><?php echo e($order->pickupCourier->first_name); ?></a><?php else: ?><?php echo e($order->pickupCourier->first_name); ?><?php endif; ?>@else Not assigned <?php endif; ?></dd></div><div><dt>Delivery rider</dt><dd><?php if($order->deliveryCourier): ?><?php if(auth()->user()->isLogisticsAdmin()): ?><a href="<?php echo e(route('staff.show', $order->deliveryCourier)); ?>"><?php echo e($order->deliveryCourier->first_name); ?></a><?php else: ?><?php echo e($order->deliveryCourier->first_name); ?><?php endif; ?>@else Not assigned <?php endif; ?></dd></div><div><dt>Sorting center</dt><dd><?php echo e($order->sortingCenter?->business_name ?: 'Awaiting intake'); ?></dd></div></dl></section>
+<section class="dash-panel"><h2>Tracking and handoffs</h2><ol class="web-history"><?php $__empty_1 = true; $__currentLoopData = $events; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $event): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); $__empty_1 = false; ?><li><strong><?php echo e(ucwords(str_replace('_', ' ', $event->event_type))); ?></strong><p><?php echo e($loop->first ? 'Start' : $events[$loop->index - 1]->status); ?> → <?php echo e($event->status); ?> · <?php echo e($event->location ?: 'Location not recorded'); ?></p><p><?php echo e($event->notes); ?></p><time><?php echo e($event->created_at->format('d M Y H:i:s')); ?> · <?php echo e($event->actor?->first_name ?: 'System'); ?> <?php echo e($event->actor?->last_name); ?></time><div class="web-attachment-list"><?php $__currentLoopData = $photos->get('tracking:'.$event->id, collect()); $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $photo): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?><a href="<?php echo e(route('parcel-evidence.photo', $photo)); ?>"><img class="web-evidence-photo" src="<?php echo e(route('parcel-evidence.photo', $photo)); ?>" alt="Evidence for <?php echo e(str_replace('_', ' ', $event->event_type)); ?>" loading="lazy"></a><?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?></div><?php if (isset($component)) { $__componentOriginal26a9559d0278bebe3cbf3cf3e35049c4 = $component; } ?>
+<?php if (isset($attributes)) { $__attributesOriginal26a9559d0278bebe3cbf3cf3e35049c4 = $attributes; } ?>
+<?php $component = Illuminate\View\AnonymousComponent::resolve(['view' => 'components.parcel-evidence-upload','data' => ['order' => $order,'kind' => 'tracking','event' => $event]] + (isset($attributes) && $attributes instanceof Illuminate\View\ComponentAttributeBag ? $attributes->all() : [])); ?>
+<?php $component->withName('parcel-evidence-upload'); ?>
+<?php if ($component->shouldRender()): ?>
+<?php $__env->startComponent($component->resolveView(), $component->data()); ?>
+<?php if (isset($attributes) && $attributes instanceof Illuminate\View\ComponentAttributeBag): ?>
+<?php $attributes = $attributes->except(\Illuminate\View\AnonymousComponent::ignoredParameterNames()); ?>
+<?php endif; ?>
+<?php $component->withAttributes(['order' => \Illuminate\View\Compilers\BladeCompiler::sanitizeComponentAttribute($order),'kind' => 'tracking','event' => \Illuminate\View\Compilers\BladeCompiler::sanitizeComponentAttribute($event)]); ?>
+<?php echo $__env->renderComponent(); ?>
+<?php endif; ?>
+<?php if (isset($__attributesOriginal26a9559d0278bebe3cbf3cf3e35049c4)): ?>
+<?php $attributes = $__attributesOriginal26a9559d0278bebe3cbf3cf3e35049c4; ?>
+<?php unset($__attributesOriginal26a9559d0278bebe3cbf3cf3e35049c4); ?>
+<?php endif; ?>
+<?php if (isset($__componentOriginal26a9559d0278bebe3cbf3cf3e35049c4)): ?>
+<?php $component = $__componentOriginal26a9559d0278bebe3cbf3cf3e35049c4; ?>
+<?php unset($__componentOriginal26a9559d0278bebe3cbf3cf3e35049c4); ?>
+<?php endif; ?></li><?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); if ($__empty_1): ?><li>No tracking events recorded.</li><?php endif; ?></ol></section>
+<section class="dash-panel"><h2>Scan history</h2><ol class="web-history"><?php $__empty_1 = true; $__currentLoopData = $scans; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $event): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); $__empty_1 = false; ?><li><strong><?php echo e(ucfirst($event->station)); ?> · <?php echo e($event->result); ?></strong><p><?php echo e($event->first_name); ?> <?php echo e($event->last_name); ?> · <?php echo e(str_replace('_', ' ', $event->role)); ?> · <?php echo e($event->method); ?> · <?php echo e($event->created_at); ?></p><?php if($event->failure_reason): ?><p><?php echo e($event->failure_reason); ?></p><?php endif; ?><div class="web-attachment-list"><?php $__currentLoopData = $photos->get('scan:'.$event->id, collect()); $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $photo): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?><a href="<?php echo e(route('parcel-evidence.photo', $photo)); ?>"><img class="web-evidence-photo" src="<?php echo e(route('parcel-evidence.photo', $photo)); ?>" alt="Parcel scan evidence" loading="lazy"></a><?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?></div><?php if (isset($component)) { $__componentOriginal26a9559d0278bebe3cbf3cf3e35049c4 = $component; } ?>
+<?php if (isset($attributes)) { $__attributesOriginal26a9559d0278bebe3cbf3cf3e35049c4 = $attributes; } ?>
+<?php $component = Illuminate\View\AnonymousComponent::resolve(['view' => 'components.parcel-evidence-upload','data' => ['order' => $order,'kind' => 'scan','event' => $event]] + (isset($attributes) && $attributes instanceof Illuminate\View\ComponentAttributeBag ? $attributes->all() : [])); ?>
+<?php $component->withName('parcel-evidence-upload'); ?>
+<?php if ($component->shouldRender()): ?>
+<?php $__env->startComponent($component->resolveView(), $component->data()); ?>
+<?php if (isset($attributes) && $attributes instanceof Illuminate\View\ComponentAttributeBag): ?>
+<?php $attributes = $attributes->except(\Illuminate\View\AnonymousComponent::ignoredParameterNames()); ?>
+<?php endif; ?>
+<?php $component->withAttributes(['order' => \Illuminate\View\Compilers\BladeCompiler::sanitizeComponentAttribute($order),'kind' => 'scan','event' => \Illuminate\View\Compilers\BladeCompiler::sanitizeComponentAttribute($event)]); ?>
+<?php echo $__env->renderComponent(); ?>
+<?php endif; ?>
+<?php if (isset($__attributesOriginal26a9559d0278bebe3cbf3cf3e35049c4)): ?>
+<?php $attributes = $__attributesOriginal26a9559d0278bebe3cbf3cf3e35049c4; ?>
+<?php unset($__attributesOriginal26a9559d0278bebe3cbf3cf3e35049c4); ?>
+<?php endif; ?>
+<?php if (isset($__componentOriginal26a9559d0278bebe3cbf3cf3e35049c4)): ?>
+<?php $component = $__componentOriginal26a9559d0278bebe3cbf3cf3e35049c4; ?>
+<?php unset($__componentOriginal26a9559d0278bebe3cbf3cf3e35049c4); ?>
+<?php endif; ?></li><?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); if ($__empty_1): ?><li>No scan events recorded.</li><?php endif; ?></ol></section>
+<section class="dash-panel"><h2>Delivery attempts</h2><?php $__empty_1 = true; $__currentLoopData = $attempts; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $attempt): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); $__empty_1 = false; ?><p>Attempt <?php echo e($attempt->attempt_no); ?> · <?php echo e($attempt->outcome); ?> · <?php echo e($attempt->attempted_at?->format('d M Y H:i')); ?> · <?php echo e($attempt->rider?->first_name); ?></p><?php if($attempt->proof_path): ?><a class="dash-btn-sm" href="<?php echo e(route('delivery-attempts.proof', $attempt)); ?>">Download delivery proof</a><?php endif; ?> <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); if ($__empty_1): ?><p>No doorstep delivery attempts recorded.</p><?php endif; ?></section>
+<?php endif; ?></main><?php $__env->stopSection(); ?>
+
+<?php echo $__env->make('layouts.app', array_diff_key(get_defined_vars(), ['__data' => 1, '__path' => 1]))->render(); ?><?php /**PATH C:\Users\Admin\Downloads\EZiCart\resources\views/orders/evidence.blade.php ENDPATH**/ ?>
