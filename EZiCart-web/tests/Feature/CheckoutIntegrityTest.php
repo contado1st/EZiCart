@@ -69,10 +69,11 @@ class CheckoutIntegrityTest extends TestCase
         $a = $this->product(100);
         $b = $this->product(100);
         $variant = $b->variations()->create(['type' => 'Color', 'value' => 'Blue', 'price_adjustment' => 10, 'stock' => 5]);
-        $this->actingAs($this->user('buyer'))->post(route('cart.add', $a), ['quantity' => 1, 'variation_id' => $variant->id])->assertUnprocessable();
+        $buyer = $this->user('buyer');
+        $this->actingAs($buyer)->post(route('cart.add', $a), ['quantity' => 1, 'variation_id' => $variant->id])->assertUnprocessable();
         $this->expectException(ValidationException::class);
         try {
-            app(PlacePurchaseService::class)->place(auth()->user(), (string) Str::uuid(), str_repeat('a', 64), [['product_id' => $a->id, 'variation_id' => $variant->id, 'quantity' => 1]], str_repeat('b', 64), null, []);
+            app(PlacePurchaseService::class)->place($buyer, (string) Str::uuid(), str_repeat('a', 64), [['product_id' => $a->id, 'variation_id' => $variant->id, 'quantity' => 1]], str_repeat('b', 64), null, []);
         } finally {
             $this->assertDatabaseCount('orders', 0);
             $this->assertEquals(5, $a->fresh()->stock);
