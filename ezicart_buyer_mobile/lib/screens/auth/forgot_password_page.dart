@@ -119,35 +119,39 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
     final auth = context.watch<AuthProvider>();
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FD),
-      body: SingleChildScrollView(
-        child: Column(
-          children: [
-            AuthHeader(
-              title: _codeSent ? 'Enter Recovery Code' : 'Reset Password',
-              subtitle: _codeSent
-                  ? 'Verify code and set your new password'
-                  : 'We will send a 6-digit code to your email',
-              showBack: true,
-              headerHeight: 210,
-            ),
+      backgroundColor: const Color(0xFFF6F8FC),
+      body: GestureDetector(
+        onTap: () => FocusScope.of(context).unfocus(),
+        behavior: HitTestBehavior.opaque,
+        child: SingleChildScrollView(
+          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+          child: Column(
+            children: [
+              AuthHeader(
+                title: _codeSent ? 'Enter Recovery Code' : 'Reset Password',
+                subtitle: _codeSent
+                    ? 'Verify code and set your new password'
+                    : 'We will send a 6-digit code to your email',
+                showBack: true,
+                headerHeight: 220,
+              ),
 
-            Transform.translate(
-              offset: const Offset(0, -26),
-              child: Container(
-                margin: const EdgeInsets.symmetric(horizontal: 16),
-                padding: const EdgeInsets.fromLTRB(22, 26, 22, 24),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(24),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.06),
-                      blurRadius: 20,
-                      offset: const Offset(0, 10),
-                    ),
-                  ],
-                ),
+              Transform.translate(
+                offset: const Offset(0, -32),
+                child: Container(
+                  margin: const EdgeInsets.symmetric(horizontal: 16),
+                  padding: const EdgeInsets.fromLTRB(22, 26, 22, 24),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(24),
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFF140209).withValues(alpha: 0.08),
+                        blurRadius: 24,
+                        offset: const Offset(0, 10),
+                      ),
+                    ],
+                  ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
@@ -254,6 +258,8 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                       TextField(
                         controller: _newPasswordCtrl,
                         obscureText: _obscurePassword,
+                        autocorrect: false,
+                        enableSuggestions: false,
                         decoration: AuthStyles.inputDecoration(
                           label: 'New Password',
                           hint: 'Min 8 characters',
@@ -274,6 +280,8 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                       TextField(
                         controller: _confirmPasswordCtrl,
                         obscureText: _obscureConfirmPassword,
+                        autocorrect: false,
+                        enableSuggestions: false,
                         decoration: AuthStyles.inputDecoration(
                           label: 'Confirm New Password',
                           hint: 'Re-enter your new password',
@@ -329,6 +337,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
           ],
         ),
       ),
-    );
+    ),
+  );
   }
 }

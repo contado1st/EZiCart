@@ -162,46 +162,50 @@ class _LoginPageState extends State<LoginPage> {
     final auth = context.watch<AuthProvider>();
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FD),
-      body: SingleChildScrollView(
-        child: Column(
-          children: [
-            // Modern Branded Hero Header
-            AuthHeader(
-              title: 'Welcome Back',
-              subtitle: 'Sign in to access your orders and shopping cart',
-              headerHeight: 220,
-              topAction: Material(
-                color: Colors.white.withValues(alpha: 0.18),
-                borderRadius: BorderRadius.circular(12),
-                child: InkWell(
+      backgroundColor: const Color(0xFFF6F8FC),
+      body: GestureDetector(
+        onTap: () => FocusScope.of(context).unfocus(),
+        behavior: HitTestBehavior.opaque,
+        child: SingleChildScrollView(
+          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+          child: Column(
+            children: [
+              // Modern Branded Hero Header
+              AuthHeader(
+                title: 'Welcome Back',
+                subtitle: 'Sign in to access your orders and shopping cart',
+                headerHeight: 220,
+                topAction: Material(
+                  color: Colors.white.withValues(alpha: 0.18),
                   borderRadius: BorderRadius.circular(12),
-                  onTap: _showDomainConfigDialog,
-                  child: const Padding(
-                    padding: EdgeInsets.all(8),
-                    child: Icon(Icons.tune_rounded, color: Colors.white, size: 20),
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(12),
+                    onTap: _showDomainConfigDialog,
+                    child: const Padding(
+                      padding: EdgeInsets.all(8),
+                      child: Icon(Icons.tune_rounded, color: Colors.white, size: 20),
+                    ),
                   ),
                 ),
               ),
-            ),
 
-            // Elevated Card Form
-            Transform.translate(
-              offset: const Offset(0, -26),
-              child: Container(
-                margin: const EdgeInsets.symmetric(horizontal: 16),
-                padding: const EdgeInsets.fromLTRB(22, 28, 22, 24),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(24),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.06),
-                      blurRadius: 20,
-                      offset: const Offset(0, 10),
-                    ),
-                  ],
-                ),
+              // Elevated Card Form
+              Transform.translate(
+                offset: const Offset(0, -32),
+                child: Container(
+                  margin: const EdgeInsets.symmetric(horizontal: 16),
+                  padding: const EdgeInsets.fromLTRB(22, 28, 22, 24),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(24),
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFF140209).withValues(alpha: 0.08),
+                        blurRadius: 24,
+                        offset: const Offset(0, 10),
+                      ),
+                    ],
+                  ),
                 child: Form(
                   key: _formKey,
                   child: Column(
@@ -265,6 +269,8 @@ class _LoginPageState extends State<LoginPage> {
                       TextFormField(
                         controller: _passwordCtrl,
                         obscureText: _obscurePassword,
+                        autocorrect: false,
+                        enableSuggestions: false,
                         textInputAction: TextInputAction.done,
                         onFieldSubmitted: (_) => _submit(),
                         decoration: AuthStyles.inputDecoration(
@@ -353,6 +359,7 @@ class _LoginPageState extends State<LoginPage> {
           ],
         ),
       ),
-    );
+    ),
+  );
   }
 }
