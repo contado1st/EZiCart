@@ -54,8 +54,12 @@
             </div>
 
             <!-- Workflow Panels -->
+            <x-workspace-tabs :tabs="[
+                ['id' => 'seller-orders', 'label' => 'Orders and dispatch', 'count' => $recentOrders->total()],
+                ['id' => 'seller-tools', 'label' => 'Store overview and tools'],
+            ]" />
             <div class="dash-workflow-grid">
-                <div class="dash-panel">
+                <div class="dash-panel" id="seller-orders">
                     <div class="u-extracted-7bdbd5a954">
                         <h3 class="dash-panel-title u-extracted-648149cea2">Recent Orders & Dispatch</h3>
                         <a href="{{ route('seller.orders.index') }}" class="u-extracted-b0fe66c15d">View
@@ -86,10 +90,11 @@
                             and rider pickup scheduling.
                         </div>
                     @endforelse
+                    {{ $recentOrders->links() }}
                 </div>
 
-                <div class="dash-panel">
-                    <x-workspace-distribution :values="$recentOrders->countBy('status')->all()" label="Orders by status" description="Your latest orders at a glance." />
+                <div class="dash-panel" id="seller-tools">
+                    <x-workspace-distribution :values="$orderStatuses" label="Orders by status" description="All your orders at a glance." />
                     <h3 class="dash-panel-title">Seller Actions</h3>
                     <div class="dash-action-list">
                         <a href="{{ route('seller.products.create') }}" class="dash-action-btn">

@@ -12,8 +12,11 @@ use App\Http\Controllers\Api\ProductApiController;
 use App\Http\Controllers\Api\ProfileApiController;
 use App\Http\Controllers\Api\ShopApiController;
 use App\Http\Controllers\Api\VoucherApiController;
+use App\Http\Controllers\FinancialOperationsController;
 use App\Http\Controllers\PsgcAddressController;
 use Illuminate\Support\Facades\Route;
+
+Route::post('/finance/sandbox-webhook', [FinancialOperationsController::class, 'webhook'])->middleware('throttle:60,1')->name('finance.sandbox.webhook');
 
 /*
 |--------------------------------------------------------------------------

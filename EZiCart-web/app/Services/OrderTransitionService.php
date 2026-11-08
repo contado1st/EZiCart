@@ -95,7 +95,7 @@ class OrderTransitionService
                 throw new HttpException(422, 'Scan the physical parcel into a Returns or Exception location before retrying delivery.');
             }
 
-            if ($lockedOrder->payment_method !== 'COD' && ! in_array($target, [
+            if (! app(OrderWalletService::class)->paymentReady($lockedOrder) && ! in_array($target, [
                 OrderStatus::Cancelled,
                 OrderStatus::ReturnInTransit,
                 OrderStatus::ReturnedToSeller,

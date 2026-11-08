@@ -22,8 +22,8 @@ class OrderFinancialService
         return OrderFinance::query()->firstOrCreate(['order_id' => $order->id], [
             'due_cents' => $void ? 0 : CheckoutPricingService::cents($order->total_amount),
             'commission_cents' => $void ? 0 : CheckoutPricingService::cents($order->commission_fee),
-            'seller_payable_cents' => $void ? 0 : max(0, CheckoutPricingService::cents($order->subtotal) - CheckoutPricingService::cents($order->discount_amount ?? 0) + CheckoutPricingService::cents($order->platform_discount_amount ?? 0) - CheckoutPricingService::cents($order->commission_fee)),
-            'platform_subsidy_cents' => CheckoutPricingService::cents($order->platform_discount_amount ?? 0),
+            'seller_payable_cents' => $void ? 0 : max(0, CheckoutPricingService::cents($order->subtotal) - CheckoutPricingService::cents($order->discount_amount ?? 0) + CheckoutPricingService::cents($order->platform_discount_amount ?? 0) + (int) $order->seller_promo_funded_cents - CheckoutPricingService::cents($order->commission_fee)),
+            'platform_subsidy_cents' => CheckoutPricingService::cents($order->platform_discount_amount ?? 0) + (int) $order->platform_shipping_funded_cents,
             'remittance_status' => $void ? 'VOID' : 'NOT_COLLECTED',
         ])->refresh();
     }
@@ -37,12 +37,20 @@ class OrderFinancialService
             return;
         }
         $previous = $finance->only(['due_cents', 'commission_cents', 'seller_payable_cents', 'remittance_status']);
+        app(OrderWalletService::class)->cancel($order, $finance, $actor);
         $finance->forceFill(['due_cents' => 0, 'commission_cents' => 0, 'seller_payable_cents' => 0, 'remittance_status' => 'VOID'])->save();
         $this->audits->record($actor, $finance, 'uncollected_order_voided', $previous, ['due_cents' => 0, 'remittance_status' => 'VOID'], 'Cancellation before collection; historical order prices retained.');
     }
 
     public function recordCollection(Order $order, User $rider): void
     {
+        if ($order->payment_method === 'WALLET') {
+            abort_unless($rider->role === 'courier' && $order->delivery_courier_id === $rider->id, 403);
+            abort_unless(app(OrderWalletService::class)->paymentReady($order) && $order->delivery_code_used_at !== null
+                && $order->deliveryAttempts()->where('rider_id', $rider->id)->where('outcome', 'delivered')->whereNotNull('proof_path')->exists(), 422, 'Verified wallet payment, delivery code and delivery proof are required.');
+
+            return;
+        }
         DB::transaction(function () use ($order, $rider): void {
             $order = Order::query()->whereKey($order->id)->lockForUpdate()->firstOrFail();
             abort_unless($rider->role === 'courier' && $order->delivery_courier_id === $rider->id, 403);
@@ -66,6 +74,7 @@ class OrderFinancialService
             $finance = $this->initialize($locked);
             abort_unless($rider->role === 'courier' && $finance->collector_id === $rider->id, 403);
             abort_unless(in_array($finance->remittance_status, ['COLLECTED', 'DISCREPANCY'], true), 422, 'This collection is not awaiting a remittance submission.');
+            abort_if(DB::table('remittance_batch_items')->where('order_finance_id', $finance->id)->exists(), 422, 'This collection belongs to a remittance batch. Use its batch reconciliation workflow.');
             $previous = $finance->only(['remittance_status', 'remitted_cents', 'remittance_reference']);
             $finance->forceFill([
                 'remitted_cents' => $amount, 'remittance_reference' => $reference, 'receipt_path' => $receipt,
@@ -82,9 +91,12 @@ class OrderFinancialService
         DB::transaction(function () use ($order, $actor, $reason): void {
             $locked = Order::query()->whereKey($order->id)->lockForUpdate()->firstOrFail();
             $finance = $this->initialize($locked);
+            abort_unless($actor->id !== $finance->submitted_by, 403, 'You cannot verify your own remittance.');
+            abort_if(DB::table('remittance_batch_items')->where('order_finance_id', $finance->id)->exists(), 422, 'Reconcile this collection through its batch.');
             abort_unless($finance->remittance_status === 'SUBMITTED' && (int) $finance->remitted_cents === (int) $finance->collected_cents && $finance->receipt_path !== null, 422, 'Only an exact remittance with a receipt can be verified. Investigate discrepancies first.');
             $finance->forceFill(['remittance_status' => 'VERIFIED', 'verified_by' => $actor->id, 'verified_at' => now()])->save();
             $this->audits->record($actor, $finance, 'remittance_verified', ['status' => 'SUBMITTED'], ['status' => 'VERIFIED'], $reason);
+            app(OrderWalletService::class)->stageFunds($locked, $finance);
         });
     }
 
@@ -120,10 +132,12 @@ class OrderFinancialService
         abort_unless($actor->isCommerceAdmin(), 403);
         DB::transaction(function () use ($refund, $actor, $reference, $evidence, $reason): void {
             $order = Order::query()->whereKey($refund->order_id)->lockForUpdate()->firstOrFail();
+            abort_if($order->payment_method === 'WALLET', 422, 'Refund this wallet purchase through its wallet credit action.');
             $locked = RefundExecution::query()->whereKey($refund->id)->lockForUpdate()->firstOrFail();
             abort_unless($locked->status === 'AUTHORIZED', 422, 'This refund is not awaiting execution.');
             $finance = $this->initialize($order);
             abort_unless($finance->remittance_status === 'VERIFIED' && (int) $finance->collected_cents >= (int) $locked->amount_cents && $order->status === 'RETURNED_TO_SELLER', 422, 'Verify collected funds and seller return receipt before recording the refund.');
+            app(OrderWalletService::class)->externalRefund($order, $finance, $locked, $actor);
             $locked->forceFill(['status' => 'EXECUTED', 'executed_by' => $actor->id, 'reference' => $reference, 'evidence_path' => $evidence, 'executed_at' => now()])->save();
             $this->audits->record($actor, $locked, 'external_refund_recorded', ['status' => 'AUTHORIZED'], ['status' => 'EXECUTED', 'reference' => $reference], $reason);
         });
@@ -148,6 +162,13 @@ class OrderFinancialService
             abort_unless($locked->status === 'COMPLETED' || ($locked->status === 'RETURNED_TO_SELLER' && Order::query()->where('replacement_for_order_id', $locked->id)->where('status', 'COMPLETED')->exists()), 422, 'Record promotion funding for completed fulfillment only.');
             abort_unless($finance->platform_subsidy_cents > 0 && $finance->funded_cents === 0, 422, 'This promotion does not require funding or funding is already recorded.');
             $finance->forceFill(['funded_cents' => $finance->platform_subsidy_cents, 'funding_reference' => $reference, 'funding_evidence_path' => $evidence, 'funded_by' => $actor->id, 'funded_at' => now()])->save();
+            if ($locked->financial_version === 1) {
+                $ledger = app(FinancialLedgerService::class);
+                $ledger->transfer('order:'.$locked->id.':external-subsidy', 'external_platform_subsidy', $ledger->account('platform:cod-cash-control', 'cash_control', null, 'available', true), $ledger->escrow($locked->id), $finance->platform_subsidy_cents, $actor, ['order_id' => $locked->id, 'reference' => $reference]);
+                if ($finance->remittance_status === 'VERIFIED') {
+                    app(OrderWalletService::class)->stageFunds($locked, $finance);
+                }
+            }
             $this->audits->record($actor, $finance, 'platform_subsidy_funded', ['funded_cents' => 0], ['funded_cents' => $finance->funded_cents, 'reference' => $reference], $reason);
         });
     }
@@ -171,7 +192,7 @@ class OrderFinancialService
 
     public function approvePayout(SellerPayout $payout, User $actor, string $reason): void
     {
-        abort_unless($actor->isCommerceAdmin(), 403);
+        abort_unless($actor->isCommerceAdmin() && $actor->id !== $payout->seller_id, 403);
         DB::transaction(function () use ($payout, $actor, $reason): void {
             $order = Order::query()->whereKey($payout->order_id)->lockForUpdate()->firstOrFail();
             $locked = SellerPayout::query()->whereKey($payout->id)->lockForUpdate()->firstOrFail();
@@ -190,8 +211,24 @@ class OrderFinancialService
             $locked = SellerPayout::query()->whereKey($payout->id)->lockForUpdate()->firstOrFail();
             $this->assertPayable($order, $this->initialize($order));
             abort_unless($locked->status === 'APPROVED', 422, 'Approve the payout before recording settlement.');
+            if ($order->financial_version === 1) {
+                app(OrderWalletService::class)->settleSeller($locked, $actor, false, $reason);
+            }
             $locked->forceFill(['status' => 'SETTLED', 'executed_by' => $actor->id, 'reference' => $reference, 'evidence_path' => $evidence, 'executed_at' => now()])->save();
             $this->audits->record($actor, $locked, 'external_payout_recorded', ['status' => 'APPROVED'], ['status' => 'SETTLED', 'reference' => $reference], $reason);
+        });
+    }
+
+    public function settleToWallet(SellerPayout $payout, User $actor, string $reason): void
+    {
+        abort_unless($actor->status === 'approved' && $actor->isCommerceAdmin() && strlen(trim($reason)) >= 5, 403);
+        DB::transaction(function () use ($payout, $actor, $reason): void {
+            $order = Order::whereKey($payout->order_id)->lockForUpdate()->firstOrFail();
+            $locked = SellerPayout::whereKey($payout->id)->lockForUpdate()->firstOrFail();
+            $this->assertPayable($order, $this->initialize($order));
+            abort_unless($locked->status === 'APPROVED', 422, 'Approve this payout before crediting available seller balance.');
+            app(OrderWalletService::class)->settleSeller($locked, $actor, true, $reason);
+            $locked->update(['status' => 'SETTLED', 'executed_by' => $actor->id, 'reference' => 'wallet:'.$locked->transaction_id, 'executed_at' => now()]);
         });
     }
 }

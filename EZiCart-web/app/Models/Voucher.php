@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class Voucher extends Model
 {
@@ -23,6 +24,7 @@ class Voucher extends Model
         'expires_at',
         'is_active',
         'max_discount',
+        'discount_target',
         'recipient_limit', 'claimed_count', 'per_buyer_limit',
     ];
 
@@ -34,6 +36,11 @@ class Voucher extends Model
     public function seller(): BelongsTo
     {
         return $this->belongsTo(User::class, 'seller_id');
+    }
+
+    public function budget(): HasOne
+    {
+        return $this->hasOne(VoucherBudget::class);
     }
 
     public function isValidForAmount(float $subtotal): bool

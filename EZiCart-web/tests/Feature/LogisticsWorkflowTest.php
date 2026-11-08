@@ -1855,8 +1855,8 @@ class LogisticsWorkflowTest extends TestCase
         $this->get(route('courier.history'))->assertOk();
         $this->get(route('courier.earnings'))
             ->assertOk()
-            ->assertSee('Earnings are hidden until the courier payment formula is defined.')
-            ->assertSee('No earnings amounts are calculated or displayed.')
+            ->assertSee('Earnings are credited from approved tariff components')
+            ->assertSee('No settled logistics earnings have been posted.')
             ->assertDontSee('₱');
         $this->get(route('courier.orders.show', $assignedOrder))->assertOk()->assertSee($assignedOrder->order_number);
         $this->get(route('courier.orders.show', $deliveredOrder))->assertForbidden();

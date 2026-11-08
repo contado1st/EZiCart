@@ -6,6 +6,18 @@ See the [all-module revision audit](all-modules-revision-audit.md) for implement
 
 The repository contains `EZiCart-web` (Laravel) and `ezicart_buyer_mobile` (Flutter). Run PHP, Composer and npm commands from `EZiCart-web`. Use the installed dependencies and the existing `.env` in that folder. Opening `EZiCart.code-workspace` in VS Code gives each application its own project root. Do not edit generated PHP files under `storage/framework/views`; edit their Blade source under `resources/views`.
 
+## Dashboard sections and numbered pages
+
+Use the section tabs below each dashboard's summary to open the work you need. Rider queues separate available pickups, accepted pickups, hub handoffs, deliveries, returns and failed attempts; **My rider badge** opens the handoff QR without scrolling through the work tables. Hub tabs separate arrivals, sorting, dispatch, failed deliveries, exceptions and the lifecycle guide. The next actionable rider/hub queue opens by default unless you follow a direct link or choose a different tab.
+
+Seller and marketplace-admin tabs separate orders from tools or approvals. Logistics administrators can jump directly to parcels, applications, service areas, hubs/riders or exceptions. Buyers can choose **All orders**, **Preparing to ship**, **To receive** or **Closed orders**; these filter the full purchase history, including records on later pages. Finance, storage and routing-area pages also separate their records from other tasks.
+
+Operational tables show 25 records per page, with existing 20–30 record limits retained where already appropriate. Use the page numbers at the bottom; the range tells you how many matching records exist. Paging keeps your filters and chosen dashboard section. Queue badges show the full matching total, not just the displayed page. Routing-area dropdowns still list every eligible choice even when the table has multiple pages.
+
+Use Left/Right arrows, Home or End while a dashboard tab is focused. On narrow screens, scroll the tab strip horizontally. Your chosen section stays in the URL so reload and browser Back can restore it. Existing workflow links open the relevant panel automatically. Without JavaScript, all panels remain readable. Browser printing includes the currently loaded records from every panel; use the existing report exports for a complete report across all pages.
+
+See the [dashboard navigation assessment and implementation plan](dashboard-navigation-revision-plan.md) for coverage and verification limits.
+
 ## Saved cart and selected checkout
 
 Use **Add to cart** to save products to your buyer account, including after logout. In the cart, select several products from **one shop** or use that shop's checkbox before choosing **Check out**. Selecting another shop switches your selection. Only selected products from that shop are purchased; everything else stays saved. Mixed-shop checkout is blocked on the server. **Buy now** checks out one product/variation separately, and **Cancel Buy Now** returns to that product without adding it to the cart. Checkout supports saved addresses, eligible vouchers and COD.
@@ -178,3 +190,17 @@ Vehicle displays warn about expired licenses and renewals due within 30 days. Lo
 The seller dashboard displays actual customer review averages/counts and **Unrated** for an empty review set. **Accrued seller earnings** deducts seller-funded discounts and commission, uses recorded finance snapshots where present and accounts for executed refunds. It is neither profit nor settled cash. Analytics net sales has its documented completion/remittance recognition timing; use financial settlement records to establish paid cash.
 
 Logistics administrators can search applications by name, business or email. Results are oldest-first, display waiting dates, show matching totals and provide page links. Filtering starts a fresh result list; pagination retains the current query. Open recovery exceptions also paginate, so older work is not silently hidden beyond 25 records.
+
+## Wallet, funded promotions and remittance batches
+
+Open **Wallet and balances** (or **Platform treasury** for e-commerce administrators) for available, pending, promotion reservations, withdrawal holds and transaction statements. Funds are sandbox accounting credits, not live bank/e-money deposits. Explicit local/testing enablement and a signed mock-provider event are required for funding. Never treat a browser redirect as payment confirmation.
+
+New seller/platform vouchers require a finite redemption limit and sufficient available sponsor funds for maximum liability. Percentage offers also require a maximum discount. Creation reports the required budget, available balance and shortfall. Pausing or expiry releases unused funds; redeemed amounts remain traceable. Platform promotions use shared treasury, not seller funds.
+
+Buyer checkout supports COD or a full sandbox wallet payment. Wallet orders pass the existing scanning, capacity, delivery-code and proof controls with no COD collection. Seller proceeds remain pending until existing completion, seven-day hold, funding/dispute and payout approval checks pass. Personal withdrawals require the responsible administrator's review; sandbox execution does not send actual money.
+
+Riders use **Cash remittance batches** to submit unsubmitted collections to their receiving hub. The hub records physically counted cash and receipt evidence. Exact cash verifies; shortages/excesses require logistics-admin investigation and evidenced reconciliation. Discrepancies do not automatically reduce rider earnings. Do not submit the same collection through both individual and batch remittance.
+
+Logistics administrators use **Delivery tariffs** for effective-dated drafts and independent approval. Activation requires approved ordinary-route coverage. **Shipping breakdowns** retains original buyer/seller/platform funding and verified cost allocations. Hub measurements need evidence and treasury approval for additional funding; original buyer payment remains unchanged. Tariff examples are fictional training data until replaced with approved operating costs.
+
+See the [financial implementation audit and sandbox walkthrough](wallet-remittance-delivery-fee-implementation-audit.md) for setup commands, role responsibilities, money formulas, evidence requirements, statement exports and limitations. The [research](wallet-remittance-shipping-research.md) records external sources; it does not assert an industry-wide rider/hub percentage split.

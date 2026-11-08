@@ -21,7 +21,7 @@ class AdminDisputeController extends Controller
         $disputes = Dispute::with(['order', 'buyer', 'seller'])
             ->when($status, fn ($q) => $q->where('status', $status))
             ->latest()
-            ->paginate(15);
+            ->paginate(25);
 
         return view('admin.disputes.index', compact('disputes', 'status'));
     }

@@ -28,6 +28,7 @@ use App\Http\Controllers\Courier\AssignmentAcceptanceController;
 use App\Http\Controllers\Courier\CourierController;
 use App\Http\Controllers\DirectMessageController;
 use App\Http\Controllers\FinancialController;
+use App\Http\Controllers\FinancialOperationsController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\LoadPlanningController;
 use App\Http\Controllers\Logistics\CoverageController;
@@ -197,6 +198,29 @@ Route::middleware(['auth', 'account.active', 'auth.session'])->group(function ()
     Route::post('/finance/payouts/{payout}/approve', [FinancialController::class, 'approvePayout'])->middleware(['role:admin,ecommerce_admin', 'throttle:operational-action'])->name('finance.payout.approve');
     Route::post('/finance/payouts/{payout}/settle', [FinancialController::class, 'settlePayout'])->middleware(['role:admin,ecommerce_admin', 'throttle:operational-action'])->name('finance.payout.settle');
     Route::post('/seller/disputes/{dispute}/replacement', [FinancialController::class, 'replacement'])->middleware(['role:seller', 'throttle:operational-action'])->name('seller.replacements.store');
+
+    Route::get('/wallet', [FinancialOperationsController::class, 'wallet'])->name('finance.wallet');
+    Route::post('/wallet/funding', [FinancialOperationsController::class, 'topup'])->middleware('throttle:operational-action')->name('finance.wallet.topup');
+    Route::post('/wallet/funding/{intent}/simulate', [FinancialOperationsController::class, 'simulate'])->middleware(['role:admin,ecommerce_admin', 'throttle:operational-action'])->name('finance.wallet.simulate');
+    Route::post('/wallet/withdrawals', [FinancialOperationsController::class, 'withdraw'])->middleware('throttle:operational-action')->name('finance.wallet.withdraw');
+    Route::post('/wallet/withdrawals/{withdrawal}/review', [FinancialOperationsController::class, 'reviewWithdrawal'])->middleware('throttle:operational-action')->name('finance.wallet.withdrawals.review');
+    Route::get('/finance/statements/{type}', [FinancialOperationsController::class, 'export'])->name('finance.statements');
+    Route::get('/finance/remittance-batches', [FinancialOperationsController::class, 'batches'])->middleware('role:courier,sorting_center,logistics_admin')->name('finance.batches');
+    Route::post('/finance/remittance-batches', [FinancialOperationsController::class, 'submitBatch'])->middleware(['role:courier', 'throttle:operational-action'])->name('finance.batches.submit');
+    Route::post('/finance/remittance-batches/{batch}', [FinancialOperationsController::class, 'reviewBatch'])->middleware(['role:sorting_center,logistics_admin', 'throttle:operational-action'])->name('finance.batches.review');
+    Route::get('/finance/remittance-batches/{batch}/{kind}/evidence', [FinancialOperationsController::class, 'batchEvidence'])->name('finance.batches.evidence');
+    Route::get('/finance/delivery-rates', [FinancialOperationsController::class, 'rates'])->middleware('role:logistics_admin')->name('finance.rates');
+    Route::post('/finance/delivery-rates', [FinancialOperationsController::class, 'storeRate'])->middleware(['role:logistics_admin', 'throttle:operational-action'])->name('finance.rates.store');
+    Route::post('/finance/delivery-rates/activate', [FinancialOperationsController::class, 'activateRates'])->middleware(['role:logistics_admin', 'throttle:operational-action'])->name('finance.rates.activate');
+    Route::post('/finance/delivery-rates/{rate}/approve', [FinancialOperationsController::class, 'approveRate'])->middleware(['role:logistics_admin', 'throttle:operational-action'])->name('finance.rates.approve');
+    Route::get('/finance/shipping-breakdowns', [FinancialOperationsController::class, 'shipments'])->name('finance.shipments');
+    Route::post('/finance/shipping-breakdowns/{order}/measurements', [FinancialOperationsController::class, 'proposeAdjustment'])->middleware(['role:sorting_center', 'throttle:operational-action'])->name('finance.shipments.measure');
+    Route::post('/finance/shipping-adjustments/{adjustment}/approve', [FinancialOperationsController::class, 'approveAdjustment'])->middleware(['role:admin,ecommerce_admin', 'throttle:operational-action'])->name('finance.shipments.approve');
+    Route::get('/finance/shipping-adjustments/{adjustment}/evidence', [FinancialOperationsController::class, 'adjustmentEvidence'])->name('finance.shipments.evidence');
+    Route::post('/finance/shipping-breakdowns/{order}/operating-funds', [FinancialOperationsController::class, 'proposeOperatingFunds'])->middleware(['role:logistics_admin', 'throttle:operational-action'])->name('finance.shipments.operating-funds');
+    Route::post('/finance/shipping-breakdowns/{order}/settle-return-costs', [FinancialOperationsController::class, 'settleReturnCosts'])->middleware(['role:logistics_admin', 'throttle:operational-action'])->name('finance.shipments.settle-return');
+    Route::post('/finance/refunds/{refund}/wallet', [FinancialOperationsController::class, 'walletRefund'])->middleware(['role:admin,ecommerce_admin', 'throttle:operational-action'])->name('finance.refund.wallet');
+    Route::post('/finance/payouts/{payout}/wallet', [FinancialOperationsController::class, 'settleSellerWallet'])->middleware(['role:admin,ecommerce_admin', 'throttle:operational-action'])->name('finance.payout.wallet');
 
     // Buyer-Only Routes
     Route::middleware(['role:buyer'])->group(function () {

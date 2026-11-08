@@ -12,6 +12,13 @@
     @if(session('success'))<p role="status">{{ session('success') }}</p>@endif
     @if($errors->any())<div role="alert">@foreach($errors->all() as $message)<p>{{ $message }}</p>@endforeach</div>@endif
     <p><a href="{{ route('parcel-transfers.index') }}">Review planned and active hub transfers</a></p>
+    <x-workspace-tabs :tabs="[
+        ['id' => 'parcels', 'label' => 'Parcels', 'count' => $orders->total()],
+        ['id' => 'applications', 'label' => 'Applications', 'count' => $pendingUsers->total()],
+        ['id' => 'service-areas', 'label' => 'Service areas', 'count' => $areas->total()],
+        ['id' => 'managed-accounts', 'label' => 'Hubs and riders', 'count' => $managedUsers->total()],
+        ['id' => 'network-exceptions', 'label' => 'Exceptions', 'count' => $exceptions->total()],
+    ]" />
     <section class="dash-panel" id="network-exceptions"><h2>Aging and exceptions</h2><p>{{ $aging }} parcels have had no operational update for {{ config('commerce.parcel_alert_hours') }} hours.</p>
         @forelse($exceptions as $exception)<p>Order #{{ $exception->order_id }}: {{ $exception->type ?? 'Recovery exception' }} — {{ $exception->reason ?? 'Review parcel custody before reassignment.' }}</p>@empty<p>No open recovery exceptions.</p>@endforelse
         {{ $exceptions->links() }}

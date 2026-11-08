@@ -66,8 +66,10 @@
                         <div class="voucher-form-group">
                             <label class="voucher-form-label">Total Usage Limit</label>
                             <input type="number" name="usage_limit" value="{{ old('usage_limit') }}"
-                                placeholder="Leave blank for unlimited" class="voucher-input">
+                                min="1" max="1000000" required placeholder="Maximum funded redemptions" class="voucher-input">
                         </div>
+                        <div class="voucher-form-group"><label class="voucher-form-label">Discount applies to<select name="discount_target" class="voucher-select"><option value="merchandise">Merchandise</option><option value="shipping">Shipping subsidy</option></select></label></div>
+                        <div class="voucher-form-group"><label class="voucher-form-label">Maximum discount per redemption PHP (required for percentages)<input type="number" name="max_discount" min="0.01" step="0.01" class="voucher-input" value="{{ old('max_discount') }}"></label><p>Activation reserves your maximum campaign budget. <a href="{{ route('finance.wallet') }}">View available promotional funds</a>.</p></div>
 
                         <div class="voucher-form-group">
                             <label class="voucher-form-label">Expiration Date</label>
@@ -110,7 +112,7 @@
                                         </td>
                                         <td>₱{{ number_format($voucher->min_spend, 2) }}</td>
                                         <td>
-                                            {{ $voucher->used_count }} / {{ $voucher->usage_limit ?? '∞' }}
+                                            {{ $voucher->used_count }} / {{ $voucher->usage_limit ?? '∞' }}<x-voucher-funding-summary :voucher="$voucher" />
                                             <p class="web-muted">Unique buyers: {{ $voucher->claimed_count }} / {{ $voucher->recipient_limit ?? 'Unlimited' }}<br>Remaining: {{ $voucher->recipient_limit !== null ? max(0, $voucher->recipient_limit - $voucher->claimed_count) : 'Unlimited' }}</p>
                                         </td>
                                         <td>

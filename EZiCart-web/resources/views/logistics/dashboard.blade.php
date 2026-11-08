@@ -11,10 +11,10 @@
         </div>
     </header>
 
-    @if ($exceptions->isNotEmpty())
+    @if ($exceptions->total() > 0)
         <div class="logistics-triage-banner" role="alert">
             <div>
-                <strong>Action Required: {{ $exceptions->count() }} Rider Suspension {{ Str::plural('Exception', $exceptions->count()) }}</strong>
+                <strong>Action Required: {{ $exceptions->total() }} Rider Suspension {{ Str::plural('Exception', $exceptions->count()) }}</strong>
                 <p>Parcels previously assigned to suspended couriers require physical hub recovery or route reassignment.</p>
             </div>
             <a class="ops-btn ops-btn--danger" href="#logistics-exceptions-title">Review exceptions</a>
@@ -48,19 +48,29 @@
         </div>
     </section>
 
-    <section class="ops-panel {{ $exceptions->isNotEmpty() ? 'ops-panel--urgent' : '' }}"
+    <x-workspace-tabs :default-tab="$exceptions->total() ? 'hub-exceptions' : ($queues['inbound']->total() ? 'hub-inbound' : ($queues['sorting']->total() ? 'hub-sorting' : ($queues['dispatch']->total() ? 'hub-dispatch' : ($queues['failed']->total() ? 'hub-failed' : 'hub-lifecycle'))))" :tabs="[
+        ['id' => 'hub-inbound', 'label' => 'Arrivals', 'count' => $queues['inbound']->total()],
+        ['id' => 'hub-sorting', 'label' => 'Sorting', 'count' => $queues['sorting']->total()],
+        ['id' => 'hub-dispatch', 'label' => 'Dispatch', 'count' => $queues['dispatch']->total()],
+        ['id' => 'hub-failed', 'label' => 'Failed deliveries', 'count' => $queues['failed']->total()],
+        ['id' => 'hub-exceptions', 'label' => 'Exceptions', 'count' => $exceptions->total()],
+        ['id' => 'hub-lifecycle', 'label' => 'Lifecycle'],
+    ]" />
+    <section id="hub-exceptions" class="ops-panel {{ $exceptions->total() ? 'ops-panel--urgent' : '' }}"
         aria-labelledby="logistics-exceptions-title">
         <h2 id="logistics-exceptions-title">
             <span>Rider suspension exceptions</span>
-            <span class="ops-status {{ $exceptions->isNotEmpty() ? 'ops-status--danger' : 'ops-status--green' }}">
-                {{ $exceptions->count() }} open
+            <span class="ops-status {{ $exceptions->total() ? 'ops-status--danger' : 'ops-status--green' }}">
+                {{ $exceptions->total() }} open
             </span>
         </h2>
-        @if ($exceptions->isEmpty())
+        @if ($exceptions->total() === 0)
             <div class="ops-empty">
                 <strong>Everything is clear</strong>
                 <p>No active parcels are waiting on suspended rider recovery.</p>
             </div>
+        @elseif ($exceptions->isEmpty())
+            <div class="ops-empty"><p>No exceptions on this page. Use the page numbers below to return to an open case.</p></div>
         @else
             <div class="ops-table-wrap">
                 <table class="ops-table">
@@ -105,6 +115,7 @@
                 </table>
             </div>
         @endif
+        {{ $exceptions->links() }}
     </section>
 
     <section class="ops-grid" aria-label="Operational queues">
@@ -114,7 +125,7 @@
             'dispatch' => ['Ready for rider assignment', 'logistics.dispatch', 'Assign rider'],
             'failed' => ['Failed deliveries to review', 'logistics.tracking', 'Review tracking'],
         ] as $key => [$title, $route, $actionLabel])
-            <section class="ops-panel">
+            <section class="ops-panel" id="hub-{{ $key }}">
                 <h2>
                     <span>{{ $title }}</span>
                     <a class="ops-btn" href="{{ route($route) }}">{{ $actionLabel }}</a>
@@ -152,11 +163,12 @@
                         </table>
                     </div>
                 @endif
+                {{ $queues[$key]->links() }}
             </section>
         @endforeach
     </section>
 
-    <section class="ops-panel" aria-labelledby="parcel-flow-title">
+    <section class="ops-panel" id="hub-lifecycle" aria-labelledby="parcel-flow-title">
         <h2 id="parcel-flow-title">Parcel lifecycle pipeline</h2>
         <div class="ops-flow">
             <div class="ops-flow-step">

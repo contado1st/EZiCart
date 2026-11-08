@@ -26,22 +26,22 @@ class WebCheckoutService
         }
     }
 
-    public function place(User $buyer, string $token, string $requestHash, array $cart, string $reviewedHash, ?int $voucherId, array $address): Purchase
+    public function place(User $buyer, string $token, string $requestHash, array $cart, string $reviewedHash, ?int $voucherId, array $address, string $paymentMethod = 'COD'): Purchase
     {
-        return DB::transaction(function () use ($buyer, $token, $requestHash, $cart, $reviewedHash, $voucherId, $address) {
+        return DB::transaction(function () use ($buyer, $token, $requestHash, $cart, $reviewedHash, $voucherId, $address, $paymentMethod) {
             if (DB::getDriverName() === 'sqlite') {
                 DB::table('users')->where('id', $buyer->id)->update(['updated_at' => DB::raw('updated_at')]);
             }
             User::whereKey($buyer->id)->lockForUpdate()->firstOrFail();
             if (Purchase::where('buyer_id', $buyer->id)->where('checkout_token', $token)->exists()) {
-                return $this->purchases->place($buyer, $token, $requestHash, $cart, $reviewedHash, $voucherId, $address);
+                return $this->purchases->place($buyer, $token, $requestHash, $cart, $reviewedHash, $voucherId, $address, $paymentMethod);
             }
             $voucher = $voucherId ? Voucher::whereKey($voucherId)->lockForUpdate()->first() : null;
             if ($voucher) {
                 $this->claims->assertUsable($buyer, $voucher);
             }
             $this->assertShopsOpen($cart);
-            $purchase = $this->purchases->place($buyer, $token, $requestHash, $cart, $reviewedHash, $voucherId, $address);
+            $purchase = $this->purchases->place($buyer, $token, $requestHash, $cart, $reviewedHash, $voucherId, $address, $paymentMethod);
 
             return $purchase;
         }, 3);

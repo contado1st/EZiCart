@@ -37,9 +37,9 @@ class SellerController extends Controller
         $recentOrders = $seller->sellerOrders()
             ->with(['buyer', 'items'])
             ->latest()
-            ->take(5)
-            ->get();
+            ->orderByDesc('id')->paginate(25, ['*'], 'orders_page')->withQueryString();
+        $orderStatuses = $seller->sellerOrders()->selectRaw('status, COUNT(*) as aggregate')->groupBy('status')->pluck('aggregate', 'status')->all();
 
-        return view('seller.dashboard', compact('stats', 'recentOrders'));
+        return view('seller.dashboard', compact('stats', 'recentOrders', 'orderStatuses'));
     }
 }

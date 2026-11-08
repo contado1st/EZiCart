@@ -20,7 +20,7 @@ class ProductController extends Controller
 
     public function index()
     {
-        $products = $this->authenticatedUser()->products()->with('variations')->latest()->paginate(10);
+        $products = $this->authenticatedUser()->products()->with('variations')->latest()->paginate(25);
 
         return view('seller.products.index', compact('products'));
     }
@@ -41,6 +41,7 @@ class ProductController extends Controller
             'description' => 'nullable|string',
             'price' => 'required|numeric|min:0.01',
             'weight_kg' => ParcelLoadService::KG_RULES,
+            'length_mm' => ['nullable', 'integer', 'min:1', 'max:5000'], 'width_mm' => ['nullable', 'integer', 'min:1', 'max:5000'], 'height_mm' => ['nullable', 'integer', 'min:1', 'max:5000'],
             'stock' => 'required|integer|min:0',
             'image' => 'nullable|image|mimes:jpeg,png,jpg,webp|max:2048|prohibited_if:remove_cover,1',
             ...$this->media->rules(),
@@ -75,6 +76,7 @@ class ProductController extends Controller
                     'description' => $validated['description'] ?? null,
                     'price' => $validated['price'],
                     'weight_grams' => ParcelLoadService::grams($validated['weight_kg']),
+                    'length_mm' => $validated['length_mm'] ?? null, 'width_mm' => $validated['width_mm'] ?? null, 'height_mm' => $validated['height_mm'] ?? null,
                     'stock' => $validated['stock'],
                     'image_path' => $imagePath,
                     'is_archived' => false,
@@ -135,6 +137,7 @@ class ProductController extends Controller
             'description' => 'nullable|string',
             'price' => 'required|numeric|min:0.01',
             'weight_kg' => ParcelLoadService::KG_RULES,
+            'length_mm' => ['nullable', 'integer', 'min:1', 'max:5000'], 'width_mm' => ['nullable', 'integer', 'min:1', 'max:5000'], 'height_mm' => ['nullable', 'integer', 'min:1', 'max:5000'],
             'stock' => 'required|integer|min:0',
             'image' => 'nullable|image|mimes:jpeg,png,jpg,webp|max:2048|prohibited_if:remove_cover,1',
             ...$this->media->rules($product),
@@ -168,7 +171,7 @@ class ProductController extends Controller
 
             return DB::transaction(function () use ($request, $product, $validated, $uploadedImagePath, $staged) {
                 $product = Product::query()->whereKey($product->id)->lockForUpdate()->firstOrFail();
-                $previousValues = $product->only(['name', 'price', 'stock', 'category', 'weight_grams']);
+                $previousValues = $product->only(['name', 'price', 'stock', 'category', 'weight_grams', 'length_mm', 'width_mm', 'height_mm']);
                 $previousValues['variations'] = $product->variations()->get(['id', 'type', 'value', 'sku', 'image_path', 'stock', 'price_adjustment', 'is_active'])->map(fn ($variant) => $variant->only(['id', 'type', 'value', 'sku', 'image_path', 'stock', 'price_adjustment', 'is_active']))->all();
                 $previousValues['media'] = $product->media()->get(['id', 'kind', 'path', 'sort_order'])->toArray();
                 $previousValues['image_path'] = $product->image_path;
@@ -176,6 +179,9 @@ class ProductController extends Controller
                 $imagePath = $request->boolean('remove_cover') ? null : ($uploadedImagePath ?? $product->image_path);
                 $complianceFieldsChanged = $product->name !== $validated['name']
                     || (int) $product->weight_grams !== ParcelLoadService::grams($validated['weight_kg'])
+                    || (int) $product->length_mm !== (int) ($validated['length_mm'] ?? 0)
+                    || (int) $product->width_mm !== (int) ($validated['width_mm'] ?? 0)
+                    || (int) $product->height_mm !== (int) ($validated['height_mm'] ?? 0)
                     || $product->category !== $validated['category']
                     || $product->description !== ($validated['description'] ?? null)
                     || $uploadedImagePath !== null || $staged !== []
@@ -193,6 +199,7 @@ class ProductController extends Controller
                     'description' => $validated['description'] ?? null,
                     'price' => $validated['price'],
                     'weight_grams' => ParcelLoadService::grams($validated['weight_kg']),
+                    'length_mm' => $validated['length_mm'] ?? null, 'width_mm' => $validated['width_mm'] ?? null, 'height_mm' => $validated['height_mm'] ?? null,
                     'stock' => $validated['stock'],
                     'image_path' => $imagePath,
                 ]);
@@ -241,7 +248,7 @@ class ProductController extends Controller
                     });
                 }
 
-                $nextValues = $product->only(['name', 'price', 'stock', 'category', 'weight_grams']);
+                $nextValues = $product->only(['name', 'price', 'stock', 'category', 'weight_grams', 'length_mm', 'width_mm', 'height_mm']);
                 $nextValues['variations'] = $product->variations()->get(['id', 'type', 'value', 'sku', 'image_path', 'stock', 'price_adjustment', 'is_active'])->map(fn ($variant) => $variant->only(['id', 'type', 'value', 'sku', 'image_path', 'stock', 'price_adjustment', 'is_active']))->all();
                 $nextValues['media'] = $product->media()->get(['id', 'kind', 'path', 'sort_order'])->toArray();
                 $nextValues['image_path'] = $product->image_path;

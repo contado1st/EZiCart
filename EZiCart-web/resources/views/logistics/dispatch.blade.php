@@ -108,7 +108,7 @@
                                     $order->status === 'ASSIGNED_TO_RIDER' &&
                                     !$order->hub_released_at &&
                                     $order->deliveryCourier?->status === 'approved' &&
-                                    $order->payment_method === 'COD')
+                                    app(\App\Services\OrderWalletService::class)->paymentReady($order))
                                     <input type="checkbox"
                                         form="batch-release-form"
                                         name="order_ids[]"

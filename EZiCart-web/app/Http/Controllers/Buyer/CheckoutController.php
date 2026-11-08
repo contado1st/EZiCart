@@ -26,6 +26,21 @@ class CheckoutController extends Controller
         if ($cart === []) {
             return redirect()->route('cart.index')->with('error', 'Your cart is empty.');
         }
+        $user = $this->authenticatedUser();
+        $addressBook->importProfileAddress($user);
+        $addresses = $user->addresses()->orderByDesc('is_default')->latest('id')->get();
+        $oldInput = $request->old();
+        $choice = array_key_exists('saved_address_id', $oldInput)
+            ? ($oldInput['saved_address_id'] ?: 'new')
+            : $request->query('address_id');
+        $selectedAddress = $choice === 'new' ? null : $addresses->firstWhere('is_default', true);
+        if ($choice !== null && $choice !== 'new') {
+            abort_unless(is_scalar($choice) && ctype_digit((string) $choice), 404);
+            $selectedAddress = $user->addresses()->findOrFail((int) $choice);
+        }
+
+        $request->validate(['payment_method' => ['nullable', 'in:COD,WALLET']]);
+        $paymentMethod = $request->query('payment_method', 'COD') ?: 'COD';
         $appliedVoucher = $request->session()->get('applied_voucher');
         $voucher = $appliedVoucher ? Voucher::find($appliedVoucher['id']) : null;
         try {
@@ -33,7 +48,7 @@ class CheckoutController extends Controller
             if ($voucher) {
                 app(VoucherClaimService::class)->assertUsable($request->user(), $voucher);
             }
-            $quote = $pricing->quote($cart, $voucher);
+            $quote = $pricing->quote($cart, $voucher, false, ['address' => $selectedAddress?->toArray() ?? $request->session()->get('checkout_shipping_context') ?? $user->only(['province', 'municipality', 'barangay']), 'payment_method' => $paymentMethod]);
         } catch (ValidationException $exception) {
             if (isset($exception->errors()['voucher_code'])) {
                 $request->session()->forget('applied_voucher');
@@ -60,20 +75,8 @@ class CheckoutController extends Controller
         $discount = $quote['discount_cents'] / 100;
         $shippingFee = $quote['shipping_cents'] / 100;
         $total = $quote['total_cents'] / 100;
-        $user = $this->authenticatedUser();
-        $addressBook->importProfileAddress($user);
-        $addresses = $user->addresses()->orderByDesc('is_default')->latest('id')->get();
-        $oldInput = $request->old();
-        $choice = array_key_exists('saved_address_id', $oldInput)
-            ? ($oldInput['saved_address_id'] ?: 'new')
-            : $request->query('address_id');
-        $selectedAddress = $choice === 'new' ? null : $addresses->firstWhere('is_default', true);
-        if ($choice !== null && $choice !== 'new') {
-            abort_unless(is_scalar($choice) && ctype_digit((string) $choice), 404);
-            $selectedAddress = $user->addresses()->findOrFail((int) $choice);
-        }
 
-        return view('checkout.index', compact('cart', 'subtotal', 'discount', 'shippingFee', 'total', 'user', 'appliedVoucher', 'quote', 'token', 'addresses', 'selectedAddress', 'checkoutMode'));
+        return view('checkout.index', compact('cart', 'subtotal', 'discount', 'shippingFee', 'total', 'user', 'appliedVoucher', 'quote', 'token', 'addresses', 'selectedAddress', 'checkoutMode', 'paymentMethod'));
     }
 
     public function applyVoucher(Request $request, CheckoutPricingService $pricing): RedirectResponse
@@ -105,7 +108,7 @@ class CheckoutController extends Controller
         $validated = $request->validate([
             'checkout_token' => ['required', 'uuid'], 'quote_hash' => ['required', 'string', 'size:64'],
             'saved_address_id' => ['nullable', 'integer', 'min:1'],
-            'payment_method' => ['required', 'in:COD'], 'notes' => ['nullable', 'string', 'max:200'],
+            'payment_method' => ['required', 'in:COD,WALLET'], 'notes' => ['nullable', 'string', 'max:200'],
         ]);
         if (empty($validated['saved_address_id'])) {
             $validated = [...$validated, ...$request->validate([
@@ -154,7 +157,8 @@ class CheckoutController extends Controller
         ];
         try {
             $items = $this->checkoutItems($request);
-            $place = fn () => $purchases->place($buyer, $validated['checkout_token'], $requestHash, $items, $validated['quote_hash'], $request->session()->get('applied_voucher.id'), $address);
+            $request->session()->put('checkout_shipping_context', $address);
+            $place = fn () => $purchases->place($buyer, $validated['checkout_token'], $requestHash, $items, $validated['quote_hash'], $request->session()->get('applied_voucher.id'), $address, $validated['payment_method']);
             if ($request->session()->get('checkout_context.mode') === 'buy_now') {
                 $place();
             } else {
@@ -167,7 +171,7 @@ class CheckoutController extends Controller
 
             return back()->withInput()->with('error', "We couldn't place your order right now. Please try again.");
         }
-        $request->session()->forget(['checkout_context', 'applied_voucher', 'checkout_token', 'checkout_quote_hash']);
+        $request->session()->forget(['checkout_shipping_context', 'checkout_context', 'applied_voucher', 'checkout_token', 'checkout_quote_hash']);
         $request->session()->put('cart', app(BuyerCartService::class)->display($buyer));
 
         return redirect()->route('buyer.dashboard')->with('success', 'Order placed successfully. Your seller will prepare the shipment.');
@@ -176,7 +180,7 @@ class CheckoutController extends Controller
     public function cancel(Request $request): RedirectResponse
     {
         $productId = $request->session()->get('checkout_context.mode') === 'buy_now' ? collect($request->session()->get('checkout_context.items', []))->first()['product_id'] ?? null : null;
-        $request->session()->forget(['checkout_context', 'applied_voucher', 'checkout_token', 'checkout_quote_hash']);
+        $request->session()->forget(['checkout_shipping_context', 'checkout_context', 'applied_voucher', 'checkout_token', 'checkout_quote_hash']);
 
         return $productId ? redirect()->route('product.show', $productId)->with('success', 'Buy Now checkout cancelled. Your cart is unchanged.') : redirect()->route('cart.index');
     }

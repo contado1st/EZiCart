@@ -16,7 +16,7 @@ class CheckoutPricingService
     }
 
     /** Authoritative integer-cent calculation shared by the page and order creation. */
-    public function quote(array $cart, ?Voucher $voucher = null, bool $lock = false): array
+    public function quote(array $cart, ?Voucher $voucher = null, bool $lock = false, array $context = []): array
     {
         if ($cart === []) {
             throw ValidationException::withMessages(['cart' => 'Your cart is empty.']);
@@ -75,6 +75,7 @@ class CheckoutPricingService
         $eligible = 0;
         $standardShipping = (int) (DB::table('commerce_settings')->where('key', 'shipping_per_seller_cents')->value('value') ?? config('commerce.shipping_per_seller_cents'));
         foreach ($groups as $sellerId => &$group) {
+            $group['shipping_snapshot'] = app(DeliveryPricingService::class)->quote($group['lines'][array_key_first($group['lines'])]['product']->seller, $group['lines'], $context['address'] ?? [], $context['payment_method'] ?? 'COD');
             $group['subtotal_cents'] = array_sum(array_column($group['lines'], 'item_cents'));
             $group['eligible'] = $voucher && ($voucher->seller_id === null || (int) $voucher->seller_id === (int) $sellerId);
             if ($group['eligible']) {
@@ -85,11 +86,13 @@ class CheckoutPricingService
         if ($voucher && ($eligible < 1 || ! $voucher->isValidForAmount($eligible / 100))) {
             throw ValidationException::withMessages(['voucher_code' => 'Voucher is inactive, expired, exhausted, or does not meet the eligible seller minimum spend.']);
         }
-        $discount = $voucher ? self::cents($voucher->calculateDiscount($eligible / 100)) : 0;
+        $shippingVoucher = $voucher?->discount_target === 'shipping';
+        $eligibleShipping = array_sum(array_map(fn ($group) => $group['eligible'] ? $group['shipping_snapshot']['total_cents'] : 0, $groups));
+        $discount = $voucher ? self::cents($voucher->calculateDiscount(($shippingVoucher ? $eligibleShipping : $eligible) / 100)) : 0;
         $allocations = $remainders = [];
         foreach ($groups as $sellerId => $group) {
-            if ($group['eligible']) {
-                [$allocations[$sellerId], $remainders[$sellerId]] = $this->proportionalShare($discount, $group['subtotal_cents'], $eligible);
+            if ($group['eligible'] && $discount > 0) {
+                [$allocations[$sellerId], $remainders[$sellerId]] = $this->proportionalShare($discount, $shippingVoucher ? $group['shipping_snapshot']['total_cents'] : $group['subtotal_cents'], $shippingVoucher ? $eligibleShipping : $eligible);
             }
         }
         $remaining = $discount - array_sum($allocations);
@@ -102,9 +105,10 @@ class CheckoutPricingService
             $remaining--;
         }
         foreach ($groups as $sellerId => &$group) {
-            $group['discount_cents'] = $allocations[$sellerId] ?? 0;
+            $group['discount_cents'] = $shippingVoucher ? 0 : ($allocations[$sellerId] ?? 0);
+            $group['shipping_discount_cents'] = $shippingVoucher ? ($allocations[$sellerId] ?? 0) : 0;
             $group['platform_discount_cents'] = $voucher && $voucher->seller_id === null ? $group['discount_cents'] : 0;
-            $group['shipping_cents'] = $standardShipping;
+            $group['shipping_cents'] = $group['shipping_snapshot']['total_cents'] - $group['shipping_discount_cents'];
             $net = $group['subtotal_cents'] - $group['discount_cents'];
             $group['commission_cents'] = intdiv(($net + $group['platform_discount_cents']) * (int) config('commerce.commission_basis_points') + 5000, 10000);
             $group['total_cents'] = $net + $group['shipping_cents'];
@@ -122,7 +126,7 @@ class CheckoutPricingService
             'subtotal_cents' => array_sum(array_column($groups, 'subtotal_cents')),
             'discount_cents' => $discount, 'shipping_cents' => array_sum(array_column($groups, 'shipping_cents')),
             'standard_shipping_cents' => $standardShipping,
-            'hash' => hash('sha256', json_encode([$fingerprint, $voucher?->id, $discount, $total], JSON_THROW_ON_ERROR)),
+            'hash' => hash('sha256', json_encode([$fingerprint, $voucher?->id, $discount, $total, array_column(array_values($groups), 'shipping_snapshot')], JSON_THROW_ON_ERROR)),
         ];
     }
 

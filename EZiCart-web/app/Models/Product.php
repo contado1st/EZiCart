@@ -18,6 +18,7 @@ class Product extends Model
     protected $fillable = [
         'user_id', 'name', 'description', 'category',
         'price', 'stock', 'image_path', 'is_archived', 'weight_grams',
+        'length_mm', 'width_mm', 'height_mm',
     ];
 
     public function scopeAvailableForMarketplace(Builder $query): Builder

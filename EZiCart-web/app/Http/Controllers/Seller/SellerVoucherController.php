@@ -5,8 +5,10 @@ namespace App\Http\Controllers\Seller;
 use App\Http\Controllers\Controller;
 use App\Models\SellerPromotion;
 use App\Models\Voucher;
+use App\Models\VoucherBudget;
 use App\Services\AdministrativeAuditService;
 use App\Services\VoucherClaimService;
+use App\Services\VoucherFundingService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -17,7 +19,7 @@ class SellerVoucherController extends Controller
 
     public function index()
     {
-        $vouchers = $this->authenticatedUser()->vouchers()->latest()->paginate(10);
+        $vouchers = $this->authenticatedUser()->vouchers()->with('budget.reserveAccount')->latest()->paginate(25);
 
         return view('seller.vouchers.index', compact('vouchers'));
     }
@@ -30,9 +32,11 @@ class SellerVoucherController extends Controller
         $validated = $request->validate([
             'code' => 'required|string|max:50|unique:vouchers,code',
             'type' => 'required|in:fixed,percent',
-            'value' => 'required|numeric|min:1',
-            'min_spend' => 'nullable|numeric|min:0',
-            'usage_limit' => 'nullable|integer|min:1',
+            'value' => 'required|numeric|decimal:0,2|min:1|max:1000000',
+            'min_spend' => 'nullable|numeric|decimal:0,2|min:0|max:1000000',
+            'usage_limit' => 'required|integer|min:1|max:1000000',
+            'discount_target' => ['nullable', 'in:merchandise,shipping'],
+            'max_discount' => ['required_if:type,percent', 'nullable', 'numeric', 'min:0.01', 'decimal:0,2'],
             'recipient_limit' => 'nullable|integer|min:1|max:1000000',
             'per_buyer_limit' => 'nullable|integer|min:1|max:1000',
             'expires_at' => 'nullable|date|after:today',
@@ -53,7 +57,9 @@ class SellerVoucherController extends Controller
                 'per_buyer_limit' => $validated['per_buyer_limit'] ?? 1,
                 'expires_at' => $validated['expires_at'] ?? null,
                 'is_active' => true,
+                'discount_target' => $validated['discount_target'] ?? 'merchandise', 'max_discount' => $validated['max_discount'] ?? null,
             ]);
+            app(VoucherFundingService::class)->reserve($voucher, $this->authenticatedUser());
             $this->audits->record($this->authenticatedUser(), $voucher, 'seller_voucher_created', [], $voucher->only(['code', 'type', 'value', 'min_spend', 'usage_limit', 'expires_at']), 'Seller-funded store voucher created.');
         });
 
@@ -67,6 +73,11 @@ class SellerVoucherController extends Controller
         DB::transaction(function () use ($voucher): void {
             $locked = Voucher::whereKey($voucher->id)->lockForUpdate()->firstOrFail();
             $previous = (bool) $locked->is_active;
+            if ($previous) {
+                app(VoucherFundingService::class)->release($locked, $this->authenticatedUser());
+            } else {
+                app(VoucherFundingService::class)->reserve($locked, $this->authenticatedUser());
+            }
             $locked->update(['is_active' => ! $previous]);
             $this->audits->record($this->authenticatedUser(), $locked, 'seller_voucher_toggled', ['is_active' => $previous], ['is_active' => ! $previous], 'Seller changed store voucher availability.');
         });
@@ -82,6 +93,11 @@ class SellerVoucherController extends Controller
         abort_if($voucher->seller_id !== $this->authenticatedUser()->id, 403);
 
         DB::transaction(function () use ($voucher): void {
+            if (VoucherBudget::where('voucher_id', $voucher->id)->exists()) {
+                app(VoucherFundingService::class)->release($voucher, $this->authenticatedUser());
+
+                return;
+            }
             $this->audits->record($this->authenticatedUser(), $voucher, 'seller_voucher_deleted', $voucher->only(['code', 'type', 'value', 'used_count']), [], 'Seller removed a store voucher. Historical order discounts are retained.');
             if ($voucher->used_count > 0 || DB::table('voucher_claims')->where('voucher_id', $voucher->id)->exists()
                 || SellerPromotion::where('voucher_id', $voucher->id)->exists()) {

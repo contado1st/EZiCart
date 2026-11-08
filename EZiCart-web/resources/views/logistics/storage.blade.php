@@ -8,7 +8,13 @@
         </div>
     </header>
 
-    <section class="ops-grid">
+    <x-workspace-tabs :tabs="[
+        ['id' => 'storage-locations', 'label' => 'Locations', 'count' => $locations->total()],
+        ['id' => 'storage-placements', 'label' => 'Active placements', 'count' => $placements->total()],
+        ['id' => 'storage-tools', 'label' => 'Create and put away'],
+        ['id' => 'storage-count', 'label' => 'Cycle count'],
+    ]" />
+    <section class="ops-grid" id="storage-tools">
         <div class="ops-panel">
             <h2>Create a storage location</h2>
             <form class="ops-form" method="POST" action="{{ route('logistics.storage.locations.create') }}">
@@ -60,7 +66,7 @@
         </div>
     </section>
 
-    <section class="ops-panel">
+    <section class="ops-panel" id="storage-count">
         <h2>Cycle count verification</h2>
         <p class="ops-muted">Scan the location label, then enter one parcel QR/code per line. The system validates the scanned set against active hub placements.</p>
         <form class="ops-form" method="POST" action="{{ route('logistics.storage.cycle-count') }}" data-decision="logistics.storage.cycle-count" data-decision-title="Save inventory count?" data-decision-message="Check the recorded counts and discrepancies before saving this storage audit." data-decision-label="Save count" data-decision-tone="normal" onsubmit="return window.eziDecisionReady ? true : window.confirm(this.dataset.decisionMessage)">
@@ -103,8 +109,8 @@
         @endif
     </section>
 
-    <section class="ops-panel">
-        <h2>Hub storage locations <span class="ops-muted">{{ $locations->count() }} configured</span></h2>
+    <section class="ops-panel" id="storage-locations">
+        <h2>Hub storage locations <span class="ops-muted">{{ $locations->total() }} configured</span></h2>
         <div class="ops-table-wrap">
             <table class="ops-table">
                 <thead>
@@ -154,10 +160,11 @@
                 </tbody>
             </table>
         </div>
+        {{ $locations->links() }}
     </section>
 
-    <section class="ops-panel">
-        <h2>Active placements <span class="ops-muted">{{ $placements->count() }} recent</span></h2>
+    <section class="ops-panel" id="storage-placements">
+        <h2>Active placements <span class="ops-muted">{{ $placements->total() }} active</span></h2>
         <div class="ops-table-wrap">
             <table class="ops-table">
                 <thead>
@@ -201,5 +208,6 @@
                 </tbody>
             </table>
         </div>
+        {{ $placements->links() }}
     </section>
 @endsection

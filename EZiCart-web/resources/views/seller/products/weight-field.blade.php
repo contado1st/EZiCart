@@ -1,1 +1,5 @@
 <div class="form-group"><label class="form-label" for="product-weight">Weight per product unit (kg) *</label><input class="form-control" id="product-weight" name="weight_kg" type="number" min="0.001" max="100000" step="0.001" value="{{ old('weight_kg', isset($product) && $product->weight_grams ? $product->weight_grams / 1000 : '') }}" required><small>Measure one unit. The seller records the final packed parcel weight, including packaging, before pickup.</small>@error('weight_kg')<p class="profile-field-error">{{ $message }}</p>@enderror</div>
+
+@foreach(['length_mm' => 'Unit length (mm)', 'width_mm' => 'Unit width (mm)', 'height_mm' => 'Unit height (mm)'] as $dimension => $dimensionLabel)
+<div class="form-group"><label class="form-label" for="product-{{ $dimension }}">{{ $dimensionLabel }}</label><input id="product-{{ $dimension }}" class="form-control" name="{{ $dimension }}" type="number" min="1" max="5000" value="{{ old($dimension, isset($product) ? $product->{$dimension} : '') }}"><small>Optional declared packaging dimension. Hub measurements are reviewed separately.</small></div>
+@endforeach

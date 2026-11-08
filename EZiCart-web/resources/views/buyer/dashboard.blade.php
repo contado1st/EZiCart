@@ -35,6 +35,11 @@
                 </div>
             @endif
 
+            <nav class="workspace-order-tabs" aria-label="Purchase status">
+                @foreach (['all' => 'All orders', 'to_ship' => 'Preparing to ship', 'to_receive' => 'To receive', 'completed' => 'Closed orders'] as $group => $label)
+                    <a href="{{ request()->fullUrlWithQuery(['order_group' => $group, 'status' => null, 'page' => null]) }}" @if ($orderGroup === $group) aria-current="page" @endif>{{ $label }} <span class="workspace-tab-count">{{ number_format($counts[$group]) }}</span></a>
+                @endforeach
+            </nav>
             <div class="dash-panel">
                 <div class="workspace-orders-heading">
                     <h2 class="dash-panel-title">Order history</h2>
@@ -161,7 +166,7 @@
                         </div>
                     </div>
                 @empty
-                    <div class="dash-empty-box">You have not placed any orders yet.</div>
+                    <div class="dash-empty-box">@if ($counts['all'] === 0)You have not placed any orders yet.@else No orders match this page and status. Choose another status or use the page controls below.@endif</div>
                 @endforelse
                 <div class="workspace-pagination">{{ $orders->links() }}</div>
             </div>

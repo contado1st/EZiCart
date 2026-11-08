@@ -96,6 +96,7 @@
                     </tbody>
                 </table>
             </div>
+            {{ $products->links() }}
         </main>
     </div>
 @endsection

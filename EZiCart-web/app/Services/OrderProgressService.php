@@ -31,7 +31,7 @@ class OrderProgressService
                 : ($order->deliveryAssignments->where('status', 'active')->first()?->accepted_at
                     ? ['sorting_center', 'The rider accepted. Scan the rider badge and parcel to confirm physical release.', 'logistics.orders.releaseToRider']
                     : ['courier', 'The assigned delivery rider must accept the assignment.', 'courier.orders.accept-assignment']),
-            'OUT_FOR_DELIVERY' => ['courier', 'Deliver to the buyer, collect COD and record the delivery code and proof photo.', 'courier.orders.completeDelivery'],
+            'OUT_FOR_DELIVERY' => ['courier', ($order->payment_method === 'WALLET' ? 'Deliver the prepaid parcel and record the delivery code and proof photo. Do not collect cash.' : 'Deliver to the buyer, collect COD and record the delivery code and proof photo.'), 'courier.orders.completeDelivery'],
             'DELIVERY_FAILED' => ['sorting_center', 'Review the failure and physically recover the parcel before retrying or returning it.', ''],
             'DELIVERED' => ['buyer', 'The parcel was delivered. Inspect it and confirm receipt.', 'buyer.orders.confirm'],
             'COMPLETED' => ['buyer', 'Receipt is confirmed. You can review the purchased products.', 'buyer.orders.review'],

@@ -215,6 +215,7 @@ class Order extends Model
     {
         return [
             'weight_recorded_at' => 'datetime',
+            'financial_version' => 'integer', 'wallet_paid_cents' => 'integer', 'seller_promo_funded_cents' => 'integer', 'platform_shipping_funded_cents' => 'integer', 'shipping_discount_cents' => 'integer',
             'seller_response_due_at' => 'datetime',
             'preparation_due_at' => 'datetime',
             'seller_reminded_at' => 'datetime',

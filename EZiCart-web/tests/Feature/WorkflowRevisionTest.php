@@ -15,6 +15,7 @@ use App\Models\RefundExecution;
 use App\Models\SellerPayout;
 use App\Models\User;
 use App\Notifications\OrderWorkflowNotification;
+use App\Services\FinancialLedgerService;
 use App\Services\InventoryRestorationService;
 use App\Services\OrderFinancialService;
 use App\Services\TransactionAwareNotificationSender;
@@ -303,7 +304,9 @@ class WorkflowRevisionTest extends TestCase
     public function test_platform_voucher_management_is_commerce_only_and_ignores_submitted_seller_ownership(): void
     {
         $this->actingAs($this->user('ecommerce_admin'))->get(route('admin.vouchers.index'))->assertOk();
-        $this->post(route('admin.vouchers.store'), ['code' => 'platform-ten', 'type' => 'fixed', 'value' => 10, 'min_spend' => 0, 'seller_id' => $this->user('seller')->id])->assertRedirect();
+        $ledger = app(FinancialLedgerService::class);
+        $ledger->transfer('platform-promotion-test-funding', 'synthetic_test_funding', $ledger->account('test:clearing', 'test', null, 'available', true), $ledger->treasury(), 1000, null);
+        $this->post(route('admin.vouchers.store'), ['code' => 'platform-ten', 'type' => 'fixed', 'value' => 10, 'min_spend' => 0, 'usage_limit' => 1, 'seller_id' => $this->user('seller')->id])->assertRedirect();
         $this->assertDatabaseHas('vouchers', ['code' => 'PLATFORM-TEN', 'seller_id' => null]);
         $this->flushSession();
         $this->actingAs($this->user('logistics_admin'))->post(route('admin.vouchers.store'), ['code' => 'FORBIDDEN', 'type' => 'fixed', 'value' => 10, 'min_spend' => 0])->assertForbidden();

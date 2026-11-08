@@ -74,9 +74,13 @@
             </div>
 
             <!-- Workflow Grid -->
+            <x-workspace-tabs :tabs="[
+                ['id' => 'platform-orders', 'label' => 'Platform orders', 'count' => $recentOrders->total()],
+                ['id' => 'platform-approvals', 'label' => 'Approvals and overview', 'count' => $pendingUsers->total()],
+            ]" />
             <div class="dash-workflow-grid">
                 <!-- Left: System Transactions -->
-                <div class="dash-panel">
+                <div class="dash-panel" id="platform-orders">
                     <h3 class="dash-panel-title">Recent Platform Orders</h3>
 
                     <div class="dash-table-wrapper">
@@ -139,11 +143,12 @@
                             </tbody>
                         </table>
                     </div>
+                    {{ $recentOrders->links() }}
                 </div>
 
                 <!-- Right: Quick Verification Queue -->
-                <div class="dash-panel">
-                    <x-workspace-distribution :values="$recentOrders->countBy('status')->all()" label="Orders by status" description="Status mix of the latest platform orders." />
+                <div class="dash-panel" id="platform-approvals">
+                    <x-workspace-distribution :values="$orderStatuses" label="Orders by status" description="Status mix of all platform orders." />
                     <div class="dash-panel-header-row">
                         <h3 class="dash-panel-title dash-panel-title-compact">Pending Approvals</h3>
                         <a href="{{ route('admin.registrations.index') }}" class="dash-action-link">View All →</a>
@@ -175,6 +180,7 @@
                             <x-shop-icon name="checklist" /> All user registration requests have been addressed.
                         </div>
                     @endforelse
+                    {{ $pendingUsers->links() }}
                 </div>
             </div>
         </main>

@@ -113,7 +113,7 @@ class WorkflowAttentionService
 
     private function candidates(User $user): Builder
     {
-        $query = $this->scoped($user)->where('payment_method', 'COD')->whereDoesntHave('activeTransfer')
+        $query = $this->scoped($user)->where(fn (Builder $payment) => $payment->where('payment_method', 'COD')->orWhere(fn (Builder $wallet) => $wallet->where('payment_method', 'WALLET')->whereNotNull('wallet_transaction_id')))->whereDoesntHave('activeTransfer')
             ->whereDoesntHave('dispute', fn ($q) => $q->whereIn('status', ['PENDING', 'UNDER_REVIEW', 'REFUND_APPROVED', 'REPLACEMENT_APPROVED']));
         if ($user->role !== 'seller') {
             $query->whereDoesntHave('pendingCancellation');

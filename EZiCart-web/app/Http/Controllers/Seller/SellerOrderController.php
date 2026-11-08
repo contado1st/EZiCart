@@ -10,6 +10,7 @@ use App\Models\User;
 use App\Notifications\OrderWorkflowNotification;
 use App\Services\LogisticsHubNotificationService;
 use App\Services\OrderTransitionService;
+use App\Services\OrderWalletService;
 use App\Services\ParcelLabelService;
 use App\Services\ParcelLoadService;
 use App\Services\QrCodeService;
@@ -35,7 +36,7 @@ class SellerOrderController extends Controller
             $query->where('status', $status);
         }
 
-        $orders = $query->paginate(10)->withQueryString();
+        $orders = $query->paginate(25)->withQueryString();
 
         $counts = [
             'all' => $this->authenticatedUser()->sellerOrders()->count(),
@@ -171,7 +172,7 @@ class SellerOrderController extends Controller
             $lockedOrder = Order::query()->whereKey($order->id)->lockForUpdate()->firstOrFail();
             abort_unless(
                 $lockedOrder->status === 'READY_FOR_PICKUP'
-                    && $lockedOrder->payment_method === 'COD'
+                    && app(OrderWalletService::class)->paymentReady($lockedOrder)
                     && $lockedOrder->pickup_requested_at === null
                     && $lockedOrder->pickup_courier_id === null,
                 422,
@@ -247,7 +248,7 @@ class SellerOrderController extends Controller
             abort_if($lockedOrder->pendingCancellation()->exists(), 422, 'Resolve the pending cancellation request before parcel handover.');
             abort_unless(
                 $lockedOrder->status === 'READY_FOR_PICKUP'
-                    && $lockedOrder->payment_method === 'COD'
+                    && app(OrderWalletService::class)->paymentReady($lockedOrder)
                     && $lockedOrder->pickup_courier_id !== null
                     && $lockedOrder->pickup_arrived_at !== null
                     && $lockedOrder->seller_handover_at === null,

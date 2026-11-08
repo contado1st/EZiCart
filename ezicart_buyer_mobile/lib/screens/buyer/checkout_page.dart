@@ -121,6 +121,20 @@ class _CheckoutPageState extends State<CheckoutPage> {
       if (_customAddressData.postalCode != null) payload['postal_code'] = _customAddressData.postalCode;
     }
 
+    final destination = _selectedAddressId == null
+        ? <String, dynamic>{'province': _customAddressData.province, 'municipality': _customAddressData.municipality, 'barangay': _customAddressData.barangay}
+        : <String, dynamic>{'province': _savedAddresses.firstWhere((a) => a.id == _selectedAddressId).province, 'municipality': _savedAddresses.firstWhere((a) => a.id == _selectedAddressId).municipality, 'barangay': _savedAddresses.firstWhere((a) => a.id == _selectedAddressId).barangay};
+    final previousTotal = cart.total;
+    final refreshed = await cart.fetchAuthoritativeQuote(destination: destination);
+    if (!mounted) return;
+    if (!refreshed || (previousTotal - cart.total).abs() > 0.005) {
+      setState(() => _isSubmitting = false);
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(refreshed ? 'Delivery pricing changed for this address. Review the updated total before placing the order.' : (cart.errorMessage ?? 'Unable to verify delivery pricing.'))));
+      return;
+    }
+    payload['checkout_token'] = cart.checkoutToken;
+    payload['quote_hash'] = cart.quoteHash;
+
     try {
       final res = await ApiService.post(ApiConfig.checkoutEndpoint, payload);
       final body = jsonDecode(res.body);

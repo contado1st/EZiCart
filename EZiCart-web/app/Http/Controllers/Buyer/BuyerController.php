@@ -16,7 +16,14 @@ class BuyerController extends Controller
 {
     public function dashboard(Request $request)
     {
+        $request->validate(['order_group' => ['nullable', 'in:all,to_ship,to_receive,completed'], 'status' => ['nullable', 'string', 'max:50']]);
         $status = $request->query('status');
+        $orderGroup = $request->query('order_group', 'all') ?: 'all';
+        $groups = [
+            'to_ship' => ['PLACED', 'CONFIRMED', 'PREPARING'],
+            'to_receive' => ['READY_FOR_PICKUP', 'PICKED_UP', 'AT_SORTING_CENTER', 'SORTED', 'ASSIGNED_TO_RIDER', 'OUT_FOR_DELIVERY', 'DELIVERED', 'DELIVERY_FAILED', 'RETURN_IN_TRANSIT'],
+            'completed' => ['COMPLETED', 'CANCELLED', 'RETURNED', 'RETURNED_TO_SELLER'],
+        ];
 
         $query = $this->authenticatedUser()->buyerOrders()
             ->with(['seller', 'items.product', 'pendingCancellation'])
@@ -25,17 +32,20 @@ class BuyerController extends Controller
         if ($status) {
             $query->where('status', $status);
         }
+        if (isset($groups[$orderGroup])) {
+            $query->whereIn('status', $groups[$orderGroup]);
+        }
 
-        $orders = $query->paginate(10)->withQueryString();
+        $orders = $query->orderByDesc('id')->paginate(25)->withQueryString();
 
         $counts = [
             'all' => $this->authenticatedUser()->buyerOrders()->count(),
-            'to_ship' => $this->authenticatedUser()->buyerOrders()->whereIn('status', ['PLACED', 'CONFIRMED', 'PREPARING'])->count(),
-            'to_receive' => $this->authenticatedUser()->buyerOrders()->whereIn('status', ['READY_FOR_PICKUP', 'PICKED_UP', 'AT_SORTING_CENTER', 'SORTED', 'ASSIGNED_TO_RIDER', 'OUT_FOR_DELIVERY', 'DELIVERED', 'DELIVERY_FAILED', 'RETURN_IN_TRANSIT'])->count(),
-            'completed' => $this->authenticatedUser()->buyerOrders()->whereIn('status', ['COMPLETED', 'CANCELLED', 'RETURNED', 'RETURNED_TO_SELLER'])->count(),
+            'to_ship' => $this->authenticatedUser()->buyerOrders()->whereIn('status', $groups['to_ship'])->count(),
+            'to_receive' => $this->authenticatedUser()->buyerOrders()->whereIn('status', $groups['to_receive'])->count(),
+            'completed' => $this->authenticatedUser()->buyerOrders()->whereIn('status', $groups['completed'])->count(),
         ];
 
-        return view('buyer.dashboard', compact('orders', 'counts'));
+        return view('buyer.dashboard', compact('orders', 'counts', 'orderGroup'));
     }
 
     public function showOrder(Order $order, DeliveryCodeService $deliveryCodes, QrCodeService $qrCodes)

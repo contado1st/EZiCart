@@ -19,6 +19,7 @@ use App\Services\LogisticsCoverageService;
 use App\Services\LogisticsExceptionService;
 use App\Services\OrderAreaService;
 use App\Services\OrderTransitionService;
+use App\Services\OrderWalletService;
 use App\Services\ParcelLoadService;
 use App\Services\QrCodeService;
 use App\Services\RegistrationIdentityService;
@@ -221,10 +222,10 @@ class LogisticsController extends Controller
         );
 
         $queues = [
-            'inbound' => $this->hubOrders($operator)->with(['seller', 'pickupCourier'])->where('status', 'PICKED_UP')->latest()->limit(8)->get(),
-            'sorting' => $this->hubOrders($operator)->with('buyer')->where('status', 'AT_SORTING_CENTER')->latest()->limit(8)->get(),
-            'dispatch' => $this->hubOrders($operator)->with(['buyer', 'deliveryCourier'])->where('status', 'SORTED')->latest()->limit(8)->get(),
-            'failed' => $this->hubOrders($operator)->with(['buyer', 'deliveryCourier'])->where('status', 'DELIVERY_FAILED')->latest()->limit(5)->get(),
+            'inbound' => $this->hubOrders($operator)->with(['seller', 'pickupCourier'])->where('status', 'PICKED_UP')->latest()->orderByDesc('id')->paginate(25, ['*'], 'inbound_page')->withQueryString(),
+            'sorting' => $this->hubOrders($operator)->with('buyer')->where('status', 'AT_SORTING_CENTER')->latest()->orderByDesc('id')->paginate(25, ['*'], 'sorting_page')->withQueryString(),
+            'dispatch' => $this->hubOrders($operator)->with(['buyer', 'deliveryCourier'])->where('status', 'SORTED')->latest()->orderByDesc('id')->paginate(25, ['*'], 'dispatch_page')->withQueryString(),
+            'failed' => $this->hubOrders($operator)->with(['buyer', 'deliveryCourier'])->where('status', 'DELIVERY_FAILED')->latest()->orderByDesc('id')->paginate(25, ['*'], 'failed_page')->withQueryString(),
         ];
         $exceptions = DB::table('logistics_exceptions')
             ->join('orders', 'orders.id', '=', 'logistics_exceptions.order_id')
@@ -234,13 +235,13 @@ class LogisticsController extends Controller
                 $query->whereNull('orders.sorting_center_id')->orWhere('orders.sorting_center_id', $operator->id);
             })
             ->orderByDesc('logistics_exceptions.created_at')
-            ->limit(25)
-            ->get([
+            ->orderByDesc('logistics_exceptions.id')
+            ->paginate(25, [
                 'logistics_exceptions.id', 'logistics_exceptions.order_id', 'logistics_exceptions.reason',
                 'logistics_exceptions.type',
                 'orders.order_number', 'orders.status as order_status', 'orders.hub_released_at',
                 'riders.first_name as rider_first_name', 'riders.last_name as rider_last_name',
-            ]);
+            ], 'exceptions_page')->withQueryString();
 
         return view('logistics.dashboard', compact('stats', 'queues', 'exceptions'));
     }
@@ -252,7 +253,7 @@ class LogisticsController extends Controller
             ->when($request->filled('search'), function (Builder $query) use ($request): void {
                 $query->whereRaw("order_number LIKE ? ESCAPE '!'", [$this->orderNumberSearchPattern($request->string('search')->toString())]);
             })
-            ->latest()->paginate(15)->withQueryString();
+            ->latest()->paginate(25)->withQueryString();
 
         return view('logistics.intake', compact('parcels'));
     }
@@ -262,7 +263,7 @@ class LogisticsController extends Controller
         $operator = $this->authenticatedUser();
         $orders = $this->hubOrders($operator)->with(['seller', 'items', 'pickupCourier'])
             ->where('status', 'READY_FOR_PICKUP')
-            ->where('payment_method', 'COD')
+            ->where(fn (Builder $payment) => $payment->where('payment_method', 'COD')->orWhere(fn (Builder $wallet) => $wallet->where('payment_method', 'WALLET')->whereNotNull('wallet_transaction_id')))
             ->whereNotNull('pickup_requested_at')
             ->whereNull('pickup_claimed_at')
             ->latest()->paginate(20);
@@ -286,7 +287,7 @@ class LogisticsController extends Controller
             $lockedOrder = Order::query()->whereKey($order->id)->lockForUpdate()->firstOrFail();
             abort_unless(
                 $lockedOrder->status === 'READY_FOR_PICKUP'
-                    && $lockedOrder->payment_method === 'COD'
+                    && app(OrderWalletService::class)->paymentReady($lockedOrder)
                     && $lockedOrder->pickup_requested_at !== null
                     && $lockedOrder->pickup_arrived_at === null
                     && $lockedOrder->seller_handover_at === null,
@@ -493,7 +494,7 @@ class LogisticsController extends Controller
     public function sorting(): View
     {
         $parcels = $this->hubOrders($this->authenticatedUser())->where('status', 'AT_SORTING_CENTER')
-            ->with(['buyer', 'trackingEvents'])->latest()->paginate(15);
+            ->with(['buyer', 'trackingEvents'])->latest()->paginate(25);
 
         return view('logistics.sorting', compact('parcels'));
     }
@@ -512,7 +513,7 @@ class LogisticsController extends Controller
             )
             ->where('storage_locations.hub_id', $operator->id)
             ->orderBy('storage_locations.type')->orderBy('storage_locations.code')
-            ->get(['storage_locations.*', 'active_placements.active_count', 'active_placements.oldest_placement_at']);
+            ->paginate(25, ['storage_locations.*', 'active_placements.active_count', 'active_placements.oldest_placement_at'], 'locations_page')->withQueryString();
 
         $placements = DB::table('parcel_placements')
             ->join('storage_locations', 'storage_locations.id', '=', 'parcel_placements.location_id')
@@ -520,12 +521,12 @@ class LogisticsController extends Controller
             ->where('storage_locations.hub_id', $operator->id)
             ->whereNull('parcel_placements.removed_at')
             ->orderBy('parcel_placements.placed_at')
-            ->limit(200)
-            ->get([
+            ->orderBy('parcel_placements.id')
+            ->paginate(25, [
                 'parcel_placements.id', 'parcel_placements.order_id', 'parcel_placements.placed_at',
                 'storage_locations.code as location_code', 'storage_locations.label as location_label',
                 'orders.order_number', 'orders.parcel_code',
-            ]);
+            ], 'placements_page')->withQueryString();
         $placements->each(function (object $placement): void {
             $placement->dwell_time = Carbon::parse($placement->placed_at)->diffForHumans();
         });
@@ -567,7 +568,7 @@ class LogisticsController extends Controller
                 'scan_events.failure_reason', 'scan_events.method', 'scan_events.created_at',
                 'orders.order_number', 'scan_actors.first_name as actor_first_name', 'scan_actors.last_name as actor_last_name',
             ])
-            ->paginate(50)->withQueryString();
+            ->paginate(25)->withQueryString();
 
         return view('logistics.scan-history', compact('scans'));
     }
@@ -844,7 +845,7 @@ class LogisticsController extends Controller
         $operator = $this->authenticatedUser();
         $singleHub = ! $this->isMultiHubOperation();
         $parcels = $this->hubOrders($operator)->whereIn('status', ['SORTED', 'ASSIGNED_TO_RIDER', 'OUT_FOR_DELIVERY', 'DELIVERY_FAILED', 'RETURN_IN_TRANSIT'])
-            ->with(['buyer', 'deliveryCourier', 'destinationArea', 'deliveryAttempts'])->latest()->paginate(15);
+            ->with(['buyer', 'deliveryCourier', 'destinationArea', 'deliveryAttempts'])->latest()->paginate(25);
         $pageAreaIds = $parcels->getCollection()->pluck('destination_area_id')->filter()->unique()->all();
         $riders = User::query()->where('role', 'courier')->where('status', 'approved')
             ->where('hub_transfer_only', false)
@@ -1058,7 +1059,7 @@ class LogisticsController extends Controller
             $lockedOrder = Order::query()->whereKey($order->id)->lockForUpdate()->firstOrFail();
             $this->assertHubAccess($lockedOrder, $operator);
             abort_unless($lockedOrder->status === OrderStatus::AssignedToRider->value, 422, 'Assign this parcel before releasing it to a rider.');
-            abort_unless($lockedOrder->payment_method === 'COD', 422, 'This parcel is on hold until payment verification is configured.');
+            abort_unless(app(OrderWalletService::class)->paymentReady($lockedOrder), 422, 'This parcel is on hold until payment verification is configured.');
             abort_unless($lockedOrder->delivery_courier_id !== null && $lockedOrder->hub_released_at === null, 422, 'This parcel has already been released or has no assigned rider.');
             $this->recordAcceptanceAtHandoff($lockedOrder);
 
@@ -1149,7 +1150,7 @@ class LogisticsController extends Controller
                 foreach ($orders as $order) {
                     $this->assertHubAccess($order, $operator);
                     app(ParcelLoadService::class)->assertFits($order, $lockedRider);
-                    abort_unless($order->status === OrderStatus::AssignedToRider->value && $order->payment_method === 'COD' && $order->delivery_courier_id === $lockedRider->id && $order->hub_released_at === null, 422, 'Every selected parcel must be assigned to this rider, fulfillable, and not yet released.');
+                    abort_unless($order->status === OrderStatus::AssignedToRider->value && app(OrderWalletService::class)->paymentReady($order) && $order->delivery_courier_id === $lockedRider->id && $order->hub_released_at === null, 422, 'Every selected parcel must be assigned to this rider, fulfillable, and not yet released.');
                     $this->recordAcceptanceAtHandoff($order);
                     abort_unless($this->riderBelongsToHub($lockedRider, $operator) || ! $this->isMultiHubOperation(), 422, 'The rider is not assigned to this hub.');
                     abort_unless($order->destination_area_id !== null && $lockedRider->serviceAreas()->whereKey($order->destination_area_id)->exists(), 422, 'The assigned rider no longer serves every selected parcel destination.');
@@ -1308,9 +1309,12 @@ class LogisticsController extends Controller
             ->withCount(['riders', 'orders'])
             ->where(fn (Builder $query) => $query->whereNull('sorting_center_id')->orWhere('sorting_center_id', $operator->id))
             ->orderBy('name')
-            ->get();
+            ->orderBy('id')->paginate(25)->withQueryString();
+        $areaOptions = Area::query()->where('is_active', true)
+            ->where(fn (Builder $query) => $query->whereNull('sorting_center_id')->orWhere('sorting_center_id', $operator->id))
+            ->orderBy('name')->get(['id', 'name', 'code']);
 
-        return view('logistics.areas', compact('areas'));
+        return view('logistics.areas', compact('areas', 'areaOptions'));
     }
 
     public function storeArea(Request $request): RedirectResponse

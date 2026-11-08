@@ -37,7 +37,7 @@ class AdminModerationController extends Controller
                 });
             })
             ->latest()
-            ->paginate(15);
+            ->paginate(25);
 
         return view('admin.moderation.index', compact('users', 'role', 'search'));
     }

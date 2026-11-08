@@ -27,7 +27,7 @@ class CheckoutApiController extends Controller
         $validated = $request->validate([
             'checkout_token' => ['required', 'uuid'],
             'quote_hash' => ['required', 'string', 'size:64'],
-            'payment_method' => ['required', 'in:COD'],
+            'payment_method' => ['required', 'in:COD,WALLET'],
             'notes' => ['nullable', 'string', 'max:250'],
             'voucher_id' => ['nullable', 'integer', 'exists:vouchers,id'],
             'saved_address_id' => ['nullable', 'integer'],
@@ -107,7 +107,7 @@ class CheckoutApiController extends Controller
             'checkout_token' => $validated['checkout_token'],
             'quote_hash' => $validated['quote_hash'],
             'saved_address_id' => $validated['saved_address_id'] ?? null,
-            'payment_method' => 'COD',
+            'payment_method' => $validated['payment_method'],
             'notes' => $validated['notes'] ?? null,
         ];
         ksort($hashPayload);
@@ -121,7 +121,8 @@ class CheckoutApiController extends Controller
                 $validated['cart'],
                 $validated['quote_hash'],
                 $validated['voucher_id'] ?? null,
-                $finalAddress
+                $finalAddress,
+                $validated['payment_method']
             );
         } catch (ValidationException $e) {
             return response()->json([

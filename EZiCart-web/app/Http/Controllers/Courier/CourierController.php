@@ -11,8 +11,10 @@ use App\Models\ParcelTrackingEvent;
 use App\Models\User;
 use App\Notifications\OrderWorkflowNotification;
 use App\Services\DeliveryCodeService;
+use App\Services\FinancialLedgerService;
 use App\Services\LogisticsHubNotificationService;
 use App\Services\OrderTransitionService;
+use App\Services\OrderWalletService;
 use App\Services\ParcelLoadService;
 use App\Services\QrCodeService;
 use App\Services\RiderBadgeService;
@@ -40,28 +42,28 @@ class CourierController extends Controller
         $badgeQr = $qrCodes->svg('EZR:'.$badgeCode, 180);
         $todayStart = today()->startOfDay();
         $tomorrowStart = today()->addDay()->startOfDay();
-        $availablePickups = Order::where('status', 'READY_FOR_PICKUP')->where('pickup_courier_id', $courier->id)->whereNull('pickup_claimed_at')->with(['seller', 'items'])->latest()->paginate(8, ['*'], 'pickups');
-        $claimedPickups = Order::where('pickup_courier_id', $courier->id)->where('status', 'READY_FOR_PICKUP')->with('seller')->latest()->get();
-        $myActivePickups = Order::where('pickup_courier_id', $courier->id)->where('status', 'PICKED_UP')->with('seller')->latest()->get();
+        $availablePickups = Order::where('status', 'READY_FOR_PICKUP')->where('pickup_courier_id', $courier->id)->whereNull('pickup_claimed_at')->with(['seller', 'items'])->latest()->orderByDesc('id')->paginate(25, ['*'], 'pickups')->withQueryString();
+        $claimedPickups = Order::where('pickup_courier_id', $courier->id)->where('status', 'READY_FOR_PICKUP')->whereNotNull('pickup_claimed_at')->with('seller')->latest()->orderByDesc('id')->paginate(25, ['*'], 'claimed_page')->withQueryString();
+        $myActivePickups = Order::where('pickup_courier_id', $courier->id)->where('status', 'PICKED_UP')->with('seller')->latest()->orderByDesc('id')->paginate(25, ['*'], 'hub_page')->withQueryString();
         $myReturns = Order::query()
             ->where('delivery_courier_id', $courier->id)
             ->where('status', OrderStatus::ReturnInTransit->value)
             ->whereNull('return_handed_to_seller_at')
             ->with('seller')
             ->latest('failed_at')
-            ->get();
+            ->orderByDesc('id')->paginate(25, ['*'], 'returns_page')->withQueryString();
         $myDeliveryAssignments = Order::where('delivery_courier_id', $courier->id)
             ->whereIn('status', ['ASSIGNED_TO_RIDER', 'OUT_FOR_DELIVERY'])
             ->with(['buyer', 'items'])
             ->orderBy('delivery_area')
             ->orderBy('assigned_at')
-            ->paginate(10, ['*'], 'deliveries');
-        $myFailedDeliveries = Order::where('delivery_courier_id', $courier->id)->where('status', 'DELIVERY_FAILED')->with('deliveryAttempts')->latest('failed_at')->get();
+            ->orderBy('id')->paginate(25, ['*'], 'deliveries')->withQueryString();
+        $myFailedDeliveries = Order::where('delivery_courier_id', $courier->id)->where('status', 'DELIVERY_FAILED')->with('deliveryAttempts')->latest('failed_at')->orderByDesc('id')->paginate(25, ['*'], 'failed_page')->withQueryString();
         $stats = [
-            'claimed_pickups' => $claimedPickups->count(),
-            'in_transit_hub' => $myActivePickups->count(),
+            'claimed_pickups' => $claimedPickups->total(),
+            'in_transit_hub' => $myActivePickups->total(),
             'assigned_delivery' => Order::where('delivery_courier_id', $courier->id)->whereIn('status', ['ASSIGNED_TO_RIDER', 'OUT_FOR_DELIVERY'])->count(),
-            'returning_to_seller' => $myReturns->count(),
+            'returning_to_seller' => $myReturns->total(),
             'completed_today' => Order::where('delivery_courier_id', $courier->id)->whereIn('status', ['DELIVERED', 'COMPLETED'])->whereBetween('delivered_at', [$todayStart, $tomorrowStart])->count(),
             'failed_today' => DeliveryAttempt::query()
                 ->where('rider_id', $courier->id)
@@ -103,7 +105,7 @@ class CourierController extends Controller
             abort_unless($courier->status === 'approved', 403, 'Your rider account is not approved for pickups.');
             abort_unless($lockedOrder->pickup_courier_id === $courier->id, 403);
             abort_unless(
-                $lockedOrder->payment_method === 'COD'
+                app(OrderWalletService::class)->paymentReady($lockedOrder)
                     && $lockedOrder->status === 'READY_FOR_PICKUP'
                     && $lockedOrder->pickup_claimed_at === null,
                 422,
@@ -180,7 +182,7 @@ class CourierController extends Controller
                 abort_unless($lockedOrder->pickup_courier_id === $courier->id, 403);
                 abort_unless(
                     $courier->status === 'approved'
-                        && $lockedOrder->payment_method === 'COD'
+                        && app(OrderWalletService::class)->paymentReady($lockedOrder)
                         && $lockedOrder->status === 'READY_FOR_PICKUP'
                         && $lockedOrder->pickup_claimed_at !== null,
                     422,
@@ -263,7 +265,7 @@ class CourierController extends Controller
                 $lockedOrder = Order::whereKey($order->id)->lockForUpdate()->firstOrFail();
                 abort_unless($lockedOrder->delivery_courier_id === $courier->id, 403);
                 abort_unless($courier->status === 'approved' && $lockedOrder->status === 'ASSIGNED_TO_RIDER', 422, 'This parcel cannot be started for delivery.');
-                abort_unless($lockedOrder->payment_method === 'COD', 422, 'Delivery is on hold until payment verification for this method is configured.');
+                abort_unless(app(OrderWalletService::class)->paymentReady($lockedOrder), 422, 'Delivery is on hold until payment verification for this method is configured.');
                 abort_unless($lockedOrder->hub_released_at !== null, 422, 'Logistics must confirm the hub handoff before delivery can start.');
                 abort_unless(
                     DeliveryAttempt::query()->where('order_id', $lockedOrder->id)->where('outcome', 'failed')->count()
@@ -407,7 +409,7 @@ class CourierController extends Controller
             $lockedOrder = Order::query()->whereKey($order->id)->lockForUpdate()->firstOrFail();
             abort_unless($lockedOrder->delivery_courier_id === $courier->id, 403);
             abort_unless($courier->status === 'approved' && $lockedOrder->status === 'OUT_FOR_DELIVERY', 422, 'This parcel is not out for delivery.');
-            abort_unless($lockedOrder->payment_method === 'COD', 422, 'Delivery is on hold until payment verification for this method is configured.');
+            abort_unless(app(OrderWalletService::class)->paymentReady($lockedOrder), 422, 'Delivery is on hold until payment verification for this method is configured.');
 
             if ($deliveryCodes->matches($lockedOrder, $deliveryCode)) {
                 return ['valid' => true, 'message' => null];
@@ -436,9 +438,9 @@ class CourierController extends Controller
                 $lockedOrder = Order::whereKey($order->id)->lockForUpdate()->firstOrFail();
                 abort_unless($lockedOrder->delivery_courier_id === $courier->id, 403);
                 abort_unless($courier->status === 'approved' && $lockedOrder->status === 'OUT_FOR_DELIVERY', 422, 'This parcel is not out for delivery.');
-                abort_unless($lockedOrder->payment_method === 'COD', 422, 'Delivery is on hold until payment verification for this method is configured.');
+                abort_unless(app(OrderWalletService::class)->paymentReady($lockedOrder), 422, 'Delivery is on hold until payment verification for this method is configured.');
                 abort_unless($deliveryCodes->matches($lockedOrder, $deliveryCode), 422, 'The delivery code has expired or was already used.');
-                if (! isset($validated['cod_collected_amount']) || $this->amountInCentavos($validated['cod_collected_amount']) !== $this->amountInCentavos((string) $lockedOrder->total_amount)) {
+                if ($lockedOrder->payment_method === 'COD' && (! isset($validated['cod_collected_amount']) || $this->amountInCentavos($validated['cod_collected_amount']) !== $this->amountInCentavos((string) $lockedOrder->total_amount))) {
                     throw ValidationException::withMessages(['cod_collected_amount' => 'Enter the exact full order amount collected for cash on delivery.']);
                 }
                 $notes = trim('Recipient: '.$validated['recipient_confirmation'].'. '.($validated['delivery_notes'] ?? ''));
@@ -453,7 +455,7 @@ class CourierController extends Controller
                 $transitions->transition($lockedOrder, $courier, OrderStatus::Delivered, 'delivered', $lockedOrder->delivery_area, $notes, [
                     'delivered_at' => now(),
                     'delivery_notes' => $notes,
-                    'cod_collected_amount' => $validated['cod_collected_amount'],
+                    'cod_collected_amount' => $lockedOrder->payment_method === 'COD' ? $validated['cod_collected_amount'] : null,
                     'delivery_code_used_at' => now(),
                 ]);
 
@@ -539,7 +541,13 @@ class CourierController extends Controller
 
     public function earnings(): View
     {
-        return view('courier.earnings');
+        $courier = $this->authenticatedUser();
+        $ledger = app(FinancialLedgerService::class);
+        $available = $ledger->wallet($courier)->balance_cents;
+        $allocations = DB::table('logistics_allocations')->join('orders', 'orders.id', '=', 'logistics_allocations.order_id')
+            ->where('beneficiary_id', $courier->id)->select('logistics_allocations.*', 'orders.order_number')->orderByDesc('logistics_allocations.id')->paginate(25);
+
+        return view('courier.earnings', compact('available', 'allocations'));
     }
 
     private function recordEvent(Order $order, string $eventType, User $actor, ?string $location = null, ?string $notes = null): void

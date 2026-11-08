@@ -58,7 +58,7 @@
                 @endforeach
 
                 <h2 class="courier-section-title">Order summary</h2>
-                @if ($order->payment_method !== 'COD' && in_array($order->status, ['PLACED', 'CONFIRMED', 'PREPARING', 'READY_FOR_PICKUP'], true))
+                @if (! app(\App\Services\OrderWalletService::class)->paymentReady($order) && in_array($order->status, ['PLACED', 'CONFIRMED', 'PREPARING', 'READY_FOR_PICKUP'], true))
                     <p role="status">Fulfillment is on hold because payment verification for {{ $order->payment_method }} is not configured yet.</p>
                 @endif
                 <p>Subtotal: {{ number_format($order->subtotal, 2) }}</p>
@@ -76,7 +76,7 @@
                     <a href="{{ route('seller.orders.waybill', $order->id) }}" class="dash-btn-sm dash-btn-outline">View
                         waybill</a>
                     <a href="{{ route('seller.orders.messages.show', $order) }}" class="dash-btn-sm dash-btn-outline">Message buyer</a>
-                    @if ($order->payment_method !== 'COD' && in_array($order->status, ['PLACED', 'CONFIRMED', 'PREPARING', 'READY_FOR_PICKUP'], true))
+                    @if (! app(\App\Services\OrderWalletService::class)->paymentReady($order) && in_array($order->status, ['PLACED', 'CONFIRMED', 'PREPARING', 'READY_FOR_PICKUP'], true))
                         <span>Fulfillment is on hold until payment verification is configured.</span>
                     @elseif ($order->status === 'PLACED')
                         <form action="{{ route('seller.orders.updateStatus', $order->id) }}" method="POST" data-decision="seller.orders.updateStatus" data-decision-title="Update order status?" data-decision-message="Check the selected status. This updates the order workflow and may notify the buyer and delivery staff." data-decision-label="Update status" data-decision-tone="normal" onsubmit="return window.eziDecisionReady ? true : window.confirm(this.dataset.decisionMessage)">

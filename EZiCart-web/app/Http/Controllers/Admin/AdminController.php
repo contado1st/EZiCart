@@ -52,23 +52,22 @@ class AdminController extends Controller
         // 4. Pending Registrations Queue
         $pendingUsers = User::where('role', 'seller')->where('status', 'pending')
             ->latest()
-            ->take(5)
-            ->get();
+            ->orderByDesc('id')->paginate(25, ['*'], 'approvals_page')->withQueryString();
 
         // 5. System-wide Recent Transactions
         $recentOrders = Order::with(['seller', 'buyer'])
             ->latest()
-            ->take(6)
-            ->get();
+            ->orderByDesc('id')->paginate(25, ['*'], 'orders_page')->withQueryString();
+        $orderStatuses = Order::query()->selectRaw('status, COUNT(*) as aggregate')->groupBy('status')->pluck('aggregate', 'status')->all();
 
-        return view('admin.dashboard', compact('stats', 'pendingUsers', 'recentOrders'));
+        return view('admin.dashboard', compact('stats', 'pendingUsers', 'recentOrders', 'orderStatuses'));
     }
 
     public function index()
     {
         $pendingUsers = User::where('role', 'seller')->where('status', 'pending')
             ->latest()
-            ->paginate(15);
+            ->paginate(25);
 
         return view('admin.registrations', compact('pendingUsers'));
     }
