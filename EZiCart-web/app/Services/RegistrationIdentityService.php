@@ -11,6 +11,11 @@ class RegistrationIdentityService
         return Str::lower(trim($email));
     }
 
+    public function canonicalEmail(string $email): string
+    {
+        return $this->normalizeEmail($email);
+    }
+
     public function normalizeMobile(string $input): string
     {
         $input = trim($input);
@@ -33,6 +38,11 @@ class RegistrationIdentityService
         }
 
         return preg_match('/^9\d{9}$/', $digits) ? '0'.$digits : $input;
+    }
+
+    public function canonicalMobile(string $input): string
+    {
+        return $this->normalizeMobile($input);
     }
 
     public function canonicalText(string $value): string

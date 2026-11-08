@@ -239,8 +239,8 @@ class AuthApiController extends Controller
 
         $record = EmailVerificationCode::firstOrNew(['user_id' => $user->id]);
 
-        if ($record->sent_at && Carbon::parse($record->sent_at)->addSeconds(60)->isFuture()) {
-            $secondsLeft = 60 - Carbon::parse($record->sent_at)->diffInSeconds(now());
+        if ($record->last_sent_at && Carbon::parse($record->last_sent_at)->addSeconds(60)->isFuture()) {
+            $secondsLeft = 60 - Carbon::parse($record->last_sent_at)->diffInSeconds(now());
 
             return response()->json([
                 'success' => false,
@@ -281,7 +281,8 @@ class AuthApiController extends Controller
                     'code_hash' => Hash::make($code),
                     'expires_at' => now()->addMinutes(15),
                     'attempts' => 0,
-                    'sent_at' => now(),
+                    'last_sent_at' => now(),
+                    'channel' => 'email',
                 ]
             );
         }
@@ -394,7 +395,8 @@ class AuthApiController extends Controller
         $record->code_hash = Hash::make($code);
         $record->expires_at = now()->addMinutes(15);
         $record->attempts = 0;
-        $record->sent_at = now();
+        $record->last_sent_at = now();
+        $record->channel = 'email';
         $record->save();
     }
 
