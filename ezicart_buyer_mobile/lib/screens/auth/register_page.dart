@@ -5,7 +5,7 @@ import '../../config/theme.dart';
 import '../../providers/auth_provider.dart';
 import '../common/psgc_address_form.dart';
 import 'otp_verification_page.dart';
-import 'widgets/auth_header.dart';
+import 'widgets/auth_scaffold.dart';
 import 'widgets/auth_styles.dart';
 
 class RegisterPage extends StatefulWidget {
@@ -243,96 +243,128 @@ class _RegisterPageState extends State<RegisterPage> {
 
   Widget _buildStepIndicator() {
     final steps = [
-      {'title': 'Details', 'icon': Icons.person_outline_rounded},
-      {'title': 'Address', 'icon': Icons.local_shipping_outlined},
-      {'title': 'Security', 'icon': Icons.security_rounded},
+      {'number': '1', 'title': 'Details', 'icon': Icons.person_rounded},
+      {'number': '2', 'title': 'Address', 'icon': Icons.local_shipping_rounded},
+      {'number': '3', 'title': 'Security', 'icon': Icons.shield_rounded},
     ];
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 22),
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+      margin: const EdgeInsets.only(bottom: 24),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
       decoration: BoxDecoration(
-        color: const Color(0xFFF8FAFC),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
+        color: const Color(0xFFFAF5F7),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+          color: AppTheme.primary.withValues(alpha: 0.12),
+          width: 1,
+        ),
       ),
       child: Row(
-        children: List.generate(steps.length * 2 - 1, (index) {
-          if (index.isOdd) {
-            final stepBefore = index ~/ 2;
-            final isCompleted = _currentStep > stepBefore;
-            return Expanded(
-              child: Container(
-                height: 2,
-                color: isCompleted ? AppTheme.primary : const Color(0xFFCBD5E1),
-              ),
-            );
-          }
-
-          final stepIndex = index ~/ 2;
-          final isCompleted = _currentStep > stepIndex;
-          final isCurrent = _currentStep == stepIndex;
-
-          return GestureDetector(
-            onTap: () {
-              if (stepIndex < _currentStep) {
-                setState(() => _currentStep = stepIndex);
-              }
-            },
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                AnimatedContainer(
-                  duration: const Duration(milliseconds: 200),
-                  width: 32,
-                  height: 32,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: isCompleted
-                        ? AppTheme.primary
-                        : isCurrent
-                            ? AppTheme.primary
-                            : Colors.white,
-                    border: Border.all(
-                      color: (isCompleted || isCurrent) ? AppTheme.primary : const Color(0xFFCBD5E1),
-                      width: 2,
+        children: [
+          for (int i = 0; i < steps.length; i++) ...[
+            // Step Item (Circle + Title)
+            GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: () {
+                if (i < _currentStep) {
+                  setState(() => _currentStep = i);
+                }
+              },
+              child: SizedBox(
+                width: 68,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    AnimatedContainer(
+                      duration: const Duration(milliseconds: 250),
+                      curve: Curves.easeInOut,
+                      width: 36,
+                      height: 36,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        gradient: (i <= _currentStep)
+                            ? const LinearGradient(
+                                colors: [Color(0xFFD63363), Color(0xFFBE2854)],
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                              )
+                            : null,
+                        color: (i > _currentStep) ? Colors.white : null,
+                        border: Border.all(
+                          color: (i <= _currentStep)
+                              ? Colors.transparent
+                              : const Color(0xFFE2E8F0),
+                          width: 1.5,
+                        ),
+                        boxShadow: (i == _currentStep)
+                            ? [
+                                BoxShadow(
+                                  color: const Color(0xFFBE2854).withValues(alpha: 0.35),
+                                  blurRadius: 10,
+                                  offset: const Offset(0, 3),
+                                ),
+                              ]
+                            : null,
+                      ),
+                      child: Center(
+                        child: (i < _currentStep)
+                            ? const Icon(Icons.check_rounded, size: 18, color: Colors.white)
+                            : Text(
+                                steps[i]['number'] as String,
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.bold,
+                                  color: (i == _currentStep)
+                                      ? Colors.white
+                                      : const Color(0xFF94A3B8),
+                                ),
+                              ),
+                      ),
                     ),
-                    boxShadow: isCurrent
-                        ? [
-                            BoxShadow(
-                              color: AppTheme.primary.withValues(alpha: 0.3),
-                              blurRadius: 8,
-                              offset: const Offset(0, 2),
-                            ),
-                          ]
-                        : null,
-                  ),
-                  child: Center(
-                    child: isCompleted
-                        ? const Icon(Icons.check, size: 16, color: Colors.white)
-                        : Text(
-                            '${stepIndex + 1}',
-                            style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.bold,
-                              color: isCurrent ? Colors.white : const Color(0xFF64748B),
-                            ),
-                          ),
-                  ),
+                    const SizedBox(height: 6),
+                    Text(
+                      steps[i]['title'] as String,
+                      textAlign: TextAlign.center,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: (i == _currentStep)
+                            ? FontWeight.w700
+                            : (i < _currentStep)
+                                ? FontWeight.w600
+                                : FontWeight.w500,
+                        color: (i == _currentStep)
+                            ? AppTheme.primary
+                            : (i < _currentStep)
+                                ? AppTheme.ink
+                                : const Color(0xFF94A3B8),
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(width: 6),
-                Text(
-                  steps[stepIndex]['title'] as String,
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: isCurrent ? FontWeight.bold : FontWeight.w500,
-                    color: isCurrent ? AppTheme.primary : const Color(0xFF64748B),
-                  ),
-                ),
-              ],
+              ),
             ),
-          );
-        }),
+
+            // Continuous Connector Track between Steps
+            if (i < steps.length - 1)
+              Expanded(
+                child: Container(
+                  height: 3,
+                  margin: const EdgeInsets.only(bottom: 22, left: 4, right: 4),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(2),
+                    gradient: (i < _currentStep)
+                        ? const LinearGradient(
+                            colors: [Color(0xFFD63363), Color(0xFFBE2854)],
+                          )
+                        : null,
+                    color: (i >= _currentStep) ? const Color(0xFFE2E8F0) : null,
+                  ),
+                ),
+              ),
+          ],
+        ],
       ),
     );
   }
@@ -368,6 +400,8 @@ class _RegisterPageState extends State<RegisterPage> {
                 flex: 3,
                 child: TextFormField(
                   controller: _firstNameCtrl,
+                  autocorrect: false,
+                  enableSuggestions: false,
                   textCapitalization: TextCapitalization.words,
                   textInputAction: TextInputAction.next,
                   decoration: AuthStyles.inputDecoration(
@@ -390,6 +424,8 @@ class _RegisterPageState extends State<RegisterPage> {
                 flex: 2,
                 child: TextFormField(
                   controller: _middleNameCtrl,
+                  autocorrect: false,
+                  enableSuggestions: false,
                   textCapitalization: TextCapitalization.words,
                   textInputAction: TextInputAction.next,
                   decoration: AuthStyles.inputDecoration(
@@ -410,6 +446,8 @@ class _RegisterPageState extends State<RegisterPage> {
                 flex: 3,
                 child: TextFormField(
                   controller: _lastNameCtrl,
+                  autocorrect: false,
+                  enableSuggestions: false,
                   textCapitalization: TextCapitalization.words,
                   textInputAction: TextInputAction.next,
                   decoration: AuthStyles.inputDecoration(
@@ -432,6 +470,8 @@ class _RegisterPageState extends State<RegisterPage> {
                 flex: 2,
                 child: TextFormField(
                   controller: _suffixCtrl,
+                  autocorrect: false,
+                  enableSuggestions: false,
                   textCapitalization: TextCapitalization.words,
                   textInputAction: TextInputAction.next,
                   decoration: AuthStyles.inputDecoration(
@@ -448,9 +488,9 @@ class _RegisterPageState extends State<RegisterPage> {
           TextFormField(
             controller: _emailCtrl,
             keyboardType: TextInputType.emailAddress,
-            textInputAction: TextInputAction.next,
             autocorrect: false,
-            enableSuggestions: true,
+            enableSuggestions: false,
+            textInputAction: TextInputAction.next,
             decoration: AuthStyles.inputDecoration(
               label: 'Email Address *',
               hint: 'juanmiguel.delacruz@example.com',
@@ -472,6 +512,8 @@ class _RegisterPageState extends State<RegisterPage> {
           TextFormField(
             controller: _contactCtrl,
             keyboardType: TextInputType.phone,
+            autocorrect: false,
+            enableSuggestions: false,
             textInputAction: TextInputAction.next,
             decoration: AuthStyles.inputDecoration(
               label: 'Mobile Number (PH) *',
@@ -836,99 +878,65 @@ class _RegisterPageState extends State<RegisterPage> {
           Navigator.of(context).pop();
         }
       },
-      child: Scaffold(
-        backgroundColor: const Color(0xFFF6F8FC),
-        body: GestureDetector(
-          // TC-BUY-032: Tapping background dismisses keyboard
-          onTap: () => FocusScope.of(context).unfocus(),
-          behavior: HitTestBehavior.opaque,
-          child: SingleChildScrollView(
-            keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-            child: Column(
-              children: [
-                AuthHeader(
-                  title: 'Create Account',
-                  subtitle: 'Join EZiCart for exclusive buyer deals and fast checkout',
-                  showBack: true,
-                  onBack: _prevStep,
-                  headerHeight: 220,
+      child: AuthScaffold(
+        title: 'Create Account',
+        subtitle: 'Join EZiCart for exclusive buyer deals and fast checkout',
+        showBack: true,
+        onBack: _prevStep,
+        cardChild: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _buildStepIndicator(),
+
+            if (auth.errorMessage != null) ...[
+              AuthStyles.errorBanner(auth.errorMessage!),
+              if (isPersonalError && _currentStep != 0) ...[
+                OutlinedButton.icon(
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppTheme.primary,
+                    side: const BorderSide(color: AppTheme.primary),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  ),
+                  onPressed: () => setState(() => _currentStep = 0),
+                  icon: const Icon(Icons.edit_outlined, size: 16),
+                  label: const Text('Edit Personal Information', style: TextStyle(fontSize: 12)),
                 ),
+                const SizedBox(height: 12),
+              ],
+            ],
 
-                Transform.translate(
-                  offset: const Offset(0, -32),
-                  child: Container(
-                    margin: const EdgeInsets.symmetric(horizontal: 16),
-                    padding: const EdgeInsets.fromLTRB(20, 24, 20, 24),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(24),
-                      boxShadow: [
-                        BoxShadow(
-                          color: const Color(0xFF140209).withValues(alpha: 0.08),
-                          blurRadius: 24,
-                          offset: const Offset(0, 10),
-                        ),
-                      ],
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        _buildStepIndicator(),
-
-                        if (auth.errorMessage != null) ...[
-                          AuthStyles.errorBanner(auth.errorMessage!),
-                          if (isPersonalError && _currentStep != 0) ...[
-                            OutlinedButton.icon(
-                              style: OutlinedButton.styleFrom(
-                                foregroundColor: AppTheme.primary,
-                                side: const BorderSide(color: AppTheme.primary),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                              ),
-                              onPressed: () => setState(() => _currentStep = 0),
-                              icon: const Icon(Icons.edit_outlined, size: 16),
-                              label: const Text('Edit Personal Information', style: TextStyle(fontSize: 12)),
-                            ),
-                            const SizedBox(height: 12),
-                          ],
-                        ],
-
-                        AnimatedSwitcher(
-                          duration: const Duration(milliseconds: 250),
-                          child: _currentStep == 0
-                              ? _buildStep1()
-                              : _currentStep == 1
-                                  ? _buildStep2()
-                                  : _buildStep3(),
-                        ),
-
-                        const SizedBox(height: 20),
-                        Center(
-                          child: GestureDetector(
-                            onTap: () async {
-                              final shouldLeave = await _confirmDiscard();
-                              if (shouldLeave && context.mounted) {
-                                Navigator.of(context).pop();
-                              }
-                            },
-                            child: const Text.rich(
-                              TextSpan(
-                                text: 'Already have an account? ',
-                                style: TextStyle(color: AppTheme.muted, fontSize: 13),
-                                children: [
-                                  TextSpan(
-                                    text: 'Sign In',
-                                    style: TextStyle(color: AppTheme.primary, fontWeight: FontWeight.bold),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
+            AnimatedSwitcher(
+              duration: const Duration(milliseconds: 250),
+              child: _currentStep == 0
+                  ? _buildStep1()
+                  : _currentStep == 1
+                      ? _buildStep2()
+                      : _buildStep3(),
+            ),
+          ],
+        ),
+        cardBottom: Center(
+          child: GestureDetector(
+            onTap: () async {
+              final shouldLeave = await _confirmDiscard();
+              if (shouldLeave && context.mounted) {
+                Navigator.of(context).pop();
+              }
+            },
+            child: const Text.rich(
+              TextSpan(
+                text: 'Already have an account? ',
+                style: TextStyle(color: AppTheme.muted, fontSize: 13),
+                children: [
+                  TextSpan(
+                    text: 'Sign In',
+                    style: TextStyle(
+                      color: AppTheme.primary,
+                      fontWeight: FontWeight.bold,
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),

@@ -6,7 +6,7 @@ import '../../providers/auth_provider.dart';
 import 'forgot_password_page.dart';
 import 'otp_verification_page.dart';
 import 'register_page.dart';
-import 'widgets/auth_header.dart';
+import 'widgets/auth_scaffold.dart';
 import 'widgets/auth_styles.dart';
 
 class LoginPage extends StatefulWidget {
@@ -85,6 +85,8 @@ class _LoginPageState extends State<LoginPage> {
               const SizedBox(height: 12),
               TextField(
                 controller: domainCtrl,
+                autocorrect: false,
+                enableSuggestions: false,
                 decoration: AuthStyles.inputDecoration(
                   label: 'API Base URL',
                   hint: 'http://127.0.0.1:8000/api',
@@ -161,205 +163,144 @@ class _LoginPageState extends State<LoginPage> {
   Widget build(BuildContext context) {
     final auth = context.watch<AuthProvider>();
 
-    return Scaffold(
-      backgroundColor: const Color(0xFFF6F8FC),
-      body: GestureDetector(
-        onTap: () => FocusScope.of(context).unfocus(),
-        behavior: HitTestBehavior.opaque,
-        child: SingleChildScrollView(
-          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-          child: Column(
-            children: [
-              // Modern Branded Hero Header
-              AuthHeader(
-                title: 'Welcome Back',
-                subtitle: 'Sign in to access your orders and shopping cart',
-                headerHeight: 220,
-                topAction: Material(
-                  color: Colors.white.withValues(alpha: 0.18),
-                  borderRadius: BorderRadius.circular(12),
-                  child: InkWell(
-                    borderRadius: BorderRadius.circular(12),
-                    onTap: _showDomainConfigDialog,
-                    child: const Padding(
-                      padding: EdgeInsets.all(8),
-                      child: Icon(Icons.tune_rounded, color: Colors.white, size: 20),
-                    ),
+    return AuthScaffold(
+      title: 'Welcome Back',
+      subtitle: 'Sign in to access your orders, cart, and vouchers',
+      topAction: Material(
+        color: Colors.black.withValues(alpha: 0.30),
+        borderRadius: BorderRadius.circular(12),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(12),
+          onTap: _showDomainConfigDialog,
+          child: Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: Colors.white.withValues(alpha: 0.30),
+                width: 1,
+              ),
+            ),
+            child: const Icon(Icons.tune_rounded, color: Colors.white, size: 18),
+          ),
+        ),
+      ),
+      cardChild: Form(
+        key: _formKey,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (auth.errorMessage != null)
+              AuthStyles.errorBanner(auth.errorMessage!),
+
+            // Email Field
+            TextFormField(
+              controller: _emailCtrl,
+              keyboardType: TextInputType.emailAddress,
+              autocorrect: false,
+              enableSuggestions: false,
+              textInputAction: TextInputAction.next,
+              decoration: AuthStyles.inputDecoration(
+                label: 'Email Address',
+                hint: 'name@example.com',
+                prefixIcon: Icons.email_outlined,
+              ),
+              validator: (v) {
+                if (v == null || v.trim().isEmpty) return 'Please enter your email.';
+                if (!v.contains('@') || !v.contains('.')) return 'Enter a valid email address.';
+                return null;
+              },
+            ),
+            const SizedBox(height: 16),
+
+            // Password Field
+            TextFormField(
+              controller: _passwordCtrl,
+              obscureText: _obscurePassword,
+              autocorrect: false,
+              enableSuggestions: false,
+              textInputAction: TextInputAction.done,
+              onFieldSubmitted: (_) => _submit(),
+              decoration: AuthStyles.inputDecoration(
+                label: 'Password',
+                hint: 'Enter your password',
+                prefixIcon: Icons.lock_outline_rounded,
+                suffixIcon: IconButton(
+                  icon: Icon(
+                    _obscurePassword ? Icons.visibility_outlined : Icons.visibility_off_outlined,
+                    color: const Color(0xFF718096),
+                    size: 20,
                   ),
+                  onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
                 ),
               ),
+              validator: (v) => (v == null || v.isEmpty) ? 'Please enter your password.' : null,
+            ),
+            const SizedBox(height: 10),
 
-              // Elevated Card Form
-              Transform.translate(
-                offset: const Offset(0, -32),
-                child: Container(
-                  margin: const EdgeInsets.symmetric(horizontal: 16),
-                  padding: const EdgeInsets.fromLTRB(22, 28, 22, 24),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(24),
-                    boxShadow: [
-                      BoxShadow(
-                        color: const Color(0xFF140209).withValues(alpha: 0.08),
-                        blurRadius: 24,
-                        offset: const Offset(0, 10),
-                      ),
-                    ],
-                  ),
-                child: Form(
-                  key: _formKey,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      // Card Header
-                      Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(
-                              color: AppTheme.primarySoft,
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            child: const Icon(Icons.lock_person_outlined, color: AppTheme.primary, size: 20),
-                          ),
-                          const SizedBox(width: 10),
-                          const Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Sign In as Buyer',
-                                style: TextStyle(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold,
-                                  color: AppTheme.ink,
-                                ),
-                              ),
-                              Text(
-                                'Enter your account details below',
-                                style: TextStyle(fontSize: 12, color: AppTheme.muted),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 22),
-
-                      if (auth.errorMessage != null)
-                        AuthStyles.errorBanner(auth.errorMessage!),
-
-                      // Email Field
-                      TextFormField(
-                        controller: _emailCtrl,
-                        keyboardType: TextInputType.emailAddress,
-                        textInputAction: TextInputAction.next,
-                        decoration: AuthStyles.inputDecoration(
-                          label: 'Email Address',
-                          hint: 'name@example.com',
-                          prefixIcon: Icons.email_outlined,
-                        ),
-                        validator: (v) {
-                          if (v == null || v.trim().isEmpty) return 'Please enter your email.';
-                          if (!v.contains('@') || !v.contains('.')) return 'Enter a valid email address.';
-                          return null;
-                        },
-                      ),
-                      const SizedBox(height: 16),
-
-                      // Password Field
-                      TextFormField(
-                        controller: _passwordCtrl,
-                        obscureText: _obscurePassword,
-                        autocorrect: false,
-                        enableSuggestions: false,
-                        textInputAction: TextInputAction.done,
-                        onFieldSubmitted: (_) => _submit(),
-                        decoration: AuthStyles.inputDecoration(
-                          label: 'Password',
-                          hint: 'Enter your password',
-                          prefixIcon: Icons.lock_outline_rounded,
-                          suffixIcon: IconButton(
-                            icon: Icon(
-                              _obscurePassword ? Icons.visibility_outlined : Icons.visibility_off_outlined,
-                              color: const Color(0xFF718096),
-                              size: 20,
-                            ),
-                            onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
-                          ),
-                        ),
-                        validator: (v) => (v == null || v.isEmpty) ? 'Please enter your password.' : null,
-                      ),
-                      const SizedBox(height: 8),
-
-                      // Forgot Password Link
-                      Align(
-                        alignment: Alignment.centerRight,
-                        child: TextButton(
-                          style: TextButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
-                            minimumSize: Size.zero,
-                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                          ),
-                          onPressed: () {
-                            Navigator.of(context).push(
-                              MaterialPageRoute(builder: (_) => const ForgotPasswordPage()),
-                            );
-                          },
-                          child: const Text(
-                            'Forgot Password?',
-                            style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
-                              color: AppTheme.primary,
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 20),
-
-                      // Submit Button
-                      AuthStyles.gradientButton(
-                        onPressed: _submit,
-                        text: 'Sign In as Buyer',
-                        isLoading: auth.isLoading,
-                        trailingIcon: Icons.arrow_forward_rounded,
-                      ),
-                      const SizedBox(height: 24),
-
-                      // Register Callout
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          const Text(
-                            "Don't have an account? ",
-                            style: TextStyle(color: AppTheme.muted, fontSize: 13),
-                          ),
-                          GestureDetector(
-                            onTap: () {
-                              Navigator.of(context).push(
-                                MaterialPageRoute(builder: (_) => const RegisterPage()),
-                              );
-                            },
-                            child: const Text(
-                              'Register Here',
-                              style: TextStyle(
-                                color: AppTheme.primary,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 13,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
+            // Forgot Password Link
+            Align(
+              alignment: Alignment.centerRight,
+              child: TextButton(
+                style: TextButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+                  minimumSize: Size.zero,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+                onPressed: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const ForgotPasswordPage()),
+                  );
+                },
+                child: const Text(
+                  'Forgot Password?',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: AppTheme.primary,
                   ),
                 ),
               ),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 20),
+
+            // Submit Button
+            AuthStyles.gradientButton(
+              onPressed: _submit,
+              text: 'Sign In as Buyer',
+              isLoading: auth.isLoading,
+              trailingIcon: Icons.arrow_forward_rounded,
+            ),
           ],
         ),
       ),
-    ),
-  );
+      cardBottom: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Text(
+            "Don't have an account? ",
+            style: TextStyle(
+              color: AppTheme.muted,
+              fontSize: 13,
+            ),
+          ),
+          GestureDetector(
+            onTap: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const RegisterPage()),
+              );
+            },
+            child: const Text(
+              'Register Here',
+              style: TextStyle(
+                color: AppTheme.primary,
+                fontWeight: FontWeight.bold,
+                fontSize: 13,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
