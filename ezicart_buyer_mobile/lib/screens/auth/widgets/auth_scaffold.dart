@@ -60,6 +60,31 @@ class AuthScaffold extends StatelessWidget {
             ),
           ),
 
+          // 2. STATIC Ambient Depth / Darkening Layer
+          // Darkens the background slightly so the foreground card and logo pop with crisp visual separation
+          Positioned(
+            top: 0,
+            left: 0,
+            width: screenSize.width,
+            height: screenSize.height,
+            child: IgnorePointer(
+              child: Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      Colors.black.withValues(alpha: 0.32),
+                      Colors.black.withValues(alpha: 0.22),
+                      Colors.black.withValues(alpha: 0.45),
+                    ],
+                    stops: const [0.0, 0.45, 1.0],
+                  ),
+                ),
+              ),
+            ),
+          ),
+
           // 3. Centered Scrollable Content
           SafeArea(
             child: LayoutBuilder(

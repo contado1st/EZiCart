@@ -77,6 +77,24 @@ class AuthHeader extends StatelessWidget {
               ),
             ),
 
+            // Layer 2: Subtle darkening blend to separate the background and foreground
+            Positioned.fill(
+              child: Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      Colors.black.withValues(alpha: 0.30),
+                      Colors.black.withValues(alpha: 0.20),
+                      Colors.black.withValues(alpha: 0.45),
+                    ],
+                    stops: const [0.0, 0.45, 1.0],
+                  ),
+                ),
+              ),
+            ),
+
             // Layer 3: Header Content (Top bar, logo capsule, typography in open center)
             SafeArea(
               bottom: false,
