@@ -72,6 +72,25 @@ class AuthProvider extends ChangeNotifier {
     return false;
   }
 
+  String _extractErrorMessage(dynamic data, String fallback) {
+    if (data is Map) {
+      if (data['errors'] is Map) {
+        final errorMap = data['errors'] as Map;
+        for (final val in errorMap.values) {
+          if (val is List && val.isNotEmpty) {
+            return val.first.toString();
+          } else if (val is String && val.isNotEmpty) {
+            return val;
+          }
+        }
+      }
+      if (data['message'] != null && data['message'].toString().isNotEmpty) {
+        return data['message'].toString();
+      }
+    }
+    return fallback;
+  }
+
   Future<bool> login(String email, String password) async {
     _isLoading = true;
     _errorMessage = null;
@@ -83,20 +102,23 @@ class AuthProvider extends ChangeNotifier {
         'password': password,
       });
 
-      final data = jsonDecode(res.body);
+      dynamic data;
+      try {
+        data = jsonDecode(res.body);
+      } catch (_) {}
+
       _isLoading = false;
 
-      if (res.statusCode == 200 && data['success'] == true) {
+      if (res.statusCode == 200 && data is Map && data['success'] == true) {
         await ApiService.setToken(data['token']);
         _user = UserModel.fromJson(data['user']);
         notifyListeners();
         return true;
       } else {
-        if (data['requires_verification'] == true) {
+        if (data is Map && data['requires_verification'] == true) {
           _pendingVerificationEmail = data['email'] ?? email.trim();
         }
-        _errorMessage =
-            data['message'] ?? 'Login failed. Please check your credentials.';
+        _errorMessage = _extractErrorMessage(data, 'Login failed. Please check your credentials.');
         notifyListeners();
         return false;
       }
@@ -156,16 +178,19 @@ class AuthProvider extends ChangeNotifier {
         if (postalCode != null) 'postal_code': postalCode,
       });
 
-      final data = jsonDecode(res.body);
+      dynamic data;
+      try {
+        data = jsonDecode(res.body);
+      } catch (_) {}
+
       _isLoading = false;
 
-      if (res.statusCode == 201 && data['success'] == true) {
+      if (res.statusCode == 201 && data is Map && data['success'] == true) {
         _pendingVerificationEmail = email.trim();
         notifyListeners();
         return true;
       } else {
-        _errorMessage =
-            data['message'] ?? 'Registration could not be completed.';
+        _errorMessage = _extractErrorMessage(data, 'Registration could not be completed.');
         notifyListeners();
         return false;
       }
@@ -193,17 +218,21 @@ class AuthProvider extends ChangeNotifier {
         'code': code.trim(),
       });
 
-      final data = jsonDecode(res.body);
+      dynamic data;
+      try {
+        data = jsonDecode(res.body);
+      } catch (_) {}
+
       _isLoading = false;
 
-      if (res.statusCode == 200 && data['success'] == true) {
+      if (res.statusCode == 200 && data is Map && data['success'] == true) {
         await ApiService.setToken(data['token']);
         _user = UserModel.fromJson(data['user']);
         _pendingVerificationEmail = null;
         notifyListeners();
         return true;
       } else {
-        _errorMessage = data['message'] ?? 'OTP verification failed.';
+        _errorMessage = _extractErrorMessage(data, 'OTP verification failed.');
         notifyListeners();
         return false;
       }
@@ -225,11 +254,14 @@ class AuthProvider extends ChangeNotifier {
       final res = await ApiService.post(ApiConfig.resendOtpEndpoint, {
         'email': email.trim(),
       });
-      final data = jsonDecode(res.body);
-      if (res.statusCode == 200 && data['success'] == true) {
+      dynamic data;
+      try {
+        data = jsonDecode(res.body);
+      } catch (_) {}
+      if (res.statusCode == 200 && data is Map && data['success'] == true) {
         return true;
       }
-      _errorMessage = data['message'] ?? 'Failed to resend code.';
+      _errorMessage = _extractErrorMessage(data, 'Failed to resend code.');
       notifyListeners();
       return false;
     } on ApiException catch (e) {
@@ -248,13 +280,25 @@ class AuthProvider extends ChangeNotifier {
       final res = await ApiService.post(ApiConfig.forgotPasswordEndpoint, {
         'email': email.trim(),
       });
-      final data = jsonDecode(res.body);
+      dynamic data;
+      try {
+        data = jsonDecode(res.body);
+      } catch (_) {}
       _isLoading = false;
+      final success = res.statusCode == 200 && data is Map && data['success'] == true;
+      if (!success) {
+        _errorMessage = _extractErrorMessage(data, 'Could not request password recovery.');
+      }
       notifyListeners();
-      return res.statusCode == 200 && data['success'] == true;
+      return success;
     } on ApiException catch (e) {
       _isLoading = false;
       _errorMessage = e.message;
+      notifyListeners();
+      return false;
+    } catch (e) {
+      _isLoading = false;
+      _errorMessage = e.toString();
       notifyListeners();
       return false;
     }
@@ -277,10 +321,13 @@ class AuthProvider extends ChangeNotifier {
         'password_confirmation': newPassword,
       });
 
-      final data = jsonDecode(res.body);
+      dynamic data;
+      try {
+        data = jsonDecode(res.body);
+      } catch (_) {}
       _isLoading = false;
 
-      if (res.statusCode == 200 && data['success'] == true) {
+      if (res.statusCode == 200 && data is Map && data['success'] == true) {
         if (data['token'] != null) {
           await ApiService.setToken(data['token']);
           _user = UserModel.fromJson(data['user']);
@@ -288,7 +335,7 @@ class AuthProvider extends ChangeNotifier {
         notifyListeners();
         return true;
       } else {
-        _errorMessage = data['message'] ?? 'Password reset failed.';
+        _errorMessage = _extractErrorMessage(data, 'Password reset failed.');
         notifyListeners();
         return false;
       }
