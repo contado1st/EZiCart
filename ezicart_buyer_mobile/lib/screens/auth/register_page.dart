@@ -5,6 +5,8 @@ import '../../config/theme.dart';
 import '../../providers/auth_provider.dart';
 import '../common/psgc_address_form.dart';
 import 'otp_verification_page.dart';
+import 'widgets/auth_scaffold.dart';
+import 'widgets/auth_styles.dart';
 
 class RegisterPage extends StatefulWidget {
   const RegisterPage({super.key});
@@ -14,7 +16,8 @@ class RegisterPage extends StatefulWidget {
 }
 
 class _RegisterPageState extends State<RegisterPage> {
-  int _currentStep = 0; // 0: Details, 1: Address, 2: Password
+  int _currentStep = 0; // 0: Details, 1: Address, 2: Security
+  bool _isSubmitting = false;
 
   final _step1FormKey = GlobalKey<FormState>();
   final _step3FormKey = GlobalKey<FormState>();
@@ -40,6 +43,12 @@ class _RegisterPageState extends State<RegisterPage> {
   bool _termsAccepted = false;
 
   @override
+  void initState() {
+    super.initState();
+    _passwordCtrl.addListener(() => setState(() {}));
+  }
+
+  @override
   void dispose() {
     _firstNameCtrl.dispose();
     _middleNameCtrl.dispose();
@@ -53,17 +62,64 @@ class _RegisterPageState extends State<RegisterPage> {
     super.dispose();
   }
 
+  bool get _hasUnsavedData {
+    return _firstNameCtrl.text.isNotEmpty ||
+        _lastNameCtrl.text.isNotEmpty ||
+        _emailCtrl.text.isNotEmpty ||
+        _contactCtrl.text.isNotEmpty ||
+        _passwordCtrl.text.isNotEmpty;
+  }
+
+  Future<bool> _confirmDiscard() async {
+    if (!_hasUnsavedData) return true;
+
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Row(
+          children: [
+            Icon(Icons.warning_amber_rounded, color: Colors.orange, size: 24),
+            SizedBox(width: 8),
+            Text('Discard Registration?', style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),
+          ],
+        ),
+        content: const Text(
+          'Are you sure you want to exit? Any entered registration information will be discarded.',
+          style: TextStyle(fontSize: 13, color: Color(0xFF4A5568), height: 1.4),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Keep Editing', style: TextStyle(color: AppTheme.muted, fontWeight: FontWeight.w600)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red.shade600,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('Discard & Leave', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+
+    return result ?? false;
+  }
+
   Future<void> _selectBirthday() async {
     final now = DateTime.now();
+    // Rule A6: Must be at least 18 years old on the day of registration
     final maxDate = DateTime(now.year - 18, now.month, now.day);
     final initial = _selectedBirthday ?? DateTime(now.year - 20, now.month, now.day);
 
     final picked = await showDatePicker(
       context: context,
-      initialDate: initial,
+      initialDate: initial.isAfter(maxDate) ? maxDate : initial,
       firstDate: DateTime(1920),
       lastDate: maxDate,
-      helpText: 'Date of Birth (Must be at least 18 years old)',
+      helpText: 'Select Date of Birth (Must be at least 18 years old)',
     );
 
     if (picked != null) {
@@ -83,22 +139,29 @@ class _RegisterPageState extends State<RegisterPage> {
     }
   }
 
-  void _prevStep() {
+  void _prevStep() async {
     if (_currentStep > 0) {
       setState(() => _currentStep--);
+    } else {
+      final shouldLeave = await _confirmDiscard();
+      if (shouldLeave && mounted) {
+        Navigator.of(context).pop();
+      }
     }
   }
 
-  bool _isPasswordComplex(String pwd) {
-    if (pwd.length < 8) return false;
-    final hasUpper = pwd.contains(RegExp(r'[A-Z]'));
-    final hasLower = pwd.contains(RegExp(r'[a-z]'));
-    final hasNumber = pwd.contains(RegExp(r'[0-9]'));
-    final hasSymbol = pwd.contains(RegExp(r'[!@#\$%^&*(),.?":{}|<>]'));
-    return hasUpper && hasLower && hasNumber && hasSymbol;
-  }
+  // Password Rules (A5)
+  bool get _hasMinLength => _passwordCtrl.text.length >= 8;
+  bool get _hasUpper => _passwordCtrl.text.contains(RegExp(r'[A-Z]'));
+  bool get _hasLower => _passwordCtrl.text.contains(RegExp(r'[a-z]'));
+  bool get _hasNumber => _passwordCtrl.text.contains(RegExp(r'[0-9]'));
+  bool get _hasSymbol => _passwordCtrl.text.contains(RegExp(r'[!@#\$%^&*(),.?":{}|<>]'));
+  bool get _isPasswordValid =>
+      _hasMinLength && _hasUpper && _hasLower && _hasNumber && _hasSymbol;
 
   void _submitRegistration() async {
+    if (_isSubmitting) return; // Prevent duplicate rapid taps (TC-BUY-022)
+
     if (!_step3FormKey.currentState!.validate()) return;
 
     if (!_termsAccepted) {
@@ -111,43 +174,51 @@ class _RegisterPageState extends State<RegisterPage> {
       return;
     }
 
+    setState(() => _isSubmitting = true);
+
     final auth = context.read<AuthProvider>();
     auth.clearError();
 
-    final success = await auth.register(
-      firstName: _firstNameCtrl.text.trim(),
-      middleName: _middleNameCtrl.text.trim().isNotEmpty ? _middleNameCtrl.text.trim() : null,
-      lastName: _lastNameCtrl.text.trim(),
-      suffix: _suffixCtrl.text.trim().isNotEmpty ? _suffixCtrl.text.trim() : null,
-      email: _emailCtrl.text.trim(),
-      contactNo: _contactCtrl.text.trim(),
-      birthday: _birthdayCtrl.text.trim(),
-      password: _passwordCtrl.text,
-      region: _addressData.region.isNotEmpty ? _addressData.region : null,
-      province: _addressData.province.isNotEmpty ? _addressData.province : null,
-      municipality: _addressData.municipality.isNotEmpty ? _addressData.municipality : null,
-      barangay: _addressData.barangay.isNotEmpty ? _addressData.barangay : null,
-      streetAddress: _addressData.streetAddress,
-      houseNumber: _addressData.houseNumber,
-      postalCode: _addressData.postalCode,
-    );
-
-    if (!mounted) return;
-
-    if (success) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Account created! A 6-digit verification code has been sent to your email.'),
-          backgroundColor: Colors.green,
-        ),
+    try {
+      final success = await auth.register(
+        firstName: _firstNameCtrl.text.trim(),
+        middleName: _middleNameCtrl.text.trim().isNotEmpty ? _middleNameCtrl.text.trim() : null,
+        lastName: _lastNameCtrl.text.trim(),
+        suffix: _suffixCtrl.text.trim().isNotEmpty ? _suffixCtrl.text.trim() : null,
+        email: _emailCtrl.text.trim().toLowerCase(), // Case-insensitive, trimmed
+        contactNo: _contactCtrl.text.trim().replaceAll(' ', ''),
+        birthday: _birthdayCtrl.text.trim(),
+        password: _passwordCtrl.text,
+        region: _addressData.region.isNotEmpty ? _addressData.region : null,
+        province: _addressData.province.isNotEmpty ? _addressData.province : null,
+        municipality: _addressData.municipality.isNotEmpty ? _addressData.municipality : null,
+        barangay: _addressData.barangay.isNotEmpty ? _addressData.barangay : null,
+        streetAddress: _addressData.streetAddress,
+        houseNumber: _addressData.houseNumber,
+        postalCode: _addressData.postalCode,
       );
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(
-          builder: (_) => OtpVerificationPage(
-            email: _emailCtrl.text.trim(),
+
+      if (!mounted) return;
+
+      if (success) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Account created! A 6-digit verification code has been sent to your email.'),
+            backgroundColor: Colors.green,
           ),
-        ),
-      );
+        );
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(
+            builder: (_) => OtpVerificationPage(
+              email: _emailCtrl.text.trim().toLowerCase(),
+            ),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isSubmitting = false);
+      }
     }
   }
 
@@ -155,68 +226,144 @@ class _RegisterPageState extends State<RegisterPage> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
         title: Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
         content: SingleChildScrollView(
-          child: Text(content, style: const TextStyle(fontSize: 13, height: 1.4)),
+          child: Text(content, style: const TextStyle(fontSize: 13, height: 1.45, color: Color(0xFF4A5568))),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Close')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('I Understand', style: TextStyle(color: AppTheme.primary, fontWeight: FontWeight.bold)),
+          ),
         ],
       ),
     );
   }
 
   Widget _buildStepIndicator() {
-    final stepTitles = ['Your details', 'Delivery address', 'Password & terms'];
+    final steps = [
+      {'number': '1', 'title': 'Details', 'icon': Icons.person_rounded},
+      {'number': '2', 'title': 'Address', 'icon': Icons.local_shipping_rounded},
+      {'number': '3', 'title': 'Security', 'icon': Icons.shield_rounded},
+    ];
 
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
-      margin: const EdgeInsets.only(bottom: 20),
+      margin: const EdgeInsets.only(bottom: 24),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppTheme.line),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.02),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
+        color: const Color(0xFFFAF5F7),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+          color: AppTheme.primary.withValues(alpha: 0.12),
+          width: 1,
+        ),
       ),
-      child: Column(
+      child: Row(
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'Step ${_currentStep + 1} of 3',
-                style: const TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: AppTheme.primary,
+          for (int i = 0; i < steps.length; i++) ...[
+            // Step Item (Circle + Title)
+            GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: () {
+                if (i < _currentStep) {
+                  setState(() => _currentStep = i);
+                }
+              },
+              child: SizedBox(
+                width: 68,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    AnimatedContainer(
+                      duration: const Duration(milliseconds: 250),
+                      curve: Curves.easeInOut,
+                      width: 36,
+                      height: 36,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        gradient: (i <= _currentStep)
+                            ? const LinearGradient(
+                                colors: [Color(0xFFD63363), Color(0xFFBE2854)],
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                              )
+                            : null,
+                        color: (i > _currentStep) ? Colors.white : null,
+                        border: Border.all(
+                          color: (i <= _currentStep)
+                              ? Colors.transparent
+                              : const Color(0xFFE2E8F0),
+                          width: 1.5,
+                        ),
+                        boxShadow: (i == _currentStep)
+                            ? [
+                                BoxShadow(
+                                  color: const Color(0xFFBE2854).withValues(alpha: 0.35),
+                                  blurRadius: 10,
+                                  offset: const Offset(0, 3),
+                                ),
+                              ]
+                            : null,
+                      ),
+                      child: Center(
+                        child: (i < _currentStep)
+                            ? const Icon(Icons.check_rounded, size: 18, color: Colors.white)
+                            : Text(
+                                steps[i]['number'] as String,
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.bold,
+                                  color: (i == _currentStep)
+                                      ? Colors.white
+                                      : const Color(0xFF94A3B8),
+                                ),
+                              ),
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      steps[i]['title'] as String,
+                      textAlign: TextAlign.center,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: (i == _currentStep)
+                            ? FontWeight.w700
+                            : (i < _currentStep)
+                                ? FontWeight.w600
+                                : FontWeight.w500,
+                        color: (i == _currentStep)
+                            ? AppTheme.primary
+                            : (i < _currentStep)
+                                ? AppTheme.ink
+                                : const Color(0xFF94A3B8),
+                      ),
+                    ),
+                  ],
                 ),
               ),
-              Text(
-                stepTitles[_currentStep],
-                style: const TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.bold,
-                  color: AppTheme.ink,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(4),
-            child: LinearProgressIndicator(
-              value: (_currentStep + 1) / 3,
-              backgroundColor: Colors.grey.shade200,
-              valueColor: const AlwaysStoppedAnimation<Color>(AppTheme.primary),
-              minHeight: 6,
             ),
-          ),
+
+            // Continuous Connector Track between Steps
+            if (i < steps.length - 1)
+              Expanded(
+                child: Container(
+                  height: 3,
+                  margin: const EdgeInsets.only(bottom: 22, left: 4, right: 4),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(2),
+                    gradient: (i < _currentStep)
+                        ? const LinearGradient(
+                            colors: [Color(0xFFD63363), Color(0xFFBE2854)],
+                          )
+                        : null,
+                    color: (i >= _currentStep) ? const Color(0xFFE2E8F0) : null,
+                  ),
+                ),
+              ),
+          ],
         ],
       ),
     );
@@ -228,114 +375,154 @@ class _RegisterPageState extends State<RegisterPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const Text(
-            'Personal Information',
-            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.ink),
+          const Row(
+            children: [
+              Icon(Icons.badge_outlined, color: AppTheme.primary, size: 20),
+              SizedBox(width: 8),
+              Text(
+                'Personal Information',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.ink),
+              ),
+            ],
           ),
           const SizedBox(height: 4),
           const Text(
-            'Enter your full name and primary contact details for account verification.',
+            'Enter your authentic details as they appear on your government ID.',
             style: TextStyle(fontSize: 12, color: AppTheme.muted),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 18),
 
-          // First Name & Middle Name
+          // First Name & Middle Name (TC-BUY-004, TC-BUY-005, TC-BUY-006)
           Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Expanded(
-                flex: 2,
+                flex: 3,
                 child: TextFormField(
                   controller: _firstNameCtrl,
+                  autocorrect: false,
+                  enableSuggestions: false,
                   textCapitalization: TextCapitalization.words,
-                  decoration: const InputDecoration(labelText: 'First Name *'),
+                  textInputAction: TextInputAction.next,
+                  decoration: AuthStyles.inputDecoration(
+                    label: 'First Name *',
+                    hint: 'Juan Miguel',
+                  ),
                   validator: (v) {
-                    if (v == null || v.trim().length < 2) {
-                      return 'Min 2 characters';
-                    }
+                    if (v == null || v.trim().isEmpty) return 'First name is required';
+                    if (v.trim().length < 2) return 'Min 2 characters';
+                    if (v.trim().length > 50) return 'Max 50 characters';
                     if (!RegExp(r"^[\p{L}\p{M} .\x27-]+$", unicode: true).hasMatch(v.trim())) {
-                      return 'Letters only';
+                      return 'Only letters and spaces allowed';
                     }
                     return null;
                   },
                 ),
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: 10),
               Expanded(
-                flex: 1,
+                flex: 2,
                 child: TextFormField(
                   controller: _middleNameCtrl,
+                  autocorrect: false,
+                  enableSuggestions: false,
                   textCapitalization: TextCapitalization.words,
-                  decoration: const InputDecoration(labelText: 'Middle Name'),
+                  textInputAction: TextInputAction.next,
+                  decoration: AuthStyles.inputDecoration(
+                    label: 'Middle Name',
+                    hint: 'Santos',
+                  ),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 14),
 
-          // Last Name & Suffix
+          // Last Name & Suffix (TC-BUY-004, TC-BUY-005, TC-BUY-006)
           Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Expanded(
                 flex: 3,
                 child: TextFormField(
                   controller: _lastNameCtrl,
+                  autocorrect: false,
+                  enableSuggestions: false,
                   textCapitalization: TextCapitalization.words,
-                  decoration: const InputDecoration(labelText: 'Last Name *'),
+                  textInputAction: TextInputAction.next,
+                  decoration: AuthStyles.inputDecoration(
+                    label: 'Last Name *',
+                    hint: 'Dela Cruz',
+                  ),
                   validator: (v) {
-                    if (v == null || v.trim().length < 2) {
-                      return 'Min 2 characters';
-                    }
+                    if (v == null || v.trim().isEmpty) return 'Last name is required';
+                    if (v.trim().length < 2) return 'Min 2 characters';
+                    if (v.trim().length > 50) return 'Max 50 characters';
                     if (!RegExp(r"^[\p{L}\p{M} .\x27-]+$", unicode: true).hasMatch(v.trim())) {
-                      return 'Letters only';
+                      return 'Only letters and spaces allowed';
                     }
                     return null;
                   },
                 ),
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: 10),
               Expanded(
-                flex: 1,
+                flex: 2,
                 child: TextFormField(
                   controller: _suffixCtrl,
+                  autocorrect: false,
+                  enableSuggestions: false,
                   textCapitalization: TextCapitalization.words,
-                  decoration: const InputDecoration(labelText: 'Suffix', hintText: 'Jr.'),
+                  textInputAction: TextInputAction.next,
+                  decoration: AuthStyles.inputDecoration(
+                    label: 'Suffix',
+                    hint: 'Jr., III',
+                  ),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 14),
 
-          // Email
+          // Email (TC-BUY-009, TC-BUY-011, TC-BUY-012)
           TextFormField(
             controller: _emailCtrl,
             keyboardType: TextInputType.emailAddress,
             autocorrect: false,
-            decoration: const InputDecoration(
-              labelText: 'Email Address *',
-              hintText: 'name@example.com',
-              prefixIcon: Icon(Icons.email_outlined, size: 20),
+            enableSuggestions: false,
+            textInputAction: TextInputAction.next,
+            decoration: AuthStyles.inputDecoration(
+              label: 'Email Address *',
+              hint: 'juanmiguel.delacruz@example.com',
+              prefixIcon: Icons.email_outlined,
             ),
             validator: (v) {
               if (v == null || v.trim().isEmpty) return 'Email is required';
-              if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(v.trim())) {
+              final trimmed = v.trim();
+              // Strict valid email with domain and TLD (min 2 chars)
+              if (!RegExp(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$').hasMatch(trimmed)) {
                 return 'Enter a valid email address';
               }
               return null;
             },
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 14),
 
-          // Contact Number
+          // Contact Number (TC-BUY-013, TC-BUY-014, TC-BUY-016)
           TextFormField(
             controller: _contactCtrl,
             keyboardType: TextInputType.phone,
-            decoration: const InputDecoration(
-              labelText: 'Contact Number (PH Mobile) *',
-              hintText: '09XXXXXXXXX or +63 9XXXXXXXXX',
-              prefixIcon: Icon(Icons.phone_android_outlined, size: 20),
+            autocorrect: false,
+            enableSuggestions: false,
+            textInputAction: TextInputAction.next,
+            decoration: AuthStyles.inputDecoration(
+              label: 'Mobile Number (PH) *',
+              hint: '09171234567',
+              prefixIcon: Icons.phone_android_rounded,
+              helperText: '11-digit mobile starting with 09 or +639',
             ),
             validator: (v) {
-              if (v == null || v.trim().isEmpty) return 'Contact number is required';
+              if (v == null || v.trim().isEmpty) return 'Mobile number is required';
               final cleaned = v.trim().replaceAll(' ', '');
               if (!RegExp(r'^(09\d{9}|\+639\d{9})$').hasMatch(cleaned)) {
                 return 'Enter a valid 11-digit PH mobile number';
@@ -343,32 +530,39 @@ class _RegisterPageState extends State<RegisterPage> {
               return null;
             },
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 14),
 
-          // Birthday
+          // Birthday (TC-BUY-007, TC-BUY-008)
           TextFormField(
             controller: _birthdayCtrl,
             readOnly: true,
             onTap: _selectBirthday,
-            decoration: const InputDecoration(
-              labelText: 'Date of Birth (18+ only) *',
-              prefixIcon: Icon(Icons.cake_outlined, size: 20),
-              suffixIcon: Icon(Icons.calendar_month_outlined, size: 20),
+            decoration: AuthStyles.inputDecoration(
+              label: 'Date of Birth (18+ only) *',
+              hint: 'YYYY-MM-DD',
+              prefixIcon: Icons.cake_outlined,
+              suffixIcon: const Icon(Icons.calendar_month_outlined, color: Color(0xFF718096), size: 20),
             ),
-            validator: (v) => (v == null || v.trim().isEmpty) ? 'Please select your birthday' : null,
+            validator: (v) {
+              if (v == null || v.trim().isEmpty) return 'Please select your date of birth';
+              final parsed = DateTime.tryParse(v.trim());
+              if (parsed == null) return 'Enter a valid date';
+              final now = DateTime.now();
+              int age = now.year - parsed.year;
+              if (now.month < parsed.month || (now.month == parsed.month && now.day < parsed.day)) {
+                age--;
+              }
+              if (parsed.isAfter(now)) return 'Date of birth cannot be in the future';
+              if (age < 18) return 'You must be at least 18 years old';
+              return null;
+            },
           ),
           const SizedBox(height: 24),
 
-          ElevatedButton(
+          AuthStyles.gradientButton(
             onPressed: _nextStep,
-            child: const Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text('Next: Delivery Address'),
-                SizedBox(width: 8),
-                Icon(Icons.arrow_forward, size: 18),
-              ],
-            ),
+            text: 'Continue to Delivery Address',
+            trailingIcon: Icons.arrow_forward_rounded,
           ),
         ],
       ),
@@ -380,18 +574,25 @@ class _RegisterPageState extends State<RegisterPage> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             const Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    'Delivery Address',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.ink),
+                  Row(
+                    children: [
+                      Icon(Icons.local_shipping_outlined, color: AppTheme.primary, size: 20),
+                      SizedBox(width: 8),
+                      Text(
+                        'Delivery Address',
+                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.ink),
+                      ),
+                    ],
                   ),
                   SizedBox(height: 2),
                   Text(
-                    'Optional - you can add or update your address anytime in account settings.',
+                    'Optional - can also be added anytime during checkout',
                     style: TextStyle(fontSize: 12, color: AppTheme.muted),
                   ),
                 ],
@@ -399,11 +600,10 @@ class _RegisterPageState extends State<RegisterPage> {
             ),
             TextButton(
               onPressed: () {
-                // Clear address if skipping
                 _addressData = AddressFormData();
                 _nextStep();
               },
-              child: const Text('Skip for now', style: TextStyle(color: AppTheme.muted, fontSize: 13)),
+              child: const Text('Skip for now', style: TextStyle(color: AppTheme.primary, fontWeight: FontWeight.bold, fontSize: 13)),
             ),
           ],
         ),
@@ -419,24 +619,20 @@ class _RegisterPageState extends State<RegisterPage> {
         Row(
           children: [
             Expanded(
-              child: OutlinedButton(
+              flex: 1,
+              child: AuthStyles.secondaryButton(
                 onPressed: _prevStep,
-                child: const Text('Back'),
+                text: 'Back',
+                leadingIcon: Icons.arrow_back_rounded,
               ),
             ),
             const SizedBox(width: 12),
             Expanded(
               flex: 2,
-              child: ElevatedButton(
+              child: AuthStyles.gradientButton(
                 onPressed: _nextStep,
-                child: const Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text('Next: Password'),
-                    SizedBox(width: 6),
-                    Icon(Icons.arrow_forward, size: 18),
-                  ],
-                ),
+                text: 'Next: Security',
+                trailingIcon: Icons.arrow_forward_rounded,
               ),
             ),
           ],
@@ -445,79 +641,145 @@ class _RegisterPageState extends State<RegisterPage> {
     );
   }
 
+  Widget _buildRequirementChip(String label, bool isMet) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: isMet ? const Color(0xFFECFDF5) : const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: isMet ? const Color(0xFF6EE7B7) : const Color(0xFFE2E8F0),
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            isMet ? Icons.check_circle_rounded : Icons.radio_button_unchecked_rounded,
+            size: 13,
+            color: isMet ? const Color(0xFF059669) : const Color(0xFF94A3B8),
+          ),
+          const SizedBox(width: 5),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: isMet ? FontWeight.w600 : FontWeight.normal,
+              color: isMet ? const Color(0xFF065F46) : const Color(0xFF64748B),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildStep3() {
     final auth = context.watch<AuthProvider>();
+    final isBusy = auth.isLoading || _isSubmitting;
 
     return Form(
       key: _step3FormKey,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const Text(
-            'Security & Agreement',
-            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.ink),
+          const Row(
+            children: [
+              Icon(Icons.shield_outlined, color: AppTheme.primary, size: 20),
+              SizedBox(width: 8),
+              Text(
+                'Security & Agreement',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.ink),
+              ),
+            ],
           ),
           const SizedBox(height: 4),
           const Text(
-            'Choose a strong password to safeguard your orders and account.',
+            'Create a strong password to protect your orders and personal data.',
             style: TextStyle(fontSize: 12, color: AppTheme.muted),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 18),
 
-          // Password
+          // Password (TC-BUY-017, TC-BUY-018, TC-BUY-020, TC-BUY-031)
           TextFormField(
             controller: _passwordCtrl,
             obscureText: _obscurePassword,
-            decoration: InputDecoration(
-              labelText: 'Password *',
-              prefixIcon: const Icon(Icons.lock_outline, size: 20),
+            textInputAction: TextInputAction.next,
+            autocorrect: false,
+            enableSuggestions: false,
+            decoration: AuthStyles.inputDecoration(
+              label: 'Password *',
+              hint: 'Min 8 characters',
+              prefixIcon: Icons.lock_outline_rounded,
               suffixIcon: IconButton(
-                icon: Icon(_obscurePassword ? Icons.visibility_outlined : Icons.visibility_off_outlined),
+                icon: Icon(
+                  _obscurePassword ? Icons.visibility_outlined : Icons.visibility_off_outlined,
+                  color: const Color(0xFF718096),
+                  size: 20,
+                ),
                 onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
               ),
             ),
             validator: (v) {
               if (v == null || v.isEmpty) return 'Password is required';
               if (v.length < 8) return 'Password must be at least 8 characters';
-              if (!_isPasswordComplex(v)) {
-                return 'Must contain uppercase, lowercase, number, and symbol';
+              if (!_isPasswordValid) {
+                return 'Password does not satisfy all required criteria';
               }
               return null;
             },
           ),
-          const SizedBox(height: 8),
-          const Text(
-            'Must be 8-128 characters with uppercase, lowercase, numbers, and symbols.',
-            style: TextStyle(fontSize: 11, color: AppTheme.muted),
+          const SizedBox(height: 10),
+
+          // Live Password Requirement Badges
+          Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            children: [
+              _buildRequirementChip('8+ characters', _hasMinLength),
+              _buildRequirementChip('Uppercase (A-Z)', _hasUpper),
+              _buildRequirementChip('Lowercase (a-z)', _hasLower),
+              _buildRequirementChip('Number (0-9)', _hasNumber),
+              _buildRequirementChip('Special (!@#\$)', _hasSymbol),
+            ],
           ),
           const SizedBox(height: 14),
 
-          // Confirm Password
+          // Confirm Password (TC-BUY-019)
           TextFormField(
             controller: _confirmPasswordCtrl,
             obscureText: _obscureConfirmPassword,
-            decoration: InputDecoration(
-              labelText: 'Confirm Password *',
-              prefixIcon: const Icon(Icons.lock_reset_outlined, size: 20),
+            textInputAction: TextInputAction.done,
+            autocorrect: false,
+            enableSuggestions: false,
+            onFieldSubmitted: (_) => _submitRegistration(),
+            decoration: AuthStyles.inputDecoration(
+              label: 'Confirm Password *',
+              hint: 'Re-enter your password',
+              prefixIcon: Icons.lock_reset_rounded,
               suffixIcon: IconButton(
-                icon: Icon(_obscureConfirmPassword ? Icons.visibility_outlined : Icons.visibility_off_outlined),
+                icon: Icon(
+                  _obscureConfirmPassword ? Icons.visibility_outlined : Icons.visibility_off_outlined,
+                  color: const Color(0xFF718096),
+                  size: 20,
+                ),
                 onPressed: () => setState(() => _obscureConfirmPassword = !_obscureConfirmPassword),
               ),
             ),
             validator: (v) {
+              if (v == null || v.isEmpty) return 'Please confirm your password';
               if (v != _passwordCtrl.text) return 'Passwords do not match';
               return null;
             },
           ),
           const SizedBox(height: 16),
 
-          // Terms & Privacy checkbox
+          // Terms Checkbox (TC-BUY-021)
           Container(
-            padding: const EdgeInsets.all(10),
+            padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: Colors.grey.shade50,
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: AppTheme.line),
+              color: const Color(0xFFF8FAFC),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0xFFE2E8F0)),
             ),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -528,37 +790,38 @@ class _RegisterPageState extends State<RegisterPage> {
                   child: Checkbox(
                     value: _termsAccepted,
                     activeColor: AppTheme.primary,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
                     onChanged: (v) => setState(() => _termsAccepted = v ?? false),
                   ),
                 ),
-                const SizedBox(width: 8),
+                const SizedBox(width: 10),
                 Expanded(
                   child: Wrap(
                     crossAxisAlignment: WrapCrossAlignment.center,
                     children: [
-                      const Text('I agree to EZiCart’s ', style: TextStyle(fontSize: 12)),
+                      const Text('I agree to EZiCart’s ', style: TextStyle(fontSize: 12, color: Color(0xFF4A5568))),
                       GestureDetector(
                         onTap: () => _showPolicyDialog(
                           'Terms of Service',
-                          'By using EZiCart, you agree to comply with all marketplace policies, authentic buyer obligations, dispute handling guidelines, and fair use terms.',
+                          'By registering on EZiCart, you agree to comply with authentic buyer terms, fair use policies, order dispute rules, and platform conduct.',
                         ),
                         child: const Text(
                           'Terms of Service',
                           style: TextStyle(fontSize: 12, color: AppTheme.primary, fontWeight: FontWeight.bold),
                         ),
                       ),
-                      const Text(' and ', style: TextStyle(fontSize: 12)),
+                      const Text(' and ', style: TextStyle(fontSize: 12, color: Color(0xFF4A5568))),
                       GestureDetector(
                         onTap: () => _showPolicyDialog(
                           'Privacy Policy',
-                          'We respect your personal data. Your delivery information and identity credentials are encrypted and solely used for order dispatch, courier coordination, and platform security.',
+                          'We respect your privacy. Delivery information and credentials are encrypted and only utilized for checkout, logistics tracking, and customer protection.',
                         ),
                         child: const Text(
                           'Privacy Policy',
                           style: TextStyle(fontSize: 12, color: AppTheme.primary, fontWeight: FontWeight.bold),
                         ),
                       ),
-                      const Text('.', style: TextStyle(fontSize: 12)),
+                      const Text('.', style: TextStyle(fontSize: 12, color: Color(0xFF4A5568))),
                     ],
                   ),
                 ),
@@ -567,26 +830,25 @@ class _RegisterPageState extends State<RegisterPage> {
           ),
           const SizedBox(height: 24),
 
+          // Action Buttons (TC-BUY-022 double-tap debounce guarded)
           Row(
             children: [
               Expanded(
-                child: OutlinedButton(
-                  onPressed: auth.isLoading ? null : _prevStep,
-                  child: const Text('Back'),
+                flex: 1,
+                child: AuthStyles.secondaryButton(
+                  onPressed: isBusy ? null : _prevStep,
+                  text: 'Back',
+                  leadingIcon: Icons.arrow_back_rounded,
                 ),
               ),
               const SizedBox(width: 12),
               Expanded(
                 flex: 2,
-                child: ElevatedButton(
-                  onPressed: auth.isLoading ? null : _submitRegistration,
-                  child: auth.isLoading
-                      ? const SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                        )
-                      : const Text('Create Buyer Account'),
+                child: AuthStyles.gradientButton(
+                  onPressed: isBusy ? null : _submitRegistration,
+                  text: 'Create Account',
+                  isLoading: isBusy,
+                  trailingIcon: Icons.check_circle_outline_rounded,
                 ),
               ),
             ],
@@ -600,95 +862,82 @@ class _RegisterPageState extends State<RegisterPage> {
   Widget build(BuildContext context) {
     final auth = context.watch<AuthProvider>();
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Buyer Registration'),
-      ),
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              // Logo brand kicker
-              Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: AppTheme.primarySoft,
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    child: const Text(
-                      'EZiCart',
-                      style: TextStyle(color: AppTheme.primary, fontWeight: FontWeight.bold, fontSize: 13),
-                    ),
+    final isPersonalError = auth.errorMessage != null &&
+        (auth.errorMessage!.toLowerCase().contains('email') ||
+            auth.errorMessage!.toLowerCase().contains('mobile') ||
+            auth.errorMessage!.toLowerCase().contains('contact') ||
+            auth.errorMessage!.toLowerCase().contains('birthday') ||
+            auth.errorMessage!.toLowerCase().contains('name'));
+
+    return PopScope(
+      canPop: !_hasUnsavedData,
+      onPopInvokedWithResult: (didPop, result) async {
+        if (didPop) return;
+        final shouldLeave = await _confirmDiscard();
+        if (shouldLeave && context.mounted) {
+          Navigator.of(context).pop();
+        }
+      },
+      child: AuthScaffold(
+        title: 'Create Account',
+        subtitle: 'Join EZiCart for exclusive buyer deals and fast checkout',
+        showBack: true,
+        onBack: _prevStep,
+        cardChild: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _buildStepIndicator(),
+
+            if (auth.errorMessage != null) ...[
+              AuthStyles.errorBanner(auth.errorMessage!),
+              if (isPersonalError && _currentStep != 0) ...[
+                OutlinedButton.icon(
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppTheme.primary,
+                    side: const BorderSide(color: AppTheme.primary),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                   ),
-                  const SizedBox(width: 8),
-                  const Text(
-                    'Buyer Onboarding',
-                    style: TextStyle(color: AppTheme.muted, fontSize: 12),
+                  onPressed: () => setState(() => _currentStep = 0),
+                  icon: const Icon(Icons.edit_outlined, size: 16),
+                  label: const Text('Edit Personal Information', style: TextStyle(fontSize: 12)),
+                ),
+                const SizedBox(height: 12),
+              ],
+            ],
+
+            AnimatedSwitcher(
+              duration: const Duration(milliseconds: 250),
+              child: _currentStep == 0
+                  ? _buildStep1()
+                  : _currentStep == 1
+                      ? _buildStep2()
+                      : _buildStep3(),
+            ),
+          ],
+        ),
+        cardBottom: Center(
+          child: GestureDetector(
+            onTap: () async {
+              final shouldLeave = await _confirmDiscard();
+              if (shouldLeave && context.mounted) {
+                Navigator.of(context).pop();
+              }
+            },
+            child: const Text.rich(
+              TextSpan(
+                text: 'Already have an account? ',
+                style: TextStyle(color: AppTheme.muted, fontSize: 13),
+                children: [
+                  TextSpan(
+                    text: 'Sign In',
+                    style: TextStyle(
+                      color: AppTheme.primary,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ],
               ),
-              const SizedBox(height: 12),
-
-              // Step indicator
-              _buildStepIndicator(),
-
-              // Global Error Display
-              if (auth.errorMessage != null)
-                Container(
-                  margin: const EdgeInsets.only(bottom: 16),
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Colors.red.shade50,
-                    border: Border.all(color: Colors.red.shade200),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.error_outline, color: Colors.red, size: 20),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          auth.errorMessage!,
-                          style: TextStyle(color: Colors.red.shade900, fontSize: 13),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-
-              // Active step view
-              AnimatedSwitcher(
-                duration: const Duration(milliseconds: 250),
-                child: _currentStep == 0
-                    ? _buildStep1()
-                    : _currentStep == 1
-                        ? _buildStep2()
-                        : _buildStep3(),
-              ),
-
-              const SizedBox(height: 24),
-              Center(
-                child: TextButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  child: const Text.rich(
-                    TextSpan(
-                      text: 'Already have an account? ',
-                      style: TextStyle(color: AppTheme.muted, fontSize: 13),
-                      children: [
-                        TextSpan(
-                          text: 'Sign In',
-                          style: TextStyle(color: AppTheme.primary, fontWeight: FontWeight.bold),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ],
+            ),
           ),
         ),
       ),

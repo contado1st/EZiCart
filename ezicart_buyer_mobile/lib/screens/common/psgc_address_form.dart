@@ -488,6 +488,8 @@ class _PsgcAddressFormState extends State<PsgcAddressForm> {
           // Manual input fields
           TextFormField(
             controller: _manualRegionCtrl,
+            autocorrect: false,
+            enableSuggestions: false,
             decoration: const InputDecoration(labelText: 'Region *'),
             onChanged: (_) => _notifyChange(),
             validator: (v) => (!widget.isOptional && (v == null || v.trim().isEmpty)) ? 'Required' : null,
@@ -495,6 +497,8 @@ class _PsgcAddressFormState extends State<PsgcAddressForm> {
           const SizedBox(height: 12),
           TextFormField(
             controller: _manualProvinceCtrl,
+            autocorrect: false,
+            enableSuggestions: false,
             decoration: const InputDecoration(labelText: 'Province *'),
             onChanged: (_) => _notifyChange(),
             validator: (v) => (!widget.isOptional && (v == null || v.trim().isEmpty)) ? 'Required' : null,
@@ -502,6 +506,8 @@ class _PsgcAddressFormState extends State<PsgcAddressForm> {
           const SizedBox(height: 12),
           TextFormField(
             controller: _manualMuniCtrl,
+            autocorrect: false,
+            enableSuggestions: false,
             decoration: const InputDecoration(labelText: 'City / Municipality *'),
             onChanged: (_) => _notifyChange(),
             validator: (v) => (!widget.isOptional && (v == null || v.trim().isEmpty)) ? 'Required' : null,
@@ -509,6 +515,8 @@ class _PsgcAddressFormState extends State<PsgcAddressForm> {
           const SizedBox(height: 12),
           TextFormField(
             controller: _manualBrgyCtrl,
+            autocorrect: false,
+            enableSuggestions: false,
             decoration: const InputDecoration(labelText: 'Barangay *'),
             onChanged: (_) => _notifyChange(),
             validator: (v) => (!widget.isOptional && (v == null || v.trim().isEmpty)) ? 'Required' : null,
@@ -523,6 +531,8 @@ class _PsgcAddressFormState extends State<PsgcAddressForm> {
               flex: 2,
               child: TextFormField(
                 controller: _houseCtrl,
+                autocorrect: false,
+                enableSuggestions: false,
                 decoration: const InputDecoration(
                   labelText: 'House / Bldg No.',
                   hintText: 'e.g. Unit 4B',
@@ -536,6 +546,8 @@ class _PsgcAddressFormState extends State<PsgcAddressForm> {
               child: TextFormField(
                 controller: _postalCtrl,
                 keyboardType: TextInputType.number,
+                autocorrect: false,
+                enableSuggestions: false,
                 maxLength: 4,
                 decoration: const InputDecoration(
                   labelText: 'ZIP Code',
@@ -550,6 +562,8 @@ class _PsgcAddressFormState extends State<PsgcAddressForm> {
         const SizedBox(height: 12),
         TextFormField(
           controller: _streetCtrl,
+          autocorrect: false,
+          enableSuggestions: false,
           decoration: const InputDecoration(
             labelText: 'Street / Subdivision / Purok',
             hintText: 'e.g. Rizal Street, Purok 3',
