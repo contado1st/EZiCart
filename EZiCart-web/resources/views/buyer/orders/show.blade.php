@@ -34,11 +34,11 @@
                         class="status-pill status-{{ strtolower(str_replace('_', '-', $order->status)) }}">{{ str_replace('_', ' ', $order->status) }}</span>
                 </div>
 
-                @if ($order->payment_method !== 'COD' && ! in_array($order->status, ['CANCELLED', 'COMPLETED', 'RETURN_IN_TRANSIT', 'RETURNED_TO_SELLER'], true))
+                @if (! app(\App\Services\OrderWalletService::class)->paymentReady($order) && ! in_array($order->status, ['CANCELLED', 'COMPLETED', 'RETURN_IN_TRANSIT', 'RETURNED_TO_SELLER'], true))
                     <p role="status">Fulfillment is on hold because payment verification for {{ $order->payment_method }} is not configured yet.</p>
                 @endif
 
-                @if ($order->status === 'OUT_FOR_DELIVERY' && $order->payment_method === 'COD')
+                @if ($order->status === 'OUT_FOR_DELIVERY' && app(\App\Services\OrderWalletService::class)->paymentReady($order))
                     <section aria-labelledby="delivery-code-heading">
                         <h2 id="delivery-code-heading" class="courier-section-title">Your delivery confirmation code</h2>
                         @if ($deliveryCode)

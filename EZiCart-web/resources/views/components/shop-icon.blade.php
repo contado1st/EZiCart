@@ -11,4 +11,4 @@
     abort_unless(in_array($name, $availableShopicons, true), 404);
 @endphp
 
-<shopicon-regular-{{ $name }} {{ $attributes->class(['shop-icon']) }} aria-hidden="true"></shopicon-regular-{{ $name }}>
+<shopicon-regular-{{ $name }} {{ $attributes->class(['shop-icon']) }} data-shopicon="true" aria-hidden="true">{!! file_get_contents(resource_path('icons/shopicons/'.$name.'.svg')) !!}</shopicon-regular-{{ $name }}>

@@ -23,6 +23,10 @@ class CartApiController extends Controller
             'items.*.variation_id' => ['nullable', 'integer', 'exists:product_variations,id'],
             'items.*.quantity' => ['required', 'integer', 'min:1', 'max:20'],
             'voucher_code' => ['nullable', 'string', 'max:50'],
+            'payment_method' => ['nullable', 'in:COD,WALLET'],
+            'checkout_token' => ['nullable', 'uuid'],
+            'destination' => ['nullable', 'array'], 'destination.province' => ['required_with:destination', 'string', 'max:120'],
+            'destination.municipality' => ['required_with:destination', 'string', 'max:120'], 'destination.barangay' => ['nullable', 'string', 'max:120'],
         ]);
 
         $voucher = null;
@@ -37,7 +41,10 @@ class CartApiController extends Controller
         }
 
         try {
-            $quote = $pricing->quote($validated['items'], $voucher);
+            $quote = $pricing->quote($validated['items'], $voucher, false, ['address' => $validated['destination'] ?? $request->user()?->only(['province', 'municipality', 'barangay']) ?? [], 'payment_method' => $validated['payment_method'] ?? 'COD']);
+            if (count(array_unique(array_column($quote['lines'], 'seller_id'))) > 1) {
+                throw ValidationException::withMessages(['items' => 'Choose products from one shop per checkout. Items from other shops stay saved in your cart.']);
+            }
         } catch (ValidationException $e) {
             return response()->json([
                 'success' => false,
@@ -46,7 +53,7 @@ class CartApiController extends Controller
             ], 422);
         }
 
-        $checkoutToken = (string) Str::uuid();
+        $checkoutToken = $validated['checkout_token'] ?? (string) Str::uuid();
 
         return response()->json([
             'success' => true,
@@ -80,4 +87,3 @@ class CartApiController extends Controller
         ]);
     }
 }
-

@@ -1,0 +1,8 @@
+<?php $__env->startSection('title', 'Stock alerts | EZiCart'); ?>
+<?php $__env->startSection('content'); ?>
+<?php echo $__env->make('components.feature-feedback', array_diff_key(get_defined_vars(), ['__data' => 1, '__path' => 1]))->render(); ?>
+<div class="feature-page"><header><div><h1>Stock alerts</h1><p>Watch a product from its detail page. Changes are checked every minute and sent to your notifications and email.</p></div></header>
+<div class="feature-grid"><?php $__empty_1 = true; $__currentLoopData = $products; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $product): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); $__empty_1 = false; ?><article class="feature-product"><strong><?php echo e($product->name); ?></strong><p><?php echo e(ucfirst($states[$product->id])); ?></p><?php if($states[$product->id] !== 'unavailable'): ?><a href="<?php echo e(route('product.show', $product)); ?>">View product</a><?php endif; ?><form action="<?php echo e(route('buyer.stock.unwatch', $product)); ?>" method="POST"><?php echo csrf_field(); ?> <?php echo method_field('DELETE'); ?><button type="submit" class="feature-button">Stop alerts</button></form></article><?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); if ($__empty_1): ?><p>You have no watched products yet.</p><?php endif; ?></div><?php echo e($products->links()); ?></div>
+<?php $__env->stopSection(); ?>
+
+<?php echo $__env->make('layouts.app', array_diff_key(get_defined_vars(), ['__data' => 1, '__path' => 1]))->render(); ?><?php /**PATH C:\Users\Admin\Downloads\EZiCart\resources\views/buyer/stock.blade.php ENDPATH**/ ?>

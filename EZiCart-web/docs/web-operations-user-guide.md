@@ -1,5 +1,29 @@
 # Web operations user guide
 
+See the [all-module revision audit](all-modules-revision-audit.md) for implemented revisions, original findings, verification results and remaining limits. The [implementation plan](module-revision-implementation-plan.md) records the design sequence prepared before application changes.
+
+## Project location and local commands
+
+The repository contains `EZiCart-web` (Laravel) and `ezicart_buyer_mobile` (Flutter). Run PHP, Composer and npm commands from `EZiCart-web`. Use the installed dependencies and the existing `.env` in that folder. Opening `EZiCart.code-workspace` in VS Code gives each application its own project root. Do not edit generated PHP files under `storage/framework/views`; edit their Blade source under `resources/views`.
+
+## Dashboard sections and numbered pages
+
+Use the section tabs below each dashboard's summary to open the work you need. Rider queues separate available pickups, accepted pickups, hub handoffs, deliveries, returns and failed attempts; **My rider badge** opens the handoff QR without scrolling through the work tables. Hub tabs separate arrivals, sorting, dispatch, failed deliveries, exceptions and the lifecycle guide. The next actionable rider/hub queue opens by default unless you follow a direct link or choose a different tab.
+
+Seller and marketplace-admin tabs separate orders from tools or approvals. Logistics administrators can jump directly to parcels, applications, service areas, hubs/riders or exceptions. Buyers can choose **All orders**, **Preparing to ship**, **To receive** or **Closed orders**; these filter the full purchase history, including records on later pages. Finance, storage and routing-area pages also separate their records from other tasks.
+
+Operational tables show 25 records per page, with existing 20–30 record limits retained where already appropriate. Use the page numbers at the bottom; the range tells you how many matching records exist. Paging keeps your filters and chosen dashboard section. Queue badges show the full matching total, not just the displayed page. Routing-area dropdowns still list every eligible choice even when the table has multiple pages.
+
+Use Left/Right arrows, Home or End while a dashboard tab is focused. On narrow screens, scroll the tab strip horizontally. Your chosen section stays in the URL so reload and browser Back can restore it. Existing workflow links open the relevant panel automatically. Without JavaScript, all panels remain readable. Browser printing includes the currently loaded records from every panel; use the existing report exports for a complete report across all pages.
+
+See the [dashboard navigation assessment and implementation plan](dashboard-navigation-revision-plan.md) for coverage and verification limits.
+
+## Saved cart and selected checkout
+
+Use **Add to cart** to save products to your buyer account, including after logout. In the cart, select several products from **one shop** or use that shop's checkbox before choosing **Check out**. Selecting another shop switches your selection. Only selected products from that shop are purchased; everything else stays saved. Mixed-shop checkout is blocked on the server. **Buy now** checks out one product/variation separately, and **Cancel Buy Now** returns to that product without adding it to the cart. Checkout supports saved addresses, eligible vouchers and COD.
+
+See the [cart and checkout revision audit](cart-checkout-revision-audit.md) for implementation details, verification results and the buyer walkthrough.
+
 ## Parcel progress, notifications and required actions
 
 - Dashboard pages have a **Next steps** panel. It lists your current tasks and links to the relevant order, hub queue or administrator review page. Buyer, seller, rider, sorting hub and both administrator modules receive tasks within their own permissions.
@@ -94,11 +118,13 @@ After installing this fix, reload existing tabs once so they load the new sessio
 
 The tab middleware now clears a cached session-store binding and authentication guard after selecting a tab cookie, preventing identity reuse when a Laravel application container handles multiple requests. Existing CSRF, session regeneration, approval checks and server role restrictions remain in place.
 
+**Domain/device troubleshooting:** “Opening your tab’s account” is a brief initialization page, not an error by itself. If it stays visible, verify that `/js/tab-sessions.js` loads from the website's own origin. Leave `ASSET_URL` blank when assets should follow the requested host; pointing it at `localhost` breaks access from other devices. The critical session script uses a same-origin path independently of that override. Tunnel HTTPS headers are handled through `config/trustedproxy.php`, after environment configuration loads. Local mode defaults to loopback proxy addresses; other deployments must configure their actual trusted proxy IPs/CIDRs through `TRUSTED_PROXIES`. Clear configuration with `php artisan config:clear` after changing these settings, then refresh the affected device. Do not disable tab isolation to work around an asset or proxy configuration issue.
+
 ## Mobile boundary
 
-Flutter/Dart files, mobile controllers, mobile middleware, `routes/api.php` and API response structures are untouched. New pages/actions are web routes. Shared model additions are additive. The shared purchase service enforces newly configured recipient/per-buyer caps and shop closures so another checkout caller cannot bypass them; legacy open shops and vouchers with null new limits retain their prior behavior. Mobile does not acquire new native profile-review, attachment, promotion or variant-editor screens from this web revision.
+The combined branch includes both web and mobile work. This audit-driven revision does not edit Flutter/Dart files or add native screens. It does correct buyer API order values and enforce the existing one-shop rule during API quote preview; therefore API controllers are not described as untouched. Existing response field names are preserved. Shared purchase services continue to enforce recipient/per-buyer caps, shop closures and one-shop checkout for every caller.
 
-The native mobile category endpoint keeps its original options under the protected-API restriction. New web-only database fields are hidden from existing model serialization so they do not expand native product/profile response shapes.
+The native category endpoint keeps its current options. Private SKU and seller activity fields remain hidden from product responses. Public variation `image_path` is intentionally available to the existing mobile image parser; it is not a private document path. Order details now return the recorded discount, purchased unit/line totals, purchased product name and tracking notes rather than stale or missing property names.
 
 ## Parcel weight and vehicle load planning
 
@@ -119,3 +145,62 @@ Missing parcel weights, unverified vehicle capacity, unknown weights on other re
 Logistics administrators select a rider's **Driver duty** in **Staff profiles** while verifying capacity. Dedicated hub-to-hub drivers are excluded from local pickup and delivery assignments. They sign in to **Assigned hub transfers**, see their own transport jobs and destination details, and present parcels for destination-hub receipt. Hub staff remain responsible for the release and receiving scans.
 
 See the [hub-to-hub flow audit and demo guide](hub-to-hub-flow-audit.md) for the seeded accounts, two ready-to-run parcels, exact steps, safety checks, test results and a rollback-only local database checker.
+
+## Origin hub to destination hub
+
+1. The assigned pickup rider collects the parcel using the existing arrival, seller handover and possession scan steps.
+2. The rider's assigned origin hub opens **Intake** and records physical receipt, even when another hub owns the buyer's destination area. An unrelated hub cannot claim the parcel.
+3. The origin hub sorts to the actual destination area. This does not transfer ownership of that area's service mapping.
+4. A logistics admin plans the hub transfer. The source hub selects a verified dedicated transport driver and scans the parcel for release.
+5. The destination hub scans physical receipt, sorts locally, and assigns a local delivery rider. Origin intake does not permit final delivery dispatch into another hub's area.
+6. The destination rider accepts, receives the scanned hub release, starts delivery, records COD and proof with the buyer's delivery code, and the buyer confirms receipt.
+
+## Approved returns and physical collection
+
+**Approved return pickups** is available in dashboard navigation. Buyers, sellers and riders see only their related orders; hubs see their own parcels, and relevant administrators can review the process.
+
+1. A marketplace admin approves refund/replacement through the dispute page. The parcel stays delivered/completed while awaiting collection. Refund authorization does not send money, reserve the former rider or prove physical movement.
+2. The current hub or logistics admin opens **Approved return pickups** and assigns an eligible local rider from the parcel's destination hub. Recorded parcel weight, verified vehicle capacity, duty and license eligibility are checked. The assignment reserves capacity, while custody remains with the buyer.
+3. The assigned rider opens the same page and accepts. An accepted pickup cannot be silently reassigned from that page.
+4. When physically giving the parcel to that rider, the buyer selects **Confirm physical handover to rider**. Confirm only at the actual handover.
+5. The rider scans/enters the parcel's `EZP:` label using **Confirm scanned possession**. Acceptance, buyer confirmation, the correct label and current vehicle checks are required. Only then does the order become `RETURN_IN_TRANSIT`.
+6. Continue the existing seller return process: the rider records physical handover, then the seller scans that rider's badge to confirm receipt. Return inspection and authorized financial execution remain separate actions.
+
+Workflow messages, required-action counts and in-app notifications explain each step. Pending return riders can contact the related buyer/seller through private messaging. Approval notifications link to the return page rather than implying that collection already occurred.
+
+## Suspended transport driver recovery
+
+An in-transit driver's suspension opens a recovery exception and alerts operations. The transfer remains in transit; its history and original destination are preserved.
+
+1. The logistics admin opens **Hub transfers** and finds the suspended driver's job.
+2. Arrange a real physical handover to a different approved source-hub transport driver with sufficient verified vehicle capacity and valid recorded license.
+3. Select that driver, scan the parcel label at handover and record the recovery details. **Record replacement handover** changes custody, transfers the reservation and resolves the associated exception. A wrong scan or ineligible driver is rejected.
+4. The replacement continues to the original destination. Destination receipt still requires its own scan and releases the new reservation.
+
+The transfer page links to **Journey & evidence** and **Messages**. Recorded transfer carriers and involved hubs can contact each other and view related evidence; this grants no access to unrelated parcels. The analytics transport section reports assigned legs, hubs, cargo and transit timestamps separately from customer delivery and COD work.
+
+## License expiry and renewals
+
+A recorded license expiry blocks new assignment, pickup or dispatch starting the day after expiry. The expiry date itself is valid through that day in the application timezone. Existing receipt/unloading operations remain available so parcels are not stranded in a vehicle.
+
+Vehicle displays warn about expired licenses and renewals due within 30 days. Logistics administrators also receive a required-review task. Submit renewed license details through the existing profile-change approval process; do not merely change the visible page text. Legacy records without expiry dates are labeled for review and are not given invented dates; their existing approved status and verified-capacity requirement continue to apply until corrected.
+
+## Seller figures and logistics review queues
+
+The seller dashboard displays actual customer review averages/counts and **Unrated** for an empty review set. **Accrued seller earnings** deducts seller-funded discounts and commission, uses recorded finance snapshots where present and accounts for executed refunds. It is neither profit nor settled cash. Analytics net sales has its documented completion/remittance recognition timing; use financial settlement records to establish paid cash.
+
+Logistics administrators can search applications by name, business or email. Results are oldest-first, display waiting dates, show matching totals and provide page links. Filtering starts a fresh result list; pagination retains the current query. Open recovery exceptions also paginate, so older work is not silently hidden beyond 25 records.
+
+## Wallet, funded promotions and remittance batches
+
+Open **Wallet and balances** (or **Platform treasury** for e-commerce administrators) for available, pending, promotion reservations, withdrawal holds and transaction statements. Funds are sandbox accounting credits, not live bank/e-money deposits. Explicit local/testing enablement and a signed mock-provider event are required for funding. Never treat a browser redirect as payment confirmation.
+
+New seller/platform vouchers require a finite redemption limit and sufficient available sponsor funds for maximum liability. Percentage offers also require a maximum discount. Creation reports the required budget, available balance and shortfall. Pausing or expiry releases unused funds; redeemed amounts remain traceable. Platform promotions use shared treasury, not seller funds.
+
+Buyer checkout supports COD or a full sandbox wallet payment. Wallet orders pass the existing scanning, capacity, delivery-code and proof controls with no COD collection. Seller proceeds remain pending until existing completion, seven-day hold, funding/dispute and payout approval checks pass. Personal withdrawals require the responsible administrator's review; sandbox execution does not send actual money.
+
+Riders use **Cash remittance batches** to submit unsubmitted collections to their receiving hub. The hub records physically counted cash and receipt evidence. Exact cash verifies; shortages/excesses require logistics-admin investigation and evidenced reconciliation. Discrepancies do not automatically reduce rider earnings. Do not submit the same collection through both individual and batch remittance.
+
+Logistics administrators use **Delivery tariffs** for effective-dated drafts and independent approval. Activation requires approved ordinary-route coverage. **Shipping breakdowns** retains original buyer/seller/platform funding and verified cost allocations. Hub measurements need evidence and treasury approval for additional funding; original buyer payment remains unchanged. Tariff examples are fictional training data until replaced with approved operating costs.
+
+See the [financial implementation audit and sandbox walkthrough](wallet-remittance-delivery-fee-implementation-audit.md) for setup commands, role responsibilities, money formulas, evidence requirements, statement exports and limitations. The [research](wallet-remittance-shipping-research.md) records external sources; it does not assert an industry-wide rider/hub percentage split.

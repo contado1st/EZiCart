@@ -5,109 +5,80 @@ namespace App\Http\Controllers\Buyer;
 use App\Http\Controllers\Controller;
 use App\Models\Product;
 use App\Models\ProductVariation;
+use App\Services\BuyerCartService;
 use App\Services\CheckoutPricingService;
+use App\Services\ShopAvailabilityService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 
 class CartController extends Controller
 {
-    public function index(): View
+    public function index(Request $request, BuyerCartService $carts): View
     {
-        $cart = session()->get('cart', []);
-        $subtotal = 0;
+        $cart = $carts->display($request->user());
+        $groups = collect($cart)->groupBy('seller_id', preserveKeys: true);
+        $subtotal = collect($cart)->sum(fn ($line) => $line['price'] * $line['quantity']);
 
-        foreach ($cart as $item) {
-            $subtotal += $item['price'] * $item['quantity'];
-        }
-
-        return view('cart.index', compact('cart', 'subtotal'));
+        return view('cart.index', compact('cart', 'groups', 'subtotal'));
     }
 
-    public function add(Request $request, Product $product, CheckoutPricingService $pricing): RedirectResponse
+    public function add(Request $request, Product $product, CheckoutPricingService $pricing, BuyerCartService $carts): RedirectResponse|JsonResponse
     {
         abort_unless($product->compliance_status === 'approved' && ! $product->is_archived && $product->stock > 0, 404);
-        if (! $product->seller?->acceptsWebOrders()) {
-            return back()->withErrors(['cart' => 'This shop is temporarily unavailable for new orders.']);
-        }
-
-        $request->validate([
-            'quantity' => 'required|integer|min:1|max:20',
-            'variation_id' => 'nullable|exists:product_variations,id',
-        ]);
-
-        $quantity = (int) $request->input('quantity', 1);
-        $variationId = $request->input('variation_id');
-
-        $variation = null;
-        $price = $product->price;
-        $variationText = null;
-
+        $validated = $request->validate(['quantity' => ['required', 'integer', 'min:1', 'max:20'], 'variation_id' => ['nullable', 'integer', 'exists:product_variations,id'], 'intent' => ['nullable', 'in:buy_now']]);
+        $variationId = empty($validated['variation_id']) ? null : (int) $validated['variation_id'];
         if ($variationId) {
-            $variation = ProductVariation::where('id', $variationId)
-                ->where('product_id', $product->id)
-                ->first();
+            abort_unless(ProductVariation::whereKey($variationId)->where('product_id', $product->id)->where('is_active', true)->exists(), 422, 'Choose an available variation belonging to this product.');
+        }
+        $key = BuyerCartService::key($product->id, $variationId);
+        $items = [$key => ['product_id' => $product->id, 'variation_id' => $variationId, 'quantity' => (int) $validated['quantity']]];
+        app(ShopAvailabilityService::class)->assertOpen($items);
+        $pricing->quote($items);
+        if (($validated['intent'] ?? null) === 'buy_now') {
+            $this->beginDraft($request, $items, 'buy_now');
 
-            abort_unless($variation && $variation->is_active, 422, 'Choose an available variation belonging to this product.');
-            $price = $product->price + $variation->price_adjustment;
-            $variationText = "{$variation->type}: {$variation->value}";
+            return redirect()->route('checkout.index');
+        }
+        $carts->add($request->user(), $product->id, $variationId, (int) $validated['quantity']);
+        $cart = $carts->display($request->user());
+        $request->session()->put('cart', $cart);
+        if ($request->expectsJson()) {
+            return response()->json(['message' => 'Item added to your saved cart.', 'count' => count($cart)]);
         }
 
-        $cart = session()->get('cart', []);
-        $cartKey = $product->id.($variationId ? '_'.$variationId : '');
-
-        if (isset($cart[$cartKey])) {
-            $cart[$cartKey]['quantity'] += $quantity;
-        } else {
-            $cart[$cartKey] = [
-                'product_id' => $product->id,
-                'variation_id' => $variationId,
-                'variation_info' => $variationText,
-                'name' => $product->name,
-                'price' => $price,
-                'quantity' => $quantity,
-                'image_path' => $product->image_path,
-                'seller_id' => $product->user_id,
-                'seller_name' => $product->seller->business_name ?? 'Merchant',
-            ];
-        }
-
-        $pricing->quote($cart);
-        session()->put('cart', $cart);
-
-        return redirect()->route($request->input('intent') === 'buy_now' ? 'checkout.index' : 'cart.index')->with('success', 'Item added to your cart.');
+        return redirect()->route('cart.index')->with('success', 'Item added to your saved cart.');
     }
 
-    public function update(Request $request, string $cartKey, CheckoutPricingService $pricing): RedirectResponse
+    public function select(Request $request, BuyerCartService $carts): RedirectResponse
     {
-        $request->validate([
-            'quantity' => 'required|integer|min:1|max:20',
-        ]);
+        $data = $request->validate(['selected_keys' => ['required', 'array', 'min:1', 'max:200'], 'selected_keys.*' => ['required', 'string', 'distinct', 'regex:/^\d+(?:_\d+)?$/']], ['selected_keys.required' => 'Select at least one item to check out.']);
+        $this->beginDraft($request, $carts->selected($request->user(), $data['selected_keys']), 'cart');
 
-        $cart = session()->get('cart', []);
-
-        if (isset($cart[$cartKey])) {
-            $cart[$cartKey]['quantity'] = (int) $request->quantity;
-            $pricing->quote($cart);
-            session()->put('cart', $cart);
-
-            return back()->with('success', 'Cart updated.');
-        }
-
-        return back()->with('error', 'Item not found in cart.');
+        return redirect()->route('checkout.index');
     }
 
-    public function remove(string $cartKey): RedirectResponse
+    public function update(Request $request, string $cartKey, BuyerCartService $carts): RedirectResponse
     {
-        $cart = session()->get('cart', []);
+        $data = $request->validate(['quantity' => ['required', 'integer', 'min:1', 'max:20']]);
+        $carts->update($request->user(), $cartKey, (int) $data['quantity']);
+        $request->session()->put('cart', $carts->display($request->user()));
 
-        if (isset($cart[$cartKey])) {
-            unset($cart[$cartKey]);
-            session()->put('cart', $cart);
+        return back()->with('success', 'Cart updated.');
+    }
 
-            return back()->with('success', 'Item removed from cart.');
-        }
+    public function remove(Request $request, string $cartKey, BuyerCartService $carts): RedirectResponse
+    {
+        $carts->remove($request->user(), $cartKey);
+        $request->session()->put('cart', $carts->display($request->user()));
 
-        return back()->with('error', 'Item not found in cart.');
+        return back()->with('success', 'Item removed from cart.');
+    }
+
+    private function beginDraft(Request $request, array $items, string $mode): void
+    {
+        $request->session()->forget(['checkout_token', 'checkout_quote_hash', 'applied_voucher']);
+        $request->session()->put('checkout_context', ['mode' => $mode, 'items' => $items]);
     }
 }

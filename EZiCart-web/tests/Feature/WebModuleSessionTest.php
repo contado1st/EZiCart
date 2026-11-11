@@ -2,6 +2,8 @@
 
 namespace Tests\Feature;
 
+use Illuminate\Auth\SessionGuard;
+
 use App\Models\User;
 use Illuminate\Cookie\CookieValuePrefix;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -60,7 +62,9 @@ class WebModuleSessionTest extends TestCase
     public function test_header_selected_tab_login_does_not_create_a_shared_remember_cookie(): void
     {
         $user = User::forceCreate(['email' => 'header-tab@example.com', 'password' => 'Password123!', 'role' => 'buyer', 'status' => 'approved', 'first_name' => 'Header', 'last_name' => 'Buyer', 'contact_no' => '09123456789']);
-        $recaller = Auth::guard()->getRecallerName();
+        /** @var SessionGuard $guard */
+        $guard = Auth::guard('web');
+        $recaller = $guard->getRecallerName();
         $this->withHeader('X-Ezi-Tab-Session', str_repeat('c', 32))->post(route('login.post'), ['email' => $user->email, 'password' => 'Password123!', 'remember' => '1'])
             ->assertRedirect()->assertSessionHasNoErrors()->assertCookieMissing($recaller);
     }
@@ -69,7 +73,9 @@ class WebModuleSessionTest extends TestCase
     {
         $this->withoutVite();
         $user = User::forceCreate(['email' => 'remembered@example.com', 'password' => 'Password123!', 'role' => 'buyer', 'status' => 'approved', 'first_name' => 'Remembered', 'last_name' => 'Buyer', 'contact_no' => '09123456789', 'remember_token' => 'legacy-remember-token']);
-        $cookieName = Auth::guard()->getRecallerName();
+        /** @var SessionGuard $guard */
+        $guard = Auth::guard('web');
+        $cookieName = $guard->getRecallerName();
         $cookie = $user->id.'|'.$user->remember_token.'|'.$user->password;
         Auth::forgetGuards();
         $this->withCookie($cookieName, $cookie)->get('/login?__tab='.str_repeat('d', 32))

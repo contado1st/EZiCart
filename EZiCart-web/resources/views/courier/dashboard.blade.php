@@ -114,27 +114,15 @@
         </div>
     </section>
 
-    {{-- Quick Jump Navigation --}}
-    <nav class="courier-jump-nav" aria-label="Workflow quick jump">
-        <a class="courier-jump-pill" href="#pickup-requests">
-            Available pickups <span>{{ $availablePickups->total() }}</span>
-        </a>
-        <a class="courier-jump-pill" href="#accepted-pickups">
-            Claimed pickups <span>{{ $claimedPickups->count() }}</span>
-        </a>
-        <a class="courier-jump-pill" href="#hub-custody">
-            Parcels to hub <span>{{ $myActivePickups->count() }}</span>
-        </a>
-        <a class="courier-jump-pill" href="#delivery-assignments">
-            Deliveries <span>{{ $myDeliveryAssignments->total() }}</span>
-        </a>
-        <a class="courier-jump-pill" href="#failed-deliveries">
-            Failed review <span>{{ $myFailedDeliveries->count() }}</span>
-        </a>
-        <a class="courier-jump-pill" href="#seller-returns">
-            Returns <span>{{ $myReturns->count() }}</span>
-        </a>
-    </nav>
+    <x-workspace-tabs :default-tab="$myDeliveryAssignments->total() ? 'delivery-assignments' : ($claimedPickups->total() ? 'accepted-pickups' : ($myActivePickups->total() ? 'hub-custody' : ($myReturns->total() ? 'seller-returns' : ($myFailedDeliveries->total() ? 'failed-deliveries' : 'pickup-requests'))))" :tabs="[
+        ['id' => 'pickup-requests', 'label' => 'Available pickups', 'count' => $availablePickups->total()],
+        ['id' => 'accepted-pickups', 'label' => 'Accepted pickups', 'count' => $claimedPickups->total()],
+        ['id' => 'hub-custody', 'label' => 'Hub handoff', 'count' => $myActivePickups->total()],
+        ['id' => 'delivery-assignments', 'label' => 'Deliveries', 'count' => $myDeliveryAssignments->total()],
+        ['id' => 'seller-returns', 'label' => 'Returns', 'count' => $myReturns->total()],
+        ['id' => 'failed-deliveries', 'label' => 'Failed deliveries', 'count' => $myFailedDeliveries->total()],
+        ['id' => 'rider-badge', 'label' => 'My rider badge'],
+    ]" />
 
     {{-- Workload Summary Metrics --}}
 
@@ -203,7 +191,7 @@
 
     {{-- Claimed / Accepted Pickups --}}
     <section class="ops-panel courier-pickup" id="accepted-pickups">
-        <h2>Accepted pickups <span class="ops-muted">{{ $claimedPickups->count() }} active</span></h2>
+        <h2>Accepted pickups <span class="ops-muted">{{ $claimedPickups->total() }} active</span></h2>
         <div class="ops-table-wrap">
             <table class="ops-table">
                 <thead>
@@ -262,11 +250,12 @@
                 </tbody>
             </table>
         </div>
+        {{ $claimedPickups->links() }}
     </section>
 
     {{-- Collected Parcels Heading to Hub --}}
     <section class="ops-panel courier-pickup" id="hub-custody">
-        <h2>Collected parcels heading to the hub <span class="ops-muted">{{ $myActivePickups->count() }} parcels</span></h2>
+        <h2>Collected parcels heading to the hub <span class="ops-muted">{{ $myActivePickups->total() }} parcels</span></h2>
         <div class="ops-table-wrap">
             <table class="ops-table">
                 <thead>
@@ -297,11 +286,12 @@
                 </tbody>
             </table>
         </div>
+        {{ $myActivePickups->links() }}
     </section>
 
     {{-- Return Parcels to Sellers --}}
     <section class="ops-panel courier-delivery" id="seller-returns">
-        <h2>Return parcels to sellers <span class="ops-muted">{{ $myReturns->count() }} pending</span></h2>
+        <h2>Return parcels to sellers <span class="ops-muted">{{ $myReturns->total() }} pending</span></h2>
         <div class="ops-table-wrap">
             <table class="ops-table">
                 <thead>
@@ -356,13 +346,14 @@
                 </tbody>
             </table>
         </div>
+        {{ $myReturns->links() }}
     </section>
 
     {{-- Failed Deliveries Requiring Logistics Follow-up (CRITICAL BUG/UX FIX) --}}
     <section class="ops-panel courier-delivery courier-failed" id="failed-deliveries">
         <h2>
             Failed deliveries requiring logistics follow-up
-            <span class="ops-muted">{{ $myFailedDeliveries->count() }} active</span>
+            <span class="ops-muted">{{ $myFailedDeliveries->total() }} active</span>
         </h2>
         @forelse ($myFailedDeliveries as $order)
             <article class="courier-failed-alert-card">
@@ -390,6 +381,7 @@
         @empty
             <div class="ops-empty">No failed deliveries need follow-up. All parcels are clear.</div>
         @endforelse
+        {{ $myFailedDeliveries->links() }}
     </section>
 
     {{-- Doorstep Delivery Work --}}
@@ -535,8 +527,8 @@
     </section>
 
     {{-- Rider Identification Badge --}}
-    <details class="ops-panel courier-badge-details">
-        <summary>Rider identification badge</summary>
+    <section class="ops-panel courier-badge-details" id="rider-badge">
+        <h2>Rider identification badge</h2>
         <p class="ops-muted">Show this QR at the hub or seller handoff. Staff actions still require their own authenticated account and assignment checks.</p>
         <p class="ops-mono">EZR:{{ $badgeCode }}</p>
         <div class="courier-badge-qr" role="img" aria-label="QR code for rider identification">
@@ -546,5 +538,5 @@
             @csrf
             <button class="ops-btn" type="submit">Rotate rider badge</button>
         </form>
-    </details>
+    </section>
 @endsection

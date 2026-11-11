@@ -13,6 +13,7 @@ Schedule::command('accounts:prune-unverified')->daily()->withoutOverlapping();
 Schedule::command('orders:expire-seller-deadlines')->everyFifteenMinutes()->withoutOverlapping();
 Schedule::command('logistics:alert-aging-parcels')->hourly()->withoutOverlapping();
 Schedule::command('commerce:process-automation')->everyMinute()->withoutOverlapping();
+Schedule::command('finance:release-expired-vouchers')->hourly()->withoutOverlapping();
 
 Artisan::command('commerce:deliver-promotions', function (SellerPromotionService $promotions) {
     $this->info($promotions->deliver().' in-app promotional notifications delivered.');

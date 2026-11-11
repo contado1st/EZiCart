@@ -15,6 +15,7 @@ use App\Models\User;
 use App\Services\AdministrativeAuditService;
 use App\Services\CheckoutPricingService;
 use App\Services\DirectMessagingService;
+use App\Services\FinancialLedgerService;
 use App\Services\OrderTransitionService;
 use App\Services\SalesReportService;
 use App\Services\StockSubscriptionService;
@@ -289,7 +290,9 @@ class RoadmapFeaturesTest extends TestCase
     public function test_seller_voucher_actions_are_audited_and_duplicate_codes_normalized(): void
     {
         $seller = $this->user('seller');
-        $data = ['code' => 'storedeal', 'type' => 'fixed', 'value' => 5];
+        $ledger = app(FinancialLedgerService::class);
+        $ledger->transfer('seller-promotion-test-funding', 'synthetic_test_funding', $ledger->account('test:clearing', 'test', null, 'available', true), $ledger->wallet($seller), 500, null);
+        $data = ['code' => 'storedeal', 'type' => 'fixed', 'value' => 5, 'usage_limit' => 1];
         $this->actingAsUser($seller)->post(route('seller.vouchers.store'), $data)->assertRedirect();
         $this->assertDatabaseHas('administrative_audits', ['action' => 'seller_voucher_created', 'actor_id' => $seller->id]);
         $this->postJson(route('seller.vouchers.store'), $data)->assertJsonValidationErrors('code');

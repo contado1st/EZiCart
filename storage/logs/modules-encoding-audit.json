@@ -1,0 +1,10 @@
+{
+    "files_checked":  412,
+    "invalid_utf8":  [
+                         {
+                             "file":  "resources/views\\logistics\\load-planning.blade.php",
+                             "line":  9,
+                             "byte_offset":  1072
+                         }
+                     ]
+}

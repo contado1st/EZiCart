@@ -15,6 +15,7 @@ class OrderFinance extends Model
             'due_cents' => 'integer', 'commission_cents' => 'integer', 'seller_payable_cents' => 'integer',
             'platform_subsidy_cents' => 'integer', 'funded_cents' => 'integer', 'collected_cents' => 'integer', 'remitted_cents' => 'integer',
             'collected_at' => 'datetime', 'submitted_at' => 'datetime', 'verified_at' => 'datetime', 'funded_at' => 'datetime',
+            'ledger_funded_at' => 'datetime',
         ];
     }
 

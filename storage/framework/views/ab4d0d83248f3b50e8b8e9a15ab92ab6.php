@@ -1,0 +1,24 @@
+<details class="workflow-attention" data-workflow-attention>
+    <summary><?php if (isset($component)) { $__componentOriginal1bb289350be1bbfe945d5817dffb1017 = $component; } ?>
+<?php if (isset($attributes)) { $__attributesOriginal1bb289350be1bbfe945d5817dffb1017 = $attributes; } ?>
+<?php $component = Illuminate\View\AnonymousComponent::resolve(['view' => 'components.shop-icon','data' => ['name' => 'checklist']] + (isset($attributes) && $attributes instanceof Illuminate\View\ComponentAttributeBag ? $attributes->all() : [])); ?>
+<?php $component->withName('shop-icon'); ?>
+<?php if ($component->shouldRender()): ?>
+<?php $__env->startComponent($component->resolveView(), $component->data()); ?>
+<?php if (isset($attributes) && $attributes instanceof Illuminate\View\ComponentAttributeBag): ?>
+<?php $attributes = $attributes->except(\Illuminate\View\AnonymousComponent::ignoredParameterNames()); ?>
+<?php endif; ?>
+<?php $component->withAttributes(['name' => 'checklist']); ?>
+<?php echo $__env->renderComponent(); ?>
+<?php endif; ?>
+<?php if (isset($__attributesOriginal1bb289350be1bbfe945d5817dffb1017)): ?>
+<?php $attributes = $__attributesOriginal1bb289350be1bbfe945d5817dffb1017; ?>
+<?php unset($__attributesOriginal1bb289350be1bbfe945d5817dffb1017); ?>
+<?php endif; ?>
+<?php if (isset($__componentOriginal1bb289350be1bbfe945d5817dffb1017)): ?>
+<?php $component = $__componentOriginal1bb289350be1bbfe945d5817dffb1017; ?>
+<?php unset($__componentOriginal1bb289350be1bbfe945d5817dffb1017); ?>
+<?php endif; ?><strong>Next steps</strong><span class="workflow-action-badge" data-workflow-total hidden>0</span><span class="workflow-attention-status" data-workflow-summary>Checking your current workflow...</span></summary>
+    <div class="workflow-attention-content"><p class="web-muted">Action counts reflect your current tasks, separately from unread notifications. Updates refresh while this page is open.</p><ul data-workflow-items></ul><p class="web-muted" data-workflow-empty hidden>No action is currently assigned to you. Open an order to see its progress and who acts next.</p><p class="web-muted" data-workflow-updated role="status" aria-live="polite"></p><button type="button" class="dash-btn-sm dash-btn-outline" data-workflow-refresh>Refresh next steps</button></div>
+</details>
+<?php /**PATH C:\Users\Admin\Downloads\EZiCart\resources\views/components/workflow-attention.blade.php ENDPATH**/ ?>

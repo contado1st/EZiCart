@@ -5,6 +5,7 @@ use App\Http\Middleware\CheckRole;
 use App\Http\Middleware\EnsureAccountActive;
 use App\Http\Middleware\EnsureParcelAvailable;
 use App\Http\Middleware\SelectTabSession;
+use App\Http\Middleware\SyncBuyerCart;
 use App\Http\Middleware\TrackWebActivity;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
@@ -32,6 +33,7 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->web(prepend: SelectTabSession::class);
         $middleware->web(append: TrackWebActivity::class);
+        $middleware->web(append: SyncBuyerCart::class);
 
         $middleware->alias([
             'role' => CheckRole::class,
@@ -41,7 +43,6 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
 
         $middleware->trustProxies(
-            at: env('TRUSTED_PROXIES') ?? (env('APP_ENV') === 'local' ? '*' : null),
             headers: Request::HEADER_X_FORWARDED_FOR |
             Request::HEADER_X_FORWARDED_HOST |
             Request::HEADER_X_FORWARDED_PORT |

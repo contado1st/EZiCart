@@ -101,7 +101,7 @@
                             </a>
 
                             @if (
-                                $order->payment_method !== 'COD' &&
+                                ! app(\App\Services\OrderWalletService::class)->paymentReady($order) &&
                                     in_array($order->status, ['PLACED', 'CONFIRMED', 'PREPARING', 'READY_FOR_PICKUP'], true))
                                 <p role="status">Fulfillment on hold: payment verification is not configured for
                                     {{ $order->payment_method }}.</p>

@@ -10,7 +10,7 @@ class AdminAnnouncementController extends Controller
 {
     public function index()
     {
-        $announcements = Announcement::with('author')->latest()->paginate(10);
+        $announcements = Announcement::with('author')->latest()->paginate(25);
 
         return view('admin.announcements.index', compact('announcements'));
     }

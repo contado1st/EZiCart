@@ -105,7 +105,7 @@ class CartProvider extends ChangeNotifier {
     if (_total < 0) _total = 0.0;
   }
 
-  Future<bool> fetchAuthoritativeQuote({String? voucherCode}) async {
+  Future<bool> fetchAuthoritativeQuote({String? voucherCode, Map<String, dynamic>? destination}) async {
     if (_items.isEmpty) {
       clearQuote();
       notifyListeners();
@@ -126,6 +126,8 @@ class CartProvider extends ChangeNotifier {
       final res = await ApiService.post(ApiConfig.cartQuoteEndpoint, {
         'items': lines,
         'voucher_code': voucherCode ?? _appliedVoucherCode,
+        if (_checkoutToken != null) 'checkout_token': _checkoutToken,
+        if (destination != null) 'destination': destination,
       });
 
       final body = jsonDecode(res.body);

@@ -101,14 +101,14 @@ class OrderMessagingTest extends TestCase
 
         $this->get(route('chat.show', [$conversation, 'panel' => 1]))->assertOk()
             ->assertSee('communications-embedded', false)
-            ->assertSee(asset('js/tab-sessions.js'), false)
+            ->assertSee('src="/js/tab-sessions.js?v=', false)
             ->assertSee('Send message');
         $this->post(route('chat.store', $conversation), ['panel' => 1, 'body' => 'Seller asks the shop administrator.'])
             ->assertRedirectToRoute('chat.show', [$conversation, 'panel' => 1]);
         Notification::assertSentTo($admin, DirectMessageNotification::class);
 
         $this->actingAsUser($admin)->get(route('chat.show', [$conversation, 'panel' => 1]))->assertOk()
-            ->assertSee('Seller asks the shop administrator.')->assertSee(asset('js/tab-sessions.js'), false);
+            ->assertSee('Seller asks the shop administrator.')->assertSee('src="/js/tab-sessions.js?v=', false);
         $this->post(route('chat.store', $conversation), ['panel' => 1, 'body' => 'Shop administrator replies privately.'])
             ->assertRedirectToRoute('chat.show', [$conversation, 'panel' => 1]);
         Notification::assertSentTo($seller, DirectMessageNotification::class);

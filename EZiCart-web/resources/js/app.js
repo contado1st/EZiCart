@@ -18,6 +18,7 @@ import "@h2d2/shopicons/es/regular/close";
 import "@h2d2/shopicons/es/regular/delivery1";
 import "@h2d2/shopicons/es/regular/diagram";
 import "@h2d2/shopicons/es/regular/exclamationtriangle";
+import "@h2d2/shopicons/es/regular/heart";
 import "@h2d2/shopicons/es/regular/invoice";
 import "@h2d2/shopicons/es/regular/lightbulb";
 import "@h2d2/shopicons/es/regular/location";

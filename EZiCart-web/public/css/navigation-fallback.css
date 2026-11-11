@@ -337,3 +337,4 @@
         height: calc(100dvh - var(--navbar-height, 5.3rem));
     }
 }
+.cart-count-badge[hidden] { display: none; }

@@ -26,9 +26,9 @@
             <div class="dash-stats-grid">
                 <div class="dash-stat-card">
                     <span class="workspace-stat-icon" aria-hidden="true"><x-shop-icon name="money" /></span>
-                    <div class="dash-stat-label">Net Sales</div>
+                    <div class="dash-stat-label">Accrued seller earnings</div>
                     <div class="dash-stat-value">₱{{ number_format($stats['total_sales'], 2) }}</div>
-                    <div class="dash-stat-subtext success">Real-time fulfilled revenue</div>
+                    <div class="dash-stat-subtext success">After discounts and commission; not settled cash</div>
                 </div>
 
                 <div class="dash-stat-card">
@@ -49,13 +49,17 @@
                     <span class="workspace-stat-icon" aria-hidden="true"><x-shop-icon name="star" /></span>
                     <div class="dash-stat-label">Store Rating</div>
                     <div class="dash-stat-value warning">⭐ {{ $stats['rating'] }}</div>
-                    <div class="dash-stat-subtext">Based on customer feedback</div>
+                    <div class="dash-stat-subtext">{{ $stats['review_count'] }} customer reviews</div>
                 </div>
             </div>
 
             <!-- Workflow Panels -->
+            <x-workspace-tabs :tabs="[
+                ['id' => 'seller-orders', 'label' => 'Orders and dispatch', 'count' => $recentOrders->total()],
+                ['id' => 'seller-tools', 'label' => 'Store overview and tools'],
+            ]" />
             <div class="dash-workflow-grid">
-                <div class="dash-panel">
+                <div class="dash-panel" id="seller-orders">
                     <div class="u-extracted-7bdbd5a954">
                         <h3 class="dash-panel-title u-extracted-648149cea2">Recent Orders & Dispatch</h3>
                         <a href="{{ route('seller.orders.index') }}" class="u-extracted-b0fe66c15d">View
@@ -86,10 +90,11 @@
                             and rider pickup scheduling.
                         </div>
                     @endforelse
+                    {{ $recentOrders->links() }}
                 </div>
 
-                <div class="dash-panel">
-                    <x-workspace-distribution :values="$recentOrders->countBy('status')->all()" label="Orders by status" description="Your latest orders at a glance." />
+                <div class="dash-panel" id="seller-tools">
+                    <x-workspace-distribution :values="$orderStatuses" label="Orders by status" description="All your orders at a glance." />
                     <h3 class="dash-panel-title">Seller Actions</h3>
                     <div class="dash-action-list">
                         <a href="{{ route('seller.products.create') }}" class="dash-action-btn">

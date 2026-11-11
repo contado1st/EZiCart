@@ -16,7 +16,7 @@
         </div>
     </header>
 
-    @if ($order->payment_method !== 'COD' && !in_array($order->status, ['CANCELLED', 'COMPLETED', 'RETURN_IN_TRANSIT', 'RETURNED_TO_SELLER'], true))
+    @if (! app(\App\Services\OrderWalletService::class)->paymentReady($order) && !in_array($order->status, ['CANCELLED', 'COMPLETED', 'RETURN_IN_TRANSIT', 'RETURNED_TO_SELLER'], true))
         <section class="ops-panel ops-alert--error" role="status">
             Fulfillment is on hold because payment verification for {{ $order->payment_method }} is not configured yet.
         </section>
@@ -84,7 +84,7 @@
     @if ($order->delivery_courier_id === auth()->id() && $order->status === 'ASSIGNED_TO_RIDER')
         <section class="ops-panel courier-delivery">
             <h2>Start delivery</h2>
-            @if ($order->payment_method !== 'COD')
+            @if (! app(\App\Services\OrderWalletService::class)->paymentReady($order))
                 <p class="ops-muted">Delivery is on hold until payment verification for this method is configured.</p>
             @elseif ($order->hub_released_at)
                 <div class="ops-banner ops-banner--success">
@@ -117,7 +117,7 @@
         <section class="ops-panel courier-delivery">
             <h2>Delivery result</h2>
             <div class="ops-grid">
-                @if ($order->payment_method === 'COD')
+                @if (app(\App\Services\OrderWalletService::class)->paymentReady($order))
                     <div class="ops-panel">
                         <h3>Complete delivery</h3>
                         <form class="ops-form" method="POST" action="{{ route('courier.orders.completeDelivery', $order) }}" enctype="multipart/form-data" data-decision="courier.orders.completeDelivery" data-decision-title="Confirm successful delivery?" data-decision-message="Continue only after handing the parcel to the recipient and recording the required delivery evidence and COD details." data-decision-label="Confirm delivery" data-decision-tone="normal" onsubmit="return window.eziDecisionReady ? true : window.confirm(this.dataset.decisionMessage)">
@@ -131,10 +131,12 @@
                                 <label for="buyer-delivery-code">Buyer delivery code</label>
                                 <input id="buyer-delivery-code" class="courier-code-input" name="delivery_code" inputmode="numeric" autocomplete="off" maxlength="32" required placeholder="000000">
                             </div>
+                            @if ($order->payment_method === 'COD')
                             <div class="ops-field">
                                 <label for="cod-collected-amount">Cash collected (₱{{ number_format($order->total_amount, 2) }})</label>
                                 <input id="cod-collected-amount" name="cod_collected_amount" type="number" min="0" step="0.01" required value="{{ $order->total_amount }}">
                             </div>
+                            @else<p>Wallet payment is verified. Do not collect cash.</p>@endif
                             <div class="ops-field">
                                 <label for="delivery-notes">Delivery notes</label>
                                 <input id="delivery-notes" name="delivery_notes" maxlength="1000" placeholder="Optional notes (e.g. left with front desk)">

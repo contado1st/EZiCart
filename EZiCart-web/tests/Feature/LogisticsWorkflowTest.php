@@ -658,7 +658,7 @@ class LogisticsWorkflowTest extends TestCase
         $this->assertDatabaseHas('scan_events', ['station' => 'intake', 'result' => 'rejected', 'method' => 'manual']);
     }
 
-    public function test_parcel_qr_intake_records_the_scan_and_dispute_resolution_starts_return_workflow(): void
+    public function test_parcel_qr_intake_records_the_scan_and_dispute_resolution_authorizes_return_without_moving_custody(): void
     {
         $center = $this->user('sorting_center', 'approved');
         $parcel = $this->order(['status' => 'PICKED_UP']);
@@ -692,7 +692,8 @@ class LogisticsWorkflowTest extends TestCase
             'status' => 'REFUND_APPROVED',
             'admin_notes' => 'Return required before a manual refund reconciliation.',
         ])->assertRedirect();
-        $this->assertDatabaseHas('orders', ['id' => $order->id, 'status' => 'RETURN_IN_TRANSIT']);
+        $this->assertDatabaseHas('orders', ['id' => $order->id, 'status' => 'DELIVERED']);
+        $this->assertDatabaseMissing('delivery_assignments', ['active_order_id' => $order->id]);
         $this->assertDatabaseHas('disputes', ['id' => $dispute->id, 'status' => 'REFUND_APPROVED', 'resolved_by' => $admin->id]);
         $this->actingAsUser($admin)->patch(route('admin.disputes.resolve', $dispute), [
             'status' => 'UNDER_REVIEW',
@@ -1854,8 +1855,8 @@ class LogisticsWorkflowTest extends TestCase
         $this->get(route('courier.history'))->assertOk();
         $this->get(route('courier.earnings'))
             ->assertOk()
-            ->assertSee('Earnings are hidden until the courier payment formula is defined.')
-            ->assertSee('No earnings amounts are calculated or displayed.')
+            ->assertSee('Earnings are credited from approved tariff components')
+            ->assertSee('No settled logistics earnings have been posted.')
             ->assertDontSee('₱');
         $this->get(route('courier.orders.show', $assignedOrder))->assertOk()->assertSee($assignedOrder->order_number);
         $this->get(route('courier.orders.show', $deliveredOrder))->assertForbidden();
@@ -2778,7 +2779,7 @@ class LogisticsWorkflowTest extends TestCase
             ->assertSee('value="COD"', false)
             ->assertDontSee('value="GCash"', false)
             ->assertDontSee('value="Bank Transfer"', false)
-            ->assertSee('Cash on delivery is the available payment method while payment verification for other methods is being configured.');
+            ->assertSee('Pay your courier when your parcel arrives.');
 
         $this->actingAsUser($order->buyer)->withSession(['cart' => [[
             'product_id' => $product->id,

@@ -12,7 +12,7 @@
                 <p class="admin-page-desc">Review pending applicant submissions and inspect uploaded credentials.</p>
             </div>
             <span class="badge-pending-count">
-                Pending Approvals: {{ $pendingUsers->count() }}
+                Pending Approvals: {{ $pendingUsers->total() }}
             </span>
         </div>
 
@@ -145,5 +145,6 @@
                 </tbody>
             </table>
         </div>
+        {{ $pendingUsers->links() }}
     </div>
 @endsection

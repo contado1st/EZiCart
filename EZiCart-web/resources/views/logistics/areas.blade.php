@@ -8,7 +8,11 @@
         </div>
     </header>
 
-    <section class="ops-grid">
+    <x-workspace-tabs :tabs="[
+        ['id' => 'routing-areas', 'label' => 'Configured areas', 'count' => $areas->total()],
+        ['id' => 'routing-tools', 'label' => 'Create and map areas'],
+    ]" />
+    <section class="ops-grid" id="routing-tools">
         <div class="ops-panel">
             <h2>Create a routing area</h2>
             <form class="ops-form" method="POST" action="{{ route('logistics.areas.store') }}">
@@ -33,7 +37,7 @@
                     <label for="mapping-area">Routing area</label>
                     <select id="mapping-area" name="area_id" required>
                         <option value="">Choose an area</option>
-                        @foreach ($areas->where('is_active', true) as $area)
+                        @foreach ($areaOptions as $area)
                             <option value="{{ $area->id }}" @selected(old('area_id') == $area->id)>
                                 {{ $area->name }} ({{ $area->code }})
                             </option>
@@ -53,8 +57,8 @@
         </div>
     </section>
 
-    <section class="ops-panel">
-        <h2>Configured areas <span class="ops-muted">{{ $areas->count() }} areas</span></h2>
+    <section class="ops-panel" id="routing-areas">
+        <h2>Configured areas <span class="ops-muted">{{ $areas->total() }} areas</span></h2>
         <div class="ops-table-wrap">
             <table class="ops-table">
                 <thead>
@@ -90,7 +94,7 @@
                                             @method('PATCH')
                                             <label for="mapping-{{ $mapping->id }}">Change area</label>
                                             <select id="mapping-{{ $mapping->id }}" name="area_id" required>
-                                                @foreach ($areas->where('is_active', true) as $candidate)
+                                                @foreach ($areaOptions as $candidate)
                                                     <option value="{{ $candidate->id }}" @selected($candidate->id === $area->id)>
                                                         {{ $candidate->name }}
                                                     </option>
@@ -122,5 +126,6 @@
                 </tbody>
             </table>
         </div>
+        {{ $areas->links() }}
     </section>
 @endsection

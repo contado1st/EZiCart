@@ -21,19 +21,21 @@ class LogisticsAdminController extends Controller
 {
     public function index(Request $request): View
     {
-        $data = $request->validate(['search' => ['nullable', 'string', 'max:100']]);
+        $data = $request->validate(['search' => ['nullable', 'string', 'max:100'], 'application_search' => ['nullable', 'string', 'max:100']]);
         $orders = Order::query()->with(['seller', 'sortingCenter', 'deliveryCourier', 'activeTransfer'])
             ->when($data['search'] ?? null, fn ($query, $search) => $query->where('order_number', 'like', '%'.$search.'%'))
             ->whereNotIn('status', ['PLACED', 'CONFIRMED', 'PREPARING', 'CANCELLED', 'COMPLETED'])
             ->latest('id')->paginate(20)->withQueryString();
-        $pendingUsers = User::query()->whereIn('role', ['courier', 'sorting_center'])->where('status', 'pending')->latest()->limit(25)->get();
+        $pendingUsers = User::query()->whereIn('role', ['courier', 'sorting_center'])->where('status', 'pending')
+            ->when($data['application_search'] ?? null, fn ($query, $search) => $query->where(fn ($q) => $q->where('email', 'like', '%'.$search.'%')->orWhere('first_name', 'like', '%'.$search.'%')->orWhere('last_name', 'like', '%'.$search.'%')->orWhere('business_name', 'like', '%'.$search.'%')))
+            ->oldest()->orderBy('id')->paginate(25, ['*'], 'applications_page')->withQueryString();
         $centers = User::query()->where('role', 'sorting_center')->where('status', 'approved')->orderBy('business_name')->get();
         $riders = User::query()->where('role', 'courier')->where('status', 'approved')->where('hub_transfer_only', false)->orderBy('first_name')->limit(100)->get();
         $managedUsers = User::query()->whereIn('role', ['courier', 'sorting_center'])->whereIn('status', ['approved', 'suspended'])
             ->withCount(['finalDeliveries as active_parcels_count' => fn ($query) => $query->whereIn('status', ['ASSIGNED_TO_RIDER', 'OUT_FOR_DELIVERY', 'DELIVERY_FAILED', 'RETURN_IN_TRANSIT'])])
-            ->latest('id')->paginate(25, ['*'], 'users_page');
-        $areas = Area::query()->with('sortingCenter')->orderBy('name')->paginate(20, ['*'], 'areas_page');
-        $exceptions = DB::table('logistics_exceptions')->where('status', 'OPEN')->latest('id')->limit(25)->get();
+            ->latest('id')->paginate(25, ['*'], 'users_page')->withQueryString();
+        $areas = Area::query()->with('sortingCenter')->orderBy('name')->orderBy('id')->paginate(25, ['*'], 'areas_page')->withQueryString();
+        $exceptions = DB::table('logistics_exceptions')->where('status', 'OPEN')->oldest('id')->paginate(25, ['*'], 'exceptions_page')->withQueryString();
         $aging = Order::query()->whereIn('status', ['READY_FOR_PICKUP', 'AT_SORTING_CENTER', 'SORTED', 'ASSIGNED_TO_RIDER', 'OUT_FOR_DELIVERY', 'DELIVERY_FAILED', 'RETURN_IN_TRANSIT'])
             ->where('created_at', '<=', now()->subHours((int) config('commerce.parcel_alert_hours')))
             ->whereDoesntHave('trackingEvents', fn ($query) => $query->where('created_at', '>', now()->subHours((int) config('commerce.parcel_alert_hours'))))->count();

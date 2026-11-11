@@ -10,11 +10,12 @@ use Illuminate\Support\Facades\Storage;
 
 class StaffProfileController extends Controller
 {
-    public function index(Request $request, StaffProfileService $profiles)
+    public function index(Request $request)
     {
         abort_unless($request->user()->isCommerceAdmin() || $request->user()->isLogisticsAdmin(), 403);
-        $staff = User::whereIn('role', array_intersect($request->user()->managedAccountRoles(), ['seller', 'courier', 'sorting_center']))->with('serviceAreas')->orderBy('first_name')->get()
-            ->filter(fn ($person) => $profiles->canView($request->user(), $person));
+        abort_unless($request->user()->status === 'approved', 403);
+        $staff = User::whereIn('role', array_intersect($request->user()->managedAccountRoles(), ['seller', 'courier', 'sorting_center']))
+            ->with('serviceAreas')->orderBy('first_name')->orderBy('id')->paginate(25)->withQueryString();
 
         return view('staff.index', compact('staff'));
     }
@@ -24,7 +25,7 @@ class StaffProfileController extends Controller
         abort_unless($profiles->canView($request->user(), $staff), 403);
         $staff->load('serviceAreas', 'logisticsOwner');
         $canViewHistory = $profiles->canViewHistory($request->user(), $staff);
-        $revisions = $canViewHistory ? StaffProfileRevision::where('user_id', $staff->id)->with('reviewer')->latest()->paginate(10) : null;
+        $revisions = $canViewHistory ? StaffProfileRevision::where('user_id', $staff->id)->with('reviewer')->latest()->paginate(25) : null;
 
         return view('staff.show', compact('staff', 'revisions', 'canViewHistory'));
     }

@@ -49,6 +49,10 @@ class ParcelEvidenceController extends Controller
             'RETURN_IN_TRANSIT' => 'Assigned rider and seller: complete the scanned return handoff.', default => 'This parcel has reached a resolved stage. Review the recorded history below.',
         };
 
+        if (in_array($order->status, ['DELIVERED', 'COMPLETED'], true) && $order->dispute?->status && in_array($order->dispute->status, ['REFUND_APPROVED', 'REPLACEMENT_APPROVED'], true)) {
+            $nextAction = 'Return approved, awaiting physical collection. Open Approved return pickups for assignment, acceptance and buyer handover.';
+        }
+
         return view('orders.evidence', compact('order', 'events', 'scans', 'photos', 'attempts', 'nextAction'));
     }
 

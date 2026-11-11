@@ -10,7 +10,7 @@
     $workspaceLabel = auth()->user()?->role === 'courier' ? 'Courier workspace' : 'Logistics workspace';
     $isDashboardWorkspace = auth()->check() && request()->routeIs(
         'admin.*', 'seller.*', 'courier.*', 'logistics.*', 'logistics-admin.*',
-        'buyer.dashboard', 'buyer.orders.*', 'buyer.addresses.*', 'finance.*', 'parcel-transfers.*',
+        'buyer.dashboard', 'buyer.orders.*', 'buyer.addresses.*', 'finance.*', 'parcel-transfers.*', 'return-pickups.*',
         'account.profile.*', 'notifications.*', 'buyer.for-you*', 'buyer.stock.*', 'chat.*', 'sales-reports.*', 'activity-logs.*', 'coverage.*', 'analytics.*', 'staff.*', 'parcel-evidence.*', 'buyer.vouchers.*', 'load-planning.*'
     );
 @endphp
@@ -21,7 +21,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    <script src="{{ asset('js/tab-sessions.js') }}?v={{ filemtime(public_path('js/tab-sessions.js')) }}" data-tab-login-url="{{ route('login') }}" data-tab-authenticated="{{ auth()->check() ? '1' : '0' }}" defer></script>
+    <script src="{{ request()->getBasePath() }}/js/tab-sessions.js?v={{ filemtime(public_path('js/tab-sessions.js')) }}" data-tab-login-url="{{ route('login') }}" data-tab-authenticated="{{ auth()->check() ? '1' : '0' }}" defer></script>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>@yield('title', 'EZiCart - A Better Marketplace')</title>
     <meta name="description" content="@yield('meta-description', 'Shop available products from sellers on the EZiCart marketplace.')">
@@ -57,6 +57,8 @@
     <link rel="stylesheet" href="{{ asset('css/loading-skeleton.css') }}?v={{ filemtime(public_path('css/loading-skeleton.css')) }}">
     <script src="{{ asset('js/page-loading.js') }}?v={{ filemtime(public_path('js/page-loading.js')) }}" defer></script>
     @vite('resources/js/app.js')
+    <link rel="stylesheet" href="{{ asset('css/workspace-navigation.css') }}?v={{ filemtime(public_path('css/workspace-navigation.css')) }}">
+    <script src="{{ asset('js/workspace-tabs.js') }}?v={{ filemtime(public_path('js/workspace-tabs.js')) }}" defer></script>
     <script src="{{ asset('js/password-visibility.js') }}?v={{ filemtime(public_path('js/password-visibility.js')) }}" defer></script>
     <script src="{{ asset('js/registration-name-inputs.js') }}?v={{ filemtime(public_path('js/registration-name-inputs.js')) }}" defer></script>
     <script src="{{ asset('js/email-input-constraint.js') }}?v={{ filemtime(public_path('js/email-input-constraint.js')) }}" defer></script>
@@ -112,11 +114,7 @@
                     @if (!auth()->check() || auth()->user()->role === 'buyer')
                         <a href="{{ route('cart.index') }}" class="nav-link cart-link">
                             <span><x-shop-icon name="cart2" /> Cart</span>
-                            @if (session('cart') && count(session('cart')) > 0)
-                                <span class="cart-count-badge">
-                                    {{ count(session('cart')) }}
-                                </span>
-                            @endif
+                            <span class="cart-count-badge" data-cart-count @if(count(session('cart', [])) < 1) hidden @endif>{{ count(session('cart', [])) }}</span>
                         </a>
                     @endif
 

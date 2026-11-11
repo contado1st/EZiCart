@@ -1,0 +1,3 @@
+<?php if(session('success')): ?><p class="feature-panel" role="status"><?php echo e(session('success')); ?></p><?php endif; ?>
+<?php if($errors->any()): ?><section class="feature-panel" role="alert"><h2>Check the following details</h2><ul><?php $__currentLoopData = $errors->all(); $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $error): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?><li><?php echo e($error); ?></li><?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?></ul></section><?php endif; ?>
+<?php /**PATH C:\Users\Admin\Downloads\EZiCart\resources\views/components/feature-feedback.blade.php ENDPATH**/ ?>

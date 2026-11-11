@@ -103,6 +103,16 @@ class Order extends Model
         return $this->hasOne(ParcelTransfer::class, 'active_order_id');
     }
 
+    public function transfers(): HasMany
+    {
+        return $this->hasMany(ParcelTransfer::class);
+    }
+
+    public function returnPickupAssignment(): HasOne
+    {
+        return $this->hasOne(DeliveryAssignment::class, 'active_order_id')->where('status', 'return_pending');
+    }
+
     public function seller(): BelongsTo
     {
         return $this->belongsTo(User::class, 'seller_id');
@@ -172,6 +182,9 @@ class Order extends Model
     public function messageParticipants(): Collection
     {
         $participantIds = collect([$this->buyer_id, $this->seller_id, $this->pickup_courier_id, $this->delivery_courier_id, $this->sorting_center_id])
+            ->push($this->returnPickupAssignment?->rider_id)
+            ->merge($this->transfers()->whereIn('status', ['PLANNED', 'IN_TRANSIT', 'RECEIVED'])->get(['source_hub_id', 'destination_hub_id', 'carrier_rider_id'])
+                ->flatMap(fn ($transfer) => [$transfer->source_hub_id, $transfer->destination_hub_id, $transfer->carrier_rider_id]))
             ->merge($this->trackingEvents()->whereHas('actor', fn ($query) => $query->where('role', 'sorting_center'))->pluck('actor_id'))
             ->filter()
             ->unique()
@@ -202,6 +215,7 @@ class Order extends Model
     {
         return [
             'weight_recorded_at' => 'datetime',
+            'financial_version' => 'integer', 'wallet_paid_cents' => 'integer', 'seller_promo_funded_cents' => 'integer', 'platform_shipping_funded_cents' => 'integer', 'shipping_discount_cents' => 'integer',
             'seller_response_due_at' => 'datetime',
             'preparation_due_at' => 'datetime',
             'seller_reminded_at' => 'datetime',

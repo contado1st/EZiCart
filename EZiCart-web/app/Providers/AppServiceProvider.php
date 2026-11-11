@@ -7,6 +7,8 @@ use App\Services\CommunicationUnreadService;
 use Illuminate\Auth\Events\Login;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
+use Illuminate\Pagination\Paginator;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\URL;
@@ -23,14 +25,15 @@ class AppServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
+        Paginator::defaultView('pagination.workspace');
         Event::listen(Login::class, function ($event): void {
             if (! request()->is('api/*') && $event->user->status === 'approved') {
                 User::whereKey($event->user->getAuthIdentifier())->update(['last_web_login_at' => now(), 'last_web_activity_at' => now()]);
             }
         });
         \Illuminate\Support\Facades\View::composer('layouts.app', function (View $view): void {
-            $user = auth()->user();
-            $view->with('communicationCounts', $user ? app(CommunicationUnreadService::class)->counts($user) : ['messages' => 0, 'notifications' => 0]);
+            $user = Auth::user();
+            $view->with('communicationCounts', $user instanceof User ? app(CommunicationUnreadService::class)->counts($user) : ['messages' => 0, 'notifications' => 0]);
         });
 
         RateLimiter::for('auth-login', function (Request $request): array {
