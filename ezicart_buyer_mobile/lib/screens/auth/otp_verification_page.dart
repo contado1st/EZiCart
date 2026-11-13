@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../config/theme.dart';
 import '../../providers/auth_provider.dart';
+import 'widgets/auth_scaffold.dart';
+import 'widgets/auth_styles.dart';
 
 class OtpVerificationPage extends StatefulWidget {
   final String email;
@@ -13,42 +15,100 @@ class OtpVerificationPage extends StatefulWidget {
   State<OtpVerificationPage> createState() => _OtpVerificationPageState();
 }
 
-class _OtpVerificationPageState extends State<OtpVerificationPage> {
+class _OtpVerificationPageState extends State<OtpVerificationPage>
+    with WidgetsBindingObserver {
   final _codeCtrl = TextEditingController();
-  int _countdown = 60;
-  Timer? _timer;
+
+  // Wall-clock based OTP expiry (A9: 5 minutes)
+  late DateTime _otpExpiryTime;
+  int _secondsUntilExpiry = 300;
+
+  // Resend cooldown (60 seconds)
+  late DateTime _resendCooldownTime;
+  int _secondsUntilResend = 60;
+
+  Timer? _ticker;
   bool _isResending = false;
 
   @override
   void initState() {
     super.initState();
-    _startCountdown();
+    WidgetsBinding.instance.addObserver(this);
+    _resetTimers();
   }
 
   @override
   void dispose() {
-    _timer?.cancel();
+    WidgetsBinding.instance.removeObserver(this);
+    _ticker?.cancel();
     _codeCtrl.dispose();
     super.dispose();
   }
 
-  void _startCountdown() {
-    setState(() => _countdown = 60);
-    _timer?.cancel();
-    _timer = Timer.periodic(const Duration(seconds: 1), (t) {
-      if (_countdown > 0) {
-        setState(() => _countdown--);
-      } else {
-        t.cancel();
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      // Recalculate remaining seconds based on wall-clock when returning from mail app (TC-BUY-038)
+      _updateRemainingSeconds();
+    }
+  }
+
+  void _resetTimers() {
+    final now = DateTime.now();
+    _otpExpiryTime = now.add(const Duration(minutes: 5));
+    _resendCooldownTime = now.add(const Duration(seconds: 60));
+    _updateRemainingSeconds();
+
+    _ticker?.cancel();
+    _ticker = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (mounted) {
+        _updateRemainingSeconds();
       }
+    });
+  }
+
+  void _updateRemainingSeconds() {
+    final now = DateTime.now();
+    final expiryDiff = _otpExpiryTime.difference(now).inSeconds;
+    final resendDiff = _resendCooldownTime.difference(now).inSeconds;
+
+    setState(() {
+      _secondsUntilExpiry = expiryDiff > 0 ? expiryDiff : 0;
+      _secondsUntilResend = resendDiff > 0 ? resendDiff : 0;
     });
   }
 
   void _verify() async {
     final code = _codeCtrl.text.trim();
-    if (code.length != 6) {
+
+    // Format validation (TC-BUY-025)
+    if (code.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter the complete 6-digit OTP code.')),
+        const SnackBar(
+          content: Text('Please enter the 6-digit verification code.'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    if (code.length != 6 || !RegExp(r'^\d{6}$').hasMatch(code)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Verification code must be exactly 6 digits.'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    // Expiry check (TC-BUY-026)
+    if (_secondsUntilExpiry <= 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('This verification code has expired. Please tap Resend Code.'),
+          backgroundColor: Colors.red,
+        ),
       );
       return;
     }
@@ -62,14 +122,17 @@ class _OtpVerificationPageState extends State<OtpVerificationPage> {
 
     if (success) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Email verified! Welcome to EZiCart.'), backgroundColor: Colors.green),
+        const SnackBar(
+          content: Text('Email verified successfully! Welcome to EZiCart.'),
+          backgroundColor: Colors.green,
+        ),
       );
       Navigator.of(context).popUntil((route) => route.isFirst);
     }
   }
 
   void _resend() async {
-    if (_countdown > 0 || _isResending) return;
+    if (_secondsUntilResend > 0 || _isResending) return;
     setState(() => _isResending = true);
 
     final auth = context.read<AuthProvider>();
@@ -80,108 +143,156 @@ class _OtpVerificationPageState extends State<OtpVerificationPage> {
 
     if (success) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('A fresh 6-digit code has been sent to your email.'), backgroundColor: Colors.green),
+        const SnackBar(
+          content: Text('A fresh 6-digit verification code has been sent to your email.'),
+          backgroundColor: Colors.green,
+        ),
       );
-      _startCountdown();
+      _resetTimers();
     }
+  }
+
+  String _formatTime(int totalSeconds) {
+    final minutes = totalSeconds ~/ 60;
+    final seconds = totalSeconds % 60;
+    return '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
   }
 
   @override
   Widget build(BuildContext context) {
     final auth = context.watch<AuthProvider>();
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Email Verification'),
-      ),
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const SizedBox(height: 12),
-              Center(
-                child: Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: const BoxDecoration(
-                    color: AppTheme.primarySoft,
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(Icons.mark_email_read_outlined, size: 48, color: AppTheme.primary),
+    return AuthScaffold(
+      title: 'Email Verification',
+      subtitle: 'Verify your email to activate your buyer account',
+      showBack: true,
+      cardChild: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Center(
+            child: Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: AppTheme.primarySoft,
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: AppTheme.primary.withValues(alpha: 0.25),
+                  width: 1.5,
                 ),
               ),
-              const SizedBox(height: 20),
-              const Text(
-                'Enter Verification Code',
-                textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: AppTheme.ink),
+              child: const Icon(
+                Icons.mark_email_read_rounded,
+                size: 36,
+                color: AppTheme.primary,
               ),
-              const SizedBox(height: 8),
-              Text(
-                'We have sent a 6-digit code to\n${widget.email}',
-                textAlign: TextAlign.center,
-                style: const TextStyle(fontSize: 13, color: AppTheme.muted, height: 1.4),
-              ),
-              const SizedBox(height: 28),
+            ),
+          ),
+          const SizedBox(height: 14),
 
-              if (auth.errorMessage != null)
-                Container(
-                  margin: const EdgeInsets.only(bottom: 20),
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Colors.red.shade50,
-                    border: Border.all(color: Colors.red.shade200),
-                    borderRadius: BorderRadius.circular(7),
-                  ),
-                  child: Text(
-                    auth.errorMessage!,
-                    textAlign: TextAlign.center,
-                    style: TextStyle(color: Colors.red.shade900, fontSize: 13),
-                  ),
-                ),
+          Text(
+            'We have sent a 6-digit code to\n${widget.email}',
+            textAlign: TextAlign.center,
+            style: const TextStyle(fontSize: 13, color: AppTheme.muted, height: 1.4),
+          ),
+          const SizedBox(height: 14),
 
-              TextField(
-                controller: _codeCtrl,
-                keyboardType: TextInputType.number,
-                maxLength: 6,
-                textAlign: TextAlign.center,
-                style: const TextStyle(fontSize: 24, letterSpacing: 10, fontWeight: FontWeight.bold),
-                decoration: const InputDecoration(
-                  counterText: '',
-                  hintText: '000000',
-                  hintStyle: TextStyle(fontSize: 24, letterSpacing: 10, color: AppTheme.muted),
+          // Code Expiry Countdown Badge (TC-BUY-026, TC-BUY-038)
+          Center(
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: _secondsUntilExpiry > 0 ? const Color(0xFFF1F5F9) : const Color(0xFFFEF2F2),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(
+                  color: _secondsUntilExpiry > 0 ? const Color(0xFFE2E8F0) : const Color(0xFFFECACA),
                 ),
               ),
-              const SizedBox(height: 24),
-
-              ElevatedButton(
-                onPressed: auth.isLoading ? null : _verify,
-                child: auth.isLoading
-                    ? const SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                      )
-                    : const Text('Verify & Continue'),
-              ),
-              const SizedBox(height: 20),
-
-              Center(
-                child: TextButton(
-                  onPressed: _countdown == 0 ? _resend : null,
-                  child: Text(
-                    _countdown > 0 ? 'Resend code in ${_countdown}s' : 'Resend Code',
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.timer_outlined,
+                    size: 15,
+                    color: _secondsUntilExpiry > 0 ? const Color(0xFF64748B) : Colors.red.shade700,
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    _secondsUntilExpiry > 0
+                        ? 'Code expires in ${_formatTime(_secondsUntilExpiry)}'
+                        : 'Code has expired',
                     style: TextStyle(
-                      color: _countdown == 0 ? AppTheme.primary : AppTheme.muted,
+                      fontSize: 12,
                       fontWeight: FontWeight.w600,
+                      color: _secondsUntilExpiry > 0 ? const Color(0xFF475569) : Colors.red.shade800,
                     ),
                   ),
-                ),
+                ],
               ),
-            ],
+            ),
           ),
-        ),
+          const SizedBox(height: 20),
+
+          if (auth.errorMessage != null)
+            AuthStyles.errorBanner(auth.errorMessage!),
+
+          // OTP Field with paste support (TC-BUY-025, TC-BUY-037)
+          TextField(
+            controller: _codeCtrl,
+            keyboardType: TextInputType.number,
+            autocorrect: false,
+            enableSuggestions: false,
+            enableInteractiveSelection: true,
+            maxLength: 6,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              fontSize: 26,
+              letterSpacing: 10,
+              fontWeight: FontWeight.bold,
+              color: AppTheme.primary,
+            ),
+            decoration: AuthStyles.inputDecoration(
+              label: 'Verification Code',
+              hint: '000000',
+              prefixIcon: Icons.pin_rounded,
+            ).copyWith(counterText: ''),
+            onChanged: (val) {
+              if (val.trim().length == 6) {
+                _verify();
+              }
+            },
+          ),
+          const SizedBox(height: 24),
+
+          AuthStyles.gradientButton(
+            onPressed: _verify,
+            text: 'Verify & Continue',
+            isLoading: auth.isLoading,
+            trailingIcon: Icons.arrow_forward_rounded,
+          ),
+          const SizedBox(height: 18),
+
+          Center(
+            child: TextButton(
+              onPressed: (_secondsUntilResend == 0 && !_isResending) ? _resend : null,
+              child: _isResending
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.primary),
+                    )
+                  : Text(
+                      _secondsUntilResend > 0
+                          ? 'Resend code in ${_secondsUntilResend}s'
+                          : 'Resend Code',
+                      style: TextStyle(
+                        color: _secondsUntilResend == 0 ? AppTheme.primary : AppTheme.muted,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 13,
+                      ),
+                    ),
+            ),
+          ),
+        ],
       ),
     );
   }
