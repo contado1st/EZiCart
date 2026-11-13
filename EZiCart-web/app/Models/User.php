@@ -140,6 +140,11 @@ class User extends Authenticatable implements AuthenticatableContract
         return $this->belongsToMany(self::class, 'shop_follows', 'buyer_id', 'seller_id')->withTimestamps();
     }
 
+    public function wishlistedProducts(): BelongsToMany
+    {
+        return $this->belongsToMany(Product::class, 'product_wishlists', 'buyer_id', 'product_id')->withTimestamps();
+    }
+
     /**
      * Vouchers created by this seller.
      */

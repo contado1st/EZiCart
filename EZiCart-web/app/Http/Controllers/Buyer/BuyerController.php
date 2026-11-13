@@ -5,47 +5,32 @@ namespace App\Http\Controllers\Buyer;
 use App\Enums\OrderStatus;
 use App\Http\Controllers\Controller;
 use App\Models\Order;
+use App\Services\BuyerOrderGroupingService;
 use App\Services\DeliveryCodeService;
 use App\Services\OrderTransitionService;
 use App\Services\QrCodeService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
 
 class BuyerController extends Controller
 {
-    public function dashboard(Request $request)
+    public function dashboard(Request $request, BuyerOrderGroupingService $grouping)
     {
-        $request->validate(['order_group' => ['nullable', 'in:all,to_ship,to_receive,completed'], 'status' => ['nullable', 'string', 'max:50']]);
-        $status = $request->query('status');
+        $request->validate(['order_group' => ['nullable', Rule::in(array_keys(BuyerOrderGroupingService::LABELS))],
+            'status' => ['nullable', Rule::in([...array_column(OrderStatus::cases(), 'value'), 'RETURNED'])]]);
         $orderGroup = $request->query('order_group', 'all') ?: 'all';
-        $groups = [
-            'to_ship' => ['PLACED', 'CONFIRMED', 'PREPARING'],
-            'to_receive' => ['READY_FOR_PICKUP', 'PICKED_UP', 'AT_SORTING_CENTER', 'SORTED', 'ASSIGNED_TO_RIDER', 'OUT_FOR_DELIVERY', 'DELIVERED', 'DELIVERY_FAILED', 'RETURN_IN_TRANSIT'],
-            'completed' => ['COMPLETED', 'CANCELLED', 'RETURNED', 'RETURNED_TO_SELLER'],
-        ];
+        $expression = $grouping->expression();
+        $base = Order::query()->where('buyer_id', $this->authenticatedUser()->id)
+            ->when($request->filled('status'), fn ($q) => $q->where('status', $request->query('status')));
+        $counts = $grouping->counts($base);
+        $orders = $base->when($orderGroup !== 'all', fn ($q) => $q->whereRaw($expression.' = ?', [$orderGroup]))
+            ->with(['seller', 'items.product', 'pendingCancellation', 'dispute', 'reviews'])
+            ->latest('created_at')->latest('id')->paginate(25)->withQueryString();
+        $groupLabels = BuyerOrderGroupingService::LABELS;
 
-        $query = $this->authenticatedUser()->buyerOrders()
-            ->with(['seller', 'items.product', 'pendingCancellation'])
-            ->latest();
-
-        if ($status) {
-            $query->where('status', $status);
-        }
-        if (isset($groups[$orderGroup])) {
-            $query->whereIn('status', $groups[$orderGroup]);
-        }
-
-        $orders = $query->orderByDesc('id')->paginate(25)->withQueryString();
-
-        $counts = [
-            'all' => $this->authenticatedUser()->buyerOrders()->count(),
-            'to_ship' => $this->authenticatedUser()->buyerOrders()->whereIn('status', $groups['to_ship'])->count(),
-            'to_receive' => $this->authenticatedUser()->buyerOrders()->whereIn('status', $groups['to_receive'])->count(),
-            'completed' => $this->authenticatedUser()->buyerOrders()->whereIn('status', $groups['completed'])->count(),
-        ];
-
-        return view('buyer.dashboard', compact('orders', 'counts', 'orderGroup'));
+        return view('buyer.dashboard', compact('orders', 'counts', 'orderGroup', 'groupLabels'));
     }
 
     public function showOrder(Order $order, DeliveryCodeService $deliveryCodes, QrCodeService $qrCodes)

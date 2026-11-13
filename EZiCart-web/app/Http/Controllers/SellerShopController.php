@@ -6,18 +6,19 @@ use App\Models\Product;
 use App\Models\Review;
 use App\Models\User;
 use App\Services\ProductCategoryService;
+use App\Services\ProductDiscoveryService;
 use App\Services\ShopFollowService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 
 class SellerShopController extends Controller
 {
-    public function show(Request $request, User $seller)
+    public function show(Request $request, User $seller, ProductDiscoveryService $discovery)
     {
         $this->assertPublicSeller($seller);
         $filters = $request->validate([
             'q' => ['nullable', 'string', 'max:100'], 'category' => ['nullable', 'string', 'max:100'],
-            'sort' => ['nullable', 'in:latest,price_asc,price_desc,rating'], 'page' => ['nullable', 'integer', 'min:1'],
+            'sort' => ['nullable', 'in:latest,price_asc,price_desc,rating,best_selling'], 'page' => ['nullable', 'integer', 'min:1'],
         ]);
         $filters['sort'] ??= 'latest';
         $base = Product::query()->where('user_id', $seller->id)->availableForMarketplace();
@@ -36,6 +37,7 @@ class SellerShopController extends Controller
             app(ProductCategoryService::class)->filter($query, $filters['category']);
         }
         match ($filters['sort']) {
+            'best_selling' => $discovery->bestSelling($query),
             'price_asc' => $query->orderByRaw(Product::MINIMUM_PURCHASABLE_PRICE_SQL.' ASC'), 'price_desc' => $query->orderByRaw(Product::MINIMUM_PURCHASABLE_PRICE_SQL.' DESC'),
             'rating' => $query->orderByDesc('shop_rating')->orderByDesc('shop_review_count'),
             default => $query->orderByDesc('created_at'),
@@ -55,6 +57,13 @@ class SellerShopController extends Controller
         $follows->set($request->user(), $seller, (bool) $data['following']);
 
         return back()->with('success', $data['following'] ? 'You are now following this shop.' : 'You have unfollowed this shop.');
+    }
+
+    public function followIntent(User $seller)
+    {
+        $this->assertPublicSeller($seller);
+
+        return redirect()->route('shops.show', $seller)->with('success', 'You can now follow this shop. Select Follow shop to confirm.');
     }
 
     private function assertPublicSeller(User $seller): void

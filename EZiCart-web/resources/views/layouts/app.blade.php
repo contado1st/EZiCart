@@ -11,7 +11,7 @@
     $isDashboardWorkspace = auth()->check() && request()->routeIs(
         'admin.*', 'seller.*', 'courier.*', 'logistics.*', 'logistics-admin.*',
         'buyer.dashboard', 'buyer.orders.*', 'buyer.addresses.*', 'finance.*', 'parcel-transfers.*', 'return-pickups.*',
-        'account.profile.*', 'notifications.*', 'buyer.for-you*', 'buyer.stock.*', 'chat.*', 'sales-reports.*', 'activity-logs.*', 'coverage.*', 'analytics.*', 'staff.*', 'parcel-evidence.*', 'buyer.vouchers.*', 'load-planning.*'
+        'account.profile.*', 'notifications.*', 'buyer.for-you*', 'buyer.wishlist.*', 'buyer.stock.*', 'chat.*', 'sales-reports.*', 'activity-logs.*', 'coverage.*', 'analytics.*', 'staff.*', 'parcel-evidence.*', 'buyer.vouchers.*', 'load-planning.*'
     );
 @endphp
 

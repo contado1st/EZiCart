@@ -6,6 +6,7 @@
                 ['buyer.dashboard', 'diagram', 'My purchases', 'buyer.dashboard'],
                 ['home', 'package1', 'Marketplace', 'home'],
                 ['buyer.for-you', 'star', 'For you', 'buyer.for-you'],
+                ['buyer.wishlist.index', 'heart', 'My wishlist', 'buyer.wishlist.*'],
                 ['buyer.stock.index', 'bell', 'Stock alerts', 'buyer.stock.*'],
                 ['chat.index', 'chat', 'Chat', 'chat.index'],
                 ['cart.index', 'cart2', 'My cart', 'cart.*'],

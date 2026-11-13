@@ -22,7 +22,7 @@
                 <x-workspace-metric label="All orders" :value="$counts['all']" icon="cart1" detail="Your purchase history" />
                 <x-workspace-metric label="Preparing to ship" :value="$counts['to_ship']" icon="package1" detail="Placed, confirmed or being prepared" tone="warning" />
                 <x-workspace-metric label="To receive" :value="$counts['to_receive']" icon="delivery1" detail="Track your parcel and delivery" />
-                <x-workspace-metric label="Closed orders" :value="$counts['completed']" icon="checklist" detail="Completed, cancelled or returned" tone="success" />
+                <x-workspace-metric label="Completed" :value="$counts['completed']" icon="checklist" detail="Completed purchases outside an active return/refund" tone="success" />
             </section>
 
             @if (session('success'))
@@ -36,14 +36,17 @@
             @endif
 
             <nav class="workspace-order-tabs" aria-label="Purchase status">
-                @foreach (['all' => 'All orders', 'to_ship' => 'Preparing to ship', 'to_receive' => 'To receive', 'completed' => 'Closed orders'] as $group => $label)
-                    <a href="{{ request()->fullUrlWithQuery(['order_group' => $group, 'status' => null, 'page' => null]) }}" @if ($orderGroup === $group) aria-current="page" @endif>{{ $label }} <span class="workspace-tab-count">{{ number_format($counts[$group]) }}</span></a>
+                @foreach ($groupLabels as $group => $label)
+                    @if($group !== 'other' || $counts['other'] > 0 || $orderGroup === 'other')
+                    <a href="{{ request()->fullUrlWithQuery(['order_group' => $group, 'page' => null]) }}" @if ($orderGroup === $group) aria-current="page" @endif>{{ $label }} <span class="workspace-tab-count">{{ number_format($counts[$group]) }}</span></a>
+                    @endif
                 @endforeach
             </nav>
             <div class="dash-panel">
                 <div class="workspace-orders-heading">
                     <h2 class="dash-panel-title">Order history</h2>
                     <form method="GET" action="{{ route('buyer.dashboard') }}" class="workspace-order-filter">
+                        <input type="hidden" name="order_group" value="{{ $orderGroup }}">
                         <label for="dashboard-order-status">Status</label>
                         <select name="status" id="dashboard-order-status">
                             <option value="">All statuses</option>
@@ -52,9 +55,12 @@
                             @endforeach
                         </select>
                         <button type="submit" class="dash-btn-sm dash-btn-outline">Filter</button>
+                        <a class="dash-btn-sm dash-btn-outline" href="{{ route('buyer.dashboard') }}">Reset</a>
                     </form>
                 </div>
 
+                <p>Each purchase belongs to one status group. Counts and tabs retain your status filter; 25 orders per page. Returns/refunds include open disputes and recorded refund activity.</p>
+                @include('components.feature-feedback')
                 @forelse($orders as $order)
                     <div class="order-card u-extracted-dab43fb936">
                         <div class="order-card-header">
@@ -86,9 +92,7 @@
                                 <!-- Review Form for Completed Orders -->
                                 @if ($order->status === 'COMPLETED')
                                     @php
-                                        $alreadyReviewed = \App\Models\Review::where('order_id', $order->id)
-                                            ->where('product_id', $item->product_id)
-                                            ->first();
+                                        $alreadyReviewed = $order->reviews->firstWhere('product_id', $item->product_id);
                                     @endphp
 
                                     @if ($alreadyReviewed)

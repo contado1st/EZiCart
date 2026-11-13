@@ -83,6 +83,8 @@ class HomeController extends Controller
             ->where(fn ($query) => $query->whereNull('recipient_limit')->orWhereColumn('claimed_count', '<', 'recipient_limit'))
             ->latest()->limit(3)->get();
 
-        return view('products.show', compact('product', 'reviews', 'ratingCounts', 'reviewCount', 'averageRating', 'sameShop', 'suggestions', 'shopProductCount', 'followerCount', 'vouchers'));
+        $wishlisted = $request->user()?->role === 'buyer' && $request->user()->wishlistedProducts()->whereKey($product->id)->exists();
+
+        return view('products.show', compact('product', 'reviews', 'ratingCounts', 'reviewCount', 'averageRating', 'sameShop', 'suggestions', 'shopProductCount', 'followerCount', 'vouchers', 'wishlisted'));
     }
 }

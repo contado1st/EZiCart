@@ -17,6 +17,11 @@
     <section class="pdp-overview" aria-labelledby="product-title">
         <div class="pdp-media">
             <x-product-gallery :product="$product" />
+            @if(auth()->user()?->role === 'buyer' && $publicShop)
+                <form class="pdp-media-actions" method="POST" action="{{ route('buyer.wishlist.store', $product) }}">@csrf<input type="hidden" name="saved" value="{{ $wishlisted ? 0 : 1 }}"><button class="pdp-text-button" type="submit" aria-pressed="{{ $wishlisted ? 'true' : 'false' }}"><x-shop-icon name="heart" /> {{ $wishlisted ? 'Saved · remove from wishlist' : 'Save to wishlist' }}</button><a class="pdp-text-button" href="{{ route('buyer.wishlist.index') }}">My wishlist</a></form>
+            @elseif(!auth()->check() && $publicShop)
+                <div class="pdp-media-actions"><a class="pdp-text-button" href="{{ route('buyer.wishlist.product', $product) }}"><x-shop-icon name="heart" /> Sign in to save</a><a class="pdp-text-button" href="{{ route('shops.follow-intent', $seller) }}">Sign in to follow shop</a></div>
+            @endif
             <div class="pdp-media-actions"><button type="button" class="pdp-text-button" data-product-share>Share product</button><span data-share-status role="status"></span>@if(auth()->user()?->role === 'buyer' && $publicShop)<form method="POST" action="{{ route('shops.follow', $seller) }}">@csrf<input type="hidden" name="following" value="1"><button class="pdp-text-button" type="submit">Follow shop</button></form>@endif</div>
         </div>
         <div class="pdp-purchase">

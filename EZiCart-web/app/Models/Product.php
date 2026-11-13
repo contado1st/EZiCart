@@ -28,6 +28,7 @@ class Product extends Model
     public function scopeAvailableForMarketplace(Builder $query): Builder
     {
         return $query->where('compliance_status', 'approved')
+            ->whereHas('seller', fn (Builder $sellers) => $sellers->where('role', 'seller')->where('status', 'approved'))
             ->where('is_archived', false)->where('is_seller_active', true)
             ->where('stock', '>', 0)
             ->where(fn (Builder $products) => $products->whereDoesntHave('variations')
@@ -36,7 +37,22 @@ class Product extends Model
 
     public function isListingVisible(): bool
     {
-        return $this->compliance_status === 'approved' && ! $this->is_archived && (bool) $this->is_seller_active;
+        if ($this->compliance_status !== 'approved' || $this->is_archived || ! $this->is_seller_active) {
+            return false;
+        }
+        if ($this->relationLoaded('seller')) {
+            $seller = $this->getRelation('seller');
+            if ($seller === null) {
+                return false;
+            }
+            if ($seller->hasAttribute('role') && $seller->hasAttribute('status')) {
+                return $seller->role === 'seller' && $seller->status === 'approved';
+            }
+        }
+
+        // Some API readers deliberately select only public seller fields. Check approval
+        // without expanding that public response or treating omitted fields as a denial.
+        return $this->seller()->where('role', 'seller')->where('status', 'approved')->exists();
     }
 
     public function scopeWithVariantPrices(Builder $query): Builder

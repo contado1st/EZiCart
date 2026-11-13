@@ -22,6 +22,7 @@ use App\Http\Controllers\Buyer\DiscoveryController;
 use App\Http\Controllers\Buyer\DisputeController;
 use App\Http\Controllers\Buyer\EmailChangeController;
 use App\Http\Controllers\Buyer\ReviewController;
+use App\Http\Controllers\Buyer\WishlistController;
 use App\Http\Controllers\ChatAttachmentController;
 use App\Http\Controllers\ChatInboxController;
 use App\Http\Controllers\CommunicationCountController;
@@ -196,6 +197,7 @@ Route::middleware(['auth', 'account.active', 'auth.session'])->group(function ()
     Route::get('/account', [AccountController::class, 'edit'])->name('account.profile.edit');
     Route::patch('/account/appearance', [ProfileAppearanceController::class, 'update'])->middleware('throttle:operational-action')->name('account.appearance.update');
     Route::post('/shops/{seller}/follow', [SellerShopController::class, 'follow'])->middleware(['role:buyer', 'throttle:operational-action'])->whereNumber('seller')->name('shops.follow');
+    Route::get('/shops/{seller}/follow', [SellerShopController::class, 'followIntent'])->middleware('role:buyer')->whereNumber('seller')->name('shops.follow-intent');
     Route::patch('/account', [AccountController::class, 'update'])->middleware('throttle:operational-action')->name('account.profile.update');
     Route::patch('/account/password', [AccountController::class, 'updatePassword'])->middleware('throttle:10,1')->name('account.password.update');
     Route::post('/account/email-change', [EmailChangeController::class, 'store'])->middleware(['role:buyer', 'throttle:5,1'])->name('account.email-change.store');
@@ -243,6 +245,10 @@ Route::middleware(['auth', 'account.active', 'auth.session'])->group(function ()
             Route::resource('addresses', BuyerAddressController::class)->except('show')->whereNumber('address');
             Route::patch('/addresses/{address}/default', [BuyerAddressController::class, 'makeDefault'])->whereNumber('address')->middleware('throttle:operational-action')->name('addresses.default');
             Route::get('/dashboard', [BuyerController::class, 'dashboard'])->name('dashboard');
+            Route::get('/wishlist', [WishlistController::class, 'index'])->name('wishlist.index');
+            Route::get('/wishlist/products/{product}', [WishlistController::class, 'product'])->whereNumber('product')->name('wishlist.product');
+            Route::post('/wishlist/products/{product}', [WishlistController::class, 'store'])->whereNumber('product')->middleware('throttle:operational-action')->name('wishlist.store');
+            Route::delete('/wishlist/products/{product}', [WishlistController::class, 'destroy'])->whereNumber('product')->middleware('throttle:operational-action')->name('wishlist.destroy');
             Route::get('/orders/{order}', [BuyerController::class, 'showOrder'])->name('orders.show');
             Route::post('/orders/{order}/delivery-code/refresh', [BuyerController::class, 'refreshDeliveryCode'])->middleware('throttle:operational-action')->name('orders.delivery-code.refresh');
             Route::get('/orders/{order}/messages', [OrderMessageController::class, 'show'])->name('orders.messages.show');

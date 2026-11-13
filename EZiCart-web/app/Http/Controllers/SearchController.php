@@ -6,6 +6,7 @@ use App\Models\Product;
 use App\Models\Review;
 use App\Models\User;
 use App\Services\ProductCategoryService;
+use App\Services\ProductDiscoveryService;
 use Illuminate\Contracts\View\View;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
@@ -14,7 +15,7 @@ use Illuminate\Validation\Rule;
 
 class SearchController extends Controller
 {
-    public function index(Request $request): View
+    public function index(Request $request, ProductDiscoveryService $discovery): View
     {
         $filters = $request->validate([
             'search' => ['nullable', 'string', 'max:150'],
@@ -23,13 +24,13 @@ class SearchController extends Controller
             'min_price' => ['nullable', 'numeric', 'min:0', 'max:9999999999.99'],
             'max_price' => ['nullable', 'numeric', 'min:0', 'max:9999999999.99', Rule::when($request->filled('min_price'), 'gte:min_price')],
             'rating' => ['nullable', 'integer', 'between:1,5'],
-            'sort' => ['nullable', Rule::in(['relevance', 'latest', 'rating', 'price_asc', 'price_desc'])],
+            'sort' => ['nullable', Rule::in(['relevance', 'latest', 'rating', 'price_asc', 'price_desc', 'best_selling'])],
             'page' => ['nullable', 'integer', 'min:1'],
         ]);
         $filters['search'] = trim($filters['search'] ?? '');
         $filters['sort'] = $filters['sort'] ?? 'relevance';
         $searchTerm = $filters['search'];
-        $sortOptions = ['relevance' => 'Relevance', 'latest' => 'Latest', 'rating' => 'Top rated', 'price_asc' => 'Price: low to high', 'price_desc' => 'Price: high to low'];
+        $sortOptions = ['relevance' => 'Relevance', 'latest' => 'Latest', 'best_selling' => 'Best selling', 'rating' => 'Top rated', 'price_asc' => 'Price: low to high', 'price_desc' => 'Price: high to low'];
         $base = Product::query()->availableForMarketplace();
         $categories = (clone $base)->whereNotNull('category')->where('category', '<>', '')->distinct()->orderBy('category')->pluck('category');
         $categories = collect(app(ProductCategoryService::class)->browseOptions($categories));
@@ -39,15 +40,6 @@ class SearchController extends Controller
         $query = $base->withVariantPrices()->with('seller:id,business_name,first_name,municipality,province,role,status')
             ->withAvg('reviews as catalog_rating', 'rating')->withCount('reviews as catalog_review_count');
 
-        if ($searchTerm !== '') {
-            $pattern = '%'.strtr(mb_strtolower($searchTerm), ['!' => '!!', '%' => '!%', '_' => '!_']).'%';
-            $query->where(function (Builder $products) use ($pattern): void {
-                $products->whereRaw("LOWER(products.name) LIKE ? ESCAPE '!'", [$pattern])
-                    ->orWhereRaw("LOWER(products.description) LIKE ? ESCAPE '!'", [$pattern])
-                    ->orWhereRaw("LOWER(products.category) LIKE ? ESCAPE '!'", [$pattern])
-                    ->orWhereHas('seller', fn (Builder $sellers) => $sellers->whereRaw("LOWER(business_name) LIKE ? ESCAPE '!'", [$pattern]));
-            });
-        }
         if (filled($filters['category'] ?? null)) {
             app(ProductCategoryService::class)->filter($query, $filters['category']);
         }
@@ -64,7 +56,18 @@ class SearchController extends Controller
             $query->where(Review::query()->selectRaw('AVG(rating)')->whereColumn('reviews.product_id', 'products.id'), '>=', (int) $filters['rating']);
         }
 
+        $suggestionCatalog = clone $query;
+        if ($searchTerm !== '') {
+            $pattern = '%'.strtr(mb_strtolower($searchTerm), ['!' => '!!', '%' => '!%', '_' => '!_']).'%';
+            $query->where(function (Builder $products) use ($pattern): void {
+                $products->whereRaw("LOWER(products.name) LIKE ? ESCAPE '!'", [$pattern])
+                    ->orWhereRaw("LOWER(products.description) LIKE ? ESCAPE '!'", [$pattern])
+                    ->orWhereRaw("LOWER(products.category) LIKE ? ESCAPE '!'", [$pattern])
+                    ->orWhereHas('seller', fn (Builder $sellers) => $sellers->whereRaw("LOWER(business_name) LIKE ? ESCAPE '!'", [$pattern]));
+            });
+        }
         match ($filters['sort']) {
+            'best_selling' => $discovery->bestSelling($query),
             'price_asc' => $query->orderByRaw(Product::MINIMUM_PURCHASABLE_PRICE_SQL.' ASC'),
             'price_desc' => $query->orderByRaw(Product::MINIMUM_PURCHASABLE_PRICE_SQL.' DESC'),
             'rating' => $query->orderByDesc('catalog_rating')->orderByDesc('catalog_review_count'),
@@ -74,6 +77,7 @@ class SearchController extends Controller
                 : $query->orderByDesc('created_at'),
         };
         $products = $query->orderByDesc('id')->paginate(24)->appends(Arr::except($filters, 'page'));
+        $searchSuggestions = $searchTerm !== '' && $products->total() === 0 ? $discovery->suggestions($suggestionCatalog, $searchTerm) : [];
 
         $activeFilters = [];
         foreach (['category' => 'Category', 'province' => 'Ships from', 'rating' => 'Minimum rating'] as $key => $label) {
@@ -88,6 +92,6 @@ class SearchController extends Controller
             ];
         }
 
-        return view('search.index', compact('products', 'categories', 'provinces', 'filters', 'searchTerm', 'sortOptions', 'activeFilters'));
+        return view('search.index', compact('products', 'categories', 'provinces', 'filters', 'searchTerm', 'sortOptions', 'activeFilters', 'searchSuggestions'));
     }
 }
