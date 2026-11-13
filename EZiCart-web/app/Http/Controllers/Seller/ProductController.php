@@ -3,16 +3,21 @@
 namespace App\Http\Controllers\Seller;
 
 use App\Http\Controllers\Controller;
+use App\Models\OrderItem;
 use App\Models\Product;
 use App\Models\ProductComplianceEvent;
+use App\Models\ProductDraft;
 use App\Services\AdministrativeAuditService;
 use App\Services\ParcelLoadService;
 use App\Services\ProductCategoryService;
+use App\Services\ProductDraftService;
 use App\Services\ProductMediaService;
 use App\Services\ProductVariationEditorService;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 
 class ProductController extends Controller
 {
@@ -31,6 +36,35 @@ class ProductController extends Controller
     }
 
     public function store(Request $request)
+    {
+        $request->validate(['draft_id' => ['nullable', 'integer']]);
+        $createdPaths = [];
+        try {
+            return DB::transaction(function () use ($request, &$createdPaths) {
+                $draft = $request->filled('draft_id') ? ProductDraft::where('user_id', $this->authenticatedUser()->id)->whereKey($request->input('draft_id'))->lockForUpdate()->firstOrFail() : null;
+                if ($draft?->submitted_at) {
+                    return redirect()->route('seller.products.index')->with('success', 'This draft was already submitted. No duplicate product was created.');
+                }
+                if ($draft) {
+                    $request = app(ProductDraftService::class)->hydrate($request, $draft);
+                }
+                $product = $this->createProduct($request);
+                $createdPaths = [$product->image_path, ...$product->media()->pluck('path')->all(), ...$product->variations()->pluck('image_path')->all()];
+                if ($draft) {
+                    $privatePaths = array_column($draft->uploads, 'path');
+                    $draft->update(['submitted_at' => now(), 'submitted_product_id' => $product->id, 'uploads' => []]);
+                    DB::afterCommit(fn () => app(ProductDraftService::class)->deleteFiles($privatePaths));
+                }
+
+                return redirect()->route('seller.products.index')->with('success', 'Product submitted for compliance review.');
+            });
+        } catch (\Throwable $exception) {
+            $this->media->deleteFiles($createdPaths);
+            $this->rethrowSkuConflict($exception);
+        }
+    }
+
+    private function createProduct(Request $request): Product
     {
         if ($request->has('variations_present') && ! $request->has('variations')) {
             $request->merge(['variations' => []]);
@@ -69,7 +103,7 @@ class ProductController extends Controller
                 }
             }
 
-            DB::transaction(function () use ($validated, $imagePath, $staged): void {
+            $created = DB::transaction(function () use ($validated, $imagePath, $staged): Product {
                 $product = $this->authenticatedUser()->products()->create([
                     'name' => $validated['name'],
                     'category' => $validated['category'],
@@ -106,13 +140,15 @@ class ProductController extends Controller
                         }
                     }
                 }
+
+                return $product;
             });
         } catch (\Throwable $exception) {
             $this->media->deleteFiles([$imagePath, ...array_column($staged, 'path'), ...$variantPaths]);
             throw $exception;
         }
 
-        return redirect()->route('seller.products.index')->with('success', 'Product and variations created successfully.');
+        return $created;
     }
 
     public function edit(Product $product)
@@ -261,26 +297,50 @@ class ProductController extends Controller
             });
         } catch (\Throwable $exception) {
             $this->media->deleteFiles([$uploadedImagePath, ...array_column($staged, 'path'), ...$variantPaths]);
-            throw $exception;
+            $this->rethrowSkuConflict($exception);
         }
+    }
+
+    public function availability(Request $request, Product $product)
+    {
+        abort_unless($product->user_id === $this->authenticatedUser()->id, 403);
+        $data = $request->validate(['is_seller_active' => ['required', 'boolean']]);
+        DB::transaction(function () use ($product, $data): void {
+            $locked = Product::whereKey($product->id)->lockForUpdate()->firstOrFail();
+            $before = ['is_seller_active' => (bool) $locked->is_seller_active];
+            $locked->forceFill(['is_seller_active' => (bool) $data['is_seller_active']])->save();
+            $this->audits->record($this->authenticatedUser(), $locked, 'seller_product_availability', $before, ['is_seller_active' => (bool) $locked->is_seller_active], 'Seller changed availability; administrator compliance is unchanged.');
+        });
+
+        return back()->with('success', 'Availability updated. Only listings approved by compliance can be sold.');
+    }
+
+    private function rethrowSkuConflict(\Throwable $exception): never
+    {
+        if ($exception instanceof UniqueConstraintViolationException && (str_contains($exception->getMessage(), 'seller_sku_unique') || str_contains($exception->getMessage(), 'product_variations.seller_id'))) {
+            throw ValidationException::withMessages(['variations' => 'A SKU is already used in your store. Check the variation SKUs and try again.']);
+        }
+        throw $exception;
     }
 
     public function destroy(Product $product)
     {
         abort_if($product->user_id !== $this->authenticatedUser()->id, 403);
 
-        if ($product->complianceEvents()->exists()) {
-            $product->update(['is_archived' => true]);
+        $archived = DB::transaction(function () use ($product): bool {
+            $product = Product::whereKey($product->id)->lockForUpdate()->firstOrFail();
+            if ($product->complianceEvents()->exists() || OrderItem::where('product_id', $product->id)->exists()) {
+                $product->update(['is_archived' => true]);
 
-            return redirect()->route('seller.products.index')->with('success', 'Product archived so its compliance review history is preserved.');
-        }
-
-        DB::transaction(function () use ($product): void {
+                return true;
+            }
             $paths = [$product->image_path, ...$product->media()->pluck('path')->all(), ...$product->variations()->whereNotNull('image_path')->pluck('image_path')->all()];
             $product->delete();
             DB::afterCommit(fn () => $this->media->deleteFiles($paths));
+
+            return false;
         });
 
-        return redirect()->route('seller.products.index')->with('success', 'Product removed from inventory.');
+        return redirect()->route('seller.products.index')->with('success', $archived ? 'Product archived so its order and compliance history is preserved.' : 'Product removed from inventory.');
     }
 }

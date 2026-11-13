@@ -2560,6 +2560,7 @@ class LogisticsWorkflowTest extends TestCase
             'last_name' => $buyer->last_name,
             'middle_initial' => 'Q',
             'contact_no' => '09999999999',
+            'region' => 'CALABARZON',
             'province' => 'Laguna',
             'municipality' => 'Majayjay',
             'barangay' => 'Poblacion',

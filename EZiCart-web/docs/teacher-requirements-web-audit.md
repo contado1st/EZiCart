@@ -1,5 +1,7 @@
 # Teacher requirements audit for the Laravel web application
 
+Implementation follow-up, updated 14 November 2026: account, catalog, restricted pending-seller drafts, vouchers and seller reporting revisions are recorded in the [implementation audit](partial-features-implementation-audit.md). This document retains its original dated findings and counts; subsequent changes do not turn its source comparisons into executed teacher passes.
+
 Audit date: **13 November 2026**. Reviewed branch: `web-revisions-&-updates-w/mobile-integration`, commit `782fb283331a9acf96cd1887b6e25722b7ca906a`. Scope: `EZiCart-web` routes, controllers, services, models, validation, Blade/JavaScript behavior, configuration and automated Laravel tests. **The Flutter application is excluded from compliance assessment.**
 
 **The system does not meet every supplied criterion.** It implements the core seller-to-buyer parcel journey, private messaging, account approval, cart persistence, stock protection, financial records and analytics. However, many exact teacher rules differ, and several complete features are absent. Some differences follow earlier project decisions; others are concrete validation or feature gaps.

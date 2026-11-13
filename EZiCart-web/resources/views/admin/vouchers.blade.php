@@ -13,10 +13,15 @@
         <label>Funded redemption limit<input name="usage_limit" type="number" min="1" max="1000000" required value="{{ old('usage_limit') }}"></label>
         <label>Discount applies to<select name="discount_target"><option value="merchandise">Merchandise</option><option value="shipping">Shipping subsidy</option></select></label><p>Activation reserves the maximum budget from the shared platform treasury. Percentage offers require a maximum discount.</p><a href="{{ route('finance.wallet') }}">View treasury funding</a>
         <label>Expiry (optional)<input name="expires_at" type="datetime-local" value="{{ old('expires_at') }}"></label>
+        <label>Starts (optional)<input name="starts_at" type="datetime-local" value="{{ old('starts_at') }}"></label><p>Times use {{ config('app.timezone') }}. Blank start means immediately.</p>
+        <label>Maximum unique buyers<input name="recipient_limit" type="number" min="1" max="1000000" value="{{ old('recipient_limit') }}"></label>
+        <label>Uses per buyer<input name="per_buyer_limit" type="number" min="1" max="1000" value="{{ old('per_buyer_limit', 1) }}"></label>
+        @include('components.voucher-budget-preview')
         <button class="dash-btn-sm" type="submit">Create platform voucher</button>
     </form>
     @forelse($vouchers as $voucher)<article class="dash-panel"><h2>{{ $voucher->code }}</h2><p>{{ $voucher->type }}: {{ $voucher->value }} · {{ $voucher->used_count }} uses · {{ $voucher->is_active ? 'Active' : 'Disabled' }}</p>
         <x-voucher-funding-summary :voucher="$voucher" />
+        <p>Starts: {{ $voucher->starts_at?->format('d M Y H:i T') ?: 'Immediately' }} · Expires: {{ $voucher->expires_at?->format('d M Y H:i T') ?: 'No scheduled expiry' }}</p>
         <form method="POST" action="{{ route('admin.vouchers.toggle', $voucher) }}" data-decision="admin.vouchers.toggle" data-decision-title="Change platform voucher availability?" data-decision-message="This changes whether buyers can use the selected platform voucher." data-decision-label="Change availability" data-decision-tone="normal" onsubmit="return window.eziDecisionReady ? true : window.confirm(this.dataset.decisionMessage)">@csrf @method('PATCH')<button class="dash-btn-sm" type="submit">{{ $voucher->is_active ? 'Disable' : 'Enable' }} voucher</button></form>
     </article>@empty<p>No platform vouchers.</p>@endforelse{{ $vouchers->links() }}
 </main>

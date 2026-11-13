@@ -68,11 +68,8 @@
                 </div>
 
                 <div class="form-group u-extracted-0dc8cc6234">
-                    <label class="u-extracted-23a9b0e3fb">
-                        <input type="checkbox" name="is_archived" value="1"
-                            {{ $product->is_archived ? 'checked' : '' }}>
-                        <span>Archive Product (hide from active customer catalog)</span>
-                    </label>
+                    <p>Sales availability: <strong>{{ $product->is_seller_active ? 'Enabled' : 'Paused by seller' }}</strong>.</p>
+                    <p>Use Pause sales / Resume sales in <a href="{{ route('seller.products.index') }}">Inventory</a>. Compliance approval and archived history remain separate.</p>
                 </div>
 
                 @include('seller.products.variation-fields')

@@ -18,7 +18,7 @@ class StockSubscriptionService
         if ($product->variations->isNotEmpty()) {
             $stock = min($stock, (int) $product->variations->where('is_active', true)->sum('stock'));
         }
-        if ($product->is_archived || $product->compliance_status !== 'approved' || $product->seller?->status !== 'approved' || $stock <= 0) {
+        if (! $product->isListingVisible() || $product->seller?->status !== 'approved' || $stock <= 0) {
             return 'unavailable';
         }
 
@@ -28,7 +28,7 @@ class StockSubscriptionService
     public function watch(User $buyer, Product $product): void
     {
         abort_unless($buyer->role === 'buyer', 403);
-        abort_unless($product->compliance_status === 'approved' && ! $product->is_archived && $product->seller?->status === 'approved', 404);
+        abort_unless($product->isListingVisible() && $product->seller?->status === 'approved', 404);
         DB::table('stock_subscriptions')->insertOrIgnore([
             'user_id' => $buyer->id, 'product_id' => $product->id, 'last_state' => $this->state($product), 'created_at' => now(), 'updated_at' => now(),
         ]);

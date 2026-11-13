@@ -19,6 +19,13 @@ class EnsureAccountActive
         $user = $request->user();
 
         if ($user !== null) {
+            if ((int) $request->session()->get('web_auth_version', 0) !== (int) $user->web_auth_version) {
+                Auth::logout();
+                $request->session()->invalidate();
+                $request->session()->regenerateToken();
+
+                return redirect()->route('login')->with('error', 'Your account security details changed. Please sign in again.');
+            }
             $isUnverified = $user->status === 'unverified';
 
             if ($user->status !== 'approved' || $isUnverified) {

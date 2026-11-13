@@ -75,6 +75,7 @@ class BuyerAddressController extends Controller
             'label' => ['required', 'string', 'max:50'],
             'recipient_name' => ['required', 'string', 'min:2', 'max:255'],
             'recipient_contact' => ['required', 'regex:/^(09\d{9}|\+639\d{9})$/'],
+            'street_address' => ['required', 'string', 'max:255'],
             'is_default' => ['sometimes', 'boolean'],
         ]);
 

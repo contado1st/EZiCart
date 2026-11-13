@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Enums\OrderStatus;
 use App\Models\Order;
 use App\Models\User;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
@@ -44,14 +45,15 @@ class SalesReportService
     public function row(Order $order): array
     {
         $refund = (int) ($order->executed_refund_cents ?? 0);
-        $eligible = $order->status === 'COMPLETED' || ($refund > 0 && $order->delivered_at !== null);
+        $eligible = $order->status !== 'CANCELLED' && $order->finance?->remittance_status !== 'VOID'
+            && ($order->status === 'COMPLETED' || ($refund > 0 && $order->delivered_at !== null));
         $gross = $eligible ? CheckoutPricingService::cents($order->subtotal) : 0;
         $discount = $eligible ? CheckoutPricingService::cents($order->discount_amount ?? 0) : 0;
         $platform = $eligible ? CheckoutPricingService::cents($order->platform_discount_amount ?? 0) : 0;
         $sellerDiscount = max(0, $discount - $platform);
         $merchandiseRefund = min(max(0, $gross - $discount), $refund);
         $platformReversal = $refund > 0 && $merchandiseRefund >= max(0, $gross - $discount) ? $platform : 0;
-        $commission = $order->status === 'COMPLETED' && $refund === 0 && $order->finance?->remittance_status === 'VERIFIED' ? (int) $order->finance->commission_cents : 0;
+        $commission = $eligible && $order->status === 'COMPLETED' && $refund === 0 && $order->finance?->remittance_status === 'VERIFIED' ? (int) $order->finance->commission_cents : 0;
 
         return [
             'order' => $order->order_number, 'placed' => $order->created_at->format('Y-m-d'),
@@ -61,5 +63,31 @@ class SalesReportService
             'merchandise_refund' => $merchandiseRefund, 'platform_reversal' => $platformReversal, 'commission' => $commission,
             'net' => max(0, $gross - $sellerDiscount - $merchandiseRefund - $platformReversal - $commission),
         ];
+    }
+
+    public function countsAsCompletedSale(Order $order): bool
+    {
+        return $order->status === 'COMPLETED' && $order->finance?->remittance_status !== 'VOID'
+            && ((int) ($order->executed_refund_cents ?? 0) === 0
+                || (int) $order->executed_refund_cents < max(0, CheckoutPricingService::cents($order->subtotal) - CheckoutPricingService::cents($order->discount_amount ?? 0)));
+    }
+
+    /** Read-only cents-based reconciliation; pagination never changes summary totals. */
+    public function summarize(Builder $query): array
+    {
+        $totals = array_fill_keys(['gross', 'seller_discount', 'platform_discount', 'shipping', 'refund', 'merchandise_refund', 'platform_reversal', 'commission', 'net', 'completed_count', 'total_orders', 'pending_payout', 'settled_payout'], 0);
+        foreach ((clone $query)->with('payout')->reorder()->lazyById(200) as $order) {
+            $row = $this->row($order);
+            foreach (['gross', 'seller_discount', 'platform_discount', 'shipping', 'refund', 'merchandise_refund', 'platform_reversal', 'commission', 'net'] as $key) {
+                $totals[$key] += $row[$key];
+            }
+            $totals['total_orders']++;
+            $totals['completed_count'] += (int) $this->countsAsCompletedSale($order);
+            if ($order->payout && in_array($order->payout->status, ['REQUESTED', 'APPROVED', 'ON_HOLD', 'SETTLED'], true)) {
+                $totals[$order->payout->status === 'SETTLED' ? 'settled_payout' : 'pending_payout'] += (int) $order->payout->amount_cents;
+            }
+        }
+
+        return $totals;
     }
 }

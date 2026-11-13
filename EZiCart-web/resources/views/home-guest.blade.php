@@ -95,7 +95,7 @@
                                     </span>
                                     <span
                                         class="edit-seller">{{ $product->seller->business_name ?? 'EZiCart seller' }}</span>
-                                    <span class="edit-price">₱{{ number_format($product->price, 2) }}</span>
+                                    <span class="edit-price">{{ $product->display_price_label }}</span>
                                     <span class="edit-arrow" aria-hidden="true">↗</span>
                                 </a>
                             @endforeach
@@ -218,7 +218,7 @@
                                         <span
                                             class="product-seller">{{ $product->seller->business_name ?? 'EZiCart seller' }}</span>
                                         <span class="product-bottom"><span
-                                                class="product-price">₱{{ number_format($product->price, 2) }}</span><span
+                                                class="product-price">{{ $product->display_price_label }}</span><span
                                                 class="product-rating">{{ $product->average_rating > 0 ? number_format($product->average_rating, 1) . ' / 5' : 'New listing' }}</span></span>
                                     </span>
                                 </a>

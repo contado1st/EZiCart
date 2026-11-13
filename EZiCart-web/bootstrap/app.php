@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Middleware\AuthenticateApiToken;
+use App\Http\Middleware\AuthenticateApplicantDraft;
 use App\Http\Middleware\CheckRole;
 use App\Http\Middleware\EnsureAccountActive;
 use App\Http\Middleware\EnsureParcelAvailable;
@@ -40,6 +41,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'account.active' => EnsureAccountActive::class,
             'parcel.available' => EnsureParcelAvailable::class,
             'auth.api' => AuthenticateApiToken::class,
+            'applicant.drafts' => AuthenticateApplicantDraft::class,
         ]);
 
         $middleware->trustProxies(
@@ -51,5 +53,5 @@ return Application::configure(basePath: dirname(__DIR__))
         );
     })
     ->withExceptions(function (Exceptions $exceptions): void {
-        //
+        $exceptions->dontFlash(['email_password']);
     })->create();

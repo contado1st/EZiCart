@@ -293,9 +293,12 @@ class OrderTransitionService
                 $this->audits->record($actor, $locked, 'cancellation_approved', ['cancellation_status' => 'PENDING'], ['cancellation_status' => 'APPROVED'], $response);
             }
             $event = $approve ? 'cancellation_approved' : 'cancellation_rejected';
+            $refundMessage = $locked->payment_method === 'WALLET' && $locked->wallet_paid_cents > 0
+                ? 'Recorded sandbox wallet payment credited back: PHP '.number_format($locked->wallet_paid_cents / 100, 2).'.'
+                : 'No COD payment was collected, so no COD refund is due.';
             ParcelTrackingEvent::create(['order_id' => $locked->id, 'actor_id' => $actor?->id, 'event_type' => $event, 'status' => $locked->status, 'notes' => $response]);
             $this->notifications->send(collect([$locked->buyer, $locked->seller, $locked->pickupCourier, $locked->sortingCenter])->filter()->unique('id'),
-                new OrderWorkflowNotification($locked, $event, $approve ? 'Cancellation approved. Reserved inventory released; no COD payment was collected, so no refund is due.' : 'Cancellation rejected: '.$response));
+                new OrderWorkflowNotification($locked, $event, $approve ? 'Cancellation approved. Reserved inventory released. '.$refundMessage.' Check saved vouchers for restored eligibility.' : 'Cancellation rejected: '.$response));
 
             return true;
         }, 3);

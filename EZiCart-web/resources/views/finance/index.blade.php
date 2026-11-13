@@ -55,6 +55,7 @@
         </article>@empty<p>No refund records.</p>@endforelse{{ $refunds->links() }}
     </section>
     <section class="dash-panel" id="finance-payouts"><h2>Seller payouts</h2>
+        <p>A request is not an immediate payment. Completion, the seven-day delivery hold, verified remittance, funded subsidies and dispute/refund checks still apply. Repeating the same order request returns its existing payout record; it does not create another liability. Settled wallet funds can be withdrawn through the separate wallet request process.</p>
         @forelse($payouts as $payout)<article><h3>{{ $payout->order->order_number }} — ₱{{ number_format($payout->amount_cents / 100, 2) }}</h3><p>{{ $payout->status }} {{ $payout->reference }}</p>
             @if($actor->isCommerceAdmin() && $payout->status === 'APPROVED' && $payout->order->financial_version === 1)<form method="POST" action="{{ route('finance.payout.wallet', $payout) }}">@csrf<label>Wallet settlement reason<input name="reason" required minlength="5" maxlength="500"></label><button type="submit" class="dash-btn-sm">Credit seller available balance</button></form>@endif
             @if($payout->evidence_path)<a href="{{ route('finance.evidence', ['payout', $payout->id]) }}">Settlement proof</a>@endif

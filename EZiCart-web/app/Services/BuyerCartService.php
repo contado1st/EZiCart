@@ -65,7 +65,7 @@ class BuyerCartService
             $stock = $product ? min(20, $product->stock, $variation ? $variation->stock : 20) : 0;
             $price = $product ? CheckoutPricingService::cents($product->price) + ($variation ? CheckoutPricingService::cents($variation->price_adjustment) : 0) : 0;
             $reason = match (true) {
-                ! $product || $product->is_archived || $product->compliance_status !== 'approved' || $product->seller?->status !== 'approved' => 'Product is currently unavailable.',
+                ! $product || ! $product->isListingVisible() || $product->seller?->status !== 'approved' => 'Product is currently unavailable.',
                 ! $product->seller->acceptsWebOrders() => 'This shop is temporarily unavailable.',
                 $line['variation_id'] && (! $variation || ! $variation->is_active) => 'This variation is unavailable.',
                 ! $line['variation_id'] && $options->isNotEmpty() => 'Choose a variation on the product page.',

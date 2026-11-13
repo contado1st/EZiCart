@@ -3,13 +3,16 @@
 namespace App\Http\Controllers\Seller;
 
 use App\Http\Controllers\Controller;
+use App\Models\FinancialAccount;
 use App\Models\SellerPromotion;
 use App\Models\Voucher;
 use App\Models\VoucherBudget;
 use App\Services\AdministrativeAuditService;
 use App\Services\VoucherClaimService;
 use App\Services\VoucherFundingService;
+use App\Services\VoucherScheduleRules;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -19,9 +22,10 @@ class SellerVoucherController extends Controller
 
     public function index()
     {
-        $vouchers = $this->authenticatedUser()->vouchers()->with('budget.reserveAccount')->latest()->paginate(25);
+        $vouchers = $this->authenticatedUser()->vouchers()->with(['seller', 'budget.reserveAccount'])->latest()->paginate(25);
+        $availableCents = (int) FinancialAccount::where('key', 'user:'.$this->authenticatedUser()->id.':available')->where('frozen', false)->value('balance_cents');
 
-        return view('seller.vouchers.index', compact('vouchers'));
+        return view('seller.vouchers.index', compact('vouchers', 'availableCents'));
     }
 
     public function store(Request $request)
@@ -39,8 +43,9 @@ class SellerVoucherController extends Controller
             'max_discount' => ['required_if:type,percent', 'nullable', 'numeric', 'min:0.01', 'decimal:0,2'],
             'recipient_limit' => 'nullable|integer|min:1|max:1000000',
             'per_buyer_limit' => 'nullable|integer|min:1|max:1000',
-            'expires_at' => 'nullable|date|after:today',
+            ...app(VoucherScheduleRules::class)->fields(),
         ]);
+        app(VoucherScheduleRules::class)->assertBounds($validated);
 
         if ($validated['type'] === 'percent' && $validated['value'] > 100) {
             return back()->with('error', 'Percentage discount cannot exceed 100%.');
@@ -56,6 +61,7 @@ class SellerVoucherController extends Controller
                 'recipient_limit' => $validated['recipient_limit'] ?? null,
                 'per_buyer_limit' => $validated['per_buyer_limit'] ?? 1,
                 'expires_at' => $validated['expires_at'] ?? null,
+                'starts_at' => $validated['starts_at'] ?? null,
                 'is_active' => true,
                 'discount_target' => $validated['discount_target'] ?? 'merchandise', 'max_discount' => $validated['max_discount'] ?? null,
             ]);
@@ -94,7 +100,7 @@ class SellerVoucherController extends Controller
 
         DB::transaction(function () use ($voucher): void {
             if (VoucherBudget::where('voucher_id', $voucher->id)->exists()) {
-                app(VoucherFundingService::class)->release($voucher, $this->authenticatedUser());
+                app(VoucherFundingService::class)->release($voucher, $this->authenticatedUser(), 'removed');
 
                 return;
             }
@@ -113,10 +119,15 @@ class SellerVoucherController extends Controller
     public function updateLimits(Request $request, Voucher $voucher)
     {
         abort_unless($voucher->seller_id === $request->user()->id, 403);
-        $data = $request->validate(['recipient_limit' => ['nullable', 'integer', 'min:1', 'max:1000000'], 'per_buyer_limit' => ['nullable', 'integer', 'min:1', 'max:1000'], 'expires_at' => ['nullable', 'date', 'after:now']]);
+        $data = $request->validate(['recipient_limit' => ['nullable', 'integer', 'min:1', 'max:1000000'], 'per_buyer_limit' => ['nullable', 'integer', 'min:1', 'max:1000'], ...app(VoucherScheduleRules::class)->fields()]);
         DB::transaction(function () use ($request, $voucher, $data) {
             $locked = Voucher::whereKey($voucher->id)->lockForUpdate()->firstOrFail();
             app(VoucherClaimService::class)->synchronizeHistory($locked);
+            app(VoucherScheduleRules::class)->assertBounds([...$locked->only(['starts_at', 'expires_at', 'usage_limit', 'per_buyer_limit']), ...$data]);
+            if (array_key_exists('starts_at', $data) && $locked->claimed_count > 0
+                && (string) $locked->starts_at?->toDateTimeString() !== (string) (isset($data['starts_at']) ? Carbon::parse($data['starts_at'])->toDateTimeString() : null)) {
+                throw ValidationException::withMessages(['starts_at' => 'A voucher with existing claims cannot be rescheduled. Create a new offer instead.']);
+            }
             if (isset($data['recipient_limit']) && $data['recipient_limit'] < $locked->claimed_count) {
                 throw ValidationException::withMessages(['recipient_limit' => 'The recipient limit cannot be lower than the existing claim count.']);
             }

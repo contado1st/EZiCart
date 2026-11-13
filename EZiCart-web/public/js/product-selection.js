@@ -12,7 +12,9 @@
         const selected = !select || !!select.value;
         const stock = Math.min(Number(form.dataset.stock), select && selected ? Number(option.dataset.stock) : Number(form.dataset.stock));
         const amount = Number(form.dataset.price) + (select && selected ? Number(option.dataset.adjustment) || 0 : 0);
-        price.textContent = new Intl.NumberFormat('en-PH', {style:'currency', currency:'PHP'}).format(amount);
+        price.textContent = select && !selected && form.dataset.priceRange
+            ? form.dataset.priceRange
+            : new Intl.NumberFormat('en-PH', {style:'currency', currency:'PHP'}).format(amount);
         stockLabel.textContent = select && !selected ? 'Choose an available combination' : `${stock} pieces available`;
         quantity.max = String(Math.max(0, Math.min(20, stock)));
         quantity.disabled = !selected || stock < 1;

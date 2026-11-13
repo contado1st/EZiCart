@@ -304,7 +304,7 @@ class AnalyticsService
                 'Date basis: orders placed during the selected dates, using application timezone '.config('app.timezone').'. Current lifecycle state is shown; comparisons are not historical state snapshots.',
                 'All charts and exports use this same authorized order cohort. Product/category filters select whole orders, including their other items. Empty periods contain genuine zero counts.',
                 'Gross merchandise value is recognized on completed orders and delivered orders with executed refunds. Seller net sales = gross minus seller-funded discounts, merchandise refunds, applicable platform subsidy reversal and recognized commission. This is not profit.',
-                'Commission is recognized only for completed, unrefunded orders with verified remittance. Shipping is separate from merchandise sales. Seller-funded and platform-funded discounts remain separate.',
+                'Commission is recognized only for completed, unrefunded orders with verified remittance. Completed-order counts exclude full merchandise refunds and void finance records; partial refunds retain the completed count. Shipping is separate from merchandise sales. Seller-funded and platform-funded discounts remain separate.',
                 'Refunds and payouts include all currently recorded adjustments attached to the selected orders, even when processed outside the order-placement period. Adjustment rows show their update timestamps. Pending cancellation requests are not cancellations.',
                 'Units fulfilled and product/category gross values precede returned-unit adjustments and order discounts. Categories use current product records; historical category snapshots are unavailable.',
                 'Delivery duration uses only valid pickup-to-delivery timestamp pairs. Orders without valid pairs are excluded, not treated as zero-duration or on-time deliveries. Rider scope covers current pickup/delivery assignments.',
@@ -323,7 +323,7 @@ class AnalyticsService
             foreach (['gross', 'net', 'commission', 'refund', 'seller_discount', 'platform_discount', 'shipping'] as $key) {
                 $totals[$key] += $actor->role === 'courier' && $order->delivery_courier_id !== $actor->id ? 0 : $row[$key] / 100;
             }
-            $totals['completed'] += (int) ($order->status === 'COMPLETED');
+            $totals['completed'] += (int) $this->sales->countsAsCompletedSale($order);
             $totals['cancelled'] += (int) ($order->status === 'CANCELLED');
             $totals['delivered'] += (int) ($order->delivered_at !== null && ($actor->role !== 'courier' || $order->delivery_courier_id === $actor->id));
             $totals['returned'] += (int) ($order->status === 'RETURNED_TO_SELLER');
@@ -358,7 +358,7 @@ class AnalyticsService
     private function definitions(): array
     {
         $definitions = [];
-        foreach (['orders' => 'Orders placed', 'completed' => 'Completed orders', 'units' => 'Units fulfilled (before returns)', 'cancelled' => 'Cancelled orders', 'delivered' => 'Orders with recorded delivery', 'returned' => 'Returned to seller', 'failed_attempts' => 'Failed delivery attempts'] as $key => $label) {
+        foreach (['orders' => 'Orders placed', 'completed' => 'Completed orders excluding full refunds', 'units' => 'Units fulfilled (before returns)', 'cancelled' => 'Cancelled orders', 'delivered' => 'Orders with recorded delivery', 'returned' => 'Returned to seller', 'failed_attempts' => 'Failed delivery attempts'] as $key => $label) {
             $definitions[$key] = ['label' => $label, 'unit' => 'count'];
         }
         foreach (['gross' => 'Gross merchandise value', 'net' => 'Net seller sales', 'commission' => 'Recognized commission', 'aov' => 'Average recognized order value', 'refund' => 'Executed refunds', 'seller_discount' => 'Seller-funded discounts', 'platform_discount' => 'Platform-funded discounts', 'pending_payout' => 'Pending recorded payouts', 'settled_payout' => 'Settled recorded payouts', 'shipping' => 'Shipping charges (all orders)', 'collected' => 'Recorded COD paid', 'spend' => 'Net recorded spend'] as $key => $label) {

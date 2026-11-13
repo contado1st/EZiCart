@@ -35,7 +35,7 @@ class CheckoutPricingService
         foreach ($cart as $key => $item) {
             $product = $products->get($item['product_id'] ?? $item['id'] ?? 0);
             $quantity = filter_var($item['quantity'] ?? null, FILTER_VALIDATE_INT);
-            if (! $product || $product->compliance_status !== 'approved' || $product->is_archived || $product->seller?->status !== 'approved' || $quantity === false || $quantity < 1 || $quantity > 20) {
+            if (! $product || ! $product->isListingVisible() || $product->seller?->status !== 'approved' || $quantity === false || $quantity < 1 || $quantity > 20) {
                 throw ValidationException::withMessages(['cart' => 'An item is unavailable or has an invalid quantity. Return to your cart.']);
             }
             $variation = empty($item['variation_id']) ? null : $variations->get($item['variation_id']);
@@ -83,8 +83,14 @@ class CheckoutPricingService
             }
         }
         unset($group);
-        if ($voucher && ($eligible < 1 || ! $voucher->isValidForAmount($eligible / 100))) {
-            throw ValidationException::withMessages(['voucher_code' => 'Voucher is inactive, expired, exhausted, or does not meet the eligible seller minimum spend.']);
+        if ($voucher) {
+            if ($eligible < 1) {
+                throw ValidationException::withMessages(['voucher_code' => 'This voucher does not apply to the selected shop or items.']);
+            }
+            $reason = app(VoucherEligibilityService::class)->reason($voucher, $eligible);
+            if ($reason) {
+                throw ValidationException::withMessages(['voucher_code' => $reason['message']]);
+            }
         }
         $shippingVoucher = $voucher?->discount_target === 'shipping';
         $eligibleShipping = array_sum(array_map(fn ($group) => $group['eligible'] ? $group['shipping_snapshot']['total_cents'] : 0, $groups));

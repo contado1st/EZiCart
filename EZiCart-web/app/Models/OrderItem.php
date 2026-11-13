@@ -22,6 +22,7 @@ class OrderItem extends Model
         'quantity',
         'item_total',
         'unit_weight_grams',
+        'purchased_image_path',
     ];
 
     public function order(): BelongsTo

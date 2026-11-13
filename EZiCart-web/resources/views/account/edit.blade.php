@@ -35,7 +35,7 @@
                             <div class="form-group"><label class="form-label" for="first-name">First name</label><input id="first-name" class="form-control" name="first_name" value="{{ old('first_name', $user->first_name) }}" autocomplete="given-name" required>@error('first_name')<p class="buyer-account-field-error">{{ $message }}</p>@enderror</div>
                             <div class="form-group"><label class="form-label" for="middle-initial">Middle initial</label><input id="middle-initial" class="form-control" name="middle_initial" maxlength="2" value="{{ old('middle_initial', $user->middle_initial) }}" autocomplete="additional-name">@error('middle_initial')<p class="buyer-account-field-error">{{ $message }}</p>@enderror</div>
                             <div class="form-group"><label class="form-label" for="last-name">Last name</label><input id="last-name" class="form-control" name="last_name" value="{{ old('last_name', $user->last_name) }}" autocomplete="family-name" required>@error('last_name')<p class="buyer-account-field-error">{{ $message }}</p>@enderror</div>
-                            <div class="form-group"><label class="form-label" for="email">Email address</label><input id="email" class="form-control" value="{{ $user->email }}" autocomplete="email" disabled><small>Your login email is currently read-only.</small></div>
+                            <div class="form-group"><label class="form-label" for="email">Email address</label><input id="email" class="form-control" value="{{ $user->email }}" autocomplete="email" disabled><small>Use Verify new email below to change your login address.</small></div>
                             <div class="form-group"><label class="form-label" for="contact-number">Contact number</label><input id="contact-number" class="form-control" name="contact_no" value="{{ old('contact_no', $user->contact_no) }}" autocomplete="tel" required>@error('contact_no')<p class="buyer-account-field-error">{{ $message }}</p>@enderror</div>
                         </div>
 
@@ -44,6 +44,24 @@
                             @include('components.psgc-address-fields', ['prefix' => 'account-address', 'address' => $user, 'postalRequired' => false])
                         </div>
                         <button class="buyer-account-save" type="submit">Save profile</button>
+                    </form>
+                </section>
+
+                <section class="buyer-account-panel" id="buyer-email" aria-labelledby="buyer-email-title">
+                    <div class="buyer-account-panel-heading"><div><h2 id="buyer-email-title">Verify new email</h2><p>Your current email stays active until the new address is verified. Other sessions for this buyer will then need to sign in again.</p></div></div>
+                    <form action="{{ route('account.email-change.store') }}" method="POST" class="buyer-account-form">
+                        @csrf
+                        <div class="buyer-account-form-grid">
+                            <div class="form-group"><label class="form-label" for="new-email">New email address</label><input id="new-email" class="form-control" type="email" name="new_email" value="{{ old('new_email') }}" maxlength="255" required autocomplete="email">@error('new_email')<p class="buyer-account-field-error">{{ $message }}</p>@enderror</div>
+                            <div class="form-group"><label class="form-label" for="email-password">Current password</label><input id="email-password" class="form-control" type="password" name="email_password" required autocomplete="current-password">@error('email_password')<p class="buyer-account-field-error">{{ $message }}</p>@enderror</div>
+                        </div>
+                        <button class="buyer-account-save" type="submit">Send verification code</button>
+                    </form>
+                    <form action="{{ route('account.email-change.update') }}" method="POST" class="buyer-account-form">
+                        @csrf
+                        @method('PATCH')
+                        <div class="form-group"><label class="form-label" for="email-code">Six-digit code from your new email</label><input id="email-code" class="form-control" name="email_code" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" minlength="6" maxlength="6" required>@error('email_code')<p class="buyer-account-field-error">{{ $message }}</p>@enderror<small>Codes expire in 10 minutes. Wait one minute before requesting another; the old code will stop working.</small></div>
+                        <button class="buyer-account-save" type="submit">Confirm new email</button>
                     </form>
                 </section>
 

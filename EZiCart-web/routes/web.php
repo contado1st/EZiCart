@@ -20,6 +20,7 @@ use App\Http\Controllers\Buyer\CartController;
 use App\Http\Controllers\Buyer\CheckoutController;
 use App\Http\Controllers\Buyer\DiscoveryController;
 use App\Http\Controllers\Buyer\DisputeController;
+use App\Http\Controllers\Buyer\EmailChangeController;
 use App\Http\Controllers\Buyer\ReviewController;
 use App\Http\Controllers\ChatAttachmentController;
 use App\Http\Controllers\ChatInboxController;
@@ -46,6 +47,7 @@ use App\Http\Controllers\SearchController;
 use App\Http\Controllers\SecureDocumentController;
 use App\Http\Controllers\Seller\CancellationController;
 use App\Http\Controllers\Seller\ProductController;
+use App\Http\Controllers\Seller\ProductDraftController;
 use App\Http\Controllers\Seller\ReturnInspectionController;
 use App\Http\Controllers\Seller\SellerController;
 use App\Http\Controllers\Seller\SellerOrderController;
@@ -108,6 +110,17 @@ Route::get('/activate-rider/{token}', [RiderActivationController::class, 'show']
 Route::post('/activate-rider', [RiderActivationController::class, 'activate'])->middleware('throttle:rider-activation')->name('rider.activation.store');
 
 Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
+
+// Applicant capability never authenticates the operational web/API guard.
+Route::middleware('applicant.drafts')->prefix('applicant/drafts')->name('applicant-drafts.')->group(function (): void {
+    Route::get('/', [ProductDraftController::class, 'index'])->name('index');
+    Route::get('/create', [ProductDraftController::class, 'create'])->name('create');
+    Route::post('/', [ProductDraftController::class, 'store'])->middleware('throttle:10,1')->name('store');
+    Route::get('/{draft}/edit', [ProductDraftController::class, 'edit'])->name('edit');
+    Route::post('/{draft}', [ProductDraftController::class, 'update'])->middleware('throttle:10,1')->name('update');
+    Route::delete('/{draft}', [ProductDraftController::class, 'destroy'])->name('destroy');
+    Route::get('/{draft}/media/{field}', [ProductDraftController::class, 'media'])->name('media');
+});
 
 // 3. Protected Routes (Strictly Isolated by Role)
 Route::middleware(['auth', 'account.active', 'auth.session'])->group(function () {
@@ -185,6 +198,8 @@ Route::middleware(['auth', 'account.active', 'auth.session'])->group(function ()
     Route::post('/shops/{seller}/follow', [SellerShopController::class, 'follow'])->middleware(['role:buyer', 'throttle:operational-action'])->whereNumber('seller')->name('shops.follow');
     Route::patch('/account', [AccountController::class, 'update'])->middleware('throttle:operational-action')->name('account.profile.update');
     Route::patch('/account/password', [AccountController::class, 'updatePassword'])->middleware('throttle:10,1')->name('account.password.update');
+    Route::post('/account/email-change', [EmailChangeController::class, 'store'])->middleware(['role:buyer', 'throttle:5,1'])->name('account.email-change.store');
+    Route::patch('/account/email-change', [EmailChangeController::class, 'update'])->middleware(['role:buyer', 'throttle:10,1'])->name('account.email-change.update');
     Route::get('/delivery-attempts/{attempt}/proof', [SecureDocumentController::class, 'deliveryProof'])->name('delivery-attempts.proof');
     Route::middleware('role:buyer,seller,courier,admin,ecommerce_admin,logistics_admin')->group(function () {
         Route::get('/finance', [FinancialController::class, 'index'])->name('finance.index');
@@ -260,6 +275,13 @@ Route::middleware(['auth', 'account.active', 'auth.session'])->group(function ()
     Route::middleware(['role:seller'])->prefix('seller')->name('seller.')->group(function () {
         Route::get('/dashboard', [SellerController::class, 'dashboard'])->name('dashboard');
         Route::resource('products', ProductController::class)->except(['show']);
+        Route::patch('/products/{product}/availability', [ProductController::class, 'availability'])->middleware('throttle:operational-action')->name('products.availability');
+        Route::get('/product-drafts', [ProductDraftController::class, 'index'])->name('product-drafts.index');
+        Route::post('/product-drafts', [ProductDraftController::class, 'store'])->middleware('throttle:operational-action')->name('product-drafts.store');
+        Route::get('/product-drafts/{draft}/edit', [ProductDraftController::class, 'edit'])->name('product-drafts.edit');
+        Route::post('/product-drafts/{draft}', [ProductDraftController::class, 'update'])->middleware('throttle:operational-action')->name('product-drafts.update');
+        Route::delete('/product-drafts/{draft}', [ProductDraftController::class, 'destroy'])->name('product-drafts.destroy');
+        Route::get('/product-drafts/{draft}/media/{field}', [ProductDraftController::class, 'media'])->name('product-drafts.media');
         Route::get('/reports', [SellerReportController::class, 'index'])->name('reports.index');
 
         // Order Fulfillment & Waybill Routes

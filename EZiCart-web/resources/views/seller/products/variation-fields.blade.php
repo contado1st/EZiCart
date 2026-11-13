@@ -1,4 +1,4 @@
-@php($variationRows = old('variations', isset($product) ? $product->variations->where('is_active', true)->values()->map(fn ($variant) => $variant->only(['id','type','value','sku','image_path','price_adjustment','stock']))->all() : []))
+@php($variationRows = old('variations', $draftValues['variations'] ?? (isset($product) ? $product->variations->where('is_active', true)->values()->map(fn ($variant) => $variant->only(['id','type','value','sku','image_path','price_adjustment','stock']))->all() : [])))
 <section class="web-variation-editor" data-variation-editor>
 <h2>Product variations</h2><p>Add each purchasable combination with its own stock and price adjustment. Base product stock is the sum of the active rows. Removing a row retires it while preserving order history.</p>
 <input type="hidden" name="variations_present" value="1">

@@ -36,7 +36,7 @@ class SearchController extends Controller
         $provinces = User::query()->whereHas('products', fn (Builder $products) => $products->availableForMarketplace())
             ->whereNotNull('province')->where('province', '<>', '')->distinct()->orderBy('province')->pluck('province');
 
-        $query = $base->with('seller:id,business_name,first_name,municipality,province,role,status')
+        $query = $base->withVariantPrices()->with('seller:id,business_name,first_name,municipality,province,role,status')
             ->withAvg('reviews as catalog_rating', 'rating')->withCount('reviews as catalog_review_count');
 
         if ($searchTerm !== '') {
@@ -55,18 +55,18 @@ class SearchController extends Controller
             $query->whereHas('seller', fn (Builder $sellers) => $sellers->where('province', $filters['province']));
         }
         if (isset($filters['min_price'])) {
-            $query->where('price', '>=', $filters['min_price']);
+            $query->whereRaw(Product::MINIMUM_PURCHASABLE_PRICE_SQL.' >= CAST(? AS DECIMAL(20, 2))', [$filters['min_price']]);
         }
         if (isset($filters['max_price'])) {
-            $query->where('price', '<=', $filters['max_price']);
+            $query->whereRaw(Product::MINIMUM_PURCHASABLE_PRICE_SQL.' <= CAST(? AS DECIMAL(20, 2))', [$filters['max_price']]);
         }
         if (isset($filters['rating'])) {
             $query->where(Review::query()->selectRaw('AVG(rating)')->whereColumn('reviews.product_id', 'products.id'), '>=', (int) $filters['rating']);
         }
 
         match ($filters['sort']) {
-            'price_asc' => $query->orderBy('price'),
-            'price_desc' => $query->orderByDesc('price'),
+            'price_asc' => $query->orderByRaw(Product::MINIMUM_PURCHASABLE_PRICE_SQL.' ASC'),
+            'price_desc' => $query->orderByRaw(Product::MINIMUM_PURCHASABLE_PRICE_SQL.' DESC'),
             'rating' => $query->orderByDesc('catalog_rating')->orderByDesc('catalog_review_count'),
             'latest' => $query->orderByDesc('created_at'),
             default => $searchTerm !== ''

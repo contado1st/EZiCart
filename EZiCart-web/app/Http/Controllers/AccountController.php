@@ -12,6 +12,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Password as PasswordRule;
@@ -39,10 +40,10 @@ class AccountController extends Controller
     {
         $user = $this->authenticatedUser();
         $rules = [
-            'first_name' => ['required', 'string', 'max:255'],
-            'last_name' => ['required', 'string', 'max:255'],
+            'first_name' => ['required', 'string', 'min:2', 'max:255'],
+            'last_name' => ['required', 'string', 'min:2', 'max:255'],
             'middle_initial' => ['nullable', 'string', 'max:2'],
-            'contact_no' => ['required', 'string', 'max:20'],
+            'contact_no' => ['required', 'regex:/^(09\d{9}|\+639\d{9})$/'],
             ...$psgcAddressService->validationRules(),
         ];
 
@@ -61,8 +62,15 @@ class AccountController extends Controller
         }
 
         $validated = $request->validate($rules);
-        $hasAddress = $request->hasAny(['address_mode', 'province', 'municipality', 'region_code', 'manual_province']);
-        $address = $hasAddress ? $psgcAddressService->resolve($validated) : [];
+        $hasAddress = $request->hasAny([...BuyerAddressService::LOCATION_FIELDS, 'address_mode', 'region_code', 'manual_province']);
+        $address = $hasAddress ? $psgcAddressService->resolve([...$user->only(BuyerAddressService::LOCATION_FIELDS), ...$validated]) : [];
+        $proposedLocation = [...$user->only(BuyerAddressService::LOCATION_FIELDS), ...$validated, ...$address];
+        $locationChanged = $hasAddress && collect(BuyerAddressService::LOCATION_FIELDS)->contains(
+            fn (string $field) => (string) ($proposedLocation[$field] ?? '') !== (string) $user->{$field},
+        );
+        if ($locationChanged) {
+            validator($proposedLocation, array_fill_keys(['region', 'province', 'municipality', 'barangay', 'street_address'], ['required', 'string']))->validate();
+        }
         unset(
             $validated['address_mode'],
             $validated['region_code'],
@@ -94,7 +102,11 @@ class AccountController extends Controller
     {
         $validated = $request->validate([
             'current_password' => ['required', 'current_password'],
-            'password' => ['required', 'confirmed', PasswordRule::min(8)->max(128)->mixedCase()->numbers()->symbols()],
+            'password' => ['bail', 'required', 'string', 'confirmed', PasswordRule::min(8)->max(128)->mixedCase()->numbers()->symbols(), function (string $attribute, mixed $value, \Closure $fail): void {
+                if (is_string($value) && Hash::check($value, $this->authenticatedUser()->password)) {
+                    $fail('Choose a password different from your current password.');
+                }
+            }],
         ]);
 
         Auth::logoutOtherDevices($validated['current_password']);

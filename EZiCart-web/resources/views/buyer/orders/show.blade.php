@@ -61,6 +61,7 @@
                 <h2 class="courier-section-title">Items</h2>
                 @foreach ($order->items as $item)
                     <div class="order-item-row">
+                        <x-purchased-item-image :item="$item" />
                         <div>
                             <strong>{{ $item->product_name }}</strong>
                             @if ($item->variation_info)

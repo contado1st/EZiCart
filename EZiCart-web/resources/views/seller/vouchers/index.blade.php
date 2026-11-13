@@ -72,12 +72,16 @@
                         <div class="voucher-form-group"><label class="voucher-form-label">Maximum discount per redemption PHP (required for percentages)<input type="number" name="max_discount" min="0.01" step="0.01" class="voucher-input" value="{{ old('max_discount') }}"></label><p>Activation reserves your maximum campaign budget. <a href="{{ route('finance.wallet') }}">View available promotional funds</a>.</p></div>
 
                         <div class="voucher-form-group">
+                            <label class="voucher-form-label" for="voucher-start">Starts (optional)</label><input id="voucher-start" type="datetime-local" name="starts_at" value="{{ old('starts_at') }}" class="voucher-input"><small>Times use {{ config('app.timezone') }}. Blank starts immediately; funds are reserved now.</small>
+                        </div>
+                        <div class="voucher-form-group">
                             <label class="voucher-form-label">Expiration Date</label>
-                            <input type="date" name="expires_at" value="{{ old('expires_at') }}" class="voucher-input">
+                            <input type="datetime-local" name="expires_at" value="{{ old('expires_at') }}" class="voucher-input">
                         </div>
                         <div class="voucher-form-group"><label class="voucher-form-label" for="voucher-recipients">Maximum unique buyers</label><input id="voucher-recipients" class="voucher-input" type="number" name="recipient_limit" min="1" max="1000000" value="{{ old('recipient_limit') }}" placeholder="Blank for unlimited recipients"></div>
                         <div class="voucher-form-group"><label class="voucher-form-label" for="voucher-per-buyer">Uses per buyer</label><input id="voucher-per-buyer" class="voucher-input" type="number" name="per_buyer_limit" min="1" max="1000" value="{{ old('per_buyer_limit', 1) }}"></div>
                         @if($errors->any())<p role="alert">{{ $errors->first() }}</p>@endif
+                        @include('components.voucher-budget-preview')
 
                         <button type="submit" class="dash-btn-primary u-extracted-92762f464d">
                             <x-shop-icon name="checklist" /> Create Voucher
@@ -120,6 +124,8 @@
                                                 class="voucher-status-pill {{ $voucher->is_active ? 'voucher-active' : 'voucher-inactive' }}">
                                                 {{ $voucher->is_active ? 'Active' : 'Disabled' }}
                                             </span>
+                                            @php($voucherReason = app(\App\Services\VoucherEligibilityService::class)->reason($voucher))
+                                            <small>{{ $voucherReason['message'] ?? 'Available now' }}</small><small>Starts: {{ $voucher->starts_at?->format('d M Y H:i T') ?: 'Immediately' }}</small>
                                         </td>
                                         <td>
                                             <div class="voucher-actions">
@@ -132,11 +138,11 @@
                                                     </button>
                                                 </form>
                                                 <form action="{{ route('seller.vouchers.destroy', $voucher->id) }}"
-                                                    method="POST" data-decision="seller.vouchers.destroy" data-decision-title="Delete this voucher?" data-decision-message="This permanently deletes the selected voucher." data-decision-label="Delete voucher" data-decision-tone="danger" onsubmit="return window.eziDecisionReady ? true : window.confirm(this.dataset.decisionMessage)">
+                                                    method="POST" data-decision="seller.vouchers.destroy" data-decision-title="End this voucher?" data-decision-message="This stops new use and releases unused campaign funds. Existing order discounts and claimed-offer history are retained." data-decision-label="End offer" data-decision-tone="danger" onsubmit="return window.eziDecisionReady ? true : window.confirm(this.dataset.decisionMessage)">
                                                     @csrf
                                                     @method('DELETE')
                                                     <button type="submit"
-                                                        class="dash-btn-sm dash-btn-danger">Delete</button>
+                                                        class="dash-btn-sm dash-btn-danger">End offer</button>
                                                 </form>
                                             </div>
                                             <details class="web-section"><summary>Edit recipient limits</summary><form class="web-form" method="POST" action="{{ route('seller.vouchers.limits', $voucher) }}">@csrf @method('PATCH')<label for="limit-{{ $voucher->id }}">Maximum buyers<input id="limit-{{ $voucher->id }}" type="number" name="recipient_limit" min="{{ max(1, $voucher->claimed_count) }}" max="1000000" value="{{ $voucher->recipient_limit }}"></label><label for="buyer-limit-{{ $voucher->id }}">Uses per buyer<input id="buyer-limit-{{ $voucher->id }}" type="number" name="per_buyer_limit" min="1" max="1000" value="{{ $voucher->per_buyer_limit }}"></label><label for="expiry-{{ $voucher->id }}">Expires<input id="expiry-{{ $voucher->id }}" type="datetime-local" name="expires_at" value="{{ $voucher->expires_at?->format('Y-m-d\TH:i') }}"></label><button class="dash-btn-sm" type="submit">Save limits</button></form></details>

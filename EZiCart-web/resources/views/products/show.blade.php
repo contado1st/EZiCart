@@ -22,7 +22,7 @@
         <div class="pdp-purchase">
             <h1 id="product-title">{{ $product->name }}</h1>
             <div class="pdp-rating-line"><a href="#product-ratings"><strong>{{ $reviewCount ? number_format($averageRating, 1) : 'New' }}</strong><span class="pdp-stars" aria-label="{{ $averageRating }} out of 5 stars">@for($i=1; $i<=5; $i++)<x-shop-icon name="star" @class(['is-filled' => $i <= round($averageRating)]) />@endfor</span></a><a href="#product-ratings">{{ number_format($reviewCount) }} Ratings</a><span>{{ $product->stock > 0 ? 'In stock' : 'Out of stock' }}</span></div>
-            <div class="pdp-price-band"><strong id="basePriceDisplay">?{{ number_format($product->price, 2) }}</strong><span>Cash on delivery</span></div>
+            <div class="pdp-price-band"><strong id="basePriceDisplay">{{ $product->display_price_label }}</strong><span>Cash on delivery</span></div>
             <dl class="pdp-purchase-facts">
                 @if($vouchers->isNotEmpty())<div><dt>Shop vouchers</dt><dd><a class="pdp-voucher-tag" href="#shop-vouchers">{{ $vouchers->first()->type === 'percent' ? $vouchers->first()->value.'%' : '?'.number_format($vouchers->first()->value) }} off � View vouchers</a></dd></div>@endif
                 <div><dt>Shipping</dt><dd><x-shop-icon name="delivery1" /><div>Ships from {{ $location ?: 'the seller�s registered address' }}<small>Delivery availability and shipping fees are shown at checkout.</small></div></dd></div>
@@ -30,7 +30,7 @@
             </dl>
             <x-user-activity :user="$seller" />
             @if(auth()->user()?->role === 'buyer')
-                <form action="{{ route('cart.add', $product) }}" method="POST" class="pdp-cart-form" data-product-selection data-stock="{{ $product->stock }}" data-price="{{ $product->price }}" data-shop-open="{{ $seller->acceptsWebOrders() ? '1' : '0' }}">
+                <form action="{{ route('cart.add', $product) }}" method="POST" class="pdp-cart-form" data-product-selection data-stock="{{ $product->stock }}" data-price="{{ $product->price }}" data-price-range="{{ $product->display_price_label }}" data-shop-open="{{ $seller->acceptsWebOrders() ? '1' : '0' }}">
                     @csrf
                     @if($product->variations->isNotEmpty())
                         <div class="pdp-option-row"><label for="variationSelect">Variation</label><div>

@@ -85,6 +85,7 @@ class User extends Authenticatable implements AuthenticatableContract
      * @var array<int, string>
      */
     protected $hidden = [
+        'web_auth_version',
         'hub_transfer_only',
         'vehicle_capacity_grams', 'vehicle_capacity_verified_by', 'vehicle_capacity_verified_at',
         'password',

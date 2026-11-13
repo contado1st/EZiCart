@@ -27,7 +27,7 @@ class SellerShopController extends Controller
         $reviews = Review::query()->whereHas('product', fn (Builder $q) => $q->where('user_id', $seller->id)->where('compliance_status', 'approved')->where('is_archived', false));
         $rating = (clone $reviews)->avg('rating');
         $reviewCount = (clone $reviews)->count();
-        $query = $base->withAvg('reviews as shop_rating', 'rating')->withCount('reviews as shop_review_count');
+        $query = $base->withVariantPrices()->withAvg('reviews as shop_rating', 'rating')->withCount('reviews as shop_review_count');
         if (filled($filters['q'] ?? null)) {
             $pattern = '%'.strtr(mb_strtolower(trim($filters['q'])), ['!' => '!!', '%' => '!%', '_' => '!_']).'%';
             $query->where(fn (Builder $q) => $q->whereRaw("LOWER(name) LIKE ? ESCAPE '!'", [$pattern])->orWhereRaw("LOWER(description) LIKE ? ESCAPE '!'", [$pattern]));
@@ -36,7 +36,7 @@ class SellerShopController extends Controller
             app(ProductCategoryService::class)->filter($query, $filters['category']);
         }
         match ($filters['sort']) {
-            'price_asc' => $query->orderBy('price'), 'price_desc' => $query->orderByDesc('price'),
+            'price_asc' => $query->orderByRaw(Product::MINIMUM_PURCHASABLE_PRICE_SQL.' ASC'), 'price_desc' => $query->orderByRaw(Product::MINIMUM_PURCHASABLE_PRICE_SQL.' DESC'),
             'rating' => $query->orderByDesc('shop_rating')->orderByDesc('shop_review_count'),
             default => $query->orderByDesc('created_at'),
         };

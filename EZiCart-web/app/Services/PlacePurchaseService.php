@@ -111,6 +111,7 @@ class PlacePurchaseService
                         'variation_info' => $line['variation_info'], 'product_name' => $line['name'],
                         'unit_price' => $line['unit_cents'] / 100, 'quantity' => $line['quantity'], 'item_total' => $line['item_cents'] / 100,
                         'unit_weight_grams' => $line['product']->weight_grams,
+                        'purchased_image_path' => $line['variation']?->image_path ?: $line['product']->image_path,
                     ]);
                 }
                 ParcelTrackingEvent::query()->create([

@@ -16,9 +16,11 @@ use App\Services\ParcelLoadService;
 use App\Services\QrCodeService;
 use App\Services\RiderBadgeService;
 use App\Services\TransactionAwareNotificationSender;
+use Carbon\CarbonImmutable;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
 
@@ -26,27 +28,38 @@ class SellerOrderController extends Controller
 {
     public function index(Request $request)
     {
-        $status = $request->query('status');
-
-        $query = $this->authenticatedUser()->sellerOrders()
-            ->with(['buyer', 'items', 'pendingCancellation'])
-            ->latest();
-
-        if ($status) {
-            $query->where('status', $status);
+        $filters = $request->validate([
+            'q' => ['nullable', 'string', 'max:120'],
+            'status' => ['nullable', Rule::enum(OrderStatus::class)],
+            'from_date' => ['nullable', 'date_format:Y-m-d'],
+            'to_date' => ['nullable', 'date_format:Y-m-d'],
+        ]);
+        if (filled($filters['from_date'] ?? null) && filled($filters['to_date'] ?? null) && $filters['from_date'] > $filters['to_date']) {
+            throw ValidationException::withMessages(['to_date' => 'The end date must not precede the start date.']);
         }
+        $base = Order::query()->where('seller_id', $this->authenticatedUser()->id)
+            ->when(filled($filters['from_date'] ?? null), fn ($q) => $q->where('created_at', '>=', $filters['from_date'].' 00:00:00'))
+            ->when(filled($filters['to_date'] ?? null), fn ($q) => $q->where('created_at', '<', CarbonImmutable::parse($filters['to_date'])->addDay()->startOfDay()));
+        if (filled($filters['q'] ?? null)) {
+            // Explicit escape character works on MySQL and SQLite; user wildcards are literal text.
+            $term = '%'.str_replace(['!', '%', '_'], ['!!', '!%', '!_'], trim($filters['q'])).'%';
+            $base->where(fn ($q) => $q->whereRaw("order_number LIKE ? ESCAPE '!'", [$term])
+                ->orWhereHas('buyer', fn ($buyer) => $buyer->where(fn ($names) => $names
+                    ->whereRaw("first_name LIKE ? ESCAPE '!'", [$term])
+                    ->orWhereRaw("last_name LIKE ? ESCAPE '!'", [$term])))
+                ->orWhereRaw("recipient_name LIKE ? ESCAPE '!'", [$term]));
+        }
+        $byStatus = (clone $base)->selectRaw('status, COUNT(*) as aggregate')->groupBy('status')->pluck('aggregate', 'status');
+        $counts = ['all' => (int) $byStatus->sum(), 'placed' => (int) $byStatus->get('PLACED', 0),
+            'preparing' => (int) $byStatus->get('CONFIRMED', 0) + (int) $byStatus->get('PREPARING', 0),
+            'ready' => (int) $byStatus->get('READY_FOR_PICKUP', 0), 'completed' => (int) $byStatus->get('COMPLETED', 0)];
+        $query = clone $base;
+        if (filled($filters['status'] ?? null)) {
+            $filters['status'] === 'PREPARING' ? $query->whereIn('status', ['CONFIRMED', 'PREPARING']) : $query->where('status', $filters['status']);
+        }
+        $orders = $query->with(['buyer', 'items', 'pendingCancellation'])->latest('created_at')->latest('id')->paginate(25)->withQueryString();
 
-        $orders = $query->paginate(25)->withQueryString();
-
-        $counts = [
-            'all' => $this->authenticatedUser()->sellerOrders()->count(),
-            'placed' => $this->authenticatedUser()->sellerOrders()->where('status', 'PLACED')->count(),
-            'preparing' => $this->authenticatedUser()->sellerOrders()->whereIn('status', ['CONFIRMED', 'PREPARING'])->count(),
-            'ready' => $this->authenticatedUser()->sellerOrders()->where('status', 'READY_FOR_PICKUP')->count(),
-            'completed' => $this->authenticatedUser()->sellerOrders()->where('status', 'COMPLETED')->count(),
-        ];
-
-        return view('seller.orders.index', compact('orders', 'counts'));
+        return view('seller.orders.index', compact('orders', 'counts', 'filters'));
     }
 
     public function show(Order $order)

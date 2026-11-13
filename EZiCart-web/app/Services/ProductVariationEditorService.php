@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\Product;
+use App\Models\ProductVariation;
 use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
 use Illuminate\Validation\ValidationException;
@@ -32,6 +33,12 @@ class ProductVariationEditorService
                 throw ValidationException::withMessages(['variations' => 'Variation SKUs must be unique within a product.']);
             }
             if ($sku !== '') {
+                $duplicate = ProductVariation::query()->where('seller_id', $request->user()->id)
+                    ->whereRaw('LOWER(TRIM(sku)) = ?', [mb_strtolower($sku)])
+                    ->when(isset($row['id']), fn ($query) => $query->whereKeyNot($row['id']))->exists();
+                if ($duplicate) {
+                    throw ValidationException::withMessages(['variations.'.$index.'.sku' => 'This SKU is already used by another variation in your store, including retired variations.']);
+                }
                 $skus[] = mb_strtolower($sku);
             }
         }

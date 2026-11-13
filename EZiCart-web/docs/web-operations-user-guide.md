@@ -204,3 +204,45 @@ Riders use **Cash remittance batches** to submit unsubmitted collections to thei
 Logistics administrators use **Delivery tariffs** for effective-dated drafts and independent approval. Activation requires approved ordinary-route coverage. **Shipping breakdowns** retains original buyer/seller/platform funding and verified cost allocations. Hub measurements need evidence and treasury approval for additional funding; original buyer payment remains unchanged. Tariff examples are fictional training data until replaced with approved operating costs.
 
 See the [financial implementation audit and sandbox walkthrough](wallet-remittance-delivery-fee-implementation-audit.md) for setup commands, role responsibilities, money formulas, evidence requirements, statement exports and limitations. The [research](wallet-remittance-shipping-research.md) records external sources; it does not assert an industry-wide rider/hub percentage split.
+
+## Buyer account verification revision — 13 November 2026
+
+Open **My Account → My profile → Verify new email**. Enter the proposed email and your current password, send the code, then enter the six-digit code received at the new address. Your existing email remains the login until successful verification. Codes expire after ten minutes and five incorrect attempts; wait one minute before resending. Resending replaces the pending challenge. An address already used by any role cannot be selected. Successful verification signs other web sessions for the same buyer out; tabs signed into other accounts remain independent.
+
+First and last names require two or more characters, and contacts require a Philippine `09XXXXXXXXX` or `+639XXXXXXXXX` mobile number. New/changed profile locations and saved delivery addresses need a street or clear location description; a house number is optional. Unchanged legacy locations can be retained during an unrelated profile edit. Seller/rider official updates still require their administrator's approval. Password changes must use a different password from the current one.
+
+Profile avatars support up to 5 MB at the application level; banners retain 2 MB. Existing dimension and safe-image rules remain. If the web process uses PHP's default 2 MB limit, larger avatars require its upload limits to be increased/restarted; the existing `scripts/serve-media.ps1` launcher supplies the limits already used for product media. See the [first-package implementation audit](partial-features-implementation-audit.md) for verification and remaining phases.
+
+## Seller catalog revision — 13 November 2026
+
+In **Inventory → Add New Product**, choose **Save private draft** to keep incomplete work and its media. Open **Inventory → Private drafts** to continue or delete saved work. Draft files are available only to their owner. Complete the required fields and choose **Submit for compliance review** to create the listing. Submitting again does not duplicate that draft's product. The normal inventory workspace requires an approved seller; pending applicants have the restricted workspace described below.
+
+Use **Pause sales / Resume sales** in Inventory to temporarily stop or restart new purchases. Existing orders continue. Paused items remain in buyers' saved carts with an unavailable message. Resuming sales does not bypass compliance or restore an archived listing. Use Edit for changes to a submitted product; protected detail/media changes still require re-review.
+
+Variant SKUs must be unique within your whole store, including retired variants. Case and surrounding spaces do not create a new SKU. Other stores may use the same code. Buyer pages show the available variant price range and switch to the exact price when an option is selected. Order detail pages retain the image recorded for new purchases even after the live listing's photo changes; older orders without a snapshot are labeled accordingly.
+
+## Pending seller preparation — 14 November 2026
+
+After verifying your email, sign in with your pending seller account to open **Private drafts**. You may save incomplete product details/media, continue your own drafts and delete unwanted work. This restricted workspace expires after 30 minutes; saved work remains. Sign in again when it expires. Your account cannot publish products, use operational pages or access messages/orders until approved.
+
+After an administrator approves the application, sign in again to use **Inventory → Private drafts**, finish the saved product and submit it for compliance review. Approval does not automatically publish your drafts. Password/security changes or suspension revoke the restricted workspace. Use the existing logout control before handing the tab to someone else; other accounts' tab sessions remain separate.
+
+## Scheduled vouchers and cancellation feedback — 14 November 2026
+
+Sellers open **Vouchers**; e-commerce administrators open their platform voucher page. Choose an optional start date/time and later expiry using the application's displayed timezone. Set a finite total redemption limit; uses per buyer cannot exceed it. Percentage offers require a maximum discount. The budget preview shows maximum required funding, available sponsor funds and shortfall. Funding is reserved immediately, even for a future start. Frozen or insufficient funds prevent creation; the server makes the final decision. Once claimed, an offer cannot be rescheduled.
+
+Buyers open **Vouchers → Available and upcoming** to see offers and start times. **Saved vouchers and history** retains your previously claimed offers, including ended/expired entries. These history entries do not imply the offer can still be used. Checkout explains minimum-spend shortfall, scheduling, expiry and redemption/funding restrictions.
+
+Ending an offer stops future use and returns unused reserved funds; existing order discounts remain recorded. While cancellation is pending, stock and voucher use remain reserved. Approval releases eligible stock/use once and returns any recorded supported sandbox wallet payment. An uncollected COD payment has no refund. Check saved vouchers afterwards: expired or manually ended offers stay unavailable, and returned discount funds must cover all remaining capped liability before an exhausted funded offer automatically resumes. The original sponsor may need to explicitly reactivate the offer and replenish its reserve; cancellation never silently takes more sponsor money.
+
+See the [updated implementation audit](partial-features-implementation-audit.md) for passing automated checks, preserved teacher differences, browser verification limits and the remaining reporting/rider/logistics packages.
+
+## Seller order filters and financial reconciliation — 14 November 2026
+
+In **Orders**, search an order number, buyer name or recipient name and optionally choose placement dates and status. **In Packing** includes confirmed and preparing orders. Tab counts use the same search/date filters; selecting a tab retains them. Use **Reset** to clear the filters. Lists show 25 orders per page.
+
+In **Sales & Financial Report**, select placement dates. Summary cards cover all matching orders, while the table shows 25 per page. **Export CSV** and **Download PDF** retain the date cohort; **Print this page** prints the displayed rows and full-cohort summary with that scope stated. The itemized report and analytics use the same sales arithmetic. Different date bases or filters will produce different cohorts.
+
+Gross merchandise activity retains completed/delivered-refunded activity. Net seller sales deducts seller-funded discounts, executed merchandise refunds, platform subsidy reversals and recognized commission. Fully refunded, cancelled or void records contribute no eligible completed-sale count; partial refunds retain the completed count. A refund authorization is not an executed refund. Sales figures are not profit or available wallet cash. Pending/settled payout amounts show recorded requests separately and do not change historical order prices.
+
+Use **Review order payout eligibility** for an order's payout request; completion, the seven-day delivery hold, verified funds, disputes and administrator checks remain. Repeating that order request uses its existing record. After settlement to your wallet, use **Wallet → Withdrawals** to reserve available funds for a withdrawal request. Correcting a validation error retains the same request key and entered details. A repeated request with that key does not reserve twice; changing its amount requires a new request. Withdrawals remain sandbox accounting operations with separate administrator review/execution.

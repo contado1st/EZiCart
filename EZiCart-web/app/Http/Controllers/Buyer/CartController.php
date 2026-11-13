@@ -26,7 +26,7 @@ class CartController extends Controller
 
     public function add(Request $request, Product $product, CheckoutPricingService $pricing, BuyerCartService $carts): RedirectResponse|JsonResponse
     {
-        abort_unless($product->compliance_status === 'approved' && ! $product->is_archived && $product->stock > 0, 404);
+        abort_unless($product->isListingVisible() && $product->stock > 0, 404);
         $validated = $request->validate(['quantity' => ['required', 'integer', 'min:1', 'max:20'], 'variation_id' => ['nullable', 'integer', 'exists:product_variations,id'], 'intent' => ['nullable', 'in:buy_now']]);
         $variationId = empty($validated['variation_id']) ? null : (int) $validated['variation_id'];
         if ($variationId) {

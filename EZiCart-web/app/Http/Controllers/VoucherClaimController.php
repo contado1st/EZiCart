@@ -11,11 +11,19 @@ class VoucherClaimController extends Controller
 {
     public function index(Request $request)
     {
-        $vouchers = Voucher::with('seller')->where('is_active', true)->where(fn ($q) => $q->whereNull('expires_at')->orWhere('expires_at', '>', now()))
-            ->where(fn ($q) => $q->whereNull('seller_id')->orWhereHas('seller', fn ($s) => $s->where('role', 'seller')->where('status', 'approved')))->latest()->paginate(20);
+        $filters = $request->validate(['view' => ['nullable', 'in:available,saved']]);
+        $view = $filters['view'] ?? 'available';
         $claims = DB::table('voucher_claims')->where('buyer_id', $request->user()->id)->get()->keyBy('voucher_id');
+        $query = Voucher::with(['seller', 'budget.reserveAccount']);
+        if ($view === 'saved') {
+            $query->whereIn('id', $claims->keys());
+        } else {
+            $query->where('is_active', true)->where(fn ($q) => $q->whereNull('expires_at')->orWhere('expires_at', '>', now()))
+                ->where(fn ($q) => $q->whereNull('seller_id')->orWhereHas('seller', fn ($s) => $s->where('role', 'seller')->where('status', 'approved')));
+        }
+        $vouchers = $query->latest()->paginate(20)->withQueryString();
 
-        return view('buyer.vouchers', compact('vouchers', 'claims'));
+        return view('buyer.vouchers', compact('vouchers', 'claims', 'view'));
     }
 
     public function store(Request $request, Voucher $voucher, VoucherClaimService $claims)

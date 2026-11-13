@@ -13,7 +13,11 @@ class Product extends Model
 {
     use HasFactory;
 
-    protected $hidden = ['weight_grams'];
+    public const MINIMUM_PURCHASABLE_PRICE_SQL = '(products.price + COALESCE((SELECT MIN(pv.price_adjustment) FROM product_variations pv WHERE pv.product_id = products.id AND pv.is_active = 1 AND pv.stock > 0), 0))';
+
+    protected $hidden = ['weight_grams', 'is_seller_active'];
+
+    protected $attributes = ['is_seller_active' => true];
 
     protected $fillable = [
         'user_id', 'name', 'description', 'category',
@@ -24,10 +28,37 @@ class Product extends Model
     public function scopeAvailableForMarketplace(Builder $query): Builder
     {
         return $query->where('compliance_status', 'approved')
-            ->where('is_archived', false)
+            ->where('is_archived', false)->where('is_seller_active', true)
             ->where('stock', '>', 0)
             ->where(fn (Builder $products) => $products->whereDoesntHave('variations')
                 ->orWhereHas('variations', fn (Builder $variations) => $variations->where('is_active', true)->where('stock', '>', 0)));
+    }
+
+    public function isListingVisible(): bool
+    {
+        return $this->compliance_status === 'approved' && ! $this->is_archived && (bool) $this->is_seller_active;
+    }
+
+    public function scopeWithVariantPrices(Builder $query): Builder
+    {
+        return $query->withMin(['variations as sellable_min_adjustment' => fn ($q) => $q->where('is_active', true)->where('stock', '>', 0)], 'price_adjustment')
+            ->withMax(['variations as sellable_max_adjustment' => fn ($q) => $q->where('is_active', true)->where('stock', '>', 0)], 'price_adjustment');
+    }
+
+    public function getDisplayPriceLabelAttribute(): string
+    {
+        if ($this->relationLoaded('variations')) {
+            $adjustments = $this->variations->where('is_active', true)->where('stock', '>', 0)->pluck('price_adjustment');
+            $minimum = $adjustments->min() ?? 0;
+            $maximum = $adjustments->max() ?? 0;
+        } else {
+            $minimum = $this->getAttribute('sellable_min_adjustment') ?? 0;
+            $maximum = $this->getAttribute('sellable_max_adjustment') ?? 0;
+        }
+        $low = number_format((float) $this->price + (float) $minimum, 2);
+        $high = number_format((float) $this->price + (float) $maximum, 2);
+
+        return '₱'.$low.($low !== $high ? ' – ₱'.$high : '');
     }
 
     public function seller(): BelongsTo

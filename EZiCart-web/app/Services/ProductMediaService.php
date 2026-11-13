@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\OrderItem;
 use App\Models\Product;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -78,6 +79,9 @@ class ProductMediaService
     public function deleteFiles(array $paths): void
     {
         foreach (array_unique(array_filter($paths)) as $path) {
+            if (OrderItem::where('purchased_image_path', $path)->exists()) {
+                continue;
+            }
             try {
                 if (! Storage::disk('public')->delete($path)) {
                     report(new RuntimeException('A removed product media file could not be deleted.'));

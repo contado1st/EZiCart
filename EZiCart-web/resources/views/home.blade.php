@@ -107,7 +107,7 @@
                                 <span class="buyer-arrival-meta">
                                     <strong>{{ $product->name }}</strong>
                                     <small>{{ $product->seller->business_name ?? 'EZiCart seller' }}</small>
-                                    <b>₱{{ number_format($product->price, 2) }}</b>
+                                    <b>{{ $product->display_price_label }}</b>
                                 </span>
                             </a>
                         @endforeach
@@ -159,7 +159,7 @@
                                 <span class="buyer-product-details">
                                     <strong>{{ $product->name }}</strong>
                                     <small>{{ $product->seller->business_name ?? 'EZiCart seller' }}</small>
-                                    <span class="buyer-product-price-row"><b>₱{{ number_format($product->price, 2) }}</b><span>{{ $product->average_rating > 0 ? number_format($product->average_rating, 1) . ' / 5' : 'New listing' }}</span></span>
+                                    <span class="buyer-product-price-row"><b>{{ $product->display_price_label }}</b><span>{{ $product->average_rating > 0 ? number_format($product->average_rating, 1) . ' / 5' : 'New listing' }}</span></span>
                                 </span>
                             </a>
                         @endforeach

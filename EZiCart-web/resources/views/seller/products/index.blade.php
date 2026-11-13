@@ -14,7 +14,7 @@
                     <h1 class="dash-title">Inventory Management</h1>
                     <p class="dash-subtitle">Manage products, update stock levels, and monitor prices.</p>
                 </div>
-                <a href="{{ route('seller.products.create') }}" class="dash-btn-primary">+ Add New Product</a>
+                <div class="web-actions"><a href="{{ route('seller.product-drafts.index') }}" class="dash-btn-outline">Private drafts</a><a href="{{ route('seller.products.create') }}" class="dash-btn-primary">+ Add New Product</a></div>
             </div>
 
             @if (session('success'))
@@ -62,6 +62,9 @@
                                     </span>
                                 </td>
                                 <td>
+                                    @if (! $product->is_seller_active)
+                                        <span class="dash-badge dash-badge-archived">Seller inactive</span>
+                                    @endif
                                     @if ($product->is_archived)
                                         <span class="dash-badge dash-badge-archived">Archived</span>
                                     @elseif($product->compliance_status !== 'approved')
@@ -78,6 +81,7 @@
                                     <div class="u-extracted-af0aae5706">
                                         <a href="{{ route('seller.products.edit', $product->id) }}"
                                             class="dash-btn-sm dash-btn-outline">Edit</a>
+                                        <form action="{{ route('seller.products.availability', $product) }}" method="POST">@csrf @method('PATCH')<input type="hidden" name="is_seller_active" value="{{ $product->is_seller_active ? '0' : '1' }}"><button class="dash-btn-sm dash-btn-outline" type="submit">{{ $product->is_seller_active ? 'Pause sales' : 'Resume sales' }}</button></form>
                                         <form action="{{ route('seller.products.destroy', $product->id) }}" method="POST" data-decision="seller.products.destroy" data-decision-title="Remove this product?" data-decision-message="This removes the product from your inventory. Review the selected product before continuing." data-decision-label="Remove product" data-decision-tone="danger" onsubmit="return window.eziDecisionReady ? true : window.confirm(this.dataset.decisionMessage)">
                                             @csrf
                                             @method('DELETE')
