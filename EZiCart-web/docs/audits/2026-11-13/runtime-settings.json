@@ -1,0 +1,15 @@
+{
+    "date": "2026-11-13",
+    "scope": "Laravel configuration only; no credentials or account records",
+    "session_lifetime_minutes": 120,
+    "default_commission_basis_points": 1000,
+    "default_shipping_cents": 5000,
+    "rider_acceptance_minutes": 15,
+    "maximum_rider_jobs": 10,
+    "maximum_delivery_attempts": 3,
+    "delivery_code_max_attempts": 5,
+    "financial_mode": "sandbox",
+    "financial_sandbox_config_enabled": false,
+    "database_settings": [],
+    "approved_tariff_count": 0
+}

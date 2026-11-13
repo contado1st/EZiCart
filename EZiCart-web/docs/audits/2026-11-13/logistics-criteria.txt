@@ -1,0 +1,44 @@
+LOG-DASH-001 [L1 Dashboard!I2] Counts match the records | Each dashboard count equals the filtered list exactly. | 
+LOG-DASH-002 [L1 Dashboard!I3] Counts update after a status change | In Transit −1 and Delivered +1; other counts unchanged. | 
+LOG-DASH-003 [L1 Dashboard!I4] Date filter | Shipments on the start and end dates are counted. | 
+LOG-DASH-004 [L1 Dashboard!I5] Only own company's data | No Logistics 2 shipment is counted or listed. | A22
+LOG-RIDER-001 [L2 Rider Mgmt!I2] Approve a rider | Status Active; the rider can go Online. The approval is in the audit log. | A14, A35
+LOG-RIDER-002 [L2 Rider Mgmt!I3] Reject a rider with a reason | The empty reason is blocked. After rejection the rider is notified with the exact reason and cannot go Online. | A25
+LOG-RIDER-003 [L2 Rider Mgmt!I4] Suspend a rider with active jobs | Rider 2 goes Offline and cannot go Online. The Assigned job moves to the Unassigned queue; the Picked Up job stays with Rider 2. The suspension is logged. | A34, A35
+LOG-RIDER-004 [L2 Rider Mgmt!I5] Suspend without a reason | Blocked; rider unchanged. | A25
+LOG-RIDER-005 [L2 Rider Mgmt!I6] Reactivate a rider | Rider 3 is Active and can go Online. | A35
+LOG-RIDER-006 [L2 Rider Mgmt!I7] Rider status and workload | Each rider shows Online/Offline, active jobs (0–3) and today's completed deliveries, matching their apps. | 
+LOG-RIDER-007 [L2 Rider Mgmt!I8] Cannot manage another company's rider | Both are denied. Rider 1 is unchanged. | A22
+LOG-DISP-001 [L3 Dispatch!I2] Auto-assign to the nearest eligible rider | The offer goes to Rider 1 first. | A34
+LOG-DISP-002 [L3 Dispatch!I3] Manual assign | Rider 2 receives it; status Assigned; the buyer timeline shows the assignment. | A10
+LOG-DISP-003 [L3 Dispatch!I4] Offline or suspended rider not assignable | Neither rider is listed. The direct request is rejected. | A14
+LOG-DISP-004 [L3 Dispatch!I5] Rider at the job limit | Blocked with a limit message. | A14
+LOG-DISP-005 [L3 Dispatch!I6] Reassign before pickup | Rider 1 loses the job immediately; Rider 2 has it. The timeline shows both events. | A34
+LOG-DISP-006 [L3 Dispatch!I7] No reassign after pickup | Not available; the request is rejected. | A34
+LOG-DISP-007 [L3 Dispatch!I8] Bulk assignment over the limit | 3 are assigned and 2 are reported as skipped because of the 3-job limit. The 2 stay Unassigned. | A14
+LOG-DISP-008 [L3 Dispatch!I9] Assign a parcel that is not ready | It is not in the queue and the request is rejected. | A10
+LOG-HUB-001 [L4 Hub Ops!I2] Inbound receiving by scan | Status At Hub with the scan time, in Logistics and Buyer views. | A10
+LOG-HUB-002 [L4 Hub Ops!I3] Sort by zone | The parcel is placed in the NCR zone list only. | 
+LOG-HUB-003 [L4 Hub Ops!I4] Outbound dispatch | Status Out for Delivery; the delivery OTP appears in Buyer 1's order. | A10, A32
+LOG-HUB-004 [L4 Hub Ops!I5] Duplicate scan | The second scan warns 'already received'. Only one At Hub event exists. | A37
+LOG-HUB-005 [L4 Hub Ops!I6] Parcel not in the system | Rejected with 'not found'. No record is created. | 
+LOG-HUB-006 [L4 Hub Ops!I7] Out-of-order scan | Blocked; status unchanged. | A10
+LOG-HUB-007 [L4 Hub Ops!I8] Another company's parcel | Rejected; Logistics 2's shipment unchanged. | A22
+LOG-TRK-001 [L5 Tracking & Exceptions!I2] Search by tracking number, order ID or buyer | Each valid search returns exactly the right shipment. Unknown values return no results with no error. | 
+LOG-TRK-002 [L5 Tracking & Exceptions!I3] Manual override needs a reason | The empty reason is blocked. With the reason, status becomes Delivered. | A10, A25
+LOG-TRK-003 [L5 Tracking & Exceptions!I4] Override leaves an audit log | The entry shows user, date and time, Out for Delivery → Delivered and the reason. There is no Edit or Delete. | A35
+LOG-TRK-004 [L5 Tracking & Exceptions!I5] Mark a parcel Lost | Status Lost; Buyer 1 and Seller 1 are notified; the refund or claim process starts. | A23
+LOG-TRK-005 [L5 Tracking & Exceptions!I6] Mark a parcel Damaged with a photo | Blocked without a photo; with it, status and photo are saved and both parties notified. | A16
+LOG-RTS-001 [L6 Returns (RTS)!I2] RTS queue after 3 failed attempts | The parcel is listed with status Return to Sender and all 3 failure reasons. | A13
+LOG-RTS-002 [L6 Returns (RTS)!I3] Deliver back to the seller | Status Returned to Sender. Buyer: order Cancelled (failed delivery). Seller: Returned, awaiting confirmation. | A10
+LOG-RTS-003 [L6 Returns (RTS)!I4] Stock restored only when the seller confirms | Stock stays 19 until confirmation, then becomes 20. | A3
+LOG-RTS-004 [L6 Returns (RTS)!I5] Prepaid RTS refund and no earnings | Buyer 1's refund for the full amount is started. Seller 1 has no earnings for the order. | A15
+LOG-RATE-001 [L7 Zones & Rates!I2] Rate change shows at checkout | The new checkout shows ₱55.00. The earlier order still shows ₱50.00. The change is in the audit log. | A20, A35
+LOG-RATE-002 [L7 Zones & Rates!I3] Invalid rate values | Only 0.01 saves. | 
+LOG-RATE-003 [L7 Zones & Rates!I4] Unserviceable area blocked | Place Order is blocked with a not-serviceable message. | 
+LOG-RATE-004 [L7 Zones & Rates!I5] Add a zone | Checkout now works and uses the new rate. | A20
+LOG-COD-001 [L8 COD & Reports!I2] Remittance matches COD collected | Collected ₱1,800.00, remitted ₱1,800.00, difference ₱0.00, with both orders listed. | A24
+LOG-COD-002 [L8 COD & Reports!I3] Short remittance flagged | Difference −₱50.00 is highlighted as a shortfall. | A24
+LOG-COD-003 [L8 COD & Reports!I4] Confirm remittance | Rider 1's balance updates; the confirmation is logged. | A24, A35
+LOG-COD-004 [L8 COD & Reports!I5] Export reports | Both files download and open. Rows and totals equal the screen for the same filter. | A36
+LOG-COD-005 [L8 COD & Reports!I6] Export with no data | A file with headers only, or a 'no data' message. No error. | A36

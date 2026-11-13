@@ -1,0 +1,41 @@
+RID-PROF-001 [R1 Profile & Vehicle!I2] View profile, vehicle and verification status | Shows Pedro Jose Garcia, license N01-23-456789, expiry 03/22/2030, Motorcycle, plate 123ABC, company Bilis Hatid Express Inc., status Active. Both documents open. | A1
+RID-PROF-002 [R1 Profile & Vehicle!I3] Update vehicle details | The change is saved and shown to Logistics 1 with the new OR/CR, flagged for re-verification. The old plate is no longer shown. | 
+RID-PROF-003 [R1 Profile & Vehicle!I4] Plate number already used | Both are blocked as already registered. The plate stays 123ABC. | 
+RID-PROF-004 [R1 Profile & Vehicle!I5] License expiry boundary | Yesterday is rejected with an expiry message. Today is accepted. | 
+RID-PROF-005 [R1 Profile & Vehicle!I6] Document upload rules | Only the 5.0 MB JPG is accepted; the others are rejected and the previous document is kept. | A16
+RID-PROF-006 [R1 Profile & Vehicle!I7] Suspended rider cannot work | Rider 3 cannot go Online and sees a suspension message. Rider 3 receives no offer and is not selectable for manual assignment. | A14
+RID-PROF-007 [R1 Profile & Vehicle!I8] Rider cannot see another rider's profile | Denied. No Rider 2 data is shown. | A22
+RID-AVAIL-001 [R2 Availability!I2] Go Online | Logistics 1 sees Rider 1 as Online within a few seconds. Rider 1 receives the offer. | A14
+RID-AVAIL-002 [R2 Availability!I3] Go Offline | Rider 1 receives no offer, and is not listed in Manual Assign. The job goes to Rider 2. | A14
+RID-AVAIL-003 [R2 Availability!I4] Go Offline with an active job | Offline is allowed. The Picked Up job stays with Rider 1 and can still be delivered. No new offers arrive. | A14
+RID-AVAIL-004 [R2 Availability!I5] Offline after logout or session timeout | Rider 1 shows Offline and gets no offer. | A22
+RID-JOB-001 [R3 Job Assignment!I2] View and accept a job | The offer shows pickup (Seller 1, Commonwealth, QC), drop-off area (Brgy. Central, QC), COD ₱500.00 and pay ₱30.00 pickup. After Accept, the job is Assigned to Rider 1 and Logistics 1 sees Rider 1 as the assignee. | A10, A33
+RID-JOB-002 [R3 Job Assignment!I3] Decline a job | The offer disappears for Rider 1 and is offered to Rider 2. Rider 1 is not assigned. | A14
+RID-JOB-003 [R3 Job Assignment!I4] Offer timeout | The first Accept succeeds. After 60 seconds the second offer is expired; Accept is disabled or rejected and the job goes to the next rider. | A14
+RID-JOB-004 [R3 Job Assignment!I5] Job goes to Unassigned after 3 declines | After the 3rd decline the job is in the Unassigned queue and no longer offered automatically. | A14
+RID-JOB-005 [R3 Job Assignment!I6] Accept and manual assignment at the same moment | Exactly one rider has the job, and Logistics 1 shows that same rider. The other side gets a clear 'already assigned' message. No duplicate job exists. | A37
+RID-JOB-006 [R3 Job Assignment!I7] Concurrent job limit | The 3rd is accepted. Rider 1 gets no 4th offer, and manual assign of a 4th is blocked. | A14
+RID-JOB-007 [R3 Job Assignment!I8] Cannot accept another company's job | Rejected (403 or not found). The job is unchanged. | A22
+RID-PICK-001 [R4 Pickup!I2] Pickup details shown | Shows Seller 1's name, pickup address, contact number, tracking number and 1 parcel. | 
+RID-PICK-002 [R4 Pickup!I3] Confirm pickup by scanning | Status is Picked Up with the scan time in all three views. Buyer 1's order moves to To Receive. Seller 1 can no longer cancel. Rider 1 earns ₱30.00. | A6, A10, A33
+RID-PICK-003 [R4 Pickup!I4] Confirm pickup by typing the tracking number | Status becomes Picked Up exactly as with a scan. | 
+RID-PICK-004 [R4 Pickup!I5] Wrong tracking number | Both are rejected with 'tracking number does not match this job'. Status stays Assigned. | 
+RID-PICK-005 [R4 Pickup!I6] Double scan at pickup | One Picked Up event only; the second scan shows 'already picked up'. Pay counted once. | A37
+RID-DLV-001 [R5 Delivery!I2] Deliver with proof in sequence | Each status is shown in all views with times. After Delivered: Buyer 1 sees Delivered with the photo, Rider 1's COD balance rises by ₱500.00 and pay by ₱50.00. | A10, A32, A33
+RID-DLV-002 [R5 Delivery!I3] Skipping a status | Delivered is not available and a direct request is rejected. Status unchanged. | A10
+RID-DLV-003 [R5 Delivery!I4] Photo is required | Both are blocked with a message. The status stays Out for Delivery. | A16, A32
+RID-DLV-004 [R5 Delivery!I5] OTP checks | 5 digits is rejected. Each wrong OTP is rejected. After the 5th wrong entry, entry is locked for 15 minutes (the correct OTP is also refused). After 15 minutes the correct OTP works. | A32
+RID-DLV-005 [R5 Delivery!I6] COD amount must match | ₱499.99 and ₱500.01 are rejected with a mismatch message. Only ₱500.00 completes delivery. | A24
+RID-DLV-006 [R5 Delivery!I7] Prepaid order has no COD | COD shows ₱0.00 / Paid; no amount is asked for, and the COD balance does not change. | 
+RID-DLV-007 [R5 Delivery!I8] Cannot update another rider's job | Rejected. Rider 2's job is unchanged. | A22
+RID-FAIL-001 [R6 Failed Delivery!I2] Mark failed with a reason | Status Failed Delivery, attempt 1 of 3, with the reason. Buyer 1 and Logistics 1 are notified. No COD is collected and pay is ₱0.00 for the attempt. | A13, A23, A33
+RID-FAIL-002 [R6 Failed Delivery!I3] Reason required | Blocked; status unchanged. | A13
+RID-FAIL-003 [R6 Failed Delivery!I4] Refused goes straight to Return to Sender | Status Return to Sender immediately; no further attempt is scheduled. | A13
+RID-FAIL-004 [R6 Failed Delivery!I5] Attempt counter and reschedule | The job shows attempt 2 of 3 and completes normally on success. | A13
+RID-FAIL-005 [R6 Failed Delivery!I6] Return to Sender after the 3rd failed attempt | Status Return to Sender. No 4th attempt is possible. Buyer 1 and Seller 1 are notified. | A13
+RID-EARN-001 [R7 Earnings & COD!I2] Delivery history | Every job is listed once with date, tracking number, result and pay. | 
+RID-EARN-002 [R7 Earnings & COD!I3] Pay per job and daily total | Today's total is exactly ₱210.00 (2 × ₱30 + 3 × ₱50 + 1 × ₱0). The weekly total includes it. | A33
+RID-EARN-003 [R7 Earnings & COD!I4] COD balance to remit | Balance shows ₱1,800.00 with both orders listed. | A24
+RID-EARN-004 [R7 Earnings & COD!I5] Remit COD and confirmation | Before confirmation the remittance is Pending and the balance still shows ₱1,800.00 pending. After confirmation the balance is ₱0.00. | A24
+RID-EARN-005 [R7 Earnings & COD!I6] Short remittance | Logistics 1 sees a ₱50.00 shortfall flag; Rider 1's balance shows ₱50.00 outstanding after confirmation. | A24
+RID-EARN-006 [R7 Earnings & COD!I7] Rider cannot confirm own remittance | Rejected (403). | A22, A24
