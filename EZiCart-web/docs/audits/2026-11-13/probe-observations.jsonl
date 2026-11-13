@@ -1,0 +1,24 @@
+{"criteria":"BUY-ADDR-005,007","observed":"Eleven addresses saved; deleting the default succeeds and automatically chooses a replacement."}
+{"criteria":"SEL-PROD-001,003,004,005,006,017; checklist 2.2.2","observed":"Two identical POSTs create two pending-review products. A one-character name, PHP 0.99, 100000 stock, missing description\/image and a category different from the seller business category are accepted."}
+{"criteria":"RID-DLV-004; A32","observed":"After five failed attempts, the correct delivery code remains unusable after 16 minutes; buyer refresh is needed."}
+{"criteria":"SEL-VOU-004,006; A26","observed":"A funded voucher accepts spaces\/punctuation and a discount greater than its zero minimum spend."}
+{"criteria":"BUY-ACCT-002,009","observed":"Buyer profile saves one-character names and a non-mobile contact string immediately, without a verification step. Registration validation does not protect this separate update path."}
+{"criteria":"SEL-EARN-005,006; A15","observed":"Wallet withdrawal accepts PHP 99.99 and a second simultaneous pending request. Existing order-level seller payout is a separate per-order request, not the teacher balance-payout contract."}
+{"criteria":"BUY-ADDR-005,007","observed":"Eleven addresses saved; deleting the default succeeds and automatically chooses a replacement."}
+{"criteria":"SEL-PROD-001,003,004,005,006,017; checklist 2.2.2","observed":"Two identical POSTs create two pending-review products. A one-character name, PHP 0.99, 100000 stock, missing description\/image and a category different from the seller business category are accepted."}
+{"criteria":"BUY-RATE-001,004,005; A12","observed":"A completed order delivered 40 days ago accepts a new 501-character review. Review storage has no media\/edit\/reply fields or endpoint."}
+{"criteria":"BUY-CAN-001,002,004; A6","observed":"Before Ready for Pickup, cancellation accepts no supplied reason and waits for seller approval. At Ready for Pickup it is correctly blocked."}
+{"criteria":"BUY-RET-003,004; A11,A31","observed":"A completed order delivered 20 days ago accepts a dispute with no uploaded evidence."}
+{"criteria":"RID-DLV-004; A32","observed":"After five failed attempts, the correct delivery code remains unusable after 16 minutes; buyer refresh is needed."}
+{"criteria":"SEL-VOU-004,006; A26","observed":"A funded voucher accepts spaces\/punctuation and a discount greater than its zero minimum spend."}
+{"criteria":"BUY-ACCT-002,009","observed":"Buyer profile saves one-character names and a non-mobile contact string immediately, without a verification step. Registration validation does not protect this separate update path."}
+{"criteria":"SEL-EARN-005,006; A15","observed":"Wallet withdrawal accepts PHP 99.99 and a second simultaneous pending request. Existing order-level seller payout is a separate per-order request, not the teacher balance-payout contract."}
+{"criteria":"BUY-ADDR-005,007","observed":"Eleven addresses saved; deleting the default succeeds and automatically chooses a replacement."}
+{"criteria":"SEL-PROD-001,003,004,005,006,017; checklist 2.2.2","observed":"Two identical POSTs create two pending-review products. A one-character name, PHP 0.99, 100000 stock, missing description\/image and a category different from the seller business category are accepted."}
+{"criteria":"BUY-RATE-001,004,005; A12","observed":"An order with a completion event 40 days ago accepts a new 501-character review. Review storage has no media\/edit\/reply fields or endpoint."}
+{"criteria":"BUY-CAN-001,002,004; A6","observed":"Before Ready for Pickup, cancellation accepts no supplied reason and waits for seller approval. At Ready for Pickup it is correctly blocked."}
+{"criteria":"BUY-RET-003,004; A11,A31","observed":"A completed order delivered 20 days ago accepts a dispute with no uploaded evidence."}
+{"criteria":"RID-DLV-004; A32","observed":"After five failed attempts, the correct delivery code remains unusable after 16 minutes; buyer refresh is needed."}
+{"criteria":"SEL-VOU-004,006; A26","observed":"A funded voucher accepts spaces\/punctuation and a discount greater than its zero minimum spend."}
+{"criteria":"BUY-ACCT-002,009","observed":"Buyer profile saves one-character names and a non-mobile contact string immediately, without a verification step. Registration validation does not protect this separate update path."}
+{"criteria":"SEL-EARN-005,006; A15","observed":"Wallet withdrawal accepts PHP 99.99 and a second simultaneous pending request. Existing order-level seller payout is a separate per-order request, not the teacher balance-payout contract."}

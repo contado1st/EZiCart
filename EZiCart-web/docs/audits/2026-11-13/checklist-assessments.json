@@ -1,0 +1,1462 @@
+[
+  {
+    "id": "1.1.1",
+    "paragraph": 24,
+    "text": "Login and logout work; wrong credentials are rejected",
+    "status": "Aligned",
+    "actual": "Credential validation, role login and isolated logout exist.",
+    "evidence": [
+      "auth"
+    ],
+    "teacher_checkbox_executed": false
+  },
+  {
+    "id": "1.1.2",
+    "paragraph": 29,
+    "text": "Role-based access: admin pages are blocked for other roles",
+    "status": "Aligned",
+    "actual": "Role middleware/admin-domain permissions reject other roles.",
+    "evidence": [
+      "roles"
+    ],
+    "teacher_checkbox_executed": false
+  },
+  {
+    "id": "1.1.3",
+    "paragraph": 34,
+    "text": "Session timeout and password reset work",
+    "status": "Partial",
+    "actual": "Reset OTP works; configured idle lifetime120min differs from workbook30min. Real idle browser timeout not replayed.",
+    "evidence": [
+      "auth",
+      "session"
+    ],
+    "teacher_checkbox_executed": false
+  },
+  {
+    "id": "1.2.1",
+    "paragraph": 45,
+    "text": "View, search, and filter all sellers/stores",
+    "status": "Aligned",
+    "actual": "Moderation lists/searches role-scoped sellers/stores.",
+    "evidence": [
+      "moderation"
+    ],
+    "teacher_checkbox_executed": false
+  },
+  {
+    "id": "1.2.2",
+    "paragraph": 50,
+    "text": "Review seller applications and submitted documents (ID, business permit)",
+    "status": "Aligned",
+    "actual": "Private Valid ID/business permit review is implemented.",
+    "evidence": [
+      "approval"
+    ],
+    "teacher_checkbox_executed": false
+  },
+  {
+    "id": "1.2.3",
+    "paragraph": 55,
+    "text": "Approve or reject seller applications with a reason; seller is notified",
+    "status": "Aligned",
+    "actual": "Pending approve/reject is audited and notifies account; reject needs reason.",
+    "evidence": [
+      "approval",
+      "notifications"
+    ],
+    "teacher_checkbox_executed": false
+  },
+  {
+    "id": "1.2.4",
+    "paragraph": 60,
+    "text": "Suspend, ban, or reactivate a seller store; the store's products are hidden or restored",
+    "status": "Partial",
+    "actual": "Suspend/reactivate hide/restore marketplace availability; no distinct permanent store-ban lifecycle.",
+    "evidence": [
+      "moderation",
+      "search"
+    ],
+    "teacher_checkbox_executed": false
+  },
+  {
+    "id": "1.2.5",
+    "paragraph": 65,
+    "text": "Assign one unique category to each seller during approval",
+    "status": "Missing",
+    "actual": "No exclusive one-category-per-seller assignment on approval.",
+    "evidence": [
+      "category",
+      "approval"
+    ],
+    "teacher_checkbox_executed": false
+  },
+  {
+    "id": "1.2.6",
+    "paragraph": 70,
+    "text": "System blocks assigning a category already taken by another seller",
+    "status": "Missing",
+    "actual": "No global category ownership/uniqueness enforcement.",
+    "evidence": [
+      "category"
+    ],
+    "teacher_checkbox_executed": false
+  },
+  {
+    "id": "1.2.7",
+    "paragraph": 75,
+    "text": "Change a seller's category; existing products are handled correctly",
+    "status": "Missing",
+    "actual": "No administrative category reassignment/migration workflow.",
+    "evidence": [
+      "category"
+    ],
+    "teacher_checkbox_executed": false
+  },
+  {
+    "id": "1.2.8",
+    "paragraph": 80,
+    "text": "Category cannot be deleted while assigned to a seller with active products",
+    "status": "Missing",
+    "actual": "No category deletion interface or assigned-category relationship.",
+    "evidence": [
+      "category"
+    ],
+    "teacher_checkbox_executed": false
+  },
+  {
+    "id": "1.2.9",
+    "paragraph": 85,
+    "text": "Set commission rate per seller or per category",
+    "status": "Different",
+    "actual": "One global commission basis-point setting; no seller/category-specific rate administration.",
+    "evidence": [
+      "pricing"
+    ],
+    "teacher_checkbox_executed": false
+  },
+  {
+    "id": "1.2.10",
+    "paragraph": 90,
+    "text": "View each seller's store, products, orders, and performance",
+    "status": "Partial",
+    "actual": "Store and scoped analytics/order reports exist; not a single seller-admin drilldown for every requested dimension.",
+    "evidence": [
+      "reports",
+      "moderation"
+    ],
+    "teacher_checkbox_executed": false
+  },
+  {
+    "id": "1.3.1",
+    "paragraph": 101,
+    "text": "View, search, and filter buyers, logistics partners, and riders",
+    "status": "Different",
+    "actual": "Two administrators split commerce buyers/sellers versus logistics hubs/riders.",
+    "evidence": [
+      "moderation",
+      "roles"
+    ],
+    "teacher_checkbox_executed": false
+  },
+  {
+    "id": "1.3.2",
+    "paragraph": 106,
+    "text": "Approve, suspend, or delete logistics and rider accounts",
+    "status": "Partial",
+    "actual": "Logistics admin approval/suspension supported; no routine hard-delete-account action.",
+    "evidence": [
+      "approval",
+      "moderation"
+    ],
+    "teacher_checkbox_executed": false
+  },
+  {
+    "id": "1.3.3",
+    "paragraph": 111,
+    "text": "Suspend or reactivate buyer accounts",
+    "status": "Aligned",
+    "actual": "Commerce administrator controls buyer suspension/reactivation.",
+    "evidence": [
+      "moderation"
+    ],
+    "teacher_checkbox_executed": false
+  },
+  {
+    "id": "1.3.4",
+    "paragraph": 116,
+    "text": "Edit user details and reset passwords",
+    "status": "Partial",
+    "actual": "Reviewed profile edits and user password reset exist; no unrestricted admin password replacement for all users.",
+    "evidence": [
+      "staff",
+      "auth"
+    ],
+    "teacher_checkbox_executed": false
+  },
+  {
+    "id": "1.4.1",
+    "paragraph": 127,
+    "text": "Approve or reject product listings from any seller",
+    "status": "Aligned",
+    "actual": "Marketplace product compliance review handles submitted listings.",
+    "evidence": [
+      "product"
+    ],
+    "teacher_checkbox_executed": false
+  },
+  {
+    "id": "1.4.2",
+    "paragraph": 132,
+    "text": "Remove prohibited or violating products",
+    "status": "Aligned",
+    "actual": "Compliance reject/archive suppresses marketplace availability.",
+    "evidence": [
+      "delete",
+      "product"
+    ],
+    "teacher_checkbox_executed": false
+  },
+  {
+    "id": "1.4.3",
+    "paragraph": 137,
+    "text": "Manage categories and subcategories",
+    "status": "Missing",
+    "actual": "Categories are configured labels, not administrative hierarchy CRUD.",
+    "evidence": [
+      "category"
+    ],
+    "teacher_checkbox_executed": false
+  },
+  {
+    "id": "1.4.4",
+    "paragraph": 142,
+    "text": "View all orders, including parent orders and per-seller sub-orders",
+    "status": "Different",
+    "actual": "Purchase/order relationship exists but new checkout is one shop; no multi-seller parent-order workflow.",
+    "evidence": [
+      "checkout"
+    ],
+    "teacher_checkbox_executed": false
+  },
+  {
+    "id": "1.4.5",
+    "paragraph": 147,
+    "text": "Filter orders by seller, status, or date",
+    "status": "Aligned",
+    "actual": "Sales/analytics reporting supports seller/status/date filters.",
+    "evidence": [
+      "reports"
+    ],
+    "teacher_checkbox_executed": false
+  },
+  {
+    "id": "1.4.6",
+    "paragraph": 152,
+    "text": "Cancel, refund, or override orders",
+    "status": "Partial",
+    "actual": "Controlled cancellation/refund exists; no arbitrary status override bypass.",
+    "evidence": [
+      "cancel",
+      "finance",
+      "transition"
+    ],
+    "teacher_checkbox_executed": false
+  },
+  {
+    "id": "1.5.1",
+    "paragraph": 163,
+    "text": "Commission is computed correctly per seller sub-order",
+    "status": "Aligned",
+    "actual": "Integer-cent commission snapshots are calculated per seller order at configured global rate.",
+    "evidence": [
+      "pricing",
+      "finance"
+    ],
+    "teacher_checkbox_executed": false
+  },
+  {
+    "id": "1.5.2",
+    "paragraph": 168,
+    "text": "Seller wallet/balance and transaction history are accurate",
+    "status": "Partial",
+    "actual": "Balanced ledger/pending/available/history pass tests; sandbox/live-provider limitations remain.",
+    "evidence": [
+      "finance",
+      "wallet"
+    ],
+    "teacher_checkbox_executed": false
+  },
+  {
+    "id": "1.5.3",
+    "paragraph": 173,
+    "text": "Process seller payouts (schedule, minimum amount, payout method)",
+    "status": "Partial",
+    "actual": "Seven-day eligibility, request/approval/execution exist; no teacher minimum100/single pending or live payout provider.",
+    "evidence": [
+      "payout",
+      "withdraw"
+    ],
+    "teacher_checkbox_executed": false
+  },
+  {
+    "id": "1.5.4",
+    "paragraph": 178,
+    "text": "Hold or release payouts for disputed orders",
+    "status": "Aligned",
+    "actual": "Open disputes/refunds hold payout and eligibility is rechecked.",
+    "evidence": [
+      "finance"
+    ],
+    "teacher_checkbox_executed": false
+  },
+  {
+    "id": "1.5.5",
+    "paragraph": 183,
+    "text": "Payout records and statements can be exported",
+    "status": "Partial",
+    "actual": "Wallet/sales/analytics statements export, but dedicated payout schedule/statement coverage differs.",
+    "evidence": [
+      "exports",
+      "payout"
+    ],
+    "teacher_checkbox_executed": false
+  },
+  {
+    "id": "1.6.1",
+    "paragraph": 194,
+    "text": "Create platform-wide promotions, vouchers, and banners",
+    "status": "Aligned",
+    "actual": "Platform funded vouchers and announcements/banners are implemented.",
+    "evidence": [
+      "voucher",
+      "promotion"
+    ],
+    "teacher_checkbox_executed": false
+  },
+  {
+    "id": "1.6.2",
+    "paragraph": 199,
+    "text": "Approve or reject seller-created promotions (if required)",
+    "status": "Optional",
+    "actual": "Seller promotions are owner-scoped and capped; no optional separate pre-approval. Confirm whether teacher requires it.",
+    "evidence": [
+      "promotion"
+    ],
+    "teacher_checkbox_executed": false
+  },
+  {
+    "id": "1.6.3",
+    "paragraph": 204,
+    "text": "Handle buyer-seller disputes and refund requests",
+    "status": "Aligned",
+    "actual": "Marketplace-admin dispute/refund decision workflow exists.",
+    "evidence": [
+      "dispute",
+      "finance"
+    ],
+    "teacher_checkbox_executed": false
+  },
+  {
+    "id": "1.6.4",
+    "paragraph": 209,
+    "text": "Apply penalties or warnings to sellers for violations",
+    "status": "Partial",
+    "actual": "Account suspension/reason/notifications exist; no separate warning points or financial penalty engine.",
+    "evidence": [
+      "moderation"
+    ],
+    "teacher_checkbox_executed": false
+  },
+  {
+    "id": "1.7.1",
+    "paragraph": 220,
+    "text": "Sales reports: platform-wide, per seller, and per category",
+    "status": "Partial",
+    "actual": "Platform/seller reports exist; order analytics lacks explicit category filter/report grouping.",
+    "evidence": [
+      "reports"
+    ],
+    "teacher_checkbox_executed": false
+  },
+  {
+    "id": "1.7.2",
+    "paragraph": 225,
+    "text": "Delivery and user reports (export to PDF/Excel)",
+    "status": "Partial",
+    "actual": "Role delivery/order analytics PDF/XLSX exists; full user-account-list export not found.",
+    "evidence": [
+      "exports"
+    ],
+    "teacher_checkbox_executed": false
+  },
+  {
+    "id": "1.7.3",
+    "paragraph": 230,
+    "text": "Dashboard figures match actual data",
+    "status": "Partial",
+    "actual": "Metric tests pass; logistics counters have20s cache and seller low-stock threshold differs from5.",
+    "evidence": [
+      "hub",
+      "lowstock"
+    ],
+    "teacher_checkbox_executed": false
+  },
+  {
+    "id": "1.7.4",
+    "paragraph": 235,
+    "text": "Activity/audit logs are recorded",
+    "status": "Aligned",
+    "actual": "Append-only UI administrative audit records include before/after and actor.",
+    "evidence": [
+      "audit"
+    ],
+    "teacher_checkbox_executed": false
+  },
+  {
+    "id": "2.1.1",
+    "paragraph": 247,
+    "text": "Register as a seller with required documents",
+    "status": "Aligned",
+    "actual": "Seller applies with required ID/permit and identity validation.",
+    "evidence": [
+      "auth",
+      "approval"
+    ],
+    "teacher_checkbox_executed": false
+  },
+  {
+    "id": "2.1.2",
+    "paragraph": 252,
+    "text": "Pending-approval status is shown until the admin approves",
+    "status": "Aligned",
+    "actual": "Pending account cannot access operational seller routes.",
+    "evidence": [
+      "auth",
+      "roles"
+    ],
+    "teacher_checkbox_executed": false
+  },
+  {
+    "id": "2.1.3",
+    "paragraph": 257,
+    "text": "Approval or rejection notification is received",
+    "status": "Aligned",
+    "actual": "In-app/mail notification dispatch exists; real email receipt was not tested.",
+    "evidence": [
+      "notifications"
+    ],
+    "teacher_checkbox_executed": false
+  },
+  {
+    "id": "2.1.4",
+    "paragraph": 262,
+    "text": "Edit store profile (name, logo, banner, address, contact)",
+    "status": "Different",
+    "actual": "Seller changes wait for marketplace-admin review, as previously requested.",
+    "evidence": [
+      "staff",
+      "appearance"
+    ],
+    "teacher_checkbox_executed": false
+  },
+  {
+    "id": "2.1.5",
+    "paragraph": 267,
+    "text": "Assigned category is shown on the store profile and cannot be changed by the seller",
+    "status": "Different",
+    "actual": "Seller business category can be proposed for review; no exclusive immutable assigned category.",
+    "evidence": [
+      "staff",
+      "category"
+    ],
+    "teacher_checkbox_executed": false
+  },
+  {
+    "id": "2.1.6",
+    "paragraph": 272,
+    "text": "Seller can only view and edit their own store data",
+    "status": "Aligned",
+    "actual": "Owner relationships and admin review isolate store data.",
+    "evidence": [
+      "staff",
+      "product"
+    ],
+    "teacher_checkbox_executed": false
+  },
+  {
+    "id": "2.2.1",
+    "paragraph": 283,
+    "text": "Add product (name, description, price, images, category, variations)",
+    "status": "Aligned",
+    "actual": "Product description/price/media/category/flat variation rows exist.",
+    "evidence": [
+      "product",
+      "variation"
+    ],
+    "teacher_checkbox_executed": false
+  },
+  {
+    "id": "2.2.2",
+    "paragraph": 288,
+    "text": "Seller can only list products under their own assigned category",
+    "status": "Different",
+    "actual": "Any supported category is accepted; no seller-category ownership check. Probe confirms.",
+    "evidence": [
+      "category"
+    ],
+    "teacher_checkbox_executed": false
+  },
+  {
+    "id": "2.2.3",
+    "paragraph": 293,
+    "text": "Other sellers' categories are not selectable when adding or editing a product",
+    "status": "Different",
+    "actual": "All configured shared categories are selectable.",
+    "evidence": [
+      "category"
+    ],
+    "teacher_checkbox_executed": false
+  },
+  {
+    "id": "2.2.4",
+    "paragraph": 298,
+    "text": "New or edited products go to admin approval (if required)",
+    "status": "Aligned",
+    "actual": "New/materially edited products require compliance review.",
+    "evidence": [
+      "product"
+    ],
+    "teacher_checkbox_executed": false
+  },
+  {
+    "id": "2.2.5",
+    "paragraph": 303,
+    "text": "Edit, delete, and activate/deactivate products",
+    "status": "Partial",
+    "actual": "Edit/archive/delete exist; no equivalent complete seller active/inactive toggle.",
+    "evidence": [
+      "delete"
+    ],
+    "teacher_checkbox_executed": false
+  },
+  {
+    "id": "2.2.6",
+    "paragraph": 308,
+    "text": "Bulk upload products (CSV/Excel), if available",
+    "status": "Optional",
+    "actual": "No optional product CSV/XLSX import found.",
+    "evidence": [
+      "inventory"
+    ],
+    "teacher_checkbox_executed": false
+  },
+  {
+    "id": "2.2.7",
+    "paragraph": 313,
+    "text": "Stock updates and low-stock alerts",
+    "status": "Partial",
+    "actual": "Stock updates/shortage display exist; seller low-stock once-per-crossing alert is missing.",
+    "evidence": [
+      "lowstock"
+    ],
+    "teacher_checkbox_executed": false
+  },
+  {
+    "id": "2.2.8",
+    "paragraph": 318,
+    "text": "Required-field and invalid-input validation (negative price, oversized images)",
+    "status": "Partial",
+    "actual": "Basic invalid/negative/upload checks exist, but teacher length/price/count limits differ.",
+    "evidence": [
+      "product",
+      "media"
+    ],
+    "teacher_checkbox_executed": false
+  },
+  {
+    "id": "2.3.1",
+    "paragraph": 329,
+    "text": "Receive notification only for orders containing own products",
+    "status": "Aligned",
+    "actual": "Order placement notifies the order seller only.",
+    "evidence": [
+      "checkout"
+    ],
+    "teacher_checkbox_executed": false
+  },
+  {
+    "id": "2.3.2",
+    "paragraph": 334,
+    "text": "Order shows only the seller's own items (sub-order)",
+    "status": "Aligned",
+    "actual": "Seller order shows its own captured items; mixed-shop placement is forbidden.",
+    "evidence": [
+      "sellerorder"
+    ],
+    "teacher_checkbox_executed": false
+  },
+  {
+    "id": "2.3.3",
+    "paragraph": 339,
+    "text": "Accept, process, and mark orders as packed or ready for pickup",
+    "status": "Aligned",
+    "actual": "Confirmed/Preparing/Ready statuses are guarded transitions.",
+    "evidence": [
+      "sellerorder",
+      "transition"
+    ],
+    "teacher_checkbox_executed": false
+  },
+  {
+    "id": "2.3.4",
+    "paragraph": 344,
+    "text": "Print the packing slip or waybill",
+    "status": "Aligned",
+    "actual": "Printable parcel label/waybill with QR/custody information exists.",
+    "evidence": [
+      "sellerorder"
+    ],
+    "teacher_checkbox_executed": false
+  },
+  {
+    "id": "2.3.5",
+    "paragraph": 349,
+    "text": "Handle cancellations, returns, and refund requests",
+    "status": "Partial",
+    "actual": "Seller cancellation/inspection and admin-led disputes exist; no seller-first refund approval chain.",
+    "evidence": [
+      "dispute",
+      "inspection"
+    ],
+    "teacher_checkbox_executed": false
+  },
+  {
+    "id": "2.3.6",
+    "paragraph": 354,
+    "text": "Respond to buyer messages and reviews",
+    "status": "Partial",
+    "actual": "Private buyer messaging exists; seller review replies absent.",
+    "evidence": [
+      "chat",
+      "review"
+    ],
+    "teacher_checkbox_executed": false
+  },
+  {
+    "id": "2.4.1",
+    "paragraph": 365,
+    "text": "View earnings with commission and fees deducted",
+    "status": "Partial",
+    "actual": "Ledger/dashboard payable calculates commission/promotion funding; legacy report can disagree on refunded completed orders.",
+    "evidence": [
+      "finance",
+      "sellerreport"
+    ],
+    "teacher_checkbox_executed": false
+  },
+  {
+    "id": "2.4.2",
+    "paragraph": 370,
+    "text": "Wallet balance updates after delivery confirmation",
+    "status": "Different",
+    "actual": "Available requires seven-day delivery hold and approved settlement, not immediate receipt confirmation.",
+    "evidence": [
+      "payout"
+    ],
+    "teacher_checkbox_executed": false
+  },
+  {
+    "id": "2.4.3",
+    "paragraph": 375,
+    "text": "Request a payout and view payout history",
+    "status": "Aligned",
+    "actual": "Eligible order payout requests and wallet transaction/payout history exist.",
+    "evidence": [
+      "payout",
+      "withdraw"
+    ],
+    "teacher_checkbox_executed": false
+  },
+  {
+    "id": "2.4.4",
+    "paragraph": 380,
+    "text": "Sales reports and best-seller analytics",
+    "status": "Aligned",
+    "actual": "Seller analytics includes sales and product performance.",
+    "evidence": [
+      "reports"
+    ],
+    "teacher_checkbox_executed": false
+  },
+  {
+    "id": "2.4.5",
+    "paragraph": 385,
+    "text": "Create store vouchers or discounts for own store",
+    "status": "Partial",
+    "actual": "Funded store vouchers exist; automatic product sales/flash/bundle discounts absent.",
+    "evidence": [
+      "voucher",
+      "promotion"
+    ],
+    "teacher_checkbox_executed": false
+  },
+  {
+    "id": "3.1.1",
+    "paragraph": 397,
+    "text": "Register (email/phone verification), log in, log out, reset password",
+    "status": "Partial",
+    "actual": "Email registration/reset verification and login/logout exist; SMS phone verification absent.",
+    "evidence": [
+      "auth"
+    ],
+    "teacher_checkbox_executed": false
+  },
+  {
+    "id": "3.1.2",
+    "paragraph": 402,
+    "text": "Edit profile and manage multiple delivery addresses",
+    "status": "Partial",
+    "actual": "Profile/address CRUD exists; buyer profile phone update validation is weaker than registration.",
+    "evidence": [
+      "profile",
+      "address"
+    ],
+    "teacher_checkbox_executed": false
+  },
+  {
+    "id": "3.2.1",
+    "paragraph": 413,
+    "text": "Search, filters, and sorting return correct results across all sellers",
+    "status": "Aligned",
+    "actual": "Shared catalog literal search/filter/sort supports all available sellers.",
+    "evidence": [
+      "search"
+    ],
+    "teacher_checkbox_executed": false
+  },
+  {
+    "id": "3.2.2",
+    "paragraph": 418,
+    "text": "Filter or browse by seller/store; visit the store page",
+    "status": "Aligned",
+    "actual": "Public store page/following and shop-filtered listings exist.",
+    "evidence": [
+      "pdp",
+      "follow"
+    ],
+    "teacher_checkbox_executed": false
+  },
+  {
+    "id": "3.2.3",
+    "paragraph": 423,
+    "text": "Browsing a category shows only products from the seller assigned to that category",
+    "status": "Different",
+    "actual": "Category includes many sellers, not an exclusively assigned seller.",
+    "evidence": [
+      "category"
+    ],
+    "teacher_checkbox_executed": false
+  },
+  {
+    "id": "3.2.4",
+    "paragraph": 428,
+    "text": "Product page shows images, price, stock, variations, reviews, and seller info",
+    "status": "Aligned",
+    "actual": "Product gallery/video, stock, flat variants, text reviews and seller info exist.",
+    "evidence": [
+      "pdp"
+    ],
+    "teacher_checkbox_executed": false
+  },
+  {
+    "id": "3.2.5",
+    "paragraph": 433,
+    "text": "Add items from multiple sellers to one cart",
+    "status": "Aligned",
+    "actual": "Cart stores items from multiple sellers, even though checkout must select one.",
+    "evidence": [
+      "cart"
+    ],
+    "teacher_checkbox_executed": false
+  },
+  {
+    "id": "3.2.6",
+    "paragraph": 438,
+    "text": "Cart groups items by seller; quantity update and removal work",
+    "status": "Aligned",
+    "actual": "Shop grouping, quantity update/remove and selection exist.",
+    "evidence": [
+      "cart"
+    ],
+    "teacher_checkbox_executed": false
+  },
+  {
+    "id": "3.2.7",
+    "paragraph": 443,
+    "text": "Cart persists after logout",
+    "status": "Aligned",
+    "actual": "Buyer cart is persisted independently of logout.",
+    "evidence": [
+      "cart"
+    ],
+    "teacher_checkbox_executed": false
+  },
+  {
+    "id": "3.2.8",
+    "paragraph": 448,
+    "text": "Wishlist and follow store",
+    "status": "Partial",
+    "actual": "Follow store exists; product wishlist absent.",
+    "evidence": [
+      "follow"
+    ],
+    "teacher_checkbox_executed": false
+  },
+  {
+    "id": "3.3.1",
+    "paragraph": 459,
+    "text": "Checkout splits the order into per-seller sub-orders",
+    "status": "Different",
+    "actual": "New orders are limited to one shop per purchase.",
+    "evidence": [
+      "checkout"
+    ],
+    "teacher_checkbox_executed": false
+  },
+  {
+    "id": "3.3.2",
+    "paragraph": 464,
+    "text": "Shipping fee is computed per seller",
+    "status": "Aligned",
+    "actual": "Each selected seller shipment has a shipping snapshot; only one seller can be checked out at once.",
+    "evidence": [
+      "shipping"
+    ],
+    "teacher_checkbox_executed": false
+  },
+  {
+    "id": "3.3.3",
+    "paragraph": 469,
+    "text": "Platform vouchers and store vouchers apply correctly (valid, expired, invalid)",
+    "status": "Partial",
+    "actual": "Individual store/platform/shipping-target voucher works; simultaneous stacking absent.",
+    "evidence": [
+      "pricing"
+    ],
+    "teacher_checkbox_executed": false
+  },
+  {
+    "id": "3.3.4",
+    "paragraph": 474,
+    "text": "Order total, shipping, and discounts are calculated correctly",
+    "status": "Aligned",
+    "actual": "Server authoritative cent totals and stale/tampered quote tests pass for supported checkout.",
+    "evidence": [
+      "checkout",
+      "pricing"
+    ],
+    "teacher_checkbox_executed": false
+  },
+  {
+    "id": "3.3.5",
+    "paragraph": 479,
+    "text": "Each payment method works (COD, e-wallet, card, bank)",
+    "status": "Partial",
+    "actual": "COD operational; wallet sandbox only; no live card/bank/hosted e-wallet payments.",
+    "evidence": [
+      "wallet"
+    ],
+    "teacher_checkbox_executed": false
+  },
+  {
+    "id": "3.3.6",
+    "paragraph": 484,
+    "text": "Failed or cancelled payment is handled properly",
+    "status": "Partial",
+    "actual": "Atomic wallet failure/reversal works, but no live gateway cancellation/To Pay state.",
+    "evidence": [
+      "wallet"
+    ],
+    "teacher_checkbox_executed": false
+  },
+  {
+    "id": "3.3.7",
+    "paragraph": 489,
+    "text": "Order confirmation (screen and email/SMS)",
+    "status": "Partial",
+    "actual": "Confirmation/in-app/mail dispatch exists; SMS channel absent and real email delivery not verified.",
+    "evidence": [
+      "checkout",
+      "notifychannels"
+    ],
+    "teacher_checkbox_executed": false
+  },
+  {
+    "id": "3.4.1",
+    "paragraph": 500,
+    "text": "Each seller's sub-order has its own status and tracking number",
+    "status": "Partial",
+    "actual": "Each seller order has distinct identity/status; no simultaneous multi-seller purchase.",
+    "evidence": [
+      "checkout",
+      "transition"
+    ],
+    "teacher_checkbox_executed": false
+  },
+  {
+    "id": "3.4.2",
+    "paragraph": 505,
+    "text": "Status updates in real time (placed, packed, shipped, out for delivery, delivered)",
+    "status": "Partial",
+    "actual": "Polling/refresh and transaction notifications synchronize stages; no push-realtime guarantee.",
+    "evidence": [
+      "transition",
+      "notifications"
+    ],
+    "teacher_checkbox_executed": false
+  },
+  {
+    "id": "3.4.3",
+    "paragraph": 510,
+    "text": "Track delivery and view rider details",
+    "status": "Aligned",
+    "actual": "Scoped timeline and assigned rider/contact information exist.",
+    "evidence": [
+      "buyerorder"
+    ],
+    "teacher_checkbox_executed": false
+  },
+  {
+    "id": "3.4.4",
+    "paragraph": 515,
+    "text": "Cancel one seller's items without affecting other sub-orders",
+    "status": "Different",
+    "actual": "Mixed-shop purchase not supported; independent orders can each request cancellation.",
+    "evidence": [
+      "cancel",
+      "checkout"
+    ],
+    "teacher_checkbox_executed": false
+  },
+  {
+    "id": "3.4.5",
+    "paragraph": 520,
+    "text": "Confirm receipt per sub-order; request return or refund per seller",
+    "status": "Partial",
+    "actual": "Receipt and order dispute exist; window/approval process differs from teacher assumptions.",
+    "evidence": [
+      "buyerorder",
+      "dispute"
+    ],
+    "teacher_checkbox_executed": false
+  },
+  {
+    "id": "3.4.6",
+    "paragraph": 525,
+    "text": "Rate and review products, seller, and rider",
+    "status": "Partial",
+    "actual": "Product ratings only; no separate seller/rider rating or photo review/edit.",
+    "evidence": [
+      "review"
+    ],
+    "teacher_checkbox_executed": false
+  },
+  {
+    "id": "3.4.7",
+    "paragraph": 530,
+    "text": "Chat with seller; submit complaint or escalate dispute to admin",
+    "status": "Partial",
+    "actual": "Related-user chat and direct admin dispute exist; no seller-rejection escalation step.",
+    "evidence": [
+      "chat",
+      "dispute"
+    ],
+    "teacher_checkbox_executed": false
+  },
+  {
+    "id": "4.1.1",
+    "paragraph": 542,
+    "text": "Login and role-restricted dashboard",
+    "status": "Aligned",
+    "actual": "Sorting-center login/dashboard restricted by role.",
+    "evidence": [
+      "roles"
+    ],
+    "teacher_checkbox_executed": false
+  },
+  {
+    "id": "4.1.2",
+    "paragraph": 547,
+    "text": "View incoming pickup requests from multiple sellers",
+    "status": "Aligned",
+    "actual": "Owned hub pickup queue can include several sellers.",
+    "evidence": [
+      "hub"
+    ],
+    "teacher_checkbox_executed": false
+  },
+  {
+    "id": "4.1.3",
+    "paragraph": 552,
+    "text": "Assign pickups to riders per seller",
+    "status": "Aligned",
+    "actual": "Seller pickup schedule and logistics assigned rider/capacity flow exists.",
+    "evidence": [
+      "pickup",
+      "dispatch"
+    ],
+    "teacher_checkbox_executed": false
+  },
+  {
+    "id": "4.1.4",
+    "paragraph": 557,
+    "text": "Scan or enter tracking numbers; status syncs to buyer, seller, and admin",
+    "status": "Aligned",
+    "actual": "QR/manual parcel custody events are shared and notified.",
+    "evidence": [
+      "transition"
+    ],
+    "teacher_checkbox_executed": false
+  },
+  {
+    "id": "4.2.1",
+    "paragraph": 568,
+    "text": "Update parcel status (picked up, at hub, in transit, out for delivery, delivered, failed)",
+    "status": "Aligned",
+    "actual": "Strict multi-stage parcel lifecycle exists with exceptions/recovery controls.",
+    "evidence": [
+      "transition"
+    ],
+    "teacher_checkbox_executed": false
+  },
+  {
+    "id": "4.2.2",
+    "paragraph": 573,
+    "text": "Handle parcels from different sellers for the same buyer order (separate or consolidated)",
+    "status": "Different",
+    "actual": "Separate parcels/orders exist; no mixed-seller parent checkout/consolidation.",
+    "evidence": [
+      "checkout"
+    ],
+    "teacher_checkbox_executed": false
+  },
+  {
+    "id": "4.2.3",
+    "paragraph": 578,
+    "text": "Assign deliveries to riders; route/area assignment and scheduling",
+    "status": "Aligned",
+    "actual": "Manual area-based dispatch, scheduling and dedicated transfer drivers exist.",
+    "evidence": [
+      "dispatch"
+    ],
+    "teacher_checkbox_executed": false
+  },
+  {
+    "id": "4.2.4",
+    "paragraph": 583,
+    "text": "Handle failed deliveries and rescheduling",
+    "status": "Aligned",
+    "actual": "Failure attempts, physical hub recovery and reassignment are supported.",
+    "evidence": [
+      "fail",
+      "exception"
+    ],
+    "teacher_checkbox_executed": false
+  },
+  {
+    "id": "4.2.5",
+    "paragraph": 588,
+    "text": "Manage returns to seller (RTS)",
+    "status": "Aligned",
+    "actual": "Scanned RTS and seller restock inspection exist.",
+    "evidence": [
+      "return",
+      "inspection"
+    ],
+    "teacher_checkbox_executed": false
+  },
+  {
+    "id": "4.3.1",
+    "paragraph": 599,
+    "text": "Shipping fee/rate management",
+    "status": "Partial",
+    "actual": "Rate versions/approval implemented but runtime has no approved tariffs and still uses flat50.",
+    "evidence": [
+      "tariff",
+      "shipping"
+    ],
+    "teacher_checkbox_executed": false
+  },
+  {
+    "id": "4.3.2",
+    "paragraph": 604,
+    "text": "Monitor rider performance and delivery volume",
+    "status": "Aligned",
+    "actual": "Role analytics and workload/delivery metrics exist.",
+    "evidence": [
+      "reports"
+    ],
+    "teacher_checkbox_executed": false
+  },
+  {
+    "id": "4.3.3",
+    "paragraph": 609,
+    "text": "Reports: delivered, pending, failed, and COD remittance per seller",
+    "status": "Partial",
+    "actual": "Operational/analytics and remittance reports exist, but one per-seller combined report/export differs.",
+    "evidence": [
+      "reports",
+      "batches"
+    ],
+    "teacher_checkbox_executed": false
+  },
+  {
+    "id": "5.1.1",
+    "paragraph": 621,
+    "text": "Login and logout; online/offline availability toggle",
+    "status": "Partial",
+    "actual": "Login/logout works; manual Online/Offline work switch absent.",
+    "evidence": [
+      "auth",
+      "dispatch"
+    ],
+    "teacher_checkbox_executed": false
+  },
+  {
+    "id": "5.1.2",
+    "paragraph": 626,
+    "text": "Receive and accept or decline delivery assignments",
+    "status": "Aligned",
+    "actual": "Assigned pickup/delivery can be accepted/declined before physical release.",
+    "evidence": [
+      "rideraccept",
+      "pickup"
+    ],
+    "teacher_checkbox_executed": false
+  },
+  {
+    "id": "5.1.3",
+    "paragraph": 631,
+    "text": "View pickup address (seller), drop-off address (buyer), and parcel details",
+    "status": "Aligned",
+    "actual": "Owned assignment/parcel addresses and contact details are visible.",
+    "evidence": [
+      "pickup",
+      "delivery"
+    ],
+    "teacher_checkbox_executed": false
+  },
+  {
+    "id": "5.1.4",
+    "paragraph": 636,
+    "text": "Navigation or map link works",
+    "status": "Missing",
+    "actual": "No map/directions action found in rider pages/controllers.",
+    "evidence": [
+      "inventory"
+    ],
+    "teacher_checkbox_executed": false
+  },
+  {
+    "id": "5.2.1",
+    "paragraph": 647,
+    "text": "Confirm pickup from each seller or hub",
+    "status": "Aligned",
+    "actual": "Seller/hub handovers require matching identities and parcel scans.",
+    "evidence": [
+      "pickup",
+      "dispatch"
+    ],
+    "teacher_checkbox_executed": false
+  },
+  {
+    "id": "5.2.2",
+    "paragraph": 652,
+    "text": "Multi-seller pickups are shown as separate stops",
+    "status": "Partial",
+    "actual": "Separate pickup orders/stops exist; no map-based multi-stop route itinerary.",
+    "evidence": [
+      "pickup"
+    ],
+    "teacher_checkbox_executed": false
+  },
+  {
+    "id": "5.2.3",
+    "paragraph": 657,
+    "text": "Update status (picked up, on the way, delivered, failed)",
+    "status": "Aligned",
+    "actual": "Rider actions follow guarded parcel state transitions.",
+    "evidence": [
+      "transition"
+    ],
+    "teacher_checkbox_executed": false
+  },
+  {
+    "id": "5.2.4",
+    "paragraph": 662,
+    "text": "Proof of delivery (photo, signature, or OTP)",
+    "status": "Aligned",
+    "actual": "Proof upload plus six-digit buyer delivery code required; no signature needed for the checklist OR condition.",
+    "evidence": [
+      "delivery",
+      "code"
+    ],
+    "teacher_checkbox_executed": false
+  },
+  {
+    "id": "5.2.5",
+    "paragraph": 667,
+    "text": "Collect COD payment and record the amount",
+    "status": "Aligned",
+    "actual": "Exact COD collection is recorded after proof/code.",
+    "evidence": [
+      "delivery",
+      "finance"
+    ],
+    "teacher_checkbox_executed": false
+  },
+  {
+    "id": "5.2.6",
+    "paragraph": 672,
+    "text": "Report delivery issues (wrong address, buyer unreachable, damaged item)",
+    "status": "Aligned",
+    "actual": "Enumerated failure reasons and notes support reported issues.",
+    "evidence": [
+      "fail"
+    ],
+    "teacher_checkbox_executed": false
+  },
+  {
+    "id": "5.2.7",
+    "paragraph": 677,
+    "text": "Contact buyer or seller (call/chat)",
+    "status": "Aligned",
+    "actual": "Phone links and scoped private messaging exist.",
+    "evidence": [
+      "chat",
+      "pickup"
+    ],
+    "teacher_checkbox_executed": false
+  },
+  {
+    "id": "5.2.8",
+    "paragraph": 682,
+    "text": "View delivery history and earnings",
+    "status": "Partial",
+    "actual": "History and settled earnings exist; configured rates differ and no approved runtime tariff currently exists.",
+    "evidence": [
+      "settlement"
+    ],
+    "teacher_checkbox_executed": false
+  },
+  {
+    "id": "6.1.1",
+    "paragraph": 694,
+    "text": "Buyer orders from 2+ sellers → order splits into sub-orders → each seller is notified of own items only",
+    "status": "Different",
+    "actual": "Explicit single-shop checkout contradicts multi-seller splitting reference.",
+    "evidence": [
+      "checkout"
+    ],
+    "teacher_checkbox_executed": false
+  },
+  {
+    "id": "6.1.2",
+    "paragraph": 699,
+    "text": "Each seller packs → logistics receives pickups → rider delivers → buyer confirms",
+    "status": "Aligned",
+    "actual": "Existing full journey tests cover seller/pickup/hub transfer/delivery/receipt.",
+    "evidence": [
+      "transition"
+    ],
+    "teacher_checkbox_executed": false
+  },
+  {
+    "id": "6.1.3",
+    "paragraph": 704,
+    "text": "Status changes made by one role appear correctly for all others",
+    "status": "Aligned",
+    "actual": "Shared status/events and notifications are role-scoped and transaction-aware.",
+    "evidence": [
+      "transition",
+      "notifications"
+    ],
+    "teacher_checkbox_executed": false
+  },
+  {
+    "id": "6.1.4",
+    "paragraph": 709,
+    "text": "Notifications (in-app, email, SMS) are sent to the right role at the right time",
+    "status": "Partial",
+    "actual": "In-app/mail dispatch supported, SMS absent and real external delivery not verified.",
+    "evidence": [
+      "notifychannels"
+    ],
+    "teacher_checkbox_executed": false
+  },
+  {
+    "id": "6.2.1",
+    "paragraph": 720,
+    "text": "Stock is deducted on order and restored on cancellation",
+    "status": "Aligned",
+    "actual": "Stock deducted on supported placement, restored once on approved cancellation.",
+    "evidence": [
+      "checkout",
+      "stock"
+    ],
+    "teacher_checkbox_executed": false
+  },
+  {
+    "id": "6.2.2",
+    "paragraph": 725,
+    "text": "Commission per seller matches order totals and the set rate",
+    "status": "Aligned",
+    "actual": "Per-order commission snapshot uses configured global rate.",
+    "evidence": [
+      "pricing",
+      "finance"
+    ],
+    "teacher_checkbox_executed": false
+  },
+  {
+    "id": "6.2.3",
+    "paragraph": 730,
+    "text": "Platform-funded vs seller-funded voucher discounts are reflected correctly in payouts",
+    "status": "Aligned",
+    "actual": "Sponsor funding and seller payable reconcile without platform voucher charging seller.",
+    "evidence": [
+      "budget",
+      "finance"
+    ],
+    "teacher_checkbox_executed": false
+  },
+  {
+    "id": "6.2.4",
+    "paragraph": 735,
+    "text": "Payout is released only after delivery confirmation (or the set holding period)",
+    "status": "Aligned",
+    "actual": "Completion, seven-day hold, verified money and approval gate seller release.",
+    "evidence": [
+      "payout"
+    ],
+    "teacher_checkbox_executed": false
+  },
+  {
+    "id": "6.3.1",
+    "paragraph": 746,
+    "text": "Cancelling or refunding one seller's sub-order does not affect other sellers' sub-orders",
+    "status": "Different",
+    "actual": "Existing independent orders isolate cancellations, but no new multi-seller parent checkout.",
+    "evidence": [
+      "checkout",
+      "cancel"
+    ],
+    "teacher_checkbox_executed": false
+  },
+  {
+    "id": "6.3.2",
+    "paragraph": 751,
+    "text": "Refund flow: buyer request → seller response → admin decision → payment reversal",
+    "status": "Partial",
+    "actual": "Admin decision/return/refund ledger exists; seller-first response/escalation and live gateway reversal differ.",
+    "evidence": [
+      "dispute",
+      "finance"
+    ],
+    "teacher_checkbox_executed": false
+  },
+  {
+    "id": "6.3.3",
+    "paragraph": 756,
+    "text": "Seller A cannot view or edit Seller B's products, orders, or earnings",
+    "status": "Aligned",
+    "actual": "Seller product/order/finance scope checks are enforced.",
+    "evidence": [
+      "product",
+      "sellerorder",
+      "finance"
+    ],
+    "teacher_checkbox_executed": false
+  },
+  {
+    "id": "6.3.4",
+    "paragraph": 761,
+    "text": "A seller cannot create or edit products outside their assigned category (including via direct request)",
+    "status": "Different",
+    "actual": "Supported shared categories are not locked to a seller; probe confirms.",
+    "evidence": [
+      "category"
+    ],
+    "teacher_checkbox_executed": false
+  },
+  {
+    "id": "6.3.5",
+    "paragraph": 766,
+    "text": "A user cannot access another role's pages or data by changing the URL",
+    "status": "Aligned",
+    "actual": "Route/domain and record ownership checks cover roles.",
+    "evidence": [
+      "roles"
+    ],
+    "teacher_checkbox_executed": false
+  },
+  {
+    "id": "7.1.1",
+    "paragraph": 778,
+    "text": "Works on desktop, tablet, and mobile browsers",
+    "status": "Unverified",
+    "actual": "Responsive CSS exists; physical desktop/tablet/mobile-browser acceptance was not exercised.",
+    "evidence": [
+      "inventory"
+    ],
+    "teacher_checkbox_executed": false
+  },
+  {
+    "id": "7.1.2",
+    "paragraph": 783,
+    "text": "Page load speed; no broken links or images",
+    "status": "Unverified",
+    "actual": "Server tests do not certify page performance, all links/images or external-device loading.",
+    "evidence": [
+      "inventory"
+    ],
+    "teacher_checkbox_executed": false
+  },
+  {
+    "id": "7.1.3",
+    "paragraph": 788,
+    "text": "Input validation and clear error messages",
+    "status": "Partial",
+    "actual": "Validation/error handling exists, with concrete update/product boundary gaps in this audit.",
+    "evidence": [
+      "profile",
+      "product"
+    ],
+    "teacher_checkbox_executed": false
+  },
+  {
+    "id": "7.1.4",
+    "paragraph": 793,
+    "text": "Data privacy: passwords hashed, personal data protected",
+    "status": "Aligned",
+    "actual": "Hashed passwords, private documents/evidence and scoped access covered by tests; not a full penetration test.",
+    "evidence": [
+      "auth",
+      "approval"
+    ],
+    "teacher_checkbox_executed": false
+  },
+  {
+    "id": "7.1.5",
+    "paragraph": 798,
+    "text": "Logout clears the session",
+    "status": "Aligned",
+    "actual": "Logout invalidates the active tab session; persisted buyer cart is intentionally retained.",
+    "evidence": [
+      "auth",
+      "session"
+    ],
+    "teacher_checkbox_executed": false
+  }
+]

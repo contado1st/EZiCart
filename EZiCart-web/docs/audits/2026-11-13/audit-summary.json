@@ -1,0 +1,57 @@
+{
+  "date": "2026-11-13",
+  "scope": "Laravel web only",
+  "git_revision": "782fb283331a9acf96cd1887b6e25722b7ca906a",
+  "cases": {
+    "Aligned": 120,
+    "Partial": 54,
+    "Different": 75,
+    "Missing": 70,
+    "Unverified": 0,
+    "Optional": 0
+  },
+  "checklist": {
+    "Aligned": 62,
+    "Partial": 40,
+    "Different": 15,
+    "Missing": 6,
+    "Unverified": 2,
+    "Optional": 2
+  },
+  "case_count": 319,
+  "checklist_count": 127,
+  "roles": {
+    "Seller": {
+      "Aligned": 31,
+      "Partial": 18,
+      "Different": 31,
+      "Missing": 44,
+      "Unverified": 0,
+      "Optional": 0
+    },
+    "Buyer": {
+      "Aligned": 57,
+      "Partial": 16,
+      "Different": 20,
+      "Missing": 17,
+      "Unverified": 0,
+      "Optional": 0
+    },
+    "Rider": {
+      "Aligned": 16,
+      "Partial": 8,
+      "Different": 12,
+      "Missing": 5,
+      "Unverified": 0,
+      "Optional": 0
+    },
+    "Logistics": {
+      "Aligned": 16,
+      "Partial": 12,
+      "Different": 12,
+      "Missing": 4,
+      "Unverified": 0,
+      "Optional": 0
+    }
+  }
+}
