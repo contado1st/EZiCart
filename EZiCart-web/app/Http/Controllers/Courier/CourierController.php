@@ -111,7 +111,7 @@ class CourierController extends Controller
                 422,
                 'This pickup has already been accepted, is on payment verification hold, or is no longer available.',
             );
-            app(ParcelLoadService::class)->assertFits($lockedOrder, $courier);
+            app(ParcelLoadService::class)->assertFits($lockedOrder, $courier, newWork: true);
             $lockedOrder->forceFill(['pickup_claimed_at' => now()])->save();
             $this->recordEvent($lockedOrder, 'pickup_accepted', $courier, $lockedOrder->seller?->municipality, 'Rider accepted the Logistics pickup assignment.');
             $notifications->send([$lockedOrder->seller, $lockedOrder->buyer], new OrderWorkflowNotification($lockedOrder, 'pickup_accepted', 'The assigned rider accepted the pickup request.'));

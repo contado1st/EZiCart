@@ -73,6 +73,16 @@
                     </div>
                 @endforeach
 
+                @if($order->status === 'COMPLETED' || $order->reviews->isNotEmpty())
+                    <section class="feature-panel"><h2>Your product reviews</h2>
+                        @foreach($order->items->unique('product_id') as $reviewItem)
+                            <h3>{{ $reviewItem->product_name }}</h3>
+                            @php($existingReview = $order->reviews->firstWhere('product_id', $reviewItem->product_id))
+                            @if($existingReview)<p>{{ $existingReview->rating }}/5 · <a href="{{ route('buyer.reviews.edit', $existingReview) }}">Edit review / private history</a></p>
+                            @elseif($order->status === 'COMPLETED')<x-review-form :order="$order" :product-id="$reviewItem->product_id" />@endif
+                        @endforeach
+                    </section>
+                @endif
                 <h2 class="courier-section-title">Delivery</h2>
                 <p><strong>{{ $order->recipient_name }}</strong> · {{ $order->recipient_contact }}</p>
                 <p>{{ trim(($order->house_number ? $order->house_number.' ' : '').$order->street_address) }}, {{ $order->barangay }}, {{ $order->municipality }},

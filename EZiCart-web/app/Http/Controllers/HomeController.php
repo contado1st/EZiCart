@@ -51,7 +51,7 @@ class HomeController extends Controller
 
     public function showProduct(Request $request, Product $product, ProductRecommendationService $recommendations)
     {
-        $filters = $request->validate(['rating' => ['nullable', 'integer', 'between:1,5'], 'comments' => ['nullable', 'boolean'], 'recommendations_page' => ['nullable', 'integer', 'min:1']]);
+        $filters = $request->validate(['rating' => ['nullable', 'integer', 'between:1,5'], 'comments' => ['nullable', 'boolean'], 'with_media' => ['nullable', 'boolean'], 'recommendations_page' => ['nullable', 'integer', 'min:1']]);
         abort_if(! $product->isListingVisible() || $product->stock <= 0, 404);
 
         $product->load(['seller', 'media', 'variations' => fn ($query) => $query->where('is_active', true)]);
@@ -64,9 +64,10 @@ class HomeController extends Controller
         $ratingCounts = $product->reviews()->selectRaw('rating, COUNT(*) as total')->groupBy('rating')->pluck('total', 'rating');
         $reviewCount = (int) $ratingCounts->sum();
         $averageRating = $reviewCount ? round($ratingCounts->sum(fn ($count, $rating) => $count * $rating) / $reviewCount, 1) : 0;
-        $reviews = $product->reviews()->with('buyer')
+        $reviews = $product->reviews()->with(['buyer:id,first_name,last_name', 'photos', 'order.items'])
             ->when($filters['rating'] ?? null, fn ($query, $rating) => $query->where('rating', $rating))
             ->when($request->boolean('comments'), fn ($query) => $query->whereNotNull('comment')->where('comment', '<>', ''))
+            ->when($request->boolean('with_media'), fn ($query) => $query->whereHas('photos'))
             ->latest()->paginate(5, ['*'], 'reviews_page')->withQueryString();
         $sameShop = Product::availableForMarketplace()->where('user_id', $product->user_id)->whereKeyNot($product->id)
             ->withVariantPrices()->withAvg('reviews as display_rating', 'rating')->withCount('reviews')->latest()->limit(6)->get();

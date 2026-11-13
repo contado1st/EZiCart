@@ -14,6 +14,7 @@ use App\Models\User;
 use App\Notifications\AccountStatusNotification;
 use App\Notifications\OrderWorkflowNotification;
 use App\Notifications\RiderActivationNotification;
+use App\Services\AdministrativeAuditService;
 use App\Services\HubOrderScope;
 use App\Services\LogisticsCoverageService;
 use App\Services\LogisticsExceptionService;
@@ -24,6 +25,7 @@ use App\Services\ParcelLoadService;
 use App\Services\QrCodeService;
 use App\Services\RegistrationIdentityService;
 use App\Services\RiderBadgeService;
+use App\Services\RiderWorkAvailabilityService;
 use App\Services\TransactionAwareNotificationSender;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
@@ -215,7 +217,7 @@ class LogisticsController extends Controller
                 'returned' => $this->hubOrders($operator)->whereIn('status', ['RETURN_IN_TRANSIT', 'RETURNED_TO_SELLER'])->count(),
                 'active_riders' => User::query()->where('role', 'courier')->where('status', 'approved')
                     ->whereHas('serviceAreas', fn (Builder $query) => $query->whereIn('areas.id', $hubAreaIds))->count(),
-                'available_riders' => User::query()->where('role', 'courier')->where('status', 'approved')
+                'available_riders' => User::query()->availableForNewWork()
                     ->whereHas('serviceAreas', fn (Builder $query) => $query->whereIn('areas.id', $hubAreaIds))
                     ->whereDoesntHave('finalDeliveries', fn (Builder $query) => $query->activeCourierWorkload())->count(),
             ],
@@ -268,7 +270,7 @@ class LogisticsController extends Controller
             ->whereNull('pickup_claimed_at')
             ->latest()->paginate(20);
         $areaIds = $orders->getCollection()->pluck('destination_area_id')->filter()->unique()->all();
-        $riders = User::query()->where('role', 'courier')->where('status', 'approved')
+        $riders = User::query()->availableForNewWork()
             ->where('hub_transfer_only', false)
             ->whereHas('serviceAreas', fn (Builder $query) => $query->whereIn('areas.id', $areaIds))
             ->orderBy('first_name')->get();
@@ -300,7 +302,7 @@ class LogisticsController extends Controller
             abort_unless($lockedOrder->pickup_claimed_at === null || $previousRider?->status === 'suspended', 422, 'The accepted pickup must be released by its unavailable rider before reassignment.');
             abort_if($previousRider?->id === $rider->id, 422, 'Choose a different rider for reassignment.');
 
-            app(ParcelLoadService::class)->assertFits($lockedOrder, $rider);
+            app(ParcelLoadService::class)->assertFits($lockedOrder, $rider, newWork: true);
             $lockedOrder->forceFill(['pickup_courier_id' => $rider->id, 'pickup_claimed_at' => null])->save();
             if ($previousRider !== null) {
                 DB::table('logistics_exceptions')
@@ -847,7 +849,7 @@ class LogisticsController extends Controller
         $parcels = $this->hubOrders($operator)->whereIn('status', ['SORTED', 'ASSIGNED_TO_RIDER', 'OUT_FOR_DELIVERY', 'DELIVERY_FAILED', 'RETURN_IN_TRANSIT'])
             ->with(['buyer', 'deliveryCourier', 'destinationArea', 'deliveryAttempts'])->latest()->paginate(25);
         $pageAreaIds = $parcels->getCollection()->pluck('destination_area_id')->filter()->unique()->all();
-        $riders = User::query()->where('role', 'courier')->where('status', 'approved')
+        $riders = User::query()->availableForNewWork()
             ->where('hub_transfer_only', false)
             ->whereHas('serviceAreas', function (Builder $query) use ($pageAreaIds, $operator, $singleHub): void {
                 $query->whereIn('areas.id', $pageAreaIds)
@@ -1236,6 +1238,9 @@ class LogisticsController extends Controller
     private function recordAcceptanceAtHandoff(Order $order): void
     {
         $assignment = $order->deliveryAssignments()->where('status', 'active')->where('rider_id', $order->delivery_courier_id)->lockForUpdate()->first();
+        if (! $assignment || $assignment->accepted_at === null) {
+            app(RiderWorkAvailabilityService::class)->assertNewWork(User::findOrFail($order->delivery_courier_id));
+        }
         if ($assignment && ! $assignment->accepted_at) {
             abort_if($assignment->assigned_at->copy()->addMinutes((int) config('commerce.rider_acceptance_minutes', 15))->lte(now()), 422, 'The rider acceptance deadline expired. Reassign this parcel before hub handoff.');
             $assignment->update(['accepted_at' => now()]);
@@ -1275,7 +1280,8 @@ class LogisticsController extends Controller
             $ridersQuery->whereNotIn('id', $ridersWithOtherHub);
         }
         $riders = $ridersQuery->with('serviceAreas')->withCount([
-            'finalDeliveries as active_deliveries_count' => fn (Builder $query) => $query->activeCourierWorkload(false),
+            'finalDeliveries as active_deliveries_count' => fn (Builder $query) => $query->activeCourierWorkload(),
+            'finalDeliveries as completed_today_count' => fn (Builder $query) => $query->whereIn('status', ['DELIVERED', 'COMPLETED'])->where('delivered_at', '>=', today())->where('delivered_at', '<', today()->addDay()),
             'finalDeliveries as completed_deliveries_count' => fn (Builder $query) => $query->whereIn('status', ['DELIVERED', 'COMPLETED']),
             'finalDeliveries as failed_deliveries_count' => fn (Builder $query) => $query->where('status', 'DELIVERY_FAILED'),
         ])->orderByRaw("CASE status WHEN 'pending' THEN 0 WHEN 'approved' THEN 1 WHEN 'suspended' THEN 2 ELSE 3 END")->paginate(20);
@@ -1298,7 +1304,9 @@ class LogisticsController extends Controller
             ->where(fn (Builder $query) => $query->where('sorting_center_id', $operator->id)->orWhereNull('sorting_center_id'))
             ->orderBy('name')->get();
 
-        return view('logistics.riders', compact('riders', 'areas'));
+        $workloads = app(ParcelLoadService::class)->summaries($riders->getCollection());
+
+        return view('logistics.riders', compact('riders', 'areas', 'workloads'));
     }
 
     public function areas(): View
@@ -1497,10 +1505,16 @@ class LogisticsController extends Controller
                 'status' => 'suspended',
                 'suspension_previous_status' => 'approved',
                 'suspension_source' => 'logistics',
+                'suspending_hub_id' => $operator->id,
                 'suspension_reason' => $validated['reason'],
+                'suspended_at' => now(),
+                'work_availability' => 'unavailable', 'work_availability_changed_at' => now(),
+                'work_availability_version' => (int) $lockedUser->work_availability_version + 1,
             ])->save();
 
             $exceptions->openForRiderSuspension($lockedUser, $operator, $validated['reason']);
+            app(AdministrativeAuditService::class)->record($operator, $lockedUser, 'hub_rider_suspended', ['status' => 'approved'],
+                ['status' => 'suspended', 'suspending_hub_id' => $operator->id], $validated['reason']);
 
             $notifications->send($lockedUser, new AccountStatusNotification('suspended'));
         });
@@ -1517,7 +1531,8 @@ class LogisticsController extends Controller
                 $lockedUser->role === 'courier'
                     && $lockedUser->status === 'suspended'
                     && $lockedUser->suspension_previous_status === 'approved'
-                    && $lockedUser->suspension_source === 'logistics',
+                    && $lockedUser->suspension_source === 'logistics'
+                    && (int) $lockedUser->suspending_hub_id === $operator->id,
                 404,
             );
             abort_unless($this->riderBelongsToHub($lockedUser, $operator) || ! $this->isMultiHubOperation(), 403, 'This rider is not assigned to this sorting center.');
@@ -1528,10 +1543,16 @@ class LogisticsController extends Controller
                 'suspension_source' => null,
                 'suspension_reason' => null,
                 'suspended_at' => null,
+                'suspending_hub_id' => null,
+                'work_availability' => 'unavailable', 'work_availability_changed_at' => now(),
+                'work_availability_version' => (int) $lockedUser->work_availability_version + 1,
             ])->save();
+            app(AdministrativeAuditService::class)->record($operator, $lockedUser, 'hub_rider_reactivated',
+                ['status' => 'suspended', 'suspending_hub_id' => $operator->id], ['status' => 'approved', 'work_availability' => 'unavailable'],
+                'Original suspending hub restored account approval. Rider must choose availability for new work.');
         });
 
-        return back()->with('success', 'Rider reactivated.');
+        return back()->with('success', 'Rider reactivated. The rider must choose availability for new work; vehicle verification, capacity and accepted assignments remain unchanged.');
     }
 
     public function tracking(Request $request): View

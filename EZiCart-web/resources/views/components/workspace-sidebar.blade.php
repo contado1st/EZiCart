@@ -20,6 +20,7 @@
                 ['seller.products.index', 'package1', 'Products & inventory', 'seller.products.*'],
                 ['seller.vouchers.index', 'voucher', 'Vouchers', 'seller.vouchers.*'],
                 ['seller.reports.index', 'note', 'Reports', 'seller.reports.*'],
+                ['seller.reviews.index', 'star', 'Customer reviews', 'seller.reviews.*'],
                 ['sales-reports.index', 'note', 'Sales exports', 'sales-reports.*'],
                 ['chat.index', 'chat', 'Chat', 'chat.index'],
                 ['finance.index', 'money', 'Financial records', 'finance.*'],
@@ -96,6 +97,7 @@
     if ($sidebarUser->role === 'courier' && $sidebarUser->hub_transfer_only) {
         $navigation['Delivery operations'] = [['parcel-transfers.index', 'delivery1', 'Assigned hub transfers', 'parcel-transfers.*']];
     }
+    if ($sidebarUser->role === 'courier') $navigation['Delivery operations'][] = ['courier.work-availability.index', 'checklist', 'Work availability', 'courier.work-availability.*'];
     if ($sidebarUser->isCommerceAdmin() || $sidebarUser->isLogisticsAdmin()) {
         $navigation['Staff'] = [['staff.index', 'account', 'Staff profiles', 'staff.index']];
         $navigation['Staff'][] = [$sidebarUser->isCommerceAdmin() ? 'admin.profile-reviews.index' : 'logistics-admin.profile-reviews.index', 'shield', 'Profile change approvals', $sidebarUser->isCommerceAdmin() ? 'admin.profile-reviews.*' : 'logistics-admin.profile-reviews.*'];

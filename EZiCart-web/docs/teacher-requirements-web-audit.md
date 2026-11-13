@@ -1,6 +1,6 @@
 # Teacher requirements audit for the Laravel web application
 
-Implementation follow-up, updated 14 November 2026: account, catalog, restricted pending-seller drafts, vouchers, seller reporting and buyer discovery/wishlist revisions are recorded in the [implementation audit](partial-features-implementation-audit.md). Existing-payment buyer groups are implemented while provider-dependent To Pay remains gated. This document retains its original dated findings and counts; subsequent changes do not turn its source comparisons into executed teacher passes.
+Implementation follow-up, updated 14 November 2026: account, catalog, restricted pending-seller drafts, vouchers, seller reporting, buyer discovery/review/product-enquiry and rider-availability revisions are recorded in the [implementation audit](partial-features-implementation-audit.md). Availability enforcement remains in preparation mode pending rider choices and announced activation. Existing-payment buyer groups are implemented while provider-dependent To Pay remains gated. This document retains its original dated findings and counts; subsequent changes do not turn its source comparisons into executed teacher passes.
 
 Audit date: **13 November 2026**. Reviewed branch: `web-revisions-&-updates-w/mobile-integration`, commit `782fb283331a9acf96cd1887b6e25722b7ca906a`. Scope: `EZiCart-web` routes, controllers, services, models, validation, Blade/JavaScript behavior, configuration and automated Laravel tests. **The Flutter application is excluded from compliance assessment.**
 

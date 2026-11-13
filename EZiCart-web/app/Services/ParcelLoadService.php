@@ -83,7 +83,7 @@ class ParcelLoadService
     }
 
     /** Call within the existing operation transaction; reserve planned and physically held loads. */
-    public function assertFits(Order $order, User $rider, bool $hubTransfer = false): void
+    public function assertFits(Order $order, User $rider, bool $hubTransfer = false, bool $newWork = false): void
     {
         $grams = $this->requireWeight($order);
         $rider = $this->lockVehicle($rider->id);
@@ -93,6 +93,9 @@ class ParcelLoadService
                 : 'This driver is dedicated to hub transfers. Choose a local pickup or delivery rider.']);
         }
         abort_unless($rider->role === 'courier' && $rider->status === 'approved', 422, 'Choose an approved rider with a verified vehicle.');
+        if ($newWork) {
+            app(RiderWorkAvailabilityService::class)->assertNewWork($rider);
+        }
         if ($rider->license_expires_at !== null && $rider->license_expires_at->startOfDay()->lt(today())) {
             throw ValidationException::withMessages(['license_expires_at' => 'This rider license has expired. Obtain approval for the renewed license before assignment or dispatch.']);
         }

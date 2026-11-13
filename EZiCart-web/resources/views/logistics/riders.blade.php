@@ -18,6 +18,7 @@
         <div class="ops-alert ops-alert--error" role="alert">{{ $errors->first() }}</div>
     @endif
 
+    <p class="ops-muted">{{ config('rider-work.enforce_availability') ? 'New-work availability rules are active. Accepted parcels stay assigned when an approved rider becomes unavailable.' : 'Preparation mode: rider choices are being collected. Existing assignment rules continue until activation.' }} Availability is separate from account approval and online presence.</p>
     <details class="ops-panel">
         <summary><strong>Add a rider</strong><span class="ops-muted">Create a roster entry and email a one-use activation link.</span></summary>
         <form method="POST" action="{{ route('logistics.riders.store') }}" enctype="multipart/form-data" class="ops-rider-form">
@@ -101,7 +102,10 @@
                             </td>
                             <td>
                                 @if ($rider->assigned_to_hub)
-                                    <strong>{{ $rider->active_deliveries_count }} active</strong>
+                                    <strong>{{ $workloads[$rider->id]['count'] ?? 0 }} reserved / held parcels</strong>
+                                    <div class="ops-muted">{{ \App\Services\ParcelLoadService::kg($workloads[$rider->id]['grams'] ?? 0) }} · Verified limit: {{ \App\Services\ParcelLoadService::kg($workloads[$rider->id]['capacity'] ?? null) }}</div>
+                                    <div class="ops-muted">{{ $rider->active_deliveries_count }} active local deliveries / {{ config('logistics.maximum_active_deliveries_per_rider') }} configured job limit</div>
+                                    <div class="ops-muted">{{ $rider->completed_today_count }} delivered today</div>
                                     <div class="ops-muted">
                                         {{ $rider->completed_deliveries_count }} delivered · {{ $rider->failed_deliveries_count }} failed
                                     </div>
@@ -113,6 +117,7 @@
                                 <span class="ops-status {{ $rider->status === 'approved' ? 'ops-status--green' : ($rider->status === 'pending' ? 'ops-status--amber' : 'ops-status--danger') }}">
                                     {{ $rider->status === 'pending_activation' ? 'Pending Activation' : ucfirst($rider->status) }}
                                 </span>
+                                @if($rider->assigned_to_hub)<div class="ops-muted">New work: {{ match($rider->work_availability) { 'available' => 'Available', 'unavailable' => 'Unavailable', default => 'Not chosen' } }}</div>@endif
                             </td>
                             <td>
                                 @if ($rider->assigned_to_hub)
@@ -151,7 +156,7 @@
                                         <button class="ops-btn ops-btn--danger" type="submit">Suspend</button>
                                     </form>
                                 @elseif($rider->status === 'suspended')
-                                    @if ($rider->suspension_source === 'logistics' && $rider->suspension_previous_status === 'approved')
+                                    @if ($rider->suspension_source === 'logistics' && $rider->suspension_previous_status === 'approved' && (int)$rider->suspending_hub_id === auth()->id())
                                         <form method="POST" action="{{ route('logistics.riders.reactivate', $rider) }}" data-decision="logistics.riders.reactivate" data-decision-title="Restore this account?" data-decision-message="Check the account review and intended status before restoring access." data-decision-label="Restore account" data-decision-tone="normal" onsubmit="return window.eziDecisionReady ? true : window.confirm(this.dataset.decisionMessage)">
                                             @csrf
                                             <button class="ops-btn" type="submit">Reactivate</button>

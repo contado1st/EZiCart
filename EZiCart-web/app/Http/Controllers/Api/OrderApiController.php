@@ -6,10 +6,10 @@ use App\Enums\OrderStatus;
 use App\Http\Controllers\Controller;
 use App\Models\Dispute;
 use App\Models\Order;
-use App\Models\Review;
 use App\Services\DeliveryCodeService;
 use App\Services\OrderTransitionService;
 use App\Services\QrCodeService;
+use App\Services\ReviewService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -272,17 +272,9 @@ class OrderApiController extends Controller
             'comment' => ['nullable', 'string', 'max:1000'],
         ]);
 
-        $review = Review::updateOrCreate(
-            [
-                'order_id' => $order->id,
-                'user_id' => $buyer->id,
-                'product_id' => $validated['product_id'],
-            ],
-            [
-                'rating' => $validated['rating'],
-                'comment' => $validated['comment'] ?? '',
-            ]
-        );
+        // The API shares review identity and eligibility with the web; repeat create
+        // cannot silently overwrite a buyer's review or bypass revision history.
+        $review = app(ReviewService::class)->save($buyer, $order, $validated, []);
 
         return response()->json([
             'success' => true,

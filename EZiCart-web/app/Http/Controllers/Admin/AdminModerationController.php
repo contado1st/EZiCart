@@ -59,10 +59,13 @@ class AdminModerationController extends Controller
                 'status' => 'suspended',
                 'suspension_previous_status' => $lockedUser->status,
                 'suspension_source' => 'admin',
+                'suspending_hub_id' => null,
                 'suspension_reason' => $validated['suspension_reason'],
                 'suspended_at' => now(),
             ])->save();
             if ($lockedUser->role === 'courier') {
+                $lockedUser->forceFill(['work_availability' => 'unavailable', 'work_availability_changed_at' => now(),
+                    'work_availability_version' => (int) $lockedUser->work_availability_version + 1])->save();
                 $exceptions->openForRiderSuspension($lockedUser, $request->user(), $validated['suspension_reason']);
             }
             $notifications->send($lockedUser, new AccountStatusNotification('suspended', $validated['suspension_reason']));
@@ -94,9 +97,14 @@ class AdminModerationController extends Controller
                 'status' => $restoredStatus,
                 'suspension_previous_status' => null,
                 'suspension_source' => null,
+                'suspending_hub_id' => null,
                 'suspension_reason' => null,
                 'suspended_at' => null,
             ])->save();
+            if ($lockedUser->role === 'courier') {
+                $lockedUser->forceFill(['work_availability' => 'unavailable', 'work_availability_changed_at' => now(),
+                    'work_availability_version' => (int) $lockedUser->work_availability_version + 1])->save();
+            }
             $notifications->send($lockedUser, new AccountStatusNotification($restoredStatus));
             $this->audits->record($this->authenticatedUser(), $lockedUser, 'account_reactivated', ['status' => 'suspended'], ['status' => $restoredStatus], 'Restored to recorded prior account state.');
 

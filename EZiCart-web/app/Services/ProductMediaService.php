@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\DirectMessage;
 use App\Models\OrderItem;
 use App\Models\Product;
 use Illuminate\Http\Request;
@@ -79,7 +80,8 @@ class ProductMediaService
     public function deleteFiles(array $paths): void
     {
         foreach (array_unique(array_filter($paths)) as $path) {
-            if (OrderItem::where('purchased_image_path', $path)->exists()) {
+            if (OrderItem::where('purchased_image_path', $path)->exists()
+                || DirectMessage::where('product_context->image_path', $path)->exists()) {
                 continue;
             }
             try {

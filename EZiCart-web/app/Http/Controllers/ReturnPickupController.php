@@ -22,7 +22,7 @@ class ReturnPickupController extends Controller
             ->with(['buyer', 'seller', 'sortingCenter', 'dispute', 'returnPickupAssignment.rider'])->oldest('id')->paginate(20);
         $riders = collect();
         if ($actor->isLogisticsAdmin() || $actor->role === 'sorting_center') {
-            $riders = User::where('role', 'courier')->where('status', 'approved')->where('hub_transfer_only', false)
+            $riders = User::availableForNewWork()->where('hub_transfer_only', false)
                 ->when($actor->role === 'sorting_center', fn ($query) => $query->where(fn ($q) => $q->where('logistics_owner_id', $actor->id)->orWhereHas('serviceAreas', fn ($area) => $area->where('sorting_center_id', $actor->id))))
                 ->orderBy('first_name')->get();
         }

@@ -90,7 +90,7 @@
                                 </div>
 
                                 <!-- Review Form for Completed Orders -->
-                                @if ($order->status === 'COMPLETED')
+                                @if (($order->status === 'COMPLETED' || $order->reviews->contains('product_id', $item->product_id)) && $order->items->firstWhere('product_id', $item->product_id)->id === $item->id)
                                     @php
                                         $alreadyReviewed = $order->reviews->firstWhere('product_id', $item->product_id);
                                     @endphp
@@ -99,30 +99,11 @@
                                         <div class="u-extracted-930b6add1c">
                                             ★ Rated {{ $alreadyReviewed->rating }}/5:
                                             "{{ $alreadyReviewed->comment ?? 'No comment' }}"
+                                            <a href="{{ route('buyer.reviews.edit', $alreadyReviewed) }}">Edit review / private history</a>
                                         </div>
                                     @else
                                         <div class="review-modal-box">
-                                            <form action="{{ route('buyer.orders.review', $order->id) }}" method="POST">
-                                                @csrf
-                                                <input type="hidden" name="product_id" value="{{ $item->product_id }}">
-                                                <div class="u-extracted-487b2c5804">
-                                                    <select name="rating" class="review-form-select u-extracted-6f50c17793"
-                                                        required>
-                                                        <option value="5">★★★★★ (5)</option>
-                                                        <option value="4">★★★★☆ (4)</option>
-                                                        <option value="3">★★★☆☆ (3)</option>
-                                                        <option value="2">★★☆☆☆ (2)</option>
-                                                        <option value="1">★☆☆☆☆ (1)</option>
-                                                    </select>
-                                                    <input type="text" name="comment"
-                                                        placeholder="Write feedback (optional)..."
-                                                        class="review-form-select u-extracted-1c09f0c006">
-                                                    <button type="submit"
-                                                        class="dash-btn-sm dash-btn-primary u-extracted-1c09f0c006">
-                                                        Rate
-                                                    </button>
-                                                </div>
-                                            </form>
+                                            <x-review-form :order="$order" :product-id="$item->product_id" />
                                         </div>
                                     @endif
                                 @endif

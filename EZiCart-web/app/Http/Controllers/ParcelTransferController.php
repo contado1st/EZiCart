@@ -22,7 +22,7 @@ class ParcelTransferController extends Controller
             ->when($actor->role === 'sorting_center', fn ($query) => $query->where(fn ($q) => $q->where('source_hub_id', $actor->id)->orWhere('destination_hub_id', $actor->id)))
             ->latest('id')->paginate(20);
 
-        $carriers = User::where('role', 'courier')->where('status', 'approved')
+        $carriers = User::availableForNewWork()
             ->where('hub_transfer_only', true)
             ->when(! $actor->isLogisticsAdmin(), fn ($query) => $query->where(fn ($q) => $q->where('logistics_owner_id', $actor->id)->orWhereHas('serviceAreas', fn ($a) => $a->where('sorting_center_id', $actor->id))))->get();
 

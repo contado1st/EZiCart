@@ -28,6 +28,7 @@ use App\Http\Controllers\ChatInboxController;
 use App\Http\Controllers\CommunicationCountController;
 use App\Http\Controllers\Courier\AssignmentAcceptanceController;
 use App\Http\Controllers\Courier\CourierController;
+use App\Http\Controllers\Courier\WorkAvailabilityController;
 use App\Http\Controllers\DirectMessageController;
 use App\Http\Controllers\FinancialController;
 use App\Http\Controllers\FinancialOperationsController;
@@ -53,6 +54,7 @@ use App\Http\Controllers\Seller\ReturnInspectionController;
 use App\Http\Controllers\Seller\SellerController;
 use App\Http\Controllers\Seller\SellerOrderController;
 use App\Http\Controllers\Seller\SellerReportController;
+use App\Http\Controllers\Seller\SellerReviewController;
 use App\Http\Controllers\Seller\SellerVoucherController;
 use App\Http\Controllers\SellerPromotionController;
 use App\Http\Controllers\SellerShopController;
@@ -69,6 +71,7 @@ Route::view('/terms', 'legal.terms')->name('terms');
 Route::view('/privacy', 'legal.privacy')->name('privacy');
 Route::get('/product/{product}', [HomeController::class, 'showProduct'])->name('product.show');
 Route::get('/shops/{seller}', [SellerShopController::class, 'show'])->whereNumber('seller')->name('shops.show');
+Route::get('/reviews/{review}/photos/{photo}', [ReviewController::class, 'photo'])->whereNumber(['review', 'photo'])->name('reviews.photos.show');
 Route::get('/profiles/{user}/media/{type}', [ProfileAppearanceController::class, 'media'])->whereNumber('user')->whereIn('type', ['avatar', 'banner'])->name('profiles.media');
 Route::get('/psgc-addresses', PsgcAddressController::class)->middleware('throttle:120,1')->name('psgc.addresses');
 
@@ -166,6 +169,7 @@ Route::middleware(['auth', 'account.active', 'auth.session'])->group(function ()
         Route::get('/chat', ChatInboxController::class)->name('chat.index');
         Route::get('/chat/contacts', [DirectMessageController::class, 'contacts'])->name('chat.contacts');
         Route::post('/chat/start/{recipient}', [DirectMessageController::class, 'start'])->middleware('throttle:operational-action')->name('chat.start');
+        Route::get('/chat/messages/{message}/product-image', [DirectMessageController::class, 'productImage'])->whereNumber('message')->name('chat.product-image');
         Route::get('/chat/conversations/{conversation}', [DirectMessageController::class, 'show'])->name('chat.show');
         Route::post('/chat/conversations/{conversation}/messages', [DirectMessageController::class, 'store'])->middleware('throttle:operational-action')->name('chat.store');
     });
@@ -256,6 +260,8 @@ Route::middleware(['auth', 'account.active', 'auth.session'])->group(function ()
             Route::post('/orders/{order}/confirm', [BuyerController::class, 'confirmReceived'])->middleware('throttle:operational-action')->name('orders.confirm');
             Route::post('/orders/{order}/cancel', [BuyerController::class, 'cancel'])->middleware('throttle:operational-action')->name('orders.cancel');
             Route::post('/orders/{order}/review', [ReviewController::class, 'store'])->middleware('throttle:operational-action')->name('orders.review');
+            Route::get('/reviews/{review}/edit', [ReviewController::class, 'edit'])->whereNumber('review')->name('reviews.edit');
+            Route::patch('/reviews/{review}', [ReviewController::class, 'update'])->whereNumber('review')->middleware('throttle:operational-action')->name('reviews.update');
             Route::get('/orders/{order}/dispute', [DisputeController::class, 'create'])->name('orders.dispute.create');
             Route::post('/orders/{order}/dispute', [DisputeController::class, 'store'])->middleware('throttle:operational-action')->name('orders.dispute.store');
         });
@@ -289,6 +295,7 @@ Route::middleware(['auth', 'account.active', 'auth.session'])->group(function ()
         Route::delete('/product-drafts/{draft}', [ProductDraftController::class, 'destroy'])->name('product-drafts.destroy');
         Route::get('/product-drafts/{draft}/media/{field}', [ProductDraftController::class, 'media'])->name('product-drafts.media');
         Route::get('/reports', [SellerReportController::class, 'index'])->name('reports.index');
+        Route::get('/reviews', [SellerReviewController::class, 'index'])->name('reviews.index');
 
         // Order Fulfillment & Waybill Routes
         Route::get('/orders', [SellerOrderController::class, 'index'])->name('orders.index');
@@ -314,6 +321,8 @@ Route::middleware(['auth', 'account.active', 'auth.session'])->group(function ()
     // Courier-Only Routes (Fulfillment & Delivery Workspace)
     Route::middleware(['role:courier'])->prefix('courier')->name('courier.')->group(function () {
         Route::get('/dashboard', [CourierController::class, 'dashboard'])->name('dashboard');
+        Route::get('/work-availability', [WorkAvailabilityController::class, 'index'])->name('work-availability.index');
+        Route::patch('/work-availability', [WorkAvailabilityController::class, 'update'])->middleware('throttle:operational-action')->name('work-availability.update');
         Route::post('/badge/rotate', [CourierController::class, 'rotateBadge'])->middleware('throttle:operational-action')->name('badge.rotate');
         Route::post('/orders/{order}/claim', [CourierController::class, 'claimPickup'])->middleware('throttle:operational-action')->name('orders.claim');
         Route::post('/orders/{order}/decline-pickup', [CourierController::class, 'declinePickup'])->middleware('throttle:operational-action')->name('orders.declinePickup');

@@ -30,7 +30,7 @@ class ReturnPickupService
             abort_unless($actor->isLogisticsAdmin() || $locked->sorting_center_id === $actor->id, 403);
             $this->assertAwaitingPickup($locked);
             abort_unless($locked->sorting_center_id !== null && ((int) $rider->logistics_owner_id === (int) $locked->sorting_center_id || $rider->serviceAreas()->where('sorting_center_id', $locked->sorting_center_id)->exists()), 422, 'Choose a local rider belonging to the parcel destination hub.');
-            app(ParcelLoadService::class)->assertFits($locked, $rider);
+            app(ParcelLoadService::class)->assertFits($locked, $rider, newWork: true);
             $previous = $locked->returnPickupAssignment()->lockForUpdate()->first();
             abort_if($previous?->accepted_at !== null, 422, 'The rider has already accepted this return pickup. Recover custody before reassignment.');
             if ($previous) {
@@ -49,7 +49,7 @@ class ReturnPickupService
             $locked = Order::whereKey($order->id)->lockForUpdate()->firstOrFail();
             $this->assertAwaitingPickup($locked);
             $assignment = $this->assignment($locked, $rider);
-            app(ParcelLoadService::class)->assertFits($locked, $rider);
+            app(ParcelLoadService::class)->assertFits($locked, $rider, newWork: $assignment->accepted_at === null);
             if ($assignment->accepted_at === null) {
                 $assignment->update(['accepted_at' => now()]);
                 $this->notify($locked, 'Return rider accepted. Confirm handover only when the rider arrives and takes the parcel.');

@@ -13,6 +13,7 @@
         </div>
     </header>
 
+    <x-rider-work-availability :rider="$courier" />
     <section class="ops-stats ops-stats--priority" aria-label="Today's work summary">
         <div class="ops-stat ops-stat--action">
             <span class="workspace-stat-icon" aria-hidden="true"><x-shop-icon name="package1" /></span>

@@ -130,7 +130,7 @@ class OrderTransitionService
             if (in_array($target, [OrderStatus::AssignedToRider, OrderStatus::PickedUp, OrderStatus::OutForDelivery, OrderStatus::ReturnInTransit], true)) {
                 $riderId = $target === OrderStatus::PickedUp ? $lockedOrder->pickup_courier_id : ($attributes['delivery_courier_id'] ?? $lockedOrder->delivery_courier_id);
                 abort_unless($riderId, 422, 'Assign a verified vehicle before moving this parcel.');
-                app(ParcelLoadService::class)->assertFits($lockedOrder, User::findOrFail($riderId));
+                app(ParcelLoadService::class)->assertFits($lockedOrder, User::findOrFail($riderId), newWork: $target === OrderStatus::AssignedToRider);
             }
             if ($target === OrderStatus::Confirmed && $lockedOrder->seller_response_due_at?->isPast()) {
                 throw new HttpException(422, 'The seller confirmation deadline has expired.');
@@ -321,6 +321,34 @@ class OrderTransitionService
             ParcelTrackingEvent::create(['order_id' => $locked->id, 'event_type' => 'rider_acceptance_expired', 'status' => $locked->status, 'notes' => 'Rider acceptance deadline expired before handoff; logistics must select another rider.']);
             $this->audits->record(null, $locked, 'rider_acceptance_expired', ['status' => 'ASSIGNED_TO_RIDER', 'rider_id' => $previousRider?->id], ['status' => 'SORTED', 'rider_id' => null], 'Unaccepted assignment returned to the hub dispatch queue.');
             $this->notifications->send(collect([$previousRider, $locked->sortingCenter, $locked->buyer, $locked->seller])->filter()->unique('id'), new OrderWorkflowNotification($locked, 'delivery_assignment_replaced', 'The rider acceptance deadline expired. Parcel returned to logistics for reassignment.'));
+
+            return true;
+        }, 3);
+    }
+
+    public function withdrawUnavailableDeliveryOffer(Order $order, User $candidate, ?User $actor = null): bool
+    {
+        return DB::transaction(function () use ($order, $candidate, $actor): bool {
+            $rider = app(ParcelLoadService::class)->lockVehicle($candidate->id);
+            if (! config('rider-work.enforce_availability') || $rider->role !== 'courier' || $rider->status !== 'approved' || $rider->work_availability === 'available') {
+                return false;
+            }
+            abort_unless($actor === null || $actor->id === $rider->id, 403);
+            $locked = Order::whereKey($order->id)->lockForUpdate()->firstOrFail();
+            if ($locked->status !== 'ASSIGNED_TO_RIDER' || (int) $locked->delivery_courier_id !== $rider->id || $locked->hub_released_at !== null) {
+                return false;
+            }
+            $assignment = $locked->deliveryAssignments()->where('rider_id', $rider->id)->where('status', 'active')->lockForUpdate()->first();
+            if (! $assignment || $assignment->accepted_at !== null) {
+                return false;
+            }
+            $assignment->update(['status' => 'reassigned', 'active_order_id' => null, 'released_at' => now()]);
+            $locked->forceFill(['status' => OrderStatus::Sorted->value, 'delivery_courier_id' => null, 'assigned_at' => null])->save();
+            $message = 'Rider unavailable for new work. Unaccepted offer returned to hub dispatch; no physical handover recorded.';
+            ParcelTrackingEvent::create(['order_id' => $locked->id, 'actor_id' => $actor?->id, 'event_type' => 'delivery_offer_withdrawn_for_availability', 'status' => $locked->status, 'notes' => $message]);
+            $this->audits->record($actor, $locked, 'delivery_offer_withdrawn_for_availability', ['status' => 'ASSIGNED_TO_RIDER', 'rider_id' => $rider->id], ['status' => 'SORTED', 'rider_id' => null], $message);
+            $this->notifications->send(collect([$rider, $locked->sortingCenter, $locked->buyer, $locked->seller])->filter()->unique('id'),
+                new OrderWorkflowNotification($locked, 'delivery_offer_withdrawn_for_availability', $message));
 
             return true;
         }, 3);

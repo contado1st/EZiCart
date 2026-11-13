@@ -51,7 +51,7 @@ class ParcelTransferService
                 throw ValidationException::withMessages(['carrier_rider_id' => 'Select the registered transport driver and verified vehicle before hub transfer release.']);
             }
             abort_unless((int) $carrier->logistics_owner_id === $actor->id || $carrier->serviceAreas()->where('sorting_center_id', $actor->id)->exists(), 403, 'Select a carrier belonging to the source hub.');
-            app(ParcelLoadService::class)->assertFits($order, $carrier, hubTransfer: true);
+            app(ParcelLoadService::class)->assertFits($order, $carrier, hubTransfer: true, newWork: true);
             $locked->forceFill(['carrier_rider_id' => $carrier->id, 'status' => 'IN_TRANSIT', 'released_by' => $actor->id, 'released_at' => now(), 'transport_reference' => $transport])->save();
             ParcelTrackingEvent::create(['order_id' => $order->id, 'actor_id' => $actor->id, 'event_type' => 'hub_transfer_released', 'status' => $order->status, 'notes' => 'Released for hub transfer. Transport manifest: '.$transport]);
             $this->audits->record($actor, $locked, 'hub_transfer_released', ['status' => 'PLANNED'], ['status' => 'IN_TRANSIT', 'transport_reference' => $transport, 'carrier_rider_id' => $carrier->id, 'parcel_weight_grams' => $order->parcel_weight_grams, 'vehicle_capacity_grams' => $carrier->vehicle_capacity_grams], 'Parcel label scanned at source hub.');
@@ -74,7 +74,7 @@ class ParcelTransferService
             abort_unless($previous && $previous->status === 'suspended' && $replacement->id !== $previous->id, 422, 'Recovery requires a suspended carrier and a different replacement driver.');
             abort_unless(hash_equals('EZP:'.$order->parcel_code, $reference), 422, 'Scan the parcel label at the physical replacement handover.');
             abort_unless((int) $replacement->logistics_owner_id === (int) $locked->source_hub_id || $replacement->serviceAreas()->where('sorting_center_id', $locked->source_hub_id)->exists(), 422, 'The replacement driver must belong to the source hub.');
-            app(ParcelLoadService::class)->assertFits($order, $replacement, hubTransfer: true);
+            app(ParcelLoadService::class)->assertFits($order, $replacement, hubTransfer: true, newWork: true);
             $locked->forceFill(['carrier_rider_id' => $replacement->id])->save();
             ParcelTrackingEvent::create(['order_id' => $order->id, 'actor_id' => $actor->id, 'event_type' => 'hub_carrier_recovered', 'status' => $order->status, 'notes' => 'Physical handover from driver #'.$previous->id.' to #'.$replacement->id.'. '.$reason]);
             $this->audits->record($actor, $locked, 'hub_carrier_recovered', ['carrier_rider_id' => $previous->id], ['carrier_rider_id' => $replacement->id], $reason);
