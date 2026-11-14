@@ -37,6 +37,56 @@ class _LoginPageState extends State<LoginPage> {
     );
   }
 
+  void _showForgotPasswordDialog() {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Row(
+          children: [
+            Icon(Icons.help_outline_rounded, color: AppTheme.primary, size: 22),
+            SizedBox(width: 8),
+            Text(
+              'Forgot Password?',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+          ],
+        ),
+        content: const Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Driver & Courier accounts are securely provisioned by Logistics Administration.',
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: AppTheme.ink,
+              ),
+            ),
+            SizedBox(height: 10),
+            Text(
+              'If you forgot your password or cannot access your delivery account, please contact your Logistics Hub Supervisor or Dispatch Team for credential reset and verification.',
+              style: TextStyle(fontSize: 13, color: AppTheme.muted, height: 1.4),
+            ),
+          ],
+        ),
+        actions: [
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.primary,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('Understood', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+  }
+
   void _showDomainConfigDialog() {
     final domainCtrl = TextEditingController(text: ApiConfig.baseUrl);
     showDialog(
@@ -47,7 +97,10 @@ class _LoginPageState extends State<LoginPage> {
           children: [
             Icon(Icons.tune_rounded, color: AppTheme.primary, size: 22),
             SizedBox(width: 8),
-            Text('Server Settings', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            Text(
+              'Server Settings',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
           ],
         ),
         content: SingleChildScrollView(
@@ -73,7 +126,11 @@ class _LoginPageState extends State<LoginPage> {
               const SizedBox(height: 16),
               const Text(
                 'Quick Presets:',
-                style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.ink),
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  color: AppTheme.ink,
+                ),
               ),
               const SizedBox(height: 8),
               Wrap(
@@ -82,18 +139,30 @@ class _LoginPageState extends State<LoginPage> {
                 children: [
                   ActionChip(
                     backgroundColor: const Color(0xFFF1F5F9),
-                    label: const Text('127.0.0.1 (Local PC)', style: TextStyle(fontSize: 11)),
-                    onPressed: () => domainCtrl.text = 'http://127.0.0.1:8000/api',
+                    label: const Text(
+                      '127.0.0.1 (Local PC)',
+                      style: TextStyle(fontSize: 11),
+                    ),
+                    onPressed: () =>
+                        domainCtrl.text = 'http://127.0.0.1:8000/api',
                   ),
                   ActionChip(
                     backgroundColor: const Color(0xFFF1F5F9),
-                    label: const Text('10.0.2.2 (Android Emulator)', style: TextStyle(fontSize: 11)),
-                    onPressed: () => domainCtrl.text = 'http://10.0.2.2:8000/api',
+                    label: const Text(
+                      '10.0.2.2 (Android Emulator)',
+                      style: TextStyle(fontSize: 11),
+                    ),
+                    onPressed: () =>
+                        domainCtrl.text = 'http://10.0.2.2:8000/api',
                   ),
                   ActionChip(
                     backgroundColor: const Color(0xFFF1F5F9),
-                    label: const Text('Live Server', style: TextStyle(fontSize: 11)),
-                    onPressed: () => domainCtrl.text = 'https://shop.ezicart.trade/api/v1',
+                    label: const Text(
+                      'Live Server',
+                      style: TextStyle(fontSize: 11),
+                    ),
+                    onPressed: () =>
+                        domainCtrl.text = 'https://shop.ezicart.trade/api/v1',
                   ),
                 ],
               ),
@@ -111,12 +180,17 @@ class _LoginPageState extends State<LoginPage> {
                 const SnackBar(content: Text('Reset to default base URL.')),
               );
             },
-            child: const Text('Reset Default', style: TextStyle(color: AppTheme.muted)),
+            child: const Text(
+              'Reset Default',
+              style: TextStyle(color: AppTheme.muted),
+            ),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
               backgroundColor: AppTheme.primary,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
             ),
             onPressed: () async {
               final nav = Navigator.of(context);
@@ -141,8 +215,8 @@ class _LoginPageState extends State<LoginPage> {
     final auth = context.watch<AuthProvider>();
 
     return AuthScaffold(
-      title: 'Courier & Driver Portal',
-      subtitle: 'Sign in to manage pickups, hub transfers, and deliveries',
+      title: 'Welcome Back',
+      subtitle: 'Sign in to access your orders, routes, and deliveries',
       topAction: Material(
         color: Colors.black.withValues(alpha: 0.30),
         borderRadius: BorderRadius.circular(12),
@@ -158,7 +232,11 @@ class _LoginPageState extends State<LoginPage> {
                 width: 1,
               ),
             ),
-            child: const Icon(Icons.tune_rounded, color: Colors.white, size: 18),
+            child: const Icon(
+              Icons.tune_rounded,
+              color: Colors.white,
+              size: 18,
+            ),
           ),
         ),
       ),
@@ -178,13 +256,17 @@ class _LoginPageState extends State<LoginPage> {
               enableSuggestions: false,
               textInputAction: TextInputAction.next,
               decoration: AuthStyles.inputDecoration(
-                label: 'Courier Email Address',
-                hint: 'rider@ezicart.trade',
+                label: 'Email Address',
+                hint: 'name@example.com',
                 prefixIcon: Icons.email_outlined,
               ),
               validator: (v) {
-                if (v == null || v.trim().isEmpty) return 'Please enter your email.';
-                if (!v.contains('@') || !v.contains('.')) return 'Enter a valid email address.';
+                if (v == null || v.trim().isEmpty) {
+                  return 'Please enter your email.';
+                }
+                if (!v.contains('@') || !v.contains('.')) {
+                  return 'Enter a valid email address.';
+                }
                 return null;
               },
             ),
@@ -204,16 +286,45 @@ class _LoginPageState extends State<LoginPage> {
                 prefixIcon: Icons.lock_outline_rounded,
                 suffixIcon: IconButton(
                   icon: Icon(
-                    _obscurePassword ? Icons.visibility_outlined : Icons.visibility_off_outlined,
+                    _obscurePassword
+                        ? Icons.visibility_outlined
+                        : Icons.visibility_off_outlined,
                     color: const Color(0xFF718096),
                     size: 20,
                   ),
-                  onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+                  onPressed: () =>
+                      setState(() => _obscurePassword = !_obscurePassword),
                 ),
               ),
-              validator: (v) => (v == null || v.isEmpty) ? 'Please enter your password.' : null,
+              validator: (v) =>
+                  (v == null || v.isEmpty) ? 'Please enter your password.' : null,
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 10),
+
+            // Forgot Password Link
+            Align(
+              alignment: Alignment.centerRight,
+              child: TextButton(
+                style: TextButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 4,
+                    vertical: 4,
+                  ),
+                  minimumSize: Size.zero,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+                onPressed: _showForgotPasswordDialog,
+                child: const Text(
+                  'Forgot Password?',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: AppTheme.primary,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 20),
 
             // Submit Button
             AuthStyles.gradientButton(
@@ -225,19 +336,8 @@ class _LoginPageState extends State<LoginPage> {
           ],
         ),
       ),
-      // No registration cardBottom as required: "Remove any registration/sign-up links or screens"
-      cardBottom: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        child: const Text(
-          'Driver and Courier accounts are provisioned by Logistics Administration.',
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            color: Colors.white70,
-            fontSize: 12,
-            fontWeight: FontWeight.w400,
-          ),
-        ),
-      ),
+      // Drivers and couriers are provisioned by admin; no sign-up link.
+      cardBottom: null,
     );
   }
 }

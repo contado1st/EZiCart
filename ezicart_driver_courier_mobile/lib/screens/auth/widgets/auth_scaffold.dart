@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../config/theme.dart';
 
 class AuthScaffold extends StatelessWidget {
   final String title;
@@ -22,6 +23,7 @@ class AuthScaffold extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Exact physical viewport dimensions (never shrinks when keyboard opens)
     final screenSize = MediaQuery.sizeOf(context);
 
     return Scaffold(
@@ -29,6 +31,7 @@ class AuthScaffold extends StatelessWidget {
       body: Stack(
         fit: StackFit.expand,
         children: [
+          // 1. STATIC Background Image locked to full viewport dimensions
           Positioned(
             top: 0,
             left: 0,
@@ -55,6 +58,8 @@ class AuthScaffold extends StatelessWidget {
               ),
             ),
           ),
+
+          // 2. STATIC Ambient Depth / Darkening Layer
           Positioned(
             top: 0,
             left: 0,
@@ -77,6 +82,8 @@ class AuthScaffold extends StatelessWidget {
               ),
             ),
           ),
+
+          // 3. Centered Scrollable Content
           SafeArea(
             child: LayoutBuilder(
               builder: (context, constraints) {
@@ -84,108 +91,148 @@ class AuthScaffold extends StatelessWidget {
                   physics: const AlwaysScrollableScrollPhysics(
                     parent: BouncingScrollPhysics(),
                   ),
-                  keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+                  keyboardDismissBehavior:
+                      ScrollViewKeyboardDismissBehavior.onDrag,
                   child: ConstrainedBox(
                     constraints: BoxConstraints(
                       minHeight: constraints.maxHeight,
                     ),
-                    child: IntrinsicHeight(
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                    child: Center(
+                      child: Container(
+                        constraints: const BoxConstraints(maxWidth: 440),
+                        padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          crossAxisAlignment: CrossAxisAlignment.center,
                           children: [
-                            const SizedBox(height: 12),
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                if (showBack)
-                                  Material(
-                                    color: Colors.black.withValues(alpha: 0.30),
-                                    borderRadius: BorderRadius.circular(12),
-                                    child: InkWell(
-                                      borderRadius: BorderRadius.circular(12),
-                                      onTap: onBack ?? () => Navigator.of(context).maybePop(),
-                                      child: Container(
-                                        padding: const EdgeInsets.all(8),
-                                        decoration: BoxDecoration(
-                                          borderRadius: BorderRadius.circular(12),
-                                          border: Border.all(
-                                            color: Colors.white.withValues(alpha: 0.30),
-                                            width: 1,
-                                          ),
-                                        ),
-                                        child: const Icon(
-                                          Icons.arrow_back_rounded,
+                            const SizedBox(height: 8),
+
+                            // Large, Prominent & Beautifully Balanced EZiCart Logo in Glass Capsule
+                            Hero(
+                              tag: 'ezicart-app-logo',
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 24,
+                                  vertical: 12,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withValues(alpha: 0.16),
+                                  borderRadius: BorderRadius.circular(22),
+                                  border: Border.all(
+                                    color: Colors.white.withValues(alpha: 0.35),
+                                    width: 1.5,
+                                  ),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withValues(
+                                        alpha: 0.28,
+                                      ),
+                                      blurRadius: 18,
+                                      offset: const Offset(0, 6),
+                                    ),
+                                    BoxShadow(
+                                      color: const Color(
+                                        0xFFBE2854,
+                                      ).withValues(alpha: 0.25),
+                                      blurRadius: 28,
+                                      offset: const Offset(0, 4),
+                                    ),
+                                  ],
+                                ),
+                                child: Image.asset(
+                                  'assets/images/ezicart-logo.png',
+                                  height: 60,
+                                  fit: BoxFit.contain,
+                                  errorBuilder: (_, __, ___) => const Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(
+                                        Icons.local_shipping_outlined,
+                                        color: Colors.white,
+                                        size: 28,
+                                      ),
+                                      SizedBox(width: 10),
+                                      Text(
+                                        'EZiCart',
+                                        style: TextStyle(
                                           color: Colors.white,
-                                          size: 18,
+                                          fontSize: 26,
+                                          fontWeight: FontWeight.bold,
+                                          letterSpacing: 0.8,
                                         ),
                                       ),
-                                    ),
-                                  )
-                                else
-                                  const SizedBox(width: 36),
-                                if (topAction != null) topAction! else const SizedBox(width: 36),
-                              ],
-                            ),
-                            const SizedBox(height: 16),
-                            Center(
-                              child: Image.asset(
-                                'assets/images/ezicart-logo.png',
-                                height: 50,
-                                errorBuilder: (_, __, ___) => const Text(
-                                  'EZiCart',
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 28,
-                                    fontWeight: FontWeight.w900,
-                                    letterSpacing: 1.2,
+                                    ],
                                   ),
                                 ),
                               ),
                             ),
-                            const SizedBox(height: 16),
-                            Text(
-                              title,
-                              textAlign: TextAlign.center,
-                              style: const TextStyle(
-                                fontSize: 24,
-                                fontWeight: FontWeight.w800,
-                                color: Colors.white,
-                                letterSpacing: -0.4,
-                              ),
-                            ),
-                            const SizedBox(height: 6),
-                            Text(
-                              subtitle,
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w500,
-                                color: Colors.white.withValues(alpha: 0.92),
-                              ),
-                            ),
-                            const SizedBox(height: 24),
+                            const SizedBox(height: 22),
+
+                            // Clean, Self-Contained Floating White Card
                             Container(
+                              width: double.infinity,
+                              padding: const EdgeInsets.fromLTRB(
+                                22,
+                                26,
+                                22,
+                                24,
+                              ),
                               decoration: BoxDecoration(
                                 color: Colors.white,
                                 borderRadius: BorderRadius.circular(24),
                                 boxShadow: [
                                   BoxShadow(
-                                    color: Colors.black.withValues(alpha: 0.20),
-                                    blurRadius: 28,
+                                    color: Colors.black.withValues(alpha: 0.30),
+                                    blurRadius: 32,
                                     offset: const Offset(0, 14),
                                   ),
                                 ],
                               ),
-                              padding: const EdgeInsets.all(22),
-                              child: cardChild,
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  // Centered Title inside the Card
+                                  Text(
+                                    title,
+                                    textAlign: TextAlign.center,
+                                    style: const TextStyle(
+                                      fontSize: 22,
+                                      fontWeight: FontWeight.w800,
+                                      color: AppTheme.ink,
+                                      letterSpacing: -0.3,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 6),
+
+                                  // Centered Description inside the Card
+                                  Text(
+                                    subtitle,
+                                    textAlign: TextAlign.center,
+                                    style: const TextStyle(
+                                      fontSize: 13,
+                                      color: AppTheme.muted,
+                                      height: 1.35,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 20),
+
+                                  // Card Form Content
+                                  cardChild,
+
+                                  // Optional Bottom Content inside Card (Divider + Bottom Widget)
+                                  if (cardBottom != null) ...[
+                                    const SizedBox(height: 18),
+                                    const Divider(
+                                      color: Color(0xFFEDF2F7),
+                                      height: 1,
+                                    ),
+                                    const SizedBox(height: 14),
+                                    cardBottom!,
+                                  ],
+                                ],
+                              ),
                             ),
-                            if (cardBottom != null) ...[
-                              const SizedBox(height: 18),
-                              cardBottom!,
-                            ],
+
                             const SizedBox(height: 16),
                           ],
                         ),
@@ -196,6 +243,53 @@ class AuthScaffold extends StatelessWidget {
               },
             ),
           ),
+
+          // 4. Floating Top Actions (Back Button on left, Server Settings on right)
+          if (showBack)
+            Positioned(
+              top: 0,
+              left: 16,
+              child: SafeArea(
+                child: Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: Material(
+                    color: Colors.black.withValues(alpha: 0.35),
+                    borderRadius: BorderRadius.circular(12),
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(12),
+                      onTap: onBack ?? () => Navigator.of(context).maybePop(),
+                      child: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: Colors.white.withValues(alpha: 0.30),
+                            width: 1,
+                          ),
+                        ),
+                        child: const Icon(
+                          Icons.arrow_back_ios_new,
+                          color: Colors.white,
+                          size: 16,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+
+          if (topAction != null)
+            Positioned(
+              top: 0,
+              right: 16,
+              child: SafeArea(
+                child: Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: topAction!,
+                ),
+              ),
+            ),
         ],
       ),
     );
