@@ -91,6 +91,7 @@ class ApiConfig {
   static String get productsEndpoint => '$baseUrl/products';
   static String get categoriesEndpoint => '$baseUrl/categories';
   static String productDetailEndpoint(int id) => '$baseUrl/products/$id';
+  static String searchSuggestionsEndpoint(String q) => '$baseUrl/products/suggestions?q=${Uri.encodeComponent(q)}';
 
   // Shop / Storefront endpoints
   static String shopDetailsEndpoint(int id) => '$baseUrl/shops/$id';

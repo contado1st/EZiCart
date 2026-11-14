@@ -262,7 +262,7 @@ class _ShopPageState extends State<ShopPage> {
                                             const Icon(Icons.star, size: 14, color: Colors.amber),
                                             const SizedBox(width: 3),
                                             Text(
-                                              _shop?.rating.toStringAsFixed(1) ?? '5.0',
+                                              _shop?.rating.toStringAsFixed(1) ?? '0.0',
                                               style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
                                             ),
                                             Text(

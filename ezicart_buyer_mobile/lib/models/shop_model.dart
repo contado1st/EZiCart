@@ -42,7 +42,7 @@ class ShopModel {
       ownerName: json['owner_name']?.toString() ?? 'Store Owner',
       description: json['description']?.toString() ?? '',
       location: json['location']?.toString() ?? 'Philippines',
-      rating: parseDouble(json['rating'], 5.0),
+      rating: parseDouble(json['rating'], 0.0),
       reviewCount: parseInt(json['review_count']),
       productCount: parseInt(json['product_count']),
       followerCount: parseInt(json['follower_count']),

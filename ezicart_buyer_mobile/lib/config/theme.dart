@@ -6,6 +6,7 @@ class AppTheme {
   static const Color primarySoft = Color(0xFFFFF0F4);
 
   static const Color canvas = Color(0xFFF8F9FC);
+  static const Color bg = canvas;
   static const Color surface = Color(0xFFFFFFFF);
   static const Color ink = Color(0xFF202634);
   static const Color muted = Color(0xFF657084);

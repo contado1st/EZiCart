@@ -50,6 +50,11 @@ class Product extends Model
         return $this->hasMany(Review::class);
     }
 
+    public function orderItems(): HasMany
+    {
+        return $this->hasMany(OrderItem::class);
+    }
+
     public function complianceEvents(): HasMany
     {
         return $this->hasMany(ProductComplianceEvent::class)->orderByDesc('created_at')->orderByDesc('id');

@@ -48,6 +48,7 @@ $defineApiRoutes = function () {
 
     // Catalog & Products (Public)
     Route::get('/products', [ProductApiController::class, 'index']);
+    Route::get('/products/suggestions', [ProductApiController::class, 'suggestions']);
     Route::get('/products/{id}', [ProductApiController::class, 'show'])->whereNumber('id');
     Route::get('/categories', [ProductApiController::class, 'categories']);
 

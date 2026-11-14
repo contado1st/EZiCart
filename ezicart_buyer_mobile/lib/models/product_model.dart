@@ -78,6 +78,7 @@ class ProductModel {
   final String sellerName;
   final double rating;
   final int reviewsCount;
+  final int salesCount;
   final List<ProductVariation> variations;
   final List<ReviewItemModel> reviews;
   final List<String> galleryImages;
@@ -108,8 +109,9 @@ class ProductModel {
     this.imagePath,
     this.sellerId,
     required this.sellerName,
-    this.rating = 5.0,
+    this.rating = 0.0,
     this.reviewsCount = 0,
+    this.salesCount = 0,
     required this.variations,
     this.reviews = const [],
     this.galleryImages = const [],
@@ -174,8 +176,9 @@ class ProductModel {
       imagePath: baseImg ?? (allImages.isNotEmpty ? allImages.first : null),
       sellerId: parseNullableInt(json['seller']?['id'] ?? json['user_id']),
       sellerName: seller,
-      rating: parseDouble(json['rating'], 5.0),
+      rating: parseDouble(json['rating'], 0.0),
       reviewsCount: parseInt(json['reviews_count'], parsedReviews.length),
+      salesCount: parseInt(json['sales_count'] ?? json['sold_count'], 0),
       variations: parsedVariations,
       reviews: parsedReviews,
       galleryImages: allImages,

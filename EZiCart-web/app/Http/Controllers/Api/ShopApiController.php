@@ -41,8 +41,8 @@ class ShopApiController extends Controller
         $categories = (clone $base)->distinct()->orderBy('category')->pluck('category')->filter()->values();
 
         $reviews = Review::query()->whereHas('product', fn (Builder $q) => $q->where('user_id', $seller->id)->where('compliance_status', 'approved')->where('is_archived', false));
-        $rating = (clone $reviews)->avg('rating') ?: 5.0;
         $reviewCount = (clone $reviews)->count();
+        $rating = $reviewCount > 0 ? (float) (clone $reviews)->avg('rating') : 0.0;
 
         $query = (clone $base)
             ->with([
