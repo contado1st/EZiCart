@@ -80,9 +80,22 @@ class ProfileApiController extends Controller
             ], 422);
         }
 
+        if (Hash::check($validated['password'], $buyer->password)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'New password must be different from your current password.',
+            ], 422);
+        }
+
         $buyer->forceFill([
             'password' => Hash::make($validated['password']),
         ])->save();
+
+        // Revoke other active sessions on other devices
+        $currentToken = \App\Models\ApiToken::findByPlainTextToken($request->bearerToken());
+        if ($currentToken) {
+            $buyer->apiTokens()->where('id', '!=', $currentToken->id)->delete();
+        }
 
         return response()->json([
             'success' => true,

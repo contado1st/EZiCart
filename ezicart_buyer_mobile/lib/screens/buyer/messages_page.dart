@@ -385,11 +385,13 @@ class _ChatConversationScreenState extends State<ChatConversationScreen> {
                   Expanded(
                     child: TextField(
                       controller: _msgCtrl,
+                      maxLength: 1000,
                       decoration: const InputDecoration(
                         hintText: 'Type your message...',
                         border: InputBorder.none,
                         enabledBorder: InputBorder.none,
                         focusedBorder: InputBorder.none,
+                        counterText: '',
                         contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                       ),
                       onSubmitted: (_) => _send(),

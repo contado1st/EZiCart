@@ -96,6 +96,22 @@ class ApiService {
     }
   }
 
+  static Future<http.Response> put(String url, Map<String, dynamic> body) async {
+    try {
+      final headers = await _headers();
+      final res = await http.put(
+        Uri.parse(url),
+        headers: headers,
+        body: jsonEncode(body),
+      ).timeout(_timeoutDuration);
+      _checkUnauthorized(res);
+      return res;
+    } catch (e) {
+      _handleNetworkError(e, url);
+      rethrow;
+    }
+  }
+
   static Future<http.Response> patch(String url, Map<String, dynamic> body) async {
     try {
       final headers = await _headers();

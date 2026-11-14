@@ -39,8 +39,12 @@ $defineApiRoutes = function () {
     Route::post('/auth/resend-verification', [AuthApiController::class, 'resendVerificationCode'])->middleware('throttle:email-verification-resend');
     Route::post('/forgot-password', [AuthApiController::class, 'forgotPassword'])->middleware('throttle:password-reset-link');
     Route::post('/auth/forgot-password', [AuthApiController::class, 'forgotPassword'])->middleware('throttle:password-reset-link');
+    Route::post('/courier/forgot-password', [AuthApiController::class, 'forgotPassword'])->middleware('throttle:password-reset-link');
+    Route::post('/auth/courier/forgot-password', [AuthApiController::class, 'forgotPassword'])->middleware('throttle:password-reset-link');
     Route::post('/reset-password', [AuthApiController::class, 'resetPassword'])->middleware('throttle:password-reset');
     Route::post('/auth/reset-password', [AuthApiController::class, 'resetPassword'])->middleware('throttle:password-reset');
+    Route::post('/courier/reset-password', [AuthApiController::class, 'resetPassword'])->middleware('throttle:password-reset');
+    Route::post('/auth/courier/reset-password', [AuthApiController::class, 'resetPassword'])->middleware('throttle:password-reset');
 
     // Catalog & Products (Public)
     Route::get('/products', [ProductApiController::class, 'index']);
@@ -125,6 +129,8 @@ $defineApiRoutes = function () {
         Route::get('/auth/me', [AuthApiController::class, 'me']);
         Route::post('/logout', [AuthApiController::class, 'logout']);
         Route::post('/auth/logout', [AuthApiController::class, 'logout']);
+        Route::put('/password', [ProfileApiController::class, 'updatePassword']);
+        Route::put('/account/password', [ProfileApiController::class, 'updatePassword']);
 
         Route::get('/dashboard', [CourierApiController::class, 'dashboard']);
         Route::post('/badge/rotate', [CourierApiController::class, 'rotateBadge']);

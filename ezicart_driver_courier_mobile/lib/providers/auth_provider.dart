@@ -122,6 +122,135 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
+  Future<bool> forgotPassword(String email) async {
+    _isLoading = true;
+    _errorMessage = null;
+    notifyListeners();
+
+    try {
+      final res = await ApiService.post(ApiConfig.forgotPasswordEndpoint, {
+        'email': email.trim(),
+        'role': 'courier',
+        'app': 'courier',
+      });
+      dynamic data;
+      try {
+        data = jsonDecode(res.body);
+      } catch (_) {}
+      _isLoading = false;
+      final success = res.statusCode == 200 && data is Map && data['success'] == true;
+      if (!success) {
+        _errorMessage = _extractErrorMessage(data, 'Could not request password recovery.');
+      }
+      notifyListeners();
+      return success;
+    } on ApiException catch (e) {
+      _isLoading = false;
+      _errorMessage = e.message;
+      notifyListeners();
+      return false;
+    } catch (e) {
+      _isLoading = false;
+      _errorMessage = e.toString();
+      notifyListeners();
+      return false;
+    }
+  }
+
+  Future<bool> resetPassword(
+    String email,
+    String code,
+    String newPassword,
+  ) async {
+    _isLoading = true;
+    _errorMessage = null;
+    notifyListeners();
+
+    try {
+      final res = await ApiService.post(ApiConfig.resetPasswordEndpoint, {
+        'email': email.trim(),
+        'code': code.trim(),
+        'password': newPassword,
+        'password_confirmation': newPassword,
+        'role': 'courier',
+        'app': 'courier',
+      });
+
+      dynamic data;
+      try {
+        data = jsonDecode(res.body);
+      } catch (_) {}
+      _isLoading = false;
+
+      if (res.statusCode == 200 && data is Map && data['success'] == true) {
+        if (data['token'] != null) {
+          await ApiService.setToken(data['token']);
+          _user = UserModel.fromJson(data['user']);
+          _badgeCode = _user?.badgeCode;
+        }
+        notifyListeners();
+        return true;
+      } else {
+        _errorMessage = _extractErrorMessage(data, 'Password reset failed.');
+        notifyListeners();
+        return false;
+      }
+    } on ApiException catch (e) {
+      _isLoading = false;
+      _errorMessage = e.message;
+      notifyListeners();
+      return false;
+    } catch (e) {
+      _isLoading = false;
+      _errorMessage = e.toString();
+      notifyListeners();
+      return false;
+    }
+  }
+
+  Future<bool> changePassword(
+    String currentPassword,
+    String newPassword,
+    String confirmPassword,
+  ) async {
+    _isLoading = true;
+    _errorMessage = null;
+    notifyListeners();
+
+    try {
+      final res = await ApiService.put(ApiConfig.changePasswordEndpoint, {
+        'current_password': currentPassword,
+        'password': newPassword,
+        'password_confirmation': confirmPassword,
+      });
+
+      dynamic data;
+      try {
+        data = jsonDecode(res.body);
+      } catch (_) {}
+      _isLoading = false;
+
+      if (res.statusCode == 200 && data is Map && data['success'] == true) {
+        notifyListeners();
+        return true;
+      } else {
+        _errorMessage = _extractErrorMessage(data, 'Password update failed.');
+        notifyListeners();
+        return false;
+      }
+    } on ApiException catch (e) {
+      _isLoading = false;
+      _errorMessage = e.message;
+      notifyListeners();
+      return false;
+    } catch (e) {
+      _isLoading = false;
+      _errorMessage = e.toString();
+      notifyListeners();
+      return false;
+    }
+  }
+
   Future<bool> rotateBadge() async {
     _isLoading = true;
     notifyListeners();

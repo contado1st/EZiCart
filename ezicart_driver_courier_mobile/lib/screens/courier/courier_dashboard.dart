@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../config/theme.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/courier_provider.dart';
+import 'change_password_page.dart';
 import 'earnings_page.dart';
 import 'history_page.dart';
 import 'order_details_page.dart';
@@ -793,6 +794,14 @@ class _CourierDashboardState extends State<CourierDashboard> with SingleTickerPr
             onTap: () {
               Navigator.of(context).pop();
               Navigator.of(context).push(MaterialPageRoute(builder: (_) => const EarningsPage()));
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.lock_reset_rounded, color: AppTheme.primary),
+            title: const Text('Change Password'),
+            onTap: () {
+              Navigator.of(context).pop();
+              Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ChangePasswordPage()));
             },
           ),
           const Divider(),

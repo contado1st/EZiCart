@@ -31,6 +31,14 @@ class AddressApiController extends Controller
     public function store(Request $request, BuyerAddressService $addresses): JsonResponse
     {
         $buyer = $request->user();
+
+        if ($buyer->addresses()->count() >= 10) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Address book limit reached (maximum 10 addresses).',
+            ], 422);
+        }
+
         $validated = $request->validate([
             'label' => ['required', 'string', 'max:50'],
             'recipient_name' => ['required', 'string', 'min:2', 'max:255'],
@@ -101,6 +109,13 @@ class AddressApiController extends Controller
 
         if (! $existing) {
             return response()->json(['success' => false, 'message' => 'Address not found.'], 404);
+        }
+
+        if ($existing->is_default && $buyer->addresses()->count() > 1) {
+            return response()->json([
+                'success' => false,
+                'message' => 'The default address cannot be deleted. Please set another address as default first.',
+            ], 422);
         }
 
         $addresses->delete($buyer, $id);

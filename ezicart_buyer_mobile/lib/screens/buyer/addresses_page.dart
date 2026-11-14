@@ -223,9 +223,23 @@ class _AddressesPageState extends State<AddressesPage> {
 
     if (confirm == true) {
       try {
-        await ApiService.delete(ApiConfig.addressDetailEndpoint(id));
-        _fetchAddresses();
-      } catch (_) {}
+        final res = await ApiService.delete(ApiConfig.addressDetailEndpoint(id));
+        final body = jsonDecode(res.body);
+        if (res.statusCode == 200) {
+          _fetchAddresses();
+        } else if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(body['message'] ?? 'Failed to delete address.'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
+        }
+      }
     }
   }
 

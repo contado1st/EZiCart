@@ -393,7 +393,7 @@ class AuthProvider extends ChangeNotifier {
         notifyListeners();
         return true;
       }
-      _errorMessage = data['message'] ?? 'Password update failed.';
+      _errorMessage = _extractErrorMessage(data, 'Password update failed.');
       notifyListeners();
       return false;
     } catch (e) {

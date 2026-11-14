@@ -378,8 +378,9 @@ class _CheckoutPageState extends State<CheckoutPage> {
               TextField(
                 controller: _notesCtrl,
                 maxLines: 2,
+                maxLength: 200,
                 decoration: const InputDecoration(
-                  labelText: 'Delivery Notes (Optional)',
+                  labelText: 'Delivery Notes (Optional, max 200 chars)',
                   hintText: 'e.g. Leave package with guard if absent',
                 ),
               ),

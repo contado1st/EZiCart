@@ -273,35 +273,68 @@ class AuthApiController extends Controller
      */
     public function forgotPassword(Request $request): JsonResponse
     {
-        $validated = $request->validate(['email' => ['required', 'email', 'max:255']]);
+        $validated = $request->validate([
+            'email' => ['required', 'email', 'max:255'],
+            'role' => ['nullable', 'string', 'in:courier,buyer'],
+        ]);
         $email = Str::lower(trim($validated['email']));
 
         $user = User::whereRaw('LOWER(TRIM(email)) = ?', [$email])->first();
 
-        if ($user && $user->status === 'approved') {
-            $code = (string) random_int(100000, 999999);
-            try {
-                $user->notify(new PasswordRecoveryCodeNotification($code));
-            } catch (\Throwable $e) {
-                report($e);
-            }
+        $isCourierRequest = $request->input('app') === 'courier' || $request->input('role') === 'courier' || str_contains($request->path(), 'courier');
 
-            // Save reset code record
-            EmailVerificationCode::updateOrCreate(
-                ['user_id' => $user->id],
-                [
-                    'code_hash' => Hash::make($code),
-                    'expires_at' => now()->addMinutes(15),
-                    'attempts' => 0,
-                    'last_sent_at' => now(),
-                    'channel' => 'email',
-                ]
-            );
+        if (! $user) {
+            return response()->json([
+                'success' => false,
+                'message' => $isCourierRequest
+                    ? 'No driver or courier account found with this email address.'
+                    : 'If an active buyer account matches that email address, a password recovery code has been sent.',
+            ], $isCourierRequest ? 404 : 200);
         }
+
+        if ($isCourierRequest && $user->role !== 'courier') {
+            return response()->json([
+                'success' => false,
+                'message' => 'This account is not registered as a driver or courier.',
+            ], 403);
+        }
+
+        if (! $isCourierRequest && $user->role !== 'buyer') {
+            return response()->json([
+                'success' => false,
+                'message' => 'This password reset portal is exclusively for registered buyers.',
+            ], 403);
+        }
+
+        if ($user->status === 'suspended') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Your account is suspended. Please contact dispatch or customer support.',
+            ], 403);
+        }
+
+        $code = (string) random_int(100000, 999999);
+        try {
+            $user->notify(new PasswordRecoveryCodeNotification($code));
+        } catch (\Throwable $e) {
+            report($e);
+        }
+
+        // Save reset code record
+        EmailVerificationCode::updateOrCreate(
+            ['user_id' => $user->id],
+            [
+                'code_hash' => Hash::make($code),
+                'expires_at' => now()->addMinutes(15),
+                'attempts' => 0,
+                'last_sent_at' => now(),
+                'channel' => 'email',
+            ]
+        );
 
         return response()->json([
             'success' => true,
-            'message' => 'If an active buyer account matches that email address, a password recovery code has been sent.',
+            'message' => 'A 6-digit recovery code has been sent to your email address.',
         ]);
     }
 
@@ -323,6 +356,21 @@ class AuthApiController extends Controller
             return response()->json(['success' => false, 'message' => 'Account not found.'], 404);
         }
 
+        $isCourierRequest = $request->input('app') === 'courier' || $request->input('role') === 'courier' || str_contains($request->path(), 'courier');
+        if ($isCourierRequest && $user->role !== 'courier') {
+            return response()->json([
+                'success' => false,
+                'message' => 'This account is not registered as a driver or courier.',
+            ], 403);
+        }
+
+        if (! $isCourierRequest && $user->role !== 'buyer') {
+            return response()->json([
+                'success' => false,
+                'message' => 'This password reset portal is exclusively for registered buyers.',
+            ], 403);
+        }
+
         $record = EmailVerificationCode::where('user_id', $user->id)->first();
 
         if (! $record || ! Hash::check($validated['code'], $record->code_hash)) {
@@ -331,6 +379,13 @@ class AuthApiController extends Controller
 
         if ($record->expires_at && Carbon::parse($record->expires_at)->isPast()) {
             return response()->json(['success' => false, 'message' => 'Recovery code has expired. Request a new one.'], 422);
+        }
+
+        if (Hash::check($validated['password'], $user->password)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'New password must be different from your current password.',
+            ], 422);
         }
 
         $user->forceFill([

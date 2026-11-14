@@ -156,6 +156,27 @@ class _ProfilePageState extends State<ProfilePage> {
           TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
           ElevatedButton(
             onPressed: () async {
+              if (currentCtrl.text.isEmpty) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Please enter your current password.')),
+                );
+                return;
+              }
+              if (newCtrl.text.length < 8) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('New password must be at least 8 characters.')),
+                );
+                return;
+              }
+              if (currentCtrl.text == newCtrl.text) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('New password must be different from your current password.'),
+                    backgroundColor: Colors.orange,
+                  ),
+                );
+                return;
+              }
               if (newCtrl.text != confirmCtrl.text) {
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(content: Text('Passwords do not match.')),
@@ -167,7 +188,9 @@ class _ProfilePageState extends State<ProfilePage> {
               final scaffold = ScaffoldMessenger.of(context);
               final success = await auth.updatePassword(currentCtrl.text, newCtrl.text);
               if (!mounted) return;
-              nav.pop();
+              if (success) {
+                nav.pop();
+              }
               scaffold.showSnackBar(
                 SnackBar(
                   content: Text(success ? 'Password updated successfully!' : (auth.errorMessage ?? 'Update failed.')),

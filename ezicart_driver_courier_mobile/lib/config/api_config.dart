@@ -81,6 +81,9 @@ class ApiConfig {
   static String get loginEndpoint => '$baseUrl/courier/login';
   static String get meEndpoint => '$baseUrl/courier/me';
   static String get logoutEndpoint => '$baseUrl/courier/logout';
+  static String get forgotPasswordEndpoint => '$baseUrl/courier/forgot-password';
+  static String get resetPasswordEndpoint => '$baseUrl/courier/reset-password';
+  static String get changePasswordEndpoint => '$baseUrl/courier/password';
 
   // Courier Operations endpoints
   static String get dashboardEndpoint => '$baseUrl/courier/dashboard';

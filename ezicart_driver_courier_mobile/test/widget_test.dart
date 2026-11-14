@@ -12,6 +12,9 @@ void main() {
     expect(ApiConfig.dashboardEndpoint, contains('/courier/dashboard'));
     expect(ApiConfig.historyEndpoint, contains('/courier/history'));
     expect(ApiConfig.earningsEndpoint, contains('/courier/earnings'));
+    expect(ApiConfig.forgotPasswordEndpoint, contains('/courier/forgot-password'));
+    expect(ApiConfig.resetPasswordEndpoint, contains('/courier/reset-password'));
+    expect(ApiConfig.changePasswordEndpoint, contains('/courier/password'));
     expect(ApiConfig.orderDetailEndpoint(123), contains('/courier/orders/123'));
 
     final fullUrl = ApiConfig.resolveImageUrl('https://example.com/proof.jpg');

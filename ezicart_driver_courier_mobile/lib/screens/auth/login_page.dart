@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../../config/api_config.dart';
 import '../../config/theme.dart';
 import '../../providers/auth_provider.dart';
+import 'forgot_password_page.dart';
 import 'widgets/auth_scaffold.dart';
 import 'widgets/auth_styles.dart';
 
@@ -34,56 +35,6 @@ class _LoginPageState extends State<LoginPage> {
     await auth.login(
       _emailCtrl.text.trim(),
       _passwordCtrl.text,
-    );
-  }
-
-  void _showForgotPasswordDialog() {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Row(
-          children: [
-            Icon(Icons.help_outline_rounded, color: AppTheme.primary, size: 22),
-            SizedBox(width: 8),
-            Text(
-              'Forgot Password?',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-          ],
-        ),
-        content: const Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Driver & Courier accounts are securely provisioned by Logistics Administration.',
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-                color: AppTheme.ink,
-              ),
-            ),
-            SizedBox(height: 10),
-            Text(
-              'If you forgot your password or cannot access your delivery account, please contact your Logistics Hub Supervisor or Dispatch Team for credential reset and verification.',
-              style: TextStyle(fontSize: 13, color: AppTheme.muted, height: 1.4),
-            ),
-          ],
-        ),
-        actions: [
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppTheme.primary,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10),
-              ),
-            ),
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('Understood', style: TextStyle(color: Colors.white)),
-          ),
-        ],
-      ),
     );
   }
 
@@ -313,7 +264,13 @@ class _LoginPageState extends State<LoginPage> {
                   minimumSize: Size.zero,
                   tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                 ),
-                onPressed: _showForgotPasswordDialog,
+                onPressed: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => const ForgotPasswordPage(),
+                    ),
+                  );
+                },
                 child: const Text(
                   'Forgot Password?',
                   style: TextStyle(
