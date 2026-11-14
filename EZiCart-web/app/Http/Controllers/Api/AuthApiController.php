@@ -46,13 +46,25 @@ class AuthApiController extends Controller
             ], 422);
         }
 
-        // Enforce Buyer Role only
-        if ($user->role !== 'buyer') {
-            return response()->json([
-                'success' => false,
-                'message' => 'This mobile application is exclusively for registered Buyers. Non-buyer accounts must use the web portal.',
-                'role' => $user->role,
-            ], 403);
+        $isCourierRequest = $request->input('app') === 'courier' || $request->input('role') === 'courier' || str_contains($request->path(), 'courier');
+
+        if ($isCourierRequest) {
+            if ($user->role !== 'courier') {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'This mobile application is exclusively for registered Drivers and Couriers.',
+                    'role' => $user->role,
+                ], 403);
+            }
+        } else {
+            // Enforce Buyer Role only
+            if ($user->role !== 'buyer') {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'This mobile application is exclusively for registered Buyers. Non-buyer accounts must use the web portal.',
+                    'role' => $user->role,
+                ], 403);
+            }
         }
 
         // Status verification
@@ -89,7 +101,7 @@ class AuthApiController extends Controller
             $user->forceFill(['email_verified_at' => now()])->save();
         }
 
-        $tokenResult = ApiToken::createTokenForUser($user, 'buyer_mobile');
+        $tokenResult = ApiToken::createTokenForUser($user, $isCourierRequest ? 'courier_mobile' : 'buyer_mobile');
 
         return response()->json([
             'success' => true,
@@ -209,7 +221,7 @@ class AuthApiController extends Controller
 
         $record->delete();
 
-        $tokenResult = ApiToken::createTokenForUser($user, 'buyer_mobile');
+        $tokenResult = ApiToken::createTokenForUser($user, $isCourierRequest ? 'courier_mobile' : 'buyer_mobile');
 
         return response()->json([
             'success' => true,
@@ -331,7 +343,7 @@ class AuthApiController extends Controller
         // Invalidate previous API tokens
         $user->apiTokens()->delete();
 
-        $tokenResult = ApiToken::createTokenForUser($user, 'buyer_mobile');
+        $tokenResult = ApiToken::createTokenForUser($user, $isCourierRequest ? 'courier_mobile' : 'buyer_mobile');
 
         return response()->json([
             'success' => true,
@@ -349,7 +361,12 @@ class AuthApiController extends Controller
     {
         $user = $request->user();
 
-        $counts = [
+        $counts = $user->role === 'courier' ? [
+            'claimed_pickups' => \App\Models\Order::where('pickup_courier_id', $user->id)->where('status', 'READY_FOR_PICKUP')->whereNotNull('pickup_claimed_at')->count(),
+            'in_transit_hub' => \App\Models\Order::where('pickup_courier_id', $user->id)->where('status', 'PICKED_UP')->count(),
+            'assigned_delivery' => \App\Models\Order::where('delivery_courier_id', $user->id)->whereIn('status', ['ASSIGNED_TO_RIDER', 'OUT_FOR_DELIVERY'])->count(),
+            'returning_to_seller' => \App\Models\Order::where('delivery_courier_id', $user->id)->where('status', \App\Enums\OrderStatus::ReturnInTransit->value)->whereNull('return_handed_to_seller_at')->count(),
+        ] : [
             'all' => $user->buyerOrders()->count(),
             'to_ship' => $user->buyerOrders()->whereIn('status', ['PLACED', 'CONFIRMED', 'PREPARING'])->count(),
             'to_receive' => $user->buyerOrders()->whereIn('status', ['READY_FOR_PICKUP', 'PICKED_UP', 'AT_SORTING_CENTER', 'SORTED', 'ASSIGNED_TO_RIDER', 'OUT_FOR_DELIVERY', 'DELIVERED', 'DELIVERY_FAILED', 'RETURN_IN_TRANSIT'])->count(),
@@ -428,6 +445,13 @@ class AuthApiController extends Controller
             'age' => $user->age,
             'role' => $user->role,
             'status' => $user->status,
+            'badge_code' => $user->badge_code,
+            'vehicle_type' => $user->vehicle_type,
+            'plate_number' => $user->plate_number,
+            'vehicle_category' => $user->vehicle_category,
+            'vehicle_description' => $user->vehicle_description,
+            'vehicle_capacity_grams' => $user->vehicle_capacity_grams,
+            'hub_transfer_only' => (bool) $user->hub_transfer_only,
             'region' => $user->region,
             'province' => $user->province,
             'municipality' => $user->municipality,

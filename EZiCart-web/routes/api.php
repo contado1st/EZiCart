@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\AuthApiController;
 use App\Http\Controllers\Api\CartApiController;
 use App\Http\Controllers\Api\ChatApiController;
 use App\Http\Controllers\Api\CheckoutApiController;
+use App\Http\Controllers\Api\CourierApiController;
 use App\Http\Controllers\Api\DiscoveryApiController;
 use App\Http\Controllers\Api\NotificationApiController;
 use App\Http\Controllers\Api\OrderApiController;
@@ -28,6 +29,8 @@ $defineApiRoutes = function () {
     // Public Auth
     Route::post('/login', [AuthApiController::class, 'login'])->middleware('throttle:auth-login');
     Route::post('/auth/login', [AuthApiController::class, 'login'])->middleware('throttle:auth-login');
+    Route::post('/courier/login', [AuthApiController::class, 'login'])->middleware('throttle:auth-login');
+    Route::post('/auth/courier/login', [AuthApiController::class, 'login'])->middleware('throttle:auth-login');
     Route::post('/register', [AuthApiController::class, 'register'])->middleware('throttle:registration');
     Route::post('/auth/register', [AuthApiController::class, 'register'])->middleware('throttle:registration');
     Route::post('/verify-email', [AuthApiController::class, 'verifyEmail'])->middleware('throttle:email-verification');
@@ -114,6 +117,36 @@ $defineApiRoutes = function () {
         Route::get('/chat/{conversation}', [ChatApiController::class, 'show'])->whereNumber('conversation');
         Route::post('/chat/{conversation}/messages', [ChatApiController::class, 'sendMessage'])->whereNumber('conversation');
         Route::post('/chat/start/{sellerId}', [ChatApiController::class, 'start'])->whereNumber('sellerId');
+    });
+
+    // Authenticated Driver & Courier Routes
+    Route::middleware('auth.api:courier')->prefix('courier')->group(function () {
+        Route::get('/me', [AuthApiController::class, 'me']);
+        Route::get('/auth/me', [AuthApiController::class, 'me']);
+        Route::post('/logout', [AuthApiController::class, 'logout']);
+        Route::post('/auth/logout', [AuthApiController::class, 'logout']);
+
+        Route::get('/dashboard', [CourierApiController::class, 'dashboard']);
+        Route::post('/badge/rotate', [CourierApiController::class, 'rotateBadge']);
+        Route::get('/orders/{id}', [CourierApiController::class, 'showOrder'])->whereNumber('id');
+        Route::post('/orders/{id}/claim', [CourierApiController::class, 'claimPickup'])->whereNumber('id');
+        Route::post('/orders/{id}/decline-pickup', [CourierApiController::class, 'declinePickup'])->whereNumber('id');
+        Route::post('/orders/{id}/arrive', [CourierApiController::class, 'arriveAtPickup'])->whereNumber('id');
+        Route::post('/orders/{id}/confirm-pickup', [CourierApiController::class, 'confirmPickup'])->whereNumber('id');
+        Route::post('/orders/{id}/accept-assignment', [CourierApiController::class, 'acceptDeliveryAssignment'])->whereNumber('id');
+        Route::post('/orders/{id}/start-delivery', [CourierApiController::class, 'startDelivery'])->whereNumber('id');
+        Route::post('/orders/{id}/decline-delivery-assignment', [CourierApiController::class, 'declineDeliveryAssignment'])->whereNumber('id');
+        Route::post('/orders/{id}/complete-delivery', [CourierApiController::class, 'completeDelivery'])->whereNumber('id');
+        Route::patch('/orders/{id}/complete-delivery', [CourierApiController::class, 'completeDelivery'])->whereNumber('id');
+        Route::post('/orders/{id}/fail-delivery', [CourierApiController::class, 'failDelivery'])->whereNumber('id');
+        Route::patch('/orders/{id}/fail-delivery', [CourierApiController::class, 'failDelivery'])->whereNumber('id');
+        Route::post('/orders/{id}/confirm-return-delivery', [CourierApiController::class, 'confirmReturnDelivery'])->whereNumber('id');
+        Route::get('/history', [CourierApiController::class, 'history']);
+        Route::get('/tracking', [CourierApiController::class, 'tracking']);
+        Route::get('/earnings', [CourierApiController::class, 'earnings']);
+        Route::post('/orders/{id}/remittance', [CourierApiController::class, 'submitRemittance'])->whereNumber('id');
+        Route::get('/orders/{id}/messages', [CourierApiController::class, 'orderMessages'])->whereNumber('id');
+        Route::post('/orders/{id}/messages', [CourierApiController::class, 'sendOrderMessage'])->whereNumber('id');
     });
 };
 
