@@ -11,6 +11,13 @@
         </div>
     </header>
 
+    <x-workspace-tabs default-tab="dispatch-parcels" :tabs="[
+        ['id' => 'dispatch-parcels', 'label' => 'Parcels', 'count' => $parcels->total()],
+        ['id' => 'dispatch-manifest', 'label' => 'Rider manifest'],
+        ['id' => 'return-required', 'label' => 'Return required', 'count' => $returnRequired->total()],
+        ['id' => 'retry-requests', 'label' => 'Retry proposals', 'count' => $retryRequests->total()],
+    ]" />
+
     <section class="ops-panel ops-filter-panel" aria-label="Find a rider">
         <form class="ops-form" method="GET" action="{{ route('logistics.dispatch') }}">
             <div class="ops-field">
@@ -29,7 +36,7 @@
         <p class="ops-muted">Showing up to 50 eligible riders, ranked by active workload and failed-delivery count.</p>
     </section>
 
-    <section class="ops-panel ops-batch-release" aria-labelledby="batch-release-title">
+    <section class="ops-panel ops-batch-release" id="dispatch-manifest" aria-labelledby="batch-release-title">
         <div class="ops-heading">
             <div>
                 <h2 id="batch-release-title">Release a rider manifest</h2>
@@ -75,7 +82,7 @@
         </form>
     </section>
 
-    <section class="ops-panel">
+    <section class="ops-panel" id="dispatch-parcels">
         <div class="ops-heading">
             <div>
                 <h2>Sorted and assigned parcels</h2>
@@ -272,4 +279,5 @@
         </div>
         <div class="ops-pagination">{{ $parcels->links() }}</div>
     </section>
+    @include('logistics.retry-queues')
 @endsection

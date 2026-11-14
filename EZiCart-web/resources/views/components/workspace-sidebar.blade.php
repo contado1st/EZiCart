@@ -97,7 +97,14 @@
     if ($sidebarUser->role === 'courier' && $sidebarUser->hub_transfer_only) {
         $navigation['Delivery operations'] = [['parcel-transfers.index', 'delivery1', 'Assigned hub transfers', 'parcel-transfers.*']];
     }
-    if ($sidebarUser->role === 'courier') $navigation['Delivery operations'][] = ['courier.work-availability.index', 'checklist', 'Work availability', 'courier.work-availability.*'];
+    if ($sidebarUser->role === 'courier') {
+        $navigation['Delivery operations'][] = ['courier.profile', 'account', 'My rider profile', 'courier.profile'];
+        $navigation['Delivery operations'][] = ['courier.work-availability.index', 'checklist', 'Work availability', 'courier.work-availability.*'];
+        if ($sidebarUser->hub_transfer_only) {
+            $navigation['Delivery operations'][] = ['courier.history', 'checklist', 'Work history', 'courier.history'];
+            $navigation['Delivery operations'][] = ['courier.earnings', 'money', 'Earnings', 'courier.earnings'];
+        }
+    }
     if ($sidebarUser->isCommerceAdmin() || $sidebarUser->isLogisticsAdmin()) {
         $navigation['Staff'] = [['staff.index', 'account', 'Staff profiles', 'staff.index']];
         $navigation['Staff'][] = [$sidebarUser->isCommerceAdmin() ? 'admin.profile-reviews.index' : 'logistics-admin.profile-reviews.index', 'shield', 'Profile change approvals', $sidebarUser->isCommerceAdmin() ? 'admin.profile-reviews.*' : 'logistics-admin.profile-reviews.*'];

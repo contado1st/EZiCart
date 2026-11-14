@@ -1808,7 +1808,7 @@ class LogisticsWorkflowTest extends TestCase
             });
     }
 
-    public function test_logistics_dashboard_caches_counters_briefly_and_refreshes_them(): void
+    public function test_logistics_dashboard_refreshes_counters_with_records_and_ignores_legacy_cache(): void
     {
         $center = $this->user('sorting_center', 'approved');
         Cache::forget('logistics.dashboard.stats.'.$center->id.'.'.today()->toDateString());
@@ -1819,9 +1819,9 @@ class LogisticsWorkflowTest extends TestCase
         $this->order(['status' => 'PICKED_UP']);
 
         $this->get(route('logistics.dashboard'))
-            ->assertViewHas('stats', fn (array $stats): bool => $stats['inbound'] === 0);
+            ->assertViewHas('stats', fn (array $stats): bool => $stats['inbound'] === 1);
 
-        Cache::forget('logistics.dashboard.stats.'.$center->id.'.'.today()->toDateString());
+        Cache::put('logistics.dashboard.stats.'.$center->id.'.'.today()->toDateString(), ['inbound' => 999], 60);
         $this->get(route('logistics.dashboard'))
             ->assertViewHas('stats', fn (array $stats): bool => $stats['inbound'] === 1);
     }

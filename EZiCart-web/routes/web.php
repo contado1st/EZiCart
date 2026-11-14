@@ -29,6 +29,7 @@ use App\Http\Controllers\CommunicationCountController;
 use App\Http\Controllers\Courier\AssignmentAcceptanceController;
 use App\Http\Controllers\Courier\CourierController;
 use App\Http\Controllers\Courier\WorkAvailabilityController;
+use App\Http\Controllers\DeliveryRetryController;
 use App\Http\Controllers\DirectMessageController;
 use App\Http\Controllers\FinancialController;
 use App\Http\Controllers\FinancialOperationsController;
@@ -44,6 +45,7 @@ use App\Http\Controllers\ParcelWeightController;
 use App\Http\Controllers\ProfileAppearanceController;
 use App\Http\Controllers\PsgcAddressController;
 use App\Http\Controllers\ReturnPickupController;
+use App\Http\Controllers\ReturnWorkflowController;
 use App\Http\Controllers\SalesReportController;
 use App\Http\Controllers\SearchController;
 use App\Http\Controllers\SecureDocumentController;
@@ -199,6 +201,9 @@ Route::middleware(['auth', 'account.active', 'auth.session'])->group(function ()
     Route::post('/notifications/{notification}/read', [NotificationController::class, 'markRead'])->name('notifications.read');
     Route::get('/account/documents/{type}', [SecureDocumentController::class, 'ownDocument'])->name('account.documents.show');
     Route::get('/account', [AccountController::class, 'edit'])->name('account.profile.edit');
+    Route::get('/returns/{order}/workflow', [ReturnWorkflowController::class, 'show'])->name('returns.workflow');
+    Route::post('/returns/{order}/authorize-wallet-refund', [ReturnWorkflowController::class, 'authorize'])
+        ->middleware(['role:admin,ecommerce_admin', 'throttle:operational-action'])->name('returns.authorize-wallet');
     Route::patch('/account/appearance', [ProfileAppearanceController::class, 'update'])->middleware('throttle:operational-action')->name('account.appearance.update');
     Route::post('/shops/{seller}/follow', [SellerShopController::class, 'follow'])->middleware(['role:buyer', 'throttle:operational-action'])->whereNumber('seller')->name('shops.follow');
     Route::get('/shops/{seller}/follow', [SellerShopController::class, 'followIntent'])->middleware('role:buyer')->whereNumber('seller')->name('shops.follow-intent');
@@ -320,6 +325,8 @@ Route::middleware(['auth', 'account.active', 'auth.session'])->group(function ()
 
     // Courier-Only Routes (Fulfillment & Delivery Workspace)
     Route::middleware(['role:courier'])->prefix('courier')->name('courier.')->group(function () {
+        Route::post('/orders/{order}/retry-proposals', [DeliveryRetryController::class, 'store'])->middleware('throttle:operational-action')->name('retry-requests.store');
+        Route::get('/profile', [CourierController::class, 'profile'])->name('profile');
         Route::get('/dashboard', [CourierController::class, 'dashboard'])->name('dashboard');
         Route::get('/work-availability', [WorkAvailabilityController::class, 'index'])->name('work-availability.index');
         Route::patch('/work-availability', [WorkAvailabilityController::class, 'update'])->middleware('throttle:operational-action')->name('work-availability.update');
@@ -342,6 +349,7 @@ Route::middleware(['auth', 'account.active', 'auth.session'])->group(function ()
 
     // Logistics / Sorting Center Routes
     Route::middleware(['role:sorting_center', 'parcel.available'])->prefix('logistics')->name('logistics.')->group(function () {
+        Route::post('/retry-proposals/{retry}/reject', [DeliveryRetryController::class, 'reject'])->middleware('throttle:operational-action')->name('retry-requests.reject');
         Route::get('/dashboard', [LogisticsController::class, 'dashboard'])->name('dashboard');
         Route::get('/intake', [LogisticsController::class, 'intake'])->name('intake');
         Route::get('/pickup-requests', [LogisticsController::class, 'pickupRequests'])->name('pickupRequests');

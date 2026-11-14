@@ -234,6 +234,7 @@
                                         </div>
                                         <video data-qr-video playsinline hidden></video>
                                         <p data-qr-status role="status" class="ops-muted">Scan the parcel label, or enter its code manually.</p>
+                                        <p class="ops-muted">Use EZP: followed by the label code, or the label code alone. The order number is not the parcel label code.</p>
                                     @endif
                                     <button class="ops-btn ops-btn--primary" @disabled($courier->status !== 'approved')>
                                         {{ $order->pickup_arrived_at && $order->seller_handover_at ? 'Confirm scanned parcel possession' : ($order->pickup_arrived_at ? 'Waiting for seller handover' : 'Record arrival at seller') }}
@@ -275,6 +276,7 @@
                             <td data-label="Collected">{{ $order->picked_up_at?->format('d M H:i') }}</td>
                             <td data-label="Status">
                                 <span class="ops-status ops-status--amber">Awaiting hub receipt</span>
+                                <a class="ops-btn" href="{{ route('courier.orders.show', $order) }}">Pickup record and compensation</a>
                             </td>
                         </tr>
                     @empty
@@ -417,16 +419,10 @@
                                 </div>
                             </td>
                             <td data-label="Payment">
-                                @if ($order->payment_method === 'COD')
-                                    <div class="courier-cod-badge">
-                                        <x-shop-icon name="money" /> COD: ₱{{ number_format($order->total_amount, 2) }}
-                                    </div>
-                                @else
-                                    <span class="ops-status ops-status--green">{{ $order->payment_method }}</span>
-                                    <div class="ops-muted">₱{{ number_format($order->total_amount, 2) }}</div>
-                                @endif
+                                <x-courier-payment-status :order="$order" :ready="$paymentReadiness[$order->id]" />
                             </td>
                             <td data-label="Delivery action">
+                                @if(!$paymentReadiness[$order->id])<p class="ops-muted">Payment review required. Delivery completion is blocked; physically held parcels must still follow failure/recovery instructions.</p>@endif
                                 @if ($order->status === 'ASSIGNED_TO_RIDER')
                                     @if ($order->hub_released_at)
                                         <form method="POST" action="{{ route('courier.orders.startDelivery', $order) }}" data-decision="courier.orders.startDelivery" data-decision-title="Start delivery?" data-decision-message="This records that the parcel is going out for delivery." data-decision-label="Start delivery" data-decision-tone="normal" onsubmit="return window.eziDecisionReady ? true : window.confirm(this.dataset.decisionMessage)">
@@ -436,7 +432,7 @@
                                                 <input id="start-parcel-reference-{{ $order->id }}" name="parcel_reference" maxlength="100" placeholder="EZP:…" autocomplete="off">
                                             </div>
                                             <input type="hidden" name="method" value="manual">
-                                            <button class="ops-btn ops-btn--primary" @disabled($courier->status !== 'approved')>
+                                            <button class="ops-btn ops-btn--primary" @disabled($courier->status !== 'approved' || !$paymentReadiness[$order->id])>
                                                 Start delivery
                                             </button>
                                         </form>
@@ -483,7 +479,7 @@
                                                 <label for="proof-file-{{ $order->id }}">Proof of delivery photo or document</label>
                                                 <input id="proof-file-{{ $order->id }}" type="file" name="proof_file" accept=".jpg,.jpeg,.png,.pdf" required>
                                             </div>
-                                            <button class="ops-btn ops-btn--primary" type="submit">Confirm delivered</button>
+                                            <button class="ops-btn ops-btn--primary" type="submit" @disabled(!$paymentReadiness[$order->id])>Confirm delivered</button>
                                         </form>
                                     </details>
                                     <details>

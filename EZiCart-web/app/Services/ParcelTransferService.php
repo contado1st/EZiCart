@@ -52,6 +52,7 @@ class ParcelTransferService
             }
             abort_unless((int) $carrier->logistics_owner_id === $actor->id || $carrier->serviceAreas()->where('sorting_center_id', $actor->id)->exists(), 403, 'Select a carrier belonging to the source hub.');
             app(ParcelLoadService::class)->assertFits($order, $carrier, hubTransfer: true, newWork: true);
+            app(DeliveryRetryService::class)->supersedeForTransfer($order, $actor, $locked->id);
             $locked->forceFill(['carrier_rider_id' => $carrier->id, 'status' => 'IN_TRANSIT', 'released_by' => $actor->id, 'released_at' => now(), 'transport_reference' => $transport])->save();
             ParcelTrackingEvent::create(['order_id' => $order->id, 'actor_id' => $actor->id, 'event_type' => 'hub_transfer_released', 'status' => $order->status, 'notes' => 'Released for hub transfer. Transport manifest: '.$transport]);
             $this->audits->record($actor, $locked, 'hub_transfer_released', ['status' => 'PLANNED'], ['status' => 'IN_TRANSIT', 'transport_reference' => $transport, 'carrier_rider_id' => $carrier->id, 'parcel_weight_grams' => $order->parcel_weight_grams, 'vehicle_capacity_grams' => $carrier->vehicle_capacity_grams], 'Parcel label scanned at source hub.');

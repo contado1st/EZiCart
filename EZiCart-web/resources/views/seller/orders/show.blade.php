@@ -129,19 +129,7 @@
                             <button type="submit" class="dash-btn-sm dash-btn-primary">Confirm rider handover</button>
                         </form>
                     @elseif($order->status === 'RETURN_IN_TRANSIT')
-                        @if ($order->return_handed_to_seller_at)
-                            <form action="{{ route('seller.orders.confirmReturn', $order) }}" method="POST" data-decision="seller.orders.confirmReturn" data-decision-title="Confirm returned parcel?" data-decision-message="Continue only after you physically received the returned parcel." data-decision-label="Confirm return" data-decision-tone="normal" onsubmit="return window.eziDecisionReady ? true : window.confirm(this.dataset.decisionMessage)">
-                                @csrf
-                                <label for="return-rider-badge">Scan return rider badge QR/code</label>
-                                <input id="return-rider-badge" name="rider_badge" data-qr-input required maxlength="100" placeholder="EZR:…" autocomplete="off">
-                                <input type="hidden" name="method" value="manual">
-                                <button type="button" data-qr-start>Use camera</button><button type="button" data-qr-stop hidden>Stop camera</button>
-                                <video data-qr-video playsinline hidden></video><p data-qr-status role="status">Camera, handheld scanner, or manual entry.</p>
-                                <button type="submit" class="dash-btn-sm dash-btn-primary">Confirm scanned return received</button>
-                            </form>
-                        @else
-                            <span class="text-muted-small">Awaiting courier handoff</span>
-                        @endif
+                        <a class="dash-btn-sm dash-btn-primary" href="{{ route('returns.workflow', $order) }}">Review return receipt and inspection</a>
                     @endif
                     @if (!$order->pendingCancellation && in_array($order->status, ['PLACED', 'CONFIRMED', 'PREPARING', 'READY_FOR_PICKUP'], true) && $order->picked_up_at === null && $order->seller_handover_at === null)
                         <form action="{{ route('seller.orders.cancel', $order) }}" method="POST" class="order-schedule-form" data-decision="seller.orders.cancel" data-decision-title="Cancel this order?" data-decision-message="Review the order and cancellation reason before continuing." data-decision-label="Cancel order" data-decision-tone="danger" onsubmit="return window.eziDecisionReady ? true : window.confirm(this.dataset.decisionMessage)">
@@ -153,13 +141,8 @@
                     @endif
                 </div>
             </section>
-            @if($order->status === 'RETURNED_TO_SELLER' && $order->restock_inspected_at === null && $order->inventory_restored_at === null)
-                <section class="dash-panel"><h2>Inspect returned items</h2>
-                    <form method="POST" action="{{ route('seller.orders.return-inspection', $order) }}" data-decision="seller.orders.return-inspection" data-decision-title="Submit return inspection?" data-decision-message="Check the inspection outcome and evidence before recording this return assessment." data-decision-label="Submit inspection" data-decision-tone="normal" onsubmit="return window.eziDecisionReady ? true : window.confirm(this.dataset.decisionMessage)">@csrf
-                        <label>Inspection result<select name="restock" required><option value="">Choose a result</option><option value="1">All items are sellable — restock</option><option value="0">Items are damaged or unsuitable — exclude from stock</option></select></label>
-                        <label>Inspection notes<textarea name="reason" required minlength="5" maxlength="500"></textarea></label><button class="dash-btn-sm" type="submit">Record inspection</button>
-                    </form>
-                </section>
+            @if($order->status === 'RETURNED_TO_SELLER')
+                <section class="dash-panel"><h2>Returned parcel workflow</h2><p>Seller receipt, sellable-unit inspection and refund review remain separate actions.</p><a class="dash-btn-sm dash-btn-primary" href="{{ route('returns.workflow', $order) }}">Inspect returned items and review progress</a></section>
             @endif
             @if($order->dispute?->status === 'REPLACEMENT_APPROVED' && $order->status === 'RETURNED_TO_SELLER')
                 <form method="POST" action="{{ route('seller.replacements.store', $order->dispute) }}" data-decision="seller.replacements.store" data-decision-title="Create replacement shipment?" data-decision-message="Review the replacement items and delivery details before creating the shipment." data-decision-label="Create replacement" data-decision-tone="normal" onsubmit="return window.eziDecisionReady ? true : window.confirm(this.dataset.decisionMessage)">@csrf<button class="dash-btn-sm" type="submit">Create approved no-charge replacement</button></form>

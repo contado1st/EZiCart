@@ -8,6 +8,7 @@ use App\Models\OrderFinance;
 use App\Models\RefundExecution;
 use App\Models\SellerPayout;
 use App\Models\User;
+use App\Notifications\OrderWorkflowNotification;
 use Illuminate\Support\Facades\DB;
 
 class OrderFinancialService
@@ -108,6 +109,7 @@ class OrderFinancialService
             $order = Order::query()->whereKey($dispute->order_id)->lockForUpdate()->firstOrFail();
             $dispute = Dispute::query()->whereKey($dispute->id)->lockForUpdate()->firstOrFail();
             abort_unless($dispute->status === 'REFUND_APPROVED', 422, 'A marketplace refund decision is required before financial authorization.');
+            abort_if(RefundExecution::where('order_id', $order->id)->whereNotNull('rts_order_id')->exists(), 422, 'A dedicated RTS refund authorization already exists. Review that record instead of creating a second refund.');
             $payout = SellerPayout::query()->where('order_id', $order->id)->lockForUpdate()->first();
             abort_if($payout?->status === 'SETTLED', 422, 'Seller payout is already settled. Recover funds before authorizing a refund.');
             if ($payout) {
@@ -125,6 +127,46 @@ class OrderFinancialService
 
             return $refund;
         });
+    }
+
+    public function authorizeRtsWalletRefund(Order $order, User $actor, string $reason): RefundExecution
+    {
+        $reason = trim($reason);
+        validator(['reason' => $reason], ['reason' => ['required', 'string', 'min:5', 'max:500']])->validate();
+
+        return DB::transaction(function () use ($order, $actor, $reason): RefundExecution {
+            $actor = User::whereKey($actor->id)->lockForUpdate()->firstOrFail();
+            abort_unless($actor->status === 'approved' && $actor->isCommerceAdmin(), 403);
+            $locked = Order::whereKey($order->id)->lockForUpdate()->firstOrFail();
+            abort_unless(app(ReturnWorkflowService::class)->receiptConfirmed($locked), 422, 'Recorded courier handover and seller receipt evidence are required before RTS refund authorization.');
+            abort_unless($locked->payment_method === 'WALLET' && $locked->financial_version === 1 && $locked->delivered_at === null
+                && ! $locked->deliveryAttempts()->where('outcome', 'delivered')->exists(), 422, 'This action is for an undelivered ledger-wallet RTS. Delivered returns use marketplace dispute authorization; external providers are not connected.');
+            $finance = OrderFinance::where('order_id', $locked->id)->lockForUpdate()->first();
+            $amount = CheckoutPricingService::cents($locked->total_amount);
+            abort_unless($finance && $finance->ledger_funded_at !== null && $finance->remittance_status === 'VERIFIED' && $finance->due_cents === $amount && $amount > 0, 422, 'Verified original financial snapshots and staged funds are required. Reconcile missing or mismatched funding first.');
+            $payout = SellerPayout::where('order_id', $locked->id)->lockForUpdate()->first();
+            abort_if($payout?->status === 'SETTLED', 422, 'Seller payout was settled. Recover and reconcile funds before authorizing a refund.');
+            $existing = RefundExecution::where('order_id', $locked->id)->lockForUpdate()->get();
+            if ($existing->isNotEmpty()) {
+                abort_unless($existing->count() === 1 && in_array($existing->first()->status, ['AUTHORIZED', 'EXECUTED'], true) && (int) $existing->first()->amount_cents === $amount,
+                    422, 'Existing refund records need reconciliation; no additional refund will be created.');
+
+                return $existing->first();
+            }
+            abort_unless(app(OrderWalletService::class)->paymentReady($locked), 422, 'The original wallet payment or buyer account is not currently verified for this action.');
+            if ($payout && $payout->status !== 'ON_HOLD') {
+                $previous = $payout->status;
+                $payout->update(['status' => 'ON_HOLD']);
+                $this->audits->record($actor, $payout, 'payout_held_for_refund', ['status' => $previous], ['status' => 'ON_HOLD'], 'RTS refund authorization blocks seller settlement.');
+            }
+            $refund = RefundExecution::create(['order_id' => $locked->id, 'rts_order_id' => $locked->id, 'dispute_id' => null,
+                'amount_cents' => $amount, 'status' => 'AUTHORIZED', 'authorized_by' => $actor->id, 'authorization_reason' => $reason]);
+            $this->audits->record($actor, $refund, 'rts_wallet_refund_authorized', [], ['status' => 'AUTHORIZED', 'amount_cents' => $amount, 'rts_order_id' => $locked->id], $reason);
+            app(TransactionAwareNotificationSender::class)->send(collect([$locked->buyer, $locked->seller, $locked->sortingCenter])->filter()->unique('id'),
+                new OrderWorkflowNotification($locked, 'rts_wallet_refund_authorized', 'Commerce administration authorized an RTS wallet refund. Payment has not yet been sent; inventory inspection and logistics costs remain separate.'));
+
+            return $refund;
+        }, 3);
     }
 
     public function executeRefund(RefundExecution $refund, User $actor, string $reference, string $evidence, string $reason): void

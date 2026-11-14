@@ -18,6 +18,9 @@
             <td>{{ $finance->order->payment_method === 'WALLET' ? 'Not applicable (prepaid)' : ($finance->collected_cents === null ? 'Not recorded' : '₱'.number_format($finance->collected_cents / 100, 2)) }}</td>
             <td>{{ str_replace('_', ' ', $finance->remittance_status) }}@if($finance->remitted_cents !== null)<p>Submitted: ₱{{ number_format($finance->remitted_cents / 100, 2) }}</p>@endif</td>
             <td>
+                @if(in_array($finance->order->status, ['RETURN_IN_TRANSIT', 'RETURNED_TO_SELLER'], true) && app(\App\Services\ReturnWorkflowService::class)->canView($actor, $finance->order))
+                    <a class="dash-btn-sm" href="{{ route('returns.workflow', $finance->order) }}">Review return workflow</a>
+                @endif
                 @if($finance->platform_subsidy_cents > 0)
                     <p>Platform promotion: ₱{{ number_format($finance->platform_subsidy_cents / 100, 2) }} — {{ $finance->funded_cents >= $finance->platform_subsidy_cents ? 'funded' : 'funding pending' }}</p>
                     @if($actor->isCommerceAdmin() && $finance->funded_cents < $finance->platform_subsidy_cents)

@@ -24,6 +24,10 @@
                 </section>
             @endif
 
+            @if(in_array($order->status, ['RETURN_IN_TRANSIT', 'RETURNED_TO_SELLER'], true))
+                <section class="dash-panel"><h2>Return progress</h2><p>Review seller receipt, inspection and the recorded refund stage.</p><a class="dash-btn-sm" href="{{ route('returns.workflow', $order) }}">View return progress</a></section>
+            @endif
+
             <section class="dash-panel">
                 <div class="order-card-header">
                     <div>

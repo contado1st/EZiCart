@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\FinancialAccount;
 use App\Models\LedgerTransaction;
 use App\Models\Order;
 use App\Models\OrderFinance;
@@ -25,7 +26,7 @@ class OrderWalletService
         $transaction = LedgerTransaction::find($order->wallet_transaction_id);
 
         return $transaction?->type === 'order_payment' && (int) ($transaction->metadata['order_id'] ?? 0) === $order->id
-            && ! $this->ledger->wallet($order->buyer)->frozen;
+            && FinancialAccount::where('key', 'user:'.$order->buyer_id.':available')->where('user_id', $order->buyer_id)->where('frozen', false)->exists();
     }
 
     /** Runs in PlacePurchaseService's transaction; stock, wallet, promotion and order roll back together. */
@@ -89,6 +90,13 @@ class OrderWalletService
             $locked = RefundExecution::whereKey($refund->id)->lockForUpdate()->firstOrFail();
             $finance = OrderFinance::where('order_id', $order->id)->lockForUpdate()->firstOrFail();
             abort_unless($order->financial_version === 1 && $order->payment_method === 'WALLET' && $locked->status === 'AUTHORIZED' && $order->status === 'RETURNED_TO_SELLER' && $finance->ledger_funded_at !== null, 422, 'An authorized funded wallet return is required.');
+            if ($locked->rts_order_id !== null) {
+                abort_unless((int) $locked->rts_order_id === $order->id && app(ReturnWorkflowService::class)->receiptConfirmed($order)
+                    && $order->delivered_at === null && ! $order->deliveryAttempts()->where('outcome', 'delivered')->exists()
+                    && $this->paymentReady($order) && $finance->remittance_status === 'VERIFIED'
+                    && (int) $locked->amount_cents === $finance->due_cents && $finance->due_cents === CheckoutPricingService::cents($order->total_amount)
+                    && ! $order->payout()->where('status', 'SETTLED')->exists(), 422, 'The RTS receipt, payment, amount or payout state changed. Reconcile before execution.');
+            }
             $this->unstage($order, $finance, $actor);
             app(VoucherFundingService::class)->restore($order, $actor, false);
             $transaction = $this->ledger->transfer('refund:'.$locked->id, 'refund_credit', $this->ledger->escrow($order->id), $this->ledger->wallet($order->buyer), $locked->amount_cents, $actor, ['order_id' => $order->id, 'refund_id' => $locked->id]);
