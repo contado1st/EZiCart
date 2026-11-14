@@ -114,6 +114,7 @@ class OrderFinancialService
             abort_if($payout?->status === 'SETTLED', 422, 'Seller payout is already settled. Recover funds before authorizing a refund.');
             if ($payout) {
                 $previousPayoutStatus = $payout->status;
+                app(OrderWalletService::class)->releaseSellerPayoutReservation($payout, $actor, 'Marketplace refund authorization.');
                 $payout->forceFill(['status' => 'ON_HOLD'])->save();
                 $this->audits->record($actor, $payout, 'payout_held_for_refund', ['status' => $previousPayoutStatus], ['status' => 'ON_HOLD'], 'Refund authorization blocks outstanding seller settlement.');
             }
@@ -156,6 +157,7 @@ class OrderFinancialService
             abort_unless(app(OrderWalletService::class)->paymentReady($locked), 422, 'The original wallet payment or buyer account is not currently verified for this action.');
             if ($payout && $payout->status !== 'ON_HOLD') {
                 $previous = $payout->status;
+                app(OrderWalletService::class)->releaseSellerPayoutReservation($payout, $actor, 'RTS wallet refund authorization.');
                 $payout->update(['status' => 'ON_HOLD']);
                 $this->audits->record($actor, $payout, 'payout_held_for_refund', ['status' => $previous], ['status' => 'ON_HOLD'], 'RTS refund authorization blocks seller settlement.');
             }
@@ -224,6 +226,10 @@ class OrderFinancialService
             $finance = $this->initialize($locked);
             $this->assertPayable($locked, $finance);
             $payout = SellerPayout::query()->firstOrCreate(['order_id' => $locked->id], ['seller_id' => $seller->id, 'amount_cents' => $finance->seller_payable_cents, 'status' => 'REQUESTED']);
+            abort_unless($payout->seller_id === $seller->id && $payout->amount_cents === $finance->seller_payable_cents, 422, 'The existing payout no longer matches this order’s payable amount. Ask an administrator to reconcile it.');
+            if ($locked->financial_version === 1 && $payout->status === 'REQUESTED') {
+                app(OrderWalletService::class)->reserveSellerPayout($payout, $seller);
+            }
             if ($payout->wasRecentlyCreated) {
                 $this->audits->record($seller, $payout, 'payout_requested', [], ['status' => 'REQUESTED', 'amount_cents' => $payout->amount_cents], 'Seller requested settlement.');
             }
@@ -240,6 +246,9 @@ class OrderFinancialService
             $locked = SellerPayout::query()->whereKey($payout->id)->lockForUpdate()->firstOrFail();
             $this->assertPayable($order, $this->initialize($order));
             abort_unless($locked->status === 'REQUESTED', 422, 'Only requested payouts may be approved.');
+            if ($order->financial_version === 1) {
+                app(OrderWalletService::class)->reserveSellerPayout($locked, $order->seller);
+            }
             $locked->forceFill(['status' => 'APPROVED', 'approved_by' => $actor->id])->save();
             $this->audits->record($actor, $locked, 'payout_approved', ['status' => 'REQUESTED'], ['status' => 'APPROVED'], $reason);
         });

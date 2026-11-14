@@ -41,8 +41,13 @@
                     <form method="POST" action="{{ route('finance.remittance.verify', $finance->order) }}" data-decision="finance.remittance.verify" data-decision-title="Verify COD remittance?" data-decision-message="Verify the amount and evidence against the cash received before confirming." data-decision-label="Verify remittance" data-decision-tone="normal" onsubmit="return window.eziDecisionReady ? true : window.confirm(this.dataset.decisionMessage)">@csrf<label>Receipt verification notes<textarea name="reason" required minlength="5" maxlength="500"></textarea></label><button class="dash-btn-sm" type="submit">Verify cash received</button></form>
                 @endif
                 @if($actor->role === 'seller' && $finance->order->status === 'COMPLETED' && $finance->remittance_status === 'VERIFIED')
-                    <p>Seller payable: ₱{{ number_format($finance->seller_payable_cents / 100, 2) }} after commission.</p>
-                    <form method="POST" action="{{ route('finance.payout.request', $finance->order) }}" data-decision="finance.payout.request" data-decision-title="Request seller payout?" data-decision-message="Review the order and payout details before submitting the request." data-decision-label="Request payout" data-decision-tone="normal" onsubmit="return window.eziDecisionReady ? true : window.confirm(this.dataset.decisionMessage)">@csrf<button class="dash-btn-sm" type="submit">Request seller payout</button></form>
+                    @if($finance->order->payout)
+                        <p>Seller proceeds: ₱{{ number_format($finance->seller_payable_cents / 100, 2) }}. Payout status: {{ str_replace('_', ' ', strtolower($finance->order->payout->status)) }}.</p>
+                        @if(in_array($finance->order->payout->status, ['REQUESTED', 'APPROVED'], true))<p>Available to request from this order: PHP 0.00. The existing request for PHP {{ number_format($finance->order->payout->amount_cents / 100, 2) }} cannot be reserved again.</p>@endif
+                    @else
+                        <p>Available to request: ₱{{ number_format($finance->seller_payable_cents / 100, 2) }} after commission.</p>
+                        <form method="POST" action="{{ route('finance.payout.request', $finance->order) }}" data-decision="finance.payout.request" data-decision-title="Request seller payout?" data-decision-message="This reserves the eligible proceeds once while administration reviews the payout. Review the amount before submitting." data-decision-label="Request payout" data-decision-tone="normal" onsubmit="return window.eziDecisionReady ? true : window.confirm(this.dataset.decisionMessage)">@csrf<button class="dash-btn-sm" type="submit">Request seller payout</button></form>
+                    @endif
                 @endif
             </td>
         </tr>@empty<tr><td colspan="5">No financial records available.</td></tr>@endforelse

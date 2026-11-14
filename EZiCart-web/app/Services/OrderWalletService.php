@@ -86,6 +86,10 @@ class OrderWalletService
     {
         if ($finance->ledger_funded_at && $finance->seller_payable_cents > 0) {
             abort_if(SellerPayout::where('order_id', $order->id)->where('status', 'SETTLED')->exists(), 422, 'Recover settled funds before reversing this payment.');
+            $payout = SellerPayout::query()->where('order_id', $order->id)->lockForUpdate()->first();
+            if ($payout) {
+                $this->releaseSellerPayoutReservation($payout, $actor ?? $order->seller, 'Order proceeds returned to escrow for refund.');
+            }
             $this->ledger->transfer('order:'.$order->id.':seller-pending-reversal', 'seller_earnings_reversal', $this->ledger->wallet($order->seller, 'pending'), $this->ledger->escrow($order->id), $finance->seller_payable_cents, $actor, ['order_id' => $order->id]);
         }
     }
@@ -148,12 +152,88 @@ class OrderWalletService
         $finance = OrderFinance::where('order_id', $order->id)->lockForUpdate()->firstOrFail();
         abort_unless($order->financial_version === 1 && $finance->ledger_funded_at !== null, 422, 'This order has no staged ledger proceeds.');
         $destination = $toWallet ? $this->ledger->wallet($order->seller) : $this->ledger->account('platform:cod-cash-control', 'cash_control', null, 'available', true);
-        $transaction = $this->ledger->transfer('payout:'.$payout->id, $toWallet ? 'seller_earnings_credit' : 'external_seller_settlement', $this->ledger->wallet($order->seller, 'pending'), $destination, $payout->amount_cents, $actor, ['order_id' => $order->id]);
+        $source = $this->hasActiveSellerPayoutReservation($payout)
+            ? $this->ledger->wallet($order->seller, 'payout_hold')
+            : $this->ledger->wallet($order->seller, 'pending');
+        $transaction = $this->ledger->transfer('payout:'.$payout->id, $toWallet ? 'seller_earnings_credit' : 'external_seller_settlement', $source, $destination, $payout->amount_cents, $actor, ['order_id' => $order->id]);
         if ($finance->commission_cents > 0) {
             $this->ledger->transfer('order:'.$order->id.':commission', 'platform_commission', $this->ledger->escrow($order->id), $this->ledger->treasury(), $finance->commission_cents, $actor, ['order_id' => $order->id]);
         }
         app(LogisticsSettlementService::class)->settle($order, $actor);
         $payout->forceFill(['destination' => $toWallet ? 'wallet' : 'external', 'transaction_id' => $transaction->id])->save();
         $this->audits->record($actor, $payout, 'seller_ledger_settlement', [], ['transaction_id' => $transaction->id, 'destination' => $payout->destination], $reason);
+    }
+
+    /** Reserve eligible seller proceeds in a bucket that cannot be spent by a wallet withdrawal. */
+    public function reserveSellerPayout(SellerPayout $payout, User $seller): void
+    {
+        abort_unless($seller->role === 'seller' && $seller->id === $payout->seller_id && $payout->status === 'REQUESTED', 403);
+        $order = Order::query()->whereKey($payout->order_id)->lockForUpdate()->firstOrFail();
+        $finance = OrderFinance::query()->where('order_id', $order->id)->lockForUpdate()->firstOrFail();
+        abort_unless($order->seller_id === $seller->id && $order->financial_version === 1
+            && $finance->ledger_funded_at !== null && $payout->amount_cents === $finance->seller_payable_cents, 422,
+            'Verified staged seller proceeds are required before reserving a payout.');
+
+        $this->ledger->transfer('seller-payout:'.$payout->id.':hold', 'seller_payout_reservation',
+            $this->ledger->wallet($seller, 'pending'), $this->ledger->wallet($seller, 'payout_hold'), $payout->amount_cents, $seller,
+            ['payout_id' => $payout->id, 'order_id' => $order->id, 'seller_id' => $seller->id]);
+    }
+
+    /** Release the hold only when an authorized refund takes priority over a payout. */
+    public function releaseSellerPayoutReservation(SellerPayout $payout, User $actor, string $reason): void
+    {
+        $order = Order::query()->whereKey($payout->order_id)->lockForUpdate()->firstOrFail();
+        $hold = LedgerTransaction::query()->where('idempotency_key', 'seller-payout:'.$payout->id.':hold')->first();
+        if (! $hold) {
+            return; // A legacy/non-ledger payout has no wallet proceeds to release.
+        }
+
+        $this->assertSellerPayoutPosting($hold, $payout, $order, 'seller_payout_reservation', 'pending', 'payout_hold');
+        abort_if(LedgerTransaction::where('reversal_of', $hold->id)->exists(), 422, 'The payout reservation has already been reversed. Reconcile its ledger history.');
+
+        $releaseKey = 'seller-payout:'.$payout->id.':release';
+        $released = LedgerTransaction::query()->where('idempotency_key', $releaseKey)->first();
+        if ($released) {
+            $this->assertSellerPayoutPosting($released, $payout, $order, 'seller_payout_reservation_release', 'payout_hold', 'pending');
+
+            return;
+        }
+
+        $this->ledger->transfer($releaseKey, 'seller_payout_reservation_release',
+            $this->ledger->wallet($order->seller, 'payout_hold'), $this->ledger->wallet($order->seller, 'pending'), $payout->amount_cents, $actor,
+            ['payout_id' => $payout->id, 'order_id' => $order->id, 'seller_id' => $order->seller_id, 'reason' => trim($reason)]);
+    }
+
+    private function hasActiveSellerPayoutReservation(SellerPayout $payout): bool
+    {
+        $order = Order::query()->whereKey($payout->order_id)->firstOrFail();
+        $hold = LedgerTransaction::query()->where('idempotency_key', 'seller-payout:'.$payout->id.':hold')->first();
+        if (! $hold) {
+            return false;
+        }
+
+        $this->assertSellerPayoutPosting($hold, $payout, $order, 'seller_payout_reservation', 'pending', 'payout_hold');
+        $released = LedgerTransaction::query()->where('idempotency_key', 'seller-payout:'.$payout->id.':release')->first();
+        if ($released) {
+            $this->assertSellerPayoutPosting($released, $payout, $order, 'seller_payout_reservation_release', 'payout_hold', 'pending');
+        }
+
+        return ! $released && ! LedgerTransaction::where('reversal_of', $hold->id)->exists();
+    }
+
+    private function assertSellerPayoutPosting(LedgerTransaction $transaction, SellerPayout $payout, Order $order, string $type, string $fromBucket, string $toBucket): void
+    {
+        $entries = $transaction->entries()->with('account')->get();
+        $from = $entries->first(fn ($entry) => (int) $entry->delta_cents === -$payout->amount_cents);
+        $to = $entries->first(fn ($entry) => (int) $entry->delta_cents === $payout->amount_cents);
+        abort_unless($transaction->type === $type
+            && (int) ($transaction->metadata['payout_id'] ?? 0) === $payout->id
+            && (int) ($transaction->metadata['order_id'] ?? 0) === $order->id
+            && (int) ($transaction->metadata['seller_id'] ?? 0) === $order->seller_id
+            && ($type !== 'seller_payout_reservation' || (int) $transaction->actor_id === $order->seller_id)
+            && $transaction->reversal_of === null && $entries->count() === 2
+            && $from?->account?->key === 'user:'.$order->seller_id.':'.$fromBucket
+            && $to?->account?->key === 'user:'.$order->seller_id.':'.$toBucket, 422,
+            'Seller payout ledger history does not match this request. Reconcile it before proceeding.');
     }
 }

@@ -19,7 +19,7 @@ class FinancialController extends Controller
     public function index(Request $request)
     {
         $actor = $request->user();
-        $finances = OrderFinance::query()->with('order')
+        $finances = OrderFinance::query()->with('order.payout')
             ->when($actor->role === 'buyer', fn ($q) => $q->whereHas('order', fn ($order) => $order->where('buyer_id', $actor->id)))
             ->when($actor->role === 'seller', fn ($q) => $q->whereHas('order', fn ($order) => $order->where('seller_id', $actor->id)))
             ->when($actor->role === 'courier', fn ($q) => $q->where('collector_id', $actor->id))
@@ -70,7 +70,7 @@ class FinancialController extends Controller
     {
         $service->requestPayout($order, $request->user());
 
-        return back()->with('success', 'Payout request recorded. Approval and external settlement are pending.');
+        return back()->with('success', 'Eligible seller proceeds are reserved once. Payout approval and settlement are pending.');
     }
 
     public function fundSubsidy(Request $request, Order $order, OrderFinancialService $service)

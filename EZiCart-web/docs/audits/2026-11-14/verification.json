@@ -1,0 +1,41 @@
+{
+  "historical_pre_followup": true,
+  "historical_note": "These broad results predate the rider-availability and payout-reservation follow-up.",
+  "laravel": {
+    "result": "passed",
+    "tests": 723,
+    "assertions": 6205,
+    "log": "storage/logs/teacher-reaudit-2026-11-14-final.xml"
+  },
+  "frontend": {
+    "result": "passed",
+    "tests": 63,
+    "log": "storage/logs/teacher-reaudit-frontend-2026-11-14.txt"
+  },
+  "audit_probes": {
+    "result": "passed",
+    "tests": 8,
+    "assertions": 36,
+    "log": "storage/logs/teacher-reaudit-probes-2026-11-14.xml"
+  },
+  "post_followup_focused": {
+    "result": "passed",
+    "tests": 146,
+    "assertions": 1180,
+    "suites": [
+      "RiderWorkAvailabilityTest: 18 tests, 132 assertions",
+      "FinancialLedgerWorkflowTest: 20 tests, 260 assertions",
+      "PartialSellerReportingTest: 11 tests, 79 assertions",
+      "ReturnWorkflowRevisionTest: 35 tests, 267 assertions",
+      "WorkflowRevisionTest: 62 tests, 442 assertions"
+    ]
+  },
+  "post_followup_full_suite": "Started but stopped after exceeding the interactive check window; no full-suite result claimed.",
+  "not_executed": [
+    "Literal 319 teacher workbook scenarios/fixture data",
+    "Browser/device acceptance",
+    "Live SMTP/SMS/provider payment delivery",
+    "MySQL timed races",
+    "Production deployment verification"
+  ]
+}

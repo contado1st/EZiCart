@@ -193,6 +193,12 @@ class FinancialLedgerWorkflowTest extends TestCase
         $order->forceFill(['status' => 'COMPLETED', 'delivered_at' => now()->subDays(8)])->save();
         $finances = app(OrderFinancialService::class);
         $payout = $finances->requestPayout($order, $this->seller);
+        $pendingAfterFirstRequest = $this->ledger->wallet($this->seller, 'pending')->balance_cents;
+        $retry = $finances->requestPayout($order->fresh(), $this->seller);
+        $this->assertSame($payout->id, $retry->id);
+        $this->assertSame($pendingAfterFirstRequest, $this->ledger->wallet($this->seller, 'pending')->balance_cents);
+        $this->assertSame($payout->amount_cents, $this->ledger->wallet($this->seller, 'payout_hold')->balance_cents);
+        $this->assertSame(1, LedgerTransaction::query()->where('idempotency_key', 'seller-payout:'.$payout->id.':hold')->count());
         $finances->approvePayout($payout, $this->admin, 'Checked eligible settlement.');
         $finances->settleToWallet($payout, $this->admin, 'Credit eligible proceeds.');
         $this->assertSame(15200, $this->ledger->wallet($this->seller)->balance_cents);
@@ -438,7 +444,7 @@ class FinancialLedgerWorkflowTest extends TestCase
     private function rider(User $hub): User
     {
         $rider = $this->user('courier');
-        $rider->forceFill(['logistics_owner_id' => $hub->id, 'vehicle_capacity_grams' => 100000, 'vehicle_capacity_verified_at' => now(), 'license_expires_at' => today()->addYear()])->save();
+        $rider->forceFill(['logistics_owner_id' => $hub->id, 'work_availability' => 'available', 'vehicle_capacity_grams' => 100000, 'vehicle_capacity_verified_at' => now(), 'license_expires_at' => today()->addYear()])->save();
 
         return $rider;
     }

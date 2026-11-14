@@ -1,6 +1,6 @@
 <?php
 
 return [
-    // Collect choices first; activate deliberately after the readiness audit and operator notice.
-    'enforce_availability' => env('RIDER_WORK_AVAILABILITY_ENFORCED', false),
+    // Approved riders must opt in before they can receive new work.
+    'enforce_availability' => env('RIDER_WORK_AVAILABILITY_ENFORCED', true),
 ];

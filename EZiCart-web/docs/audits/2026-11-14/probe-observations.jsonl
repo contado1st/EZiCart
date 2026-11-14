@@ -1,0 +1,8 @@
+{"criteria":"BUY-ACCT-002,009","observed":"One-character names and malformed phones now fail; digits in names and immediate phone changes without phone OTP still succeed."}
+{"criteria":"SEL-PROD-001,003,004,005,006,017","observed":"Normal product POST still accepts one-character name, PHP0.99, stock100000, no description\/image, and another shared category. Repeating creates two pending-review products; draft submission has separate replay protection."}
+{"criteria":"BUY-ADDR-005,007","observed":"Eleven addresses remain allowed; deleting the default automatically promotes a replacement."}
+{"criteria":"BUY-RATE-004,005; A12","observed":"Review accepts 501 characters after a 40-day-old completion and permits two versioned edits. Photos\/history now exist, but 500-character\/30-day\/one-edit teacher limits remain absent."}
+{"criteria":"SEL-VOU-004,006,007","observed":"A funded capped 100-percent voucher with spaces\/punctuation and zero minimum spend is accepted."}
+{"criteria":"LOG-DISP-003; RID-AVAIL","observed":"Manual availability filtering works with enforcement enabled in isolated tests, but unavailable approved riders are eligible when it is disabled. Runtime snapshot shows disabled."}
+{"criteria":"BUY-TRK-001; A5","observed":"Ready for Pickup is already To receive; teacher grouping starts this at Picked Up."}
+{"criteria":"BUY-ACCT-006,007","observed":"Email change now stages a verified challenge and leaves the old email in effect; challenge expiry is 10 minutes, not the teacher five minutes. Mail is faked."}

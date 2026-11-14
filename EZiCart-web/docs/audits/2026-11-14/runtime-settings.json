@@ -1,0 +1,43 @@
+{
+    "date": "2026-11-14",
+    "scope": "Laravel web, read-only non-secret settings",
+    "session_lifetime_minutes": 120,
+    "commission_basis_points": 1000,
+    "default_shipping_cents": 5000,
+    "rider_acceptance_minutes": 15,
+    "maximum_rider_jobs": 10,
+    "financial_mode": "sandbox",
+    "sandbox_config_enabled": false,
+    "wallet_payment_minutes": 30,
+    "database_settings": {
+        "financial_sandbox_enabled": 1
+    },
+    "approved_tariff_count": 0,
+    "rider_availability": {
+        "enforced": false,
+        "approved_riders": 7,
+        "available": 0,
+        "unavailable": 0,
+        "not_chosen": 7,
+        "assignments_without_acceptance_record": 0,
+        "unclaimed_pickups_with_custody_evidence": 0,
+        "unaccepted_returns_with_custody_evidence": 0,
+        "ready_for_activation": false
+    },
+    "approved_commerce_administrators": 1,
+    "schema": {
+        "product_drafts": true,
+        "product_wishlists": true,
+        "buyer_email_changes": true,
+        "review_photos": true,
+        "review_revisions": true,
+        "delivery_retry_requests": true,
+        "return_inspection_items": true,
+        "parcel_corrections": true,
+        "wallet_funding_intents": true,
+        "wallet_funding_request_kind": true,
+        "orders_wallet_payment_due_at": true
+    },
+    "environment": "local",
+    "effective_demo_wallet_enabled": true
+}

@@ -18,7 +18,7 @@
         <div class="ops-alert ops-alert--error" role="alert">{{ $errors->first() }}</div>
     @endif
 
-    <p class="ops-muted">{{ config('rider-work.enforce_availability') ? 'New-work availability rules are active. Accepted parcels stay assigned when an approved rider becomes unavailable.' : 'Preparation mode: rider choices are being collected. Existing assignment rules continue until activation.' }} Availability is separate from account approval and online presence.</p>
+    <p class="ops-muted">{{ config('rider-work.enforce_availability') ? 'New-work availability rules are active. Approved riders must choose Available before they can receive work; Not chosen and Unavailable riders are excluded. Accepted parcels stay assigned when a rider becomes unavailable.' : 'Preparation mode: rider choices are being collected. Existing assignment rules continue until activation.' }} Availability is separate from account approval and online presence.</p>
     <details class="ops-panel">
         <summary><strong>Add a rider</strong><span class="ops-muted">Create a roster entry and email a one-use activation link.</span></summary>
         <form method="POST" action="{{ route('logistics.riders.store') }}" enctype="multipart/form-data" class="ops-rider-form">

@@ -52,12 +52,13 @@ class FinancialOperationsController extends Controller
         $withdrawals = $this->withdrawalQuery($actor)->latest('id')->paginate(25, ['*'], 'withdrawals_page')->withQueryString();
         $pending = $actor->isCommerceAdmin() ? 0 : $ledger->wallet($actor, 'pending')->balance_cents;
         $held = $actor->isCommerceAdmin() ? 0 : $ledger->wallet($actor, 'held')->balance_cents;
+        $payoutReserved = (int) FinancialAccount::where('user_id', $actor->id)->where('bucket', 'payout_hold')->value('balance_cents');
         $reserved = FinancialAccount::where('bucket', 'reserved')->where(fn ($q) => $actor->isCommerceAdmin() ? $q->where('type', 'platform_promotion') : $q->where('user_id', $actor->id))->sum('balance_cents');
         $logisticsPools = $actor->isLogisticsAdmin()
             ? FinancialAccount::whereIn('key', ['platform:logistics-operations', 'platform:logistics-margin', 'platform:unallocated-logistics'])->get()
             : collect();
 
-        return view('finance.wallet', compact('actor', 'available', 'pending', 'held', 'reserved', 'entries', 'intents', 'withdrawals', 'logisticsPools', 'demoFunding', 'demoEnabled'));
+        return view('finance.wallet', compact('actor', 'available', 'pending', 'held', 'payoutReserved', 'reserved', 'entries', 'intents', 'withdrawals', 'logisticsPools', 'demoFunding', 'demoEnabled'));
     }
 
     public function topup(Request $request, WalletFundingService $funding)
