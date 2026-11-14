@@ -7,6 +7,7 @@ import '../../config/api_config.dart';
 import '../../config/theme.dart';
 import '../../models/category_model.dart';
 import '../../models/product_model.dart';
+import '../../providers/auth_provider.dart';
 import '../../providers/cart_provider.dart';
 import '../../services/api_service.dart';
 import 'cart_page.dart';
@@ -35,7 +36,6 @@ class _BuyerDashboardState extends State<BuyerDashboard> {
   final GlobalKey<MessagesPageState> _messagesKey = GlobalKey<MessagesPageState>();
   List<ProductModel> _products = [];
   List<CategoryModel> _categories = [];
-  String _selectedCategory = 'All';
   bool _isLoading = true;
 
   @override
@@ -68,10 +68,8 @@ class _BuyerDashboardState extends State<BuyerDashboard> {
 
   Future<void> _fetchProducts() async {
     try {
-      final queryParams = <String, String>{};
-      if (_selectedCategory != 'All') queryParams['category'] = _selectedCategory;
-
-      final uri = Uri.parse(ApiConfig.productsEndpoint).replace(queryParameters: queryParams.isNotEmpty ? queryParams : null);
+      // Daily discoveries shows random products on each load/refresh
+      final uri = Uri.parse(ApiConfig.productsEndpoint).replace(queryParameters: {'sort': 'random'});
       final res = await ApiService.get(uri.toString());
 
       if (res.statusCode == 200) {
@@ -123,11 +121,7 @@ class _BuyerDashboardState extends State<BuyerDashboard> {
   }
 
   void _onCategorySelected(String category) {
-    setState(() {
-      _selectedCategory = category;
-      _currentIndex = 0;
-    });
-    _fetchProducts();
+    _navigateToSearch(category: category);
   }
 
   void _navigateToSearch({String? category, String? query}) {
@@ -138,6 +132,211 @@ class _BuyerDashboardState extends State<BuyerDashboard> {
     ).then((_) => _fetchProducts());
   }
 
+  Widget _buildHeroBanner() {
+    final auth = context.watch<AuthProvider>();
+    final firstName = auth.user?.firstName;
+    final greeting = (firstName != null && firstName.trim().isNotEmpty)
+        ? 'Good finds,\n${firstName.trim()}.'
+        : 'Good finds\nstart here.';
+    final featuredProduct = _products.isNotEmpty ? _products.first : null;
+
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 6, 16, 10),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFFFFF7F9), Color(0xFFFFEEF3), Color(0xFFFFD4E2)],
+          begin: Alignment.centerLeft,
+          end: Alignment.centerRight,
+        ),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFFFDDE7)),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFFBE2854).withValues(alpha: 0.08),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Stack(
+        children: [
+          // Background content row
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 6, 16),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                // Left copy
+                Expanded(
+                  flex: 6,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Text(
+                        'THE EZICART MARKETPLACE',
+                        style: TextStyle(
+                          fontSize: 9.5,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 1.0,
+                          color: Color(0xFFBE2854),
+                        ),
+                      ),
+                      const SizedBox(height: 5),
+                      Text(
+                        greeting,
+                        style: const TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.w800,
+                          color: Color(0xFF1D2129),
+                          height: 1.15,
+                          letterSpacing: -0.4,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      const Text(
+                        'Browse approved, in-stock products from EZiCart sellers. Compare details and prices before you choose.',
+                        style: TextStyle(
+                          fontSize: 10.5,
+                          color: Color(0xFF5A6270),
+                          height: 1.3,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      InkWell(
+                        onTap: () => _navigateToSearch(),
+                        borderRadius: BorderRadius.circular(4),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFE26A7A),
+                            borderRadius: BorderRadius.circular(4),
+                            boxShadow: [
+                              BoxShadow(
+                                color: const Color(0xFFE26A7A).withValues(alpha: 0.35),
+                                blurRadius: 6,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          child: const Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                'EXPLORE PRODUCTS',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 9.5,
+                                  fontWeight: FontWeight.bold,
+                                  letterSpacing: 0.8,
+                                ),
+                              ),
+                              SizedBox(width: 4),
+                              Icon(Icons.south_east, color: Colors.white, size: 11),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                const SizedBox(width: 4),
+
+                // Right scooter asset
+                Expanded(
+                  flex: 5,
+                  child: Align(
+                    alignment: Alignment.centerRight,
+                    child: Image.asset(
+                      'assets/images/hero-asset.png',
+                      height: 170,
+                      fit: BoxFit.contain,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          // Floating "Recently listed" pill at bottom-right
+          if (featuredProduct != null)
+            Positioned(
+              right: 12,
+              bottom: 10,
+              child: InkWell(
+                onTap: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => ProductDetailsPage(product: featuredProduct),
+                    ),
+                  );
+                },
+                borderRadius: BorderRadius.circular(6),
+                child: Container(
+                  constraints: const BoxConstraints(maxWidth: 165),
+                  padding: const EdgeInsets.all(5),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.95),
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(color: Colors.pink.shade100),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.08),
+                        blurRadius: 6,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (featuredProduct.imagePath != null &&
+                          ApiConfig.resolveImageUrl(featuredProduct.imagePath) != null)
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(4),
+                          child: CachedNetworkImage(
+                            imageUrl: ApiConfig.resolveImageUrl(featuredProduct.imagePath)!,
+                            width: 28,
+                            height: 28,
+                            fit: BoxFit.cover,
+                            errorWidget: (_, __, ___) => const Icon(Icons.inventory_2, size: 16, color: AppTheme.muted),
+                          ),
+                        ),
+                      const SizedBox(width: 6),
+                      Flexible(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Text(
+                              'Recently listed',
+                              style: TextStyle(fontSize: 8.5, color: AppTheme.muted, height: 1.1),
+                            ),
+                            Text(
+                              featuredProduct.name,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold, color: AppTheme.ink),
+                            ),
+                            Text(
+                              '₱${featuredProduct.price.toStringAsFixed(2)}',
+                              style: const TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold, color: Color(0xFFBE2854)),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildStorefront() {
     final currency = NumberFormat.currency(symbol: '₱', decimalDigits: 2);
     final cart = context.read<CartProvider>();
@@ -146,7 +345,7 @@ class _BuyerDashboardState extends State<BuyerDashboard> {
       onRefresh: _loadStorefrontData,
       child: CustomScrollView(
         slivers: [
-          // Shopee-style Search Header Bar
+          // Single Clean Search Header Bar
           SliverToBoxAdapter(
             child: Container(
               color: Colors.white,
@@ -192,62 +391,9 @@ class _BuyerDashboardState extends State<BuyerDashboard> {
             ),
           ),
 
-          // Promotional Highlights Banner
+          // Web-Style Hero Banner with hero-asset.png
           SliverToBoxAdapter(
-            child: Container(
-              margin: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [AppTheme.primary, Color(0xFF1E88E5)],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                borderRadius: BorderRadius.circular(14),
-                boxShadow: [
-                  BoxShadow(
-                    color: AppTheme.primary.withValues(alpha: 0.25),
-                    blurRadius: 10,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
-              ),
-              child: Row(
-                children: [
-                  const Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Icon(Icons.verified, color: Colors.white, size: 16),
-                            SizedBox(width: 4),
-                            Text(
-                              'Laguna Local Express',
-                              style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15),
-                            ),
-                          ],
-                        ),
-                        SizedBox(height: 4),
-                        Text(
-                          'Direct from verified Laguna & NCR sellers. Cash on Delivery available.',
-                          style: TextStyle(color: Colors.white70, fontSize: 11.5, height: 1.3),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Container(
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.2),
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(Icons.local_shipping_outlined, color: Colors.white, size: 28),
-                  ),
-                ],
-              ),
-            ),
+            child: _buildHeroBanner(),
           ),
 
           // Quick Action Shortcut Tiles
@@ -475,59 +621,16 @@ class _BuyerDashboardState extends State<BuyerDashboard> {
             ),
           ),
 
-          // Horizontal Quick Filter Chips
-          SliverToBoxAdapter(
-            child: SizedBox(
-              height: 44,
-              child: ListView(
-                scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                children: [
-                  ChoiceChip(
-                    label: const Text('All'),
-                    selected: _selectedCategory == 'All',
-                    selectedColor: AppTheme.primary,
-                    backgroundColor: AppTheme.surface,
-                    labelStyle: TextStyle(
-                      color: _selectedCategory == 'All' ? Colors.white : AppTheme.ink,
-                      fontWeight: _selectedCategory == 'All' ? FontWeight.bold : FontWeight.normal,
-                      fontSize: 12,
-                    ),
-                    onSelected: (_) => _onCategorySelected('All'),
-                  ),
-                  ..._categories.map((c) {
-                    final isSel = _selectedCategory == c.name;
-                    return Padding(
-                      padding: const EdgeInsets.only(left: 8),
-                      child: ChoiceChip(
-                        label: Text(c.name),
-                        selected: isSel,
-                        selectedColor: AppTheme.primary,
-                        backgroundColor: AppTheme.surface,
-                        labelStyle: TextStyle(
-                          color: isSel ? Colors.white : AppTheme.ink,
-                          fontWeight: isSel ? FontWeight.bold : FontWeight.normal,
-                          fontSize: 12,
-                        ),
-                        onSelected: (_) => _onCategorySelected(c.name),
-                      ),
-                    );
-                  }),
-                ],
-              ),
-            ),
-          ),
-
-          // Section Title
+          // Daily Discoveries Section Title (Random items on each load)
           SliverToBoxAdapter(
             child: Padding(
               padding: const EdgeInsets.fromLTRB(16, 16, 16, 10),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(
-                    _selectedCategory == 'All' ? 'Daily Discoveries' : _selectedCategory,
-                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.ink),
+                  const Text(
+                    'Daily Discoveries',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.ink),
                   ),
                   Text(
                     '${_products.length} Products',
@@ -553,7 +656,7 @@ class _BuyerDashboardState extends State<BuyerDashboard> {
                     const SizedBox(height: 12),
                     const Text('No products found', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                     const SizedBox(height: 4),
-                    const Text('Try adjusting your category filter.', style: TextStyle(color: AppTheme.muted, fontSize: 13)),
+                    const Text('Pull down to refresh and discover new items.', style: TextStyle(color: AppTheme.muted, fontSize: 13)),
                   ],
                 ),
               ),
@@ -766,10 +869,6 @@ class _BuyerDashboardState extends State<BuyerDashboard> {
           ],
         ),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.search),
-            onPressed: () => _navigateToSearch(),
-          ),
           Stack(
             children: [
               IconButton(

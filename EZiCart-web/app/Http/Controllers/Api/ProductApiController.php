@@ -81,6 +81,7 @@ class ProductApiController extends Controller
             'price_desc' => $query->orderBy('price', 'desc'),
             'top_sales', 'sales' => $query->orderByDesc('sales_count')->latest('id'),
             'rating' => $query->orderByDesc('rating')->orderByDesc('reviews_count'),
+            'random' => $query->inRandomOrder(),
             'latest' => $query->latest('id'),
             default => $search !== ''
                 ? $query->orderByRaw('CASE WHEN LOWER(name) = ? THEN 0 ELSE 1 END', [mb_strtolower($search)])

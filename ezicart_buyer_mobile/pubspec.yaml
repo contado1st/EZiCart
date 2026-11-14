@@ -14,6 +14,7 @@ dependencies:
   shared_preferences: ^2.2.3
   intl: ^0.19.0
   cached_network_image: ^3.3.1
+  google_fonts: ^6.2.1
 
 dev_dependencies:
   flutter_test:
@@ -25,3 +26,4 @@ flutter:
   assets:
     - assets/images/ezicart-background.png
     - assets/images/ezicart-logo.png
+    - assets/images/hero-asset.png
