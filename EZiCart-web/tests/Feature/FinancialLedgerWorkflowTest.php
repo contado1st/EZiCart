@@ -20,6 +20,7 @@ use App\Services\CheckoutPricingService;
 use App\Services\DeliveryCodeService;
 use App\Services\DeliveryPricingService;
 use App\Services\DeliveryRateManagementService;
+use App\Services\DemoWalletFundingService;
 use App\Services\FinancialLedgerService;
 use App\Services\LogisticsSettlementService;
 use App\Services\OrderFinancialService;
@@ -32,6 +33,7 @@ use App\Services\RiderBadgeService;
 use App\Services\ShipmentAdjustmentService;
 use App\Services\VoucherFundingService;
 use App\Services\WalletFundingService;
+use App\Services\WalletOrderPaymentService;
 use App\Services\WalletWithdrawalService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
@@ -41,6 +43,7 @@ use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
+use PHPUnit\Framework\Attributes\TestWith;
 use Symfony\Component\HttpKernel\Exception\HttpException;
 use Tests\TestCase;
 
@@ -307,7 +310,9 @@ class FinancialLedgerWorkflowTest extends TestCase
         $this->signIn($this->user('sorting_center'))->get(route('finance.batches'))->assertOk();
     }
 
-    public function test_prepaid_order_completes_pickup_hub_transfer_delivery_and_cost_based_settlement_without_cod(): void
+    #[TestWith([false])]
+    #[TestWith([true])]
+    public function test_prepaid_order_completes_pickup_hub_transfer_delivery_and_cost_based_settlement_without_cod(bool $internalDemo): void
     {
         $this->withoutExceptionHandling();
         $this->approveExampleRates();
@@ -326,12 +331,21 @@ class FinancialLedgerWorkflowTest extends TestCase
         $delivery = $this->rider($destination);
         $delivery->serviceAreas()->attach($area->id, ['is_active' => true, 'is_primary' => true]);
         $logisticsAdmin = $this->user('logistics_admin');
-        $this->fund($this->buyer, 30000);
+        if ($internalDemo) {
+            $funding = app(DemoWalletFundingService::class);
+            $intent = $funding->request($this->buyer, 30000, (string) Str::uuid(), 'demo_credit', ['reason' => 'Internal demo delivery journey.']);
+            $funding->review($intent, $this->admin, 'approve', 'Approved school journey credits.');
+        } else {
+            $this->fund($this->buyer, 30000);
+        }
         $product = $this->product();
         $address = [...$this->address(), 'municipality' => 'Santa Cruz', 'destination_area_id' => $area->id];
         $cart = [['product_id' => $product->id, 'quantity' => 1]];
         $quote = app(CheckoutPricingService::class)->quote($cart, null, false, ['address' => $address, 'payment_method' => 'WALLET']);
-        $order = app(PlacePurchaseService::class)->place($this->buyer, (string) Str::uuid(), 'journey', $cart, $quote['hash'], null, $address, 'WALLET')->orders()->firstOrFail();
+        $order = app(PlacePurchaseService::class)->place($this->buyer, (string) Str::uuid(), 'journey', $cart, $quote['hash'], null, $address, 'WALLET', $internalDemo)->orders()->firstOrFail();
+        if ($internalDemo) {
+            $order = app(WalletOrderPaymentService::class)->pay($order, $this->buyer);
+        }
         $this->signIn($this->seller)->patch(route('orders.weight', $order), ['parcel_weight_kg' => '1.000', 'reason' => 'Packed parcel weighed.'])->assertRedirect()->assertSessionHasNoErrors();
         foreach (['CONFIRMED', 'PREPARING', 'READY_FOR_PICKUP'] as $status) {
             $this->patch(route('seller.orders.updateStatus', $order), ['status' => $status])->assertRedirect()->assertSessionHasNoErrors();

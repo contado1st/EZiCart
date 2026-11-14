@@ -2,11 +2,13 @@
 
 namespace Tests\Feature;
 
+use App\Models\LedgerTransaction;
 use App\Models\Product;
 use App\Models\User;
 use App\Models\Voucher;
 use App\Notifications\OrderWorkflowNotification;
 use App\Services\CheckoutPricingService;
+use App\Services\DemoWalletFundingService;
 use App\Services\FinancialLedgerService;
 use App\Services\OrderTransitionService;
 use App\Services\PlacePurchaseService;
@@ -14,10 +16,12 @@ use App\Services\VoucherClaimService;
 use App\Services\VoucherEligibilityService;
 use App\Services\VoucherFundingService;
 use App\Services\WalletFundingService;
+use App\Services\WalletOrderPaymentService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
+use PHPUnit\Framework\Attributes\TestWith;
 use Tests\TestCase;
 
 class PartialVoucherIntegrationTest extends TestCase
@@ -152,10 +156,12 @@ class PartialVoucherIntegrationTest extends TestCase
         $this->assertDatabaseCount('voucher_claims', 2);
     }
 
-    public function test_approved_wallet_cancellation_restores_stock_usage_and_exhausted_funded_offer_once(): void
+    #[TestWith([false])]
+    #[TestWith([true])]
+    public function test_approved_wallet_cancellation_restores_stock_usage_and_exhausted_funded_offer_once(bool $internalDemo): void
     {
         Notification::fake();
-        [$buyer, $seller, $voucher, $order, $product] = $this->fundedPurchase();
+        [$buyer, $seller, $voucher, $order, $product] = $this->fundedPurchase(internalDemo: $internalDemo);
         $service = app(OrderTransitionService::class);
         $this->assertFalse($voucher->fresh()->is_active);
         $this->assertSame('exhausted', $voucher->fresh()->disabled_reason);
@@ -228,25 +234,59 @@ class PartialVoucherIntegrationTest extends TestCase
         $this->assertSame(0, (int) $voucher->fresh()->used_count);
     }
 
-    private function fundedPurchase(int $limit = 1, float $price = 300): array
+    #[TestWith(['cancel'])]
+    #[TestWith(['expire'])]
+    public function test_unpaid_reservation_releases_voucher_budget_usage_and_inventory_once(string $action): void
+    {
+        [$buyer, $seller, $voucher, $order, $product] = $this->fundedPurchase(internalDemo: true, payNow: false);
+        $this->assertTrue($order->isAwaitingWalletPayment());
+        $this->assertSame(40000, app(FinancialLedgerService::class)->wallet($buyer)->balance_cents);
+        if ($action === 'cancel') {
+            app(WalletOrderPaymentService::class)->cancel($order, $buyer);
+        } else {
+            $this->travel(30)->minutes();
+            $this->artisan('wallet:expire-orders')->assertSuccessful();
+        }
+        $this->assertSame('CANCELLED', $order->fresh()->status);
+        $this->assertSame(5, $product->fresh()->stock);
+        $this->assertSame(0, $voucher->fresh()->used_count);
+        $this->assertTrue($voucher->fresh()->is_active);
+        $this->assertSame(5000, $voucher->fresh()->budget->reserveAccount->balance_cents);
+        $this->assertSame(40000, app(FinancialLedgerService::class)->wallet($buyer)->balance_cents);
+        $this->assertFalse(app(OrderTransitionService::class)->expireWalletPayment($order));
+        $this->assertSame(0, LedgerTransaction::where('type', 'cancelled_order_refund')->count());
+        $this->assertTrue(app(FinancialLedgerService::class)->reconcile()['balanced']);
+    }
+
+    private function fundedPurchase(int $limit = 1, float $price = 300, bool $internalDemo = false, bool $payNow = true): array
     {
         $buyer = $this->user('buyer');
         $seller = $this->user('seller');
-        $this->fund($seller, 5000 * $limit);
-        $this->fund($buyer, 40000);
+        $this->fund($seller, 5000 * $limit, $internalDemo);
+        $this->fund($buyer, 40000, $internalDemo);
         $voucher = $this->voucher($seller, ['usage_limit' => $limit]);
         app(VoucherFundingService::class)->reserve($voucher, $seller);
         $product = $this->product($seller, $price);
         $cart = [['product_id' => $product->id, 'quantity' => 1]];
         $address = ['recipient_name' => 'Voucher Buyer', 'recipient_contact' => '09123456789', 'province' => 'Laguna', 'municipality' => 'Majayjay', 'barangay' => 'Poblacion', 'street_address' => 'Synthetic test address'];
         $quote = app(CheckoutPricingService::class)->quote($cart, $voucher);
-        $order = app(PlacePurchaseService::class)->place($buyer, (string) Str::uuid(), 'voucher-test', $cart, $quote['hash'], $voucher->id, $address, 'WALLET')->orders()->firstOrFail();
+        $order = app(PlacePurchaseService::class)->place($buyer, (string) Str::uuid(), 'voucher-test', $cart, $quote['hash'], $voucher->id, $address, 'WALLET', $internalDemo || ! $payNow)->orders()->firstOrFail();
+        if ($internalDemo && $payNow) {
+            app(WalletOrderPaymentService::class)->pay($order, $buyer);
+        }
 
         return [$buyer, $seller, $voucher, $order, $product];
     }
 
-    private function fund(User $owner, int $cents): void
+    private function fund(User $owner, int $cents, bool $internalDemo = false): void
     {
+        if ($internalDemo) {
+            $funding = app(DemoWalletFundingService::class);
+            $intent = $funding->request($owner, $cents, (string) Str::uuid(), 'demo_credit', ['reason' => 'School demo voucher funding.']);
+            $funding->review($intent, $this->user('ecommerce_admin'), 'approve', 'Independent demo funding review.');
+
+            return;
+        }
         $funding = app(WalletFundingService::class);
         $intent = $funding->create($owner, $cents, (string) Str::uuid());
         $funding->simulate($intent, $this->user('ecommerce_admin'), 'paid');

@@ -3,20 +3,20 @@
     "scope":  "Laravel web only",
     "baseline_revision":  "f232491600787515c70dcc97fd00b0c3fc6e7ef3",
     "programme_complete":  false,
-    "delivered_case_revisions":  44,
-    "remaining_case_revisions":  10,
+    "delivered_case_revisions":  54,
+    "remaining_case_revisions":  0,
     "tests":  {
-                  "phpunit_tests":  607,
-                  "assertions":  5315,
-                  "frontend_tests":  27,
+                  "phpunit_tests":  723,
+                  "assertions":  6205,
+                  "frontend_tests":  63,
                   "mysql_concurrency_tested":  false,
                   "browser_tested":  false,
-                  "frontend_scope":  "Separate passing runs: 6 profile, 6 product, 4 voucher budget preview, 11 tab sessions. Latest run: 15 voucher/tab-session tests.",
+                  "frontend_scope":  "Final 54 review: all 10 tests/Frontend/*.test.cjs files passed 63 tests, no failures/skips. Simulated DOM/unit checks, not actual browser visual acceptance. Earlier targeted-run counts remain historical evidence.",
                   "mysql_temporary_sku_constraint_probe":  "passed; does not establish timed concurrent transactions",
-                  "browser_blocker":  "Retried after P7 dashboard/tracking changes on 2026-11-14: empty browser inventory / browser access host unavailable. Visual/responsive, device-camera and real multi-tab acceptance not performed.",
+                  "browser_blocker":  "Retried after internal wallet implementation on 2026-11-14: empty browser inventory / browser access host unavailable. Actual visual/responsive, keyboard/modal, device camera and real multi-account tab acceptance unverified.",
                   "mysql_voucher_schema_probe":  "Passed: starts_at/disabled_reason present and available-now scope query executes; zero configured vouchers. Not a populated financial or concurrency test.",
                   "seller_reporting_checks":  "11 new tests / 79 assertions; combined with analytics: 19 / 201; final full regression: 440 / 3988. Partial-refund completion compatibility corrected after first full run.",
-                  "frontend_build":  "Passed npm run build, Vite 8.3.4 for P6 guided returns and P7 dashboard/tracking templates; existing optional fontaine warning. No dependency or JavaScript changes.",
+                  "frontend_build":  "Passed npm run build with Vite 8.3.4 for P7 and internal wallet/checkout/To Pay templates; existing optional fontaine warning. No dependencies or JavaScript changed.",
                   "buyer_discovery_checks":  "16 new tests / 146 assertions; combined with WebOperationsTest: 30 / 309; final full regression: 456 / 4134. Partial seller-field API compatibility corrected and retested.",
                   "mysql_discovery_probe":  "Passed after derived-table correction for ONLY_FULL_GROUP_BY: wishlist schema, unique pair, synthetic-owner grouping/wishlist and empty ranking SQL. Wishlist rows zero; no populated MySQL scenario or timed race.",
                   "review_enquiry_checks":  "21 focused tests / 188 assertions; professor parcel journey separately 1 / 86; final regression 477 / 4322. Original feedback placeholder preserved after first full run exposed its loss. Shared API writer now enforces the same review identity/eligibility/history.",
@@ -30,7 +30,17 @@
                   "return_workflow_checks":  "34 focused tests / 230 assertions after final template changes; full regression 581 / 5153 in 117.643 seconds. Real parcel/badge receipt, mixed/zero stock, variations, history/privacy, original funded wallet authorization/execution/replay and legacy dispute compatibility covered in isolated SQLite with fake storage/notifications.",
                   "mysql_return_workflow_probe":  "Passed unique inspection item, three inspection FKs, nullable dispute with original uniqueness retained, unique RTS order and five refund FKs; empty-owner summary SQL and unchanged business counts. Zero configured inspection/RTS authorization rows; no populated MySQL workflow or timed race.",
                   "logistics_queue_tracking_checks":  "26 focused tests / 162 assertions; final full regression 607 / 5315 in 113.566 seconds. Eight linked queue totals across pages, real sorting refresh, midnight, received returns, exact numeric/EZP modes, buyer/recipient/escaped searches, filters, terminal records and scoped exceptions covered. The retained old cache test now asserts the approved fresh-count contract and ignores stale keys.",
-                  "mysql_logistics_queue_tracking_probe":  "Read-only empty zero-owner/order probe: eight queue predicates, scoped exception query and equivalent grouped escaped-name/reference SQL executed; checked business counts unchanged. Not populated MySQL HTTP behavior or a timed race."
+                  "mysql_logistics_queue_tracking_probe":  "Read-only empty zero-owner/order probe: eight queue predicates, scoped exception query and equivalent grouped escaped-name/reference SQL executed; checked business counts unchanged. Not populated MySQL HTTP behavior or a timed race.",
+                  "parcel_correction_checks":  "33 focused / 280 assertions; actual guarded sorting, COD/wallet completion and scanned seller receipt, immutable/private request-decision history and duplicate/no-op/stale/foreign evidence/event controls. Full regression 670 / 5776 in 112.864 seconds.",
+                  "remittance_export_checks":  "Combined new reconciliation and incumbent analytics-formatting suite 20 / 220. Role/filter scope, 27-row cross-page totals, empty genuine workbooks, signed/missing values, typed IDs, formula safety and 10001-row pre-hydration refusal. First full run memory exhaustion fixed with database cap check and column projection; no memory limit increase.",
+                  "zone_readiness_checks":  "13 focused / 67 assertions. Mapping vs approval vs explicit activation, independently approved rate, actual shared checkout quote, future/draft/weight/mapping holds, scoped areas, verified local capacity/availability and unchanged business rows.",
+                  "mysql_p7_correction_zone_report_probe":  "Correction table present with six FKs, unique open order and hub/status index; zero configured cases. Empty scoped/JSON, remittance/date and area/readiness queries plus genuine empty-workbook generation passed with unchanged checked counts. Versioned pricing remains false and required effective approvals absent. Not populated MySQL or timed-race evidence.",
+                  "prepaid_posting_verification_checks":  "21 new tests / 60 assertions; combined wallet, voucher, delivery and RTS regression 116 / 844; full suite 691 / 5836 in 111.452 seconds. Actual original debit/credit, amount, identity, account currency/ownership/freeze and unreversed posting required; malformed payment blocks seller confirmation. No provider connector or real provider test. Provider selection/account availability question remains unanswered; all six P8 cases remain incomplete. See docs/prepaid-provider-integration-readiness.md.",
+                  "internal_wallet_regression":  "All 55 PHP test files covered in two non-overlapping sequential batches: 388 tests / 3643 assertions / 81.854s and 335 / 2562 / 40.488s. Two earlier single-process runs exhausted unchanged 128 MB during MIME detection; no test omitted or memory ceiling raised. Temporary GC configuration removed. Ignored manifest/result logs record complete coverage.",
+                  "internal_demo_funding_checks":  "12 tests / 101 assertions; two funding kinds, independent scoped review, owner/evidence privacy/hash, canonical unique receipt, replay/conflict/rejection/expiry, disabled/live/production guards and legacy mock bypass rejection. New order and extended voucher/delivery/RTS datasets are included in the final full results.",
+                  "mysql_internal_wallet_checks":  "Private full backup before migration. Isolated copy: 23 users / 21 orders / 0 funding intents; up/down/reapply, unique receipt, review FK, deadline index and copied counts passed; DDL about 485 ms. Configured additive migration about 789 ms. Read-only schema/scoped/grouping probe passed with unchanged business counts, 0 internal requests, 0 pending reservations, local demo flag false. No populated MySQL payment or timed race claimed.",
+                  "final_54_review":  "2026-11-14: 723 PHP tests / 6205 assertions over all 55 files, non-overlapping batches 388/3643/78.423s and 335/2562/42.754s; 63 frontend tests; 11 read-only revision probes; Vite build; Pint; 47 PHP syntax checks; whitespace and all 54 original source/evidence identities passed. Browser host still unavailable. See docs/final-54-revisions-check.md.",
+                  "final_sqlite_concurrency":  "Passed isolated file-SQLite two-process spend: 10000 cents initial, two 7500-cent debits, one posted / one insufficient, 2500 remaining, balanced ledger. Does not establish MySQL concurrency."
               },
     "cases":  [
                   {
@@ -222,12 +232,14 @@
                       "source_sheet":  "S9 Order Processing",
                       "source_row":  6,
                       "original_teacher_alignment":  "Partial",
-                      "implementation_status":  "Planned",
-                      "verification_status":  "Not run for implementation",
+                      "implementation_status":  "Implemented under revised internal demo wallet scope; provider/card difference preserved",
+                      "verification_status":  "DeferredWalletOrderTest seller cancellation: one full original credit refund, stock restored, no seller available/pending proceeds, replay refused. Included in 723-test full regression across two complete batches. Browser/device and timed MySQL race acceptance unverified.",
                       "teacher_case_executed":  false,
                       "teacher_reassessment":  "Not performed",
                       "proposed_revision":  "P3/P8: show refund lifecycle for supported verified wallet orders; later connect provider refunds through the same authorization boundary.",
-                      "evidence_document":  "../../partial-features-implementation-audit.md"
+                      "evidence_document":  "../../partial-features-implementation-audit.md",
+                      "approved_scope_revision":  "Internal demo credits and admin-reviewed recorded demo deposits replace external-provider prerequisites by explicit user instruction on 2026-11-14.",
+                      "preserved_teacher_difference":  "Uses simulated internal wallet funds; does not implement external card/e-wallet processing or constitute execution of the original teacher case."
                   },
                   {
                       "id":  "SEL-RET-007",
@@ -362,12 +374,14 @@
                       "source_sheet":  "R5 Delivery",
                       "source_row":  7,
                       "original_teacher_alignment":  "Partial",
-                      "implementation_status":  "Partially delivered: verified sandbox-wallet no-cash delivery and held/unsupported indicators; provider extension gated in P8",
-                      "verification_status":  "Existing wallet completion, no COD fields/collector, required proof/code, frozen/missing-wallet and unsupported-method holds tested. No external provider integration, browser or teacher execution claimed.",
+                      "implementation_status":  "Implemented under revised internal demo wallet scope; provider/card difference preserved",
+                      "verification_status":  "FinancialLedgerWorkflowTest original mock plus internal deferred-payment full pickup/hub-transfer/delivery/settlement datasets: code/proof, zero COD and no duplicate payment. Included in 723-test full regression across two complete batches. Browser/device and timed MySQL race acceptance unverified.",
                       "teacher_case_executed":  false,
                       "teacher_reassessment":  "Not performed",
                       "proposed_revision":  "P6/P8: derive prepaid badge and zero collection requirement from verified financial state, never payment-method text alone.",
-                      "evidence_document":  "../../partial-features-implementation-audit.md"
+                      "evidence_document":  "../../partial-features-implementation-audit.md",
+                      "approved_scope_revision":  "Internal demo credits and admin-reviewed recorded demo deposits replace external-provider prerequisites by explicit user instruction on 2026-11-14.",
+                      "preserved_teacher_difference":  "Uses simulated internal wallet funds; does not implement external card/e-wallet processing or constitute execution of the original teacher case."
                   },
                   {
                       "id":  "RID-FAIL-004",
@@ -544,12 +558,14 @@
                       "source_sheet":  "B9 Payment",
                       "source_row":  3,
                       "original_teacher_alignment":  "Partial",
-                      "implementation_status":  "Planned",
-                      "verification_status":  "Not run for implementation",
+                      "implementation_status":  "Implemented under revised internal demo wallet scope; provider/card difference preserved",
+                      "verification_status":  "DemoWalletFundingTest and DeferredWalletOrderTest: independent funding, owned/password-confirmed exact wallet payment, shortfall/holds/expiry and no duplicate debit/deadline/notification. Included in 723-test full regression across two complete batches. Browser/device and timed MySQL race acceptance unverified.",
                       "teacher_case_executed":  false,
                       "teacher_reassessment":  "Not performed",
                       "proposed_revision":  "P8: durable payment attempts with server-owned totals, inventory/voucher reservations, signed provider verification and idempotent ledger recording.",
-                      "evidence_document":  "../../partial-features-implementation-audit.md"
+                      "evidence_document":  "../../partial-features-implementation-audit.md",
+                      "approved_scope_revision":  "Internal demo credits and admin-reviewed recorded demo deposits replace external-provider prerequisites by explicit user instruction on 2026-11-14.",
+                      "preserved_teacher_difference":  "Uses simulated internal wallet funds; does not implement external card/e-wallet processing or constitute execution of the original teacher case."
                   },
                   {
                       "id":  "BUY-TRK-001",
@@ -558,12 +574,14 @@
                       "source_sheet":  "B10 Order Tracking",
                       "source_row":  2,
                       "original_teacher_alignment":  "Partial",
-                      "implementation_status":  "Partially delivered: current COD/wallet primary groups implemented; provider attempts and To Pay remain gated in P8",
-                      "verification_status":  "Mutually exclusive groups, legacy history, status counts, owner scope and pagination passed; strict MySQL count query compatibility passed. Provider, browser and teacher execution not performed.",
+                      "implementation_status":  "Implemented under revised internal demo wallet scope; provider/card difference preserved",
+                      "verification_status":  "DeferredWalletOrderTest and PartialBuyerDiscoveryTest: genuine owned To Pay, mutually exclusive groups, payment moves to preparation, compatible API counts and web filters/pagination. Included in 723-test full regression across two complete batches. Browser/device and timed MySQL race acceptance unverified.",
                       "teacher_case_executed":  false,
                       "teacher_reassessment":  "Not performed",
                       "proposed_revision":  "P5/P8: define mutually exclusive buyer tab groups and shared counts, add Cancelled and Return/Refund visibility; show To Pay only for real pending attempts.",
-                      "evidence_document":  "../../partial-features-implementation-audit.md"
+                      "evidence_document":  "../../partial-features-implementation-audit.md",
+                      "approved_scope_revision":  "Internal demo credits and admin-reviewed recorded demo deposits replace external-provider prerequisites by explicit user instruction on 2026-11-14.",
+                      "preserved_teacher_difference":  "Uses simulated internal wallet funds; does not implement external card/e-wallet processing or constitute execution of the original teacher case."
                   },
                   {
                       "id":  "BUY-CAN-003",
@@ -572,12 +590,14 @@
                       "source_sheet":  "B11 Cancellation",
                       "source_row":  4,
                       "original_teacher_alignment":  "Partial",
-                      "implementation_status":  "Planned",
-                      "verification_status":  "Not run for implementation",
+                      "implementation_status":  "Implemented under revised internal demo wallet scope; provider/card difference preserved",
+                      "verification_status":  "PartialVoucherIntegrationTest original mock plus internal funding datasets: approved paid cancellation refunds exactly once and restores eligible voucher use/funding; unpaid cancel/expiry posts no fictional refund. Included in 723-test full regression across two complete batches. Browser/device and timed MySQL race acceptance unverified.",
                       "teacher_case_executed":  false,
                       "teacher_reassessment":  "Not performed",
                       "proposed_revision":  "P3/P8: present request, approved cancellation, refund pending/executed/failed and voucher effects distinctly.",
-                      "evidence_document":  "../../partial-features-implementation-audit.md"
+                      "evidence_document":  "../../partial-features-implementation-audit.md",
+                      "approved_scope_revision":  "Internal demo credits and admin-reviewed recorded demo deposits replace external-provider prerequisites by explicit user instruction on 2026-11-14.",
+                      "preserved_teacher_difference":  "Uses simulated internal wallet funds; does not implement external card/e-wallet processing or constitute execution of the original teacher case."
                   },
                   {
                       "id":  "BUY-RATE-001",
@@ -698,11 +718,11 @@
                       "source_sheet":  "L5 Tracking \u0026 Exceptions",
                       "source_row":  4,
                       "original_teacher_alignment":  "Partial",
-                      "implementation_status":  "Planned",
-                      "verification_status":  "Not run for implementation",
+                      "implementation_status":  "Implemented in P7 reasoned correction-review package",
+                      "verification_status":  "33 focused correction tests / 280 assertions; final combined regression 670 / 5776. Actual sorting/delivery/return actions, guarded closure, private evidence, role/owner/history and no stock/cash reposting covered. Browser/teacher execution not performed.",
                       "teacher_case_executed":  false,
                       "teacher_reassessment":  "Not performed",
-                      "proposed_revision":  "P7: route exceptional corrections through reasoned request/resolution, recording actor/time/before/after/evidence and blocked attempts where appropriate.",
+                      "proposed_revision":  "Delivered: independent reasoned request/resolution with private checksum-bound evidence, immutable original/decision snapshots, newer same-parcel workflow event and activity audit. No unrestricted Delivered override; proof, collection and receipt remain required.",
                       "evidence_document":  "../../partial-features-implementation-audit.md"
                   },
                   {
@@ -740,12 +760,14 @@
                       "source_sheet":  "L6 Returns (RTS)",
                       "source_row":  5,
                       "original_teacher_alignment":  "Partial",
-                      "implementation_status":  "Partially delivered: existing-wallet undelivered RTS authorization and separate execution; external provider integration remains P8 gated",
-                      "verification_status":  "Actual parcel/badge receipt, funded wallet authorization/hold/execution/replay and blocked seller proceeds verified in isolated tests. Browser, populated MySQL, timed races and teacher execution not performed.",
+                      "implementation_status":  "Implemented under revised internal demo wallet scope; provider/card difference preserved",
+                      "verification_status":  "ReturnWorkflowRevisionTest original mock plus internal credits: scanned seller return receipt/inspection, independent authorization, separate full credit execution, replay refused and no seller available proceeds. Included in 723-test full regression across two complete batches. Browser/device and timed MySQL race acceptance unverified.",
                       "teacher_case_executed":  false,
                       "teacher_reassessment":  "Not performed",
                       "proposed_revision":  "Existing-wallet RTS now has commerce-only full-original-amount authorization after evidenced receipt, independent stock inspection, and separate funded wallet credit; dedicated execution rechecks holds/receipt/amount. External-provider integration remains gated.",
-                      "evidence_document":  "../../partial-features-implementation-audit.md"
+                      "evidence_document":  "../../partial-features-implementation-audit.md",
+                      "approved_scope_revision":  "Internal demo credits and admin-reviewed recorded demo deposits replace external-provider prerequisites by explicit user instruction on 2026-11-14.",
+                      "preserved_teacher_difference":  "Uses simulated internal wallet funds; does not implement external card/e-wallet processing or constitute execution of the original teacher case."
                   },
                   {
                       "id":  "LOG-RATE-004",
@@ -754,11 +776,11 @@
                       "source_sheet":  "L7 Zones \u0026 Rates",
                       "source_row":  5,
                       "original_teacher_alignment":  "Partial",
-                      "implementation_status":  "Planned",
-                      "verification_status":  "Not run for implementation",
+                      "implementation_status":  "Implemented in P7 zone-readiness and shared-pricing preview package",
+                      "verification_status":  "13 focused tests / 67 assertions; explicit independent tariff approval/activation and actual checkout-quote equality, scope, routing holds, capacity/availability and read-only behavior. Final regression 670 / 5776; no configured activation or browser/teacher execution.",
                       "teacher_case_executed":  false,
                       "teacher_reassessment":  "Not performed",
-                      "proposed_revision":  "P7: guided area mapping + draft tariff + approval + activation readiness, with route/weight/vehicle coverage preview.",
+                      "proposed_revision":  "Delivered: guided existing mapping/draft/independent-approval/activation steps with effective approval table and shared actual-volumetric route/weight quote plus declared verified local-capacity candidates. No automatic activation, vehicle reservation or invented expiry policy.",
                       "evidence_document":  "../../partial-features-implementation-audit.md"
                   },
                   {
@@ -768,11 +790,11 @@
                       "source_sheet":  "L8 COD \u0026 Reports",
                       "source_row":  5,
                       "original_teacher_alignment":  "Partial",
-                      "implementation_status":  "Planned",
-                      "verification_status":  "Not run for implementation",
+                      "implementation_status":  "Implemented in P7 scoped remittance CSV and Excel package",
+                      "verification_status":  "20 focused tests / 220 assertions combined with existing analytics formatting; screen/CSV/XLSX scope, filters, multi-page totals, numeric/text/formula safety and 10001-batch refusal covered. Final regression 670 / 5776; application visual/teacher execution not performed.",
                       "teacher_case_executed":  false,
                       "teacher_reassessment":  "Not performed",
-                      "proposed_revision":  "P7: add XLSX to the dedicated financial statement using existing installed export facilities and the same scoped filtered query as CSV/screen.",
+                      "proposed_revision":  "Delivered: one role-scoped filtered batch query for screen/totals and genuine CSV/OOXML workbook, with metadata, summary/details/definitions, safe text IDs, numeric PHP and no private evidence paths. Existing analytics PDF/charts and wallet/shipping formats preserved.",
                       "evidence_document":  "../../partial-features-implementation-audit.md"
                   },
                   {
@@ -782,13 +804,38 @@
                       "source_sheet":  "L8 COD \u0026 Reports",
                       "source_row":  6,
                       "original_teacher_alignment":  "Partial",
-                      "implementation_status":  "Planned",
-                      "verification_status":  "Not run for implementation",
+                      "implementation_status":  "Implemented in P7 genuine empty reconciliation statements package",
+                      "verification_status":  "Empty CSV/XLSX opened and inspected structurally in automated tests: headings, filters, zero totals, no-data explanation and no fictional batch. Included in 20 / 220 focused and 670 / 5776 full checks. Spreadsheet application/browser/teacher acceptance not performed.",
                       "teacher_case_executed":  false,
                       "teacher_reassessment":  "Not performed",
-                      "proposed_revision":  "P7: define valid empty financial export in both formats.",
+                      "proposed_revision":  "Delivered: valid empty CSV and workbook with scope/date metadata, headings, zero totals and explicit no-data result; missing actual counts remain unavailable rather than fabricated receipts.",
                       "evidence_document":  "../../partial-features-implementation-audit.md"
                   }
               ],
-    "rider_availability_rollout":  "Preparation mode. RIDER_WORK_AVAILABILITY_ENFORCED remains false in configured runtime; .env unchanged. Seven approved riders must choose before readiness/announced activation. No configured --apply or offer/choice mutation performed."
+    "rider_availability_rollout":  "Preparation mode. RIDER_WORK_AVAILABILITY_ENFORCED remains false in configured runtime; .env unchanged. Seven approved riders must choose before readiness/announced activation. No configured --apply or offer/choice mutation performed.",
+    "implementation_complete":  true,
+    "acceptance_pending":  [
+                               "Browser/device and real multi-account tab acceptance unavailable",
+                               "Populated/timed MySQL financial concurrency unverified",
+                               "Teacher workbook execution/reassessment not performed; original external/card expectation preserved"
+                           ],
+    "approved_scope_change":  "2026-11-14 user decision: replace external provider dependence for the last six with internal school/demo credits and recorded demo cash deposits reviewed by independent role-appropriate administrators. Original teacher alignment is retained; no real funds or external card processing.",
+    "runtime_rollout":  {
+                            "date":  "2026-11-14",
+                            "demo_funding_enabled":  true,
+                            "environment":  "local",
+                            "financial_mode":  "sandbox",
+                            "activation_authorized_by_user":  true,
+                            "activation_command":  "php artisan finance:sandbox enable --actor=1",
+                            "demo_credits_issued_by_this_review":  0,
+                            "scheduler_workers_observed":  1,
+                            "queue_workers_observed":  1,
+                            "wallet_expiry_schedule":  "every minute",
+                            "approved_commerce_admins":  1,
+                            "treasury_self_approval_allowed":  false,
+                            "treasury_independent_approver_setup_needed":  true,
+                            "rider_availability_enforced":  false,
+                            "riders_without_availability_choice":  7,
+                            "versioned_tariffs_enabled":  false
+                        }
 }

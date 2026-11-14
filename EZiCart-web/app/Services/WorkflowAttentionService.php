@@ -20,6 +20,7 @@ class WorkflowAttentionService
         $count = 0;
         if ($user->isCommerceAdmin() || $user->isLogisticsAdmin()) {
             $groups = [
+                ['query' => app(DemoWalletFundingService::class)->visible($user)->where('provider', 'internal_demo')->where('status', 'PENDING')->where('user_id', '!=', $user->id)->where('expires_at', '>', now()), 'label' => 'Review demo wallet funding requests', 'route' => 'finance.wallet'],
                 ['query' => User::whereIn('role', $user->managedAccountRoles())->where('status', 'pending'), 'label' => 'Review account applications', 'route' => $user->isCommerceAdmin() ? 'admin.registrations.index' : 'logistics-admin.dashboard'],
                 ['query' => StaffProfileRevision::where('status', 'pending')->whereHas('user', fn ($q) => $q->whereIn('role', $user->managedAccountRoles())), 'label' => 'Review profile change requests', 'route' => $user->isCommerceAdmin() ? 'admin.profile-reviews.index' : 'logistics-admin.profile-reviews.index'],
             ];
@@ -64,6 +65,13 @@ class WorkflowAttentionService
             }
         }
         $returns = $this->returnTasks($user)->count();
+        if ($user->role === 'buyer') {
+            $unpaid = Order::where('buyer_id', $user->id)->awaitingWalletPayment()->count();
+            if ($unpaid) {
+                $count += $unpaid;
+                $items[] = ['label' => 'Complete reserved wallet payments', 'url' => route('buyer.dashboard', ['order_group' => 'to_pay']), 'count' => $unpaid, 'target' => null];
+            }
+        }
         if ($returns) {
             $count += $returns;
             $items[] = ['label' => 'Complete approved return pickup steps', 'url' => route('return-pickups.index'), 'count' => $returns, 'target' => null];

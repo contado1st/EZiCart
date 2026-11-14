@@ -78,6 +78,18 @@ class Order extends Model
         return $this->belongsTo(User::class, 'buyer_id');
     }
 
+    public function scopeAwaitingWalletPayment(Builder $query): Builder
+    {
+        return $query->where('status', 'PLACED')->where('payment_method', 'WALLET')
+            ->whereNotNull('wallet_payment_due_at')->whereNull('wallet_transaction_id');
+    }
+
+    public function isAwaitingWalletPayment(): bool
+    {
+        return $this->status === 'PLACED' && $this->payment_method === 'WALLET'
+            && $this->wallet_payment_due_at !== null && $this->wallet_transaction_id === null;
+    }
+
     public function purchase(): BelongsTo
     {
         return $this->belongsTo(Purchase::class);
@@ -217,6 +229,7 @@ class Order extends Model
             'weight_recorded_at' => 'datetime',
             'financial_version' => 'integer', 'wallet_paid_cents' => 'integer', 'seller_promo_funded_cents' => 'integer', 'platform_shipping_funded_cents' => 'integer', 'shipping_discount_cents' => 'integer',
             'seller_response_due_at' => 'datetime',
+            'wallet_payment_due_at' => 'datetime',
             'preparation_due_at' => 'datetime',
             'seller_reminded_at' => 'datetime',
             'restock_inspected_at' => 'datetime',

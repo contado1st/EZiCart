@@ -22,6 +22,7 @@ use App\Http\Controllers\Buyer\DiscoveryController;
 use App\Http\Controllers\Buyer\DisputeController;
 use App\Http\Controllers\Buyer\EmailChangeController;
 use App\Http\Controllers\Buyer\ReviewController;
+use App\Http\Controllers\Buyer\WalletPaymentController;
 use App\Http\Controllers\Buyer\WishlistController;
 use App\Http\Controllers\ChatAttachmentController;
 use App\Http\Controllers\ChatInboxController;
@@ -30,6 +31,7 @@ use App\Http\Controllers\Courier\AssignmentAcceptanceController;
 use App\Http\Controllers\Courier\CourierController;
 use App\Http\Controllers\Courier\WorkAvailabilityController;
 use App\Http\Controllers\DeliveryRetryController;
+use App\Http\Controllers\DemoWalletFundingController;
 use App\Http\Controllers\DirectMessageController;
 use App\Http\Controllers\FinancialController;
 use App\Http\Controllers\FinancialOperationsController;
@@ -39,6 +41,7 @@ use App\Http\Controllers\Logistics\CoverageController;
 use App\Http\Controllers\Logistics\LogisticsController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\OrderMessageController;
+use App\Http\Controllers\ParcelCorrectionController;
 use App\Http\Controllers\ParcelEvidenceController;
 use App\Http\Controllers\ParcelTransferController;
 use App\Http\Controllers\ParcelWeightController;
@@ -64,6 +67,7 @@ use App\Http\Controllers\ShopAvailabilityController;
 use App\Http\Controllers\StaffProfileController;
 use App\Http\Controllers\VoucherClaimController;
 use App\Http\Controllers\WorkflowAttentionController;
+use App\Http\Controllers\ZoneReadinessController;
 use Illuminate\Support\Facades\Route;
 
 // 1. Public Marketplace & Browsing Routes
@@ -202,6 +206,15 @@ Route::middleware(['auth', 'account.active', 'auth.session'])->group(function ()
     Route::get('/account/documents/{type}', [SecureDocumentController::class, 'ownDocument'])->name('account.documents.show');
     Route::get('/account', [AccountController::class, 'edit'])->name('account.profile.edit');
     Route::get('/returns/{order}/workflow', [ReturnWorkflowController::class, 'show'])->name('returns.workflow');
+    Route::get('/logistics-zone-readiness', ZoneReadinessController::class)->middleware('role:sorting_center,logistics_admin')->name('logistics-zone-readiness');
+    Route::middleware('role:sorting_center,logistics_admin')->prefix('logistics-corrections')->name('logistics-corrections.')->group(function () {
+        Route::get('/', [ParcelCorrectionController::class, 'index'])->name('index');
+        Route::get('/orders/{order}/create', [ParcelCorrectionController::class, 'create'])->middleware('role:sorting_center')->name('create');
+        Route::post('/orders/{order}', [ParcelCorrectionController::class, 'store'])->middleware(['role:sorting_center', 'throttle:operational-action'])->name('store');
+        Route::get('/{correction}', [ParcelCorrectionController::class, 'show'])->name('show');
+        Route::get('/{correction}/evidence', [ParcelCorrectionController::class, 'evidence'])->name('evidence');
+        Route::post('/{correction}/review', [ParcelCorrectionController::class, 'review'])->middleware(['role:logistics_admin', 'throttle:operational-action'])->name('review');
+    });
     Route::post('/returns/{order}/authorize-wallet-refund', [ReturnWorkflowController::class, 'authorize'])
         ->middleware(['role:admin,ecommerce_admin', 'throttle:operational-action'])->name('returns.authorize-wallet');
     Route::patch('/account/appearance', [ProfileAppearanceController::class, 'update'])->middleware('throttle:operational-action')->name('account.appearance.update');
@@ -226,6 +239,9 @@ Route::middleware(['auth', 'account.active', 'auth.session'])->group(function ()
     Route::post('/seller/disputes/{dispute}/replacement', [FinancialController::class, 'replacement'])->middleware(['role:seller', 'throttle:operational-action'])->name('seller.replacements.store');
 
     Route::get('/wallet', [FinancialOperationsController::class, 'wallet'])->name('finance.wallet');
+    Route::post('/wallet/demo-funding', [DemoWalletFundingController::class, 'store'])->middleware('throttle:operational-action')->name('wallet.demo-funding.store');
+    Route::post('/wallet/demo-funding/{intent}/review', [DemoWalletFundingController::class, 'review'])->middleware(['role:admin,ecommerce_admin,logistics_admin', 'throttle:operational-action'])->name('wallet.demo-funding.review');
+    Route::get('/wallet/demo-funding/{intent}/evidence', [DemoWalletFundingController::class, 'evidence'])->name('wallet.demo-funding.evidence');
     Route::post('/wallet/funding', [FinancialOperationsController::class, 'topup'])->middleware('throttle:operational-action')->name('finance.wallet.topup');
     Route::post('/wallet/funding/{intent}/simulate', [FinancialOperationsController::class, 'simulate'])->middleware(['role:admin,ecommerce_admin', 'throttle:operational-action'])->name('finance.wallet.simulate');
     Route::post('/wallet/withdrawals', [FinancialOperationsController::class, 'withdraw'])->middleware('throttle:operational-action')->name('finance.wallet.withdraw');
@@ -282,6 +298,9 @@ Route::middleware(['auth', 'account.active', 'auth.session'])->group(function ()
 
         // Checkout Actions & Voucher Application
         Route::get('/checkout', [CheckoutController::class, 'index'])->name('checkout.index');
+        Route::get('/buyer/orders/{order}/wallet-payment', [WalletPaymentController::class, 'show'])->name('buyer.orders.wallet-payment');
+        Route::post('/buyer/orders/{order}/wallet-payment', [WalletPaymentController::class, 'pay'])->middleware('throttle:operational-action')->name('buyer.orders.wallet-payment.pay');
+        Route::post('/buyer/orders/{order}/wallet-payment/cancel', [WalletPaymentController::class, 'cancel'])->middleware('throttle:operational-action')->name('buyer.orders.wallet-payment.cancel');
         Route::post('/checkout/cancel', [CheckoutController::class, 'cancel'])->name('checkout.cancel');
         Route::post('/checkout', [CheckoutController::class, 'process'])->middleware('throttle:operational-action')->name('checkout.process');
         Route::post('/checkout/voucher', [CheckoutController::class, 'applyVoucher'])->middleware('throttle:operational-action')->name('checkout.voucher.apply');

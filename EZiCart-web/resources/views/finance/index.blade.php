@@ -14,7 +14,7 @@
     <section class="dash-panel" id="finance-balances"><h2>Order payments and cash custody</h2>
         <div class="dash-table-wrapper"><table class="dash-table"><thead><tr><th>Order</th><th>Payment amount</th><th>Cash collected</th><th>Funding / remittance</th><th>Actions</th></tr></thead><tbody>
         @forelse($finances as $finance)<tr>
-            <td>{{ $finance->order->order_number }}<br>{{ $finance->order->payment_method }}</td><td>PHP {{ number_format(($finance->order->payment_method === 'WALLET' ? $finance->order->wallet_paid_cents : $finance->due_cents) / 100, 2) }}<br>{{ $finance->order->payment_method === 'WALLET' ? 'Wallet payment recorded' : 'COD due' }}</td>
+            <td>{{ $finance->order->order_number }}<br>{{ $finance->order->payment_method }}</td><td>PHP {{ number_format(($finance->order->payment_method === 'WALLET' ? ($finance->order->isAwaitingWalletPayment() ? \App\Services\CheckoutPricingService::cents($finance->order->total_amount) : $finance->order->wallet_paid_cents) : $finance->due_cents) / 100, 2) }}<br>{{ $finance->order->payment_method === 'WALLET' ? ($finance->order->isAwaitingWalletPayment() ? 'Awaiting demo wallet payment' : 'Wallet payment recorded') : 'COD due' }}</td>
             <td>{{ $finance->order->payment_method === 'WALLET' ? 'Not applicable (prepaid)' : ($finance->collected_cents === null ? 'Not recorded' : '₱'.number_format($finance->collected_cents / 100, 2)) }}</td>
             <td>{{ str_replace('_', ' ', $finance->remittance_status) }}@if($finance->remitted_cents !== null)<p>Submitted: ₱{{ number_format($finance->remitted_cents / 100, 2) }}</p>@endif</td>
             <td>
@@ -48,7 +48,7 @@
         </tr>@empty<tr><td colspan="5">No financial records available.</td></tr>@endforelse
         </tbody></table></div>{{ $finances->links() }}
     </section>
-    <section class="dash-panel" id="finance-refunds"><h2>Refunds</h2><p>Authorization records a decision. Execution records an external refund supported by a transaction reference and proof.</p>
+    <section class="dash-panel" id="finance-refunds"><h2>Refunds</h2><p>Authorization records a decision. Wallet execution credits the buyer balance and records its ledger reference. External COD refunds require their separate payment reference and proof.</p>
         @forelse($refunds as $refund)<article><h3>{{ $refund->order->order_number }} — ₱{{ number_format($refund->amount_cents / 100, 2) }}</h3><p>{{ $refund->status }} {{ $refund->reference }}</p>
             @if($refund->evidence_path && ($actor->isCommerceAdmin() || $actor->role === 'buyer'))<a href="{{ route('finance.evidence', ['refund', $refund->id]) }}">Refund proof</a>@endif
             @if($actor->isCommerceAdmin() && $refund->status === 'AUTHORIZED' && $refund->order->payment_method === 'WALLET')<form method="POST" action="{{ route('finance.refund.wallet', $refund) }}">@csrf<label>Wallet refund reason<input name="reason" required minlength="5" maxlength="500"></label><button type="submit" class="dash-btn-sm">Credit approved wallet refund</button></form>@endif

@@ -17,7 +17,7 @@
     @if($available->frozen)<p role="alert">This account is under financial investigation. Spending is frozen until authorized recovery is resolved.</p>@endif
     <x-workspace-tabs :tabs="[
         ['id' => 'wallet-history', 'label' => 'Transactions', 'count' => $entries->total()],
-        ['id' => 'wallet-funding', 'label' => 'Sandbox funding', 'count' => $intents->total()],
+        ['id' => 'wallet-funding', 'label' => 'Add demo funds', 'count' => $intents->total()],
         ['id' => 'wallet-withdrawals', 'label' => 'Withdrawals', 'count' => $withdrawals->total()],
     ]" />
     <section class="dash-panel" id="wallet-history"><h2>Posted transactions</h2><p>Positive entries credit this account; negative entries debit it. Original entries remain unchanged when reversed.</p>
@@ -25,14 +25,7 @@
         @forelse($entries as $entry)<tr><td>{{ $entry->created_at }}</td><td>{{ $entry->transaction->reference }}<br>{{ str_replace('_', ' ', $entry->transaction->type) }}</td><td>{{ $entry->account->bucket }} · {{ $entry->account->type }}</td><td>{{ number_format($entry->delta_cents / 100, 2) }}</td><td>{{ number_format($entry->balance_before_cents / 100, 2) }}</td><td>{{ number_format($entry->balance_after_cents / 100, 2) }}</td></tr>@empty<tr><td colspan="6">No posted transactions.</td></tr>@endforelse
         </tbody></table></div>{{ $entries->links() }}
     </section>
-    <section class="dash-panel" id="wallet-funding"><h2>Sandbox funding intents</h2><p>Funding is disabled unless explicitly enabled in a local/testing environment. An administrator can simulate the signed mock-provider event; the browser cannot credit a balance.</p>
-        @if(in_array($actor->role, ['buyer', 'seller', 'admin', 'ecommerce_admin'], true))
-        <form method="POST" action="{{ route('finance.wallet.topup') }}" data-decision="financial_action" data-decision-title="Record this financial action?" data-decision-message="Review the amount, recipient, evidence and funding source before proceeding." data-decision-label="Confirm action">@csrf<input type="hidden" name="request_key" value="{{ Str::uuid() }}"><label>Mock amount PHP<input type="number" name="amount" min="0.01" max="1000000" step="0.01" required></label><button class="dash-btn-sm" type="submit">Create sandbox funding intent</button></form>
-        @endif
-        <div class="dash-table-wrapper"><table class="dash-table"><thead><tr><th>Reference</th><th>Requested by</th><th>Amount PHP</th><th>Status</th><th>Mock-provider action</th></tr></thead><tbody>
-        @forelse($intents as $intent)<tr><td>{{ $intent->reference }}</td><td>Account #{{ $intent->user_id }}</td><td>{{ number_format($intent->amount_cents / 100, 2) }}</td><td>{{ $intent->status }}</td><td>@if($actor->isCommerceAdmin() && in_array($intent->status, ['PENDING', 'PAID'], true))<form method="POST" action="{{ route('finance.wallet.simulate', $intent) }}" data-decision="sandbox_funding" data-decision-title="Simulate provider event?" data-decision-message="This records mock funds only. No actual money is transferred." data-decision-label="Simulate event">@csrf<select name="result" required>@if($intent->status === 'PENDING')<option value="paid">Mock payment paid</option><option value="failed">Mock payment failed</option>@else<option value="reversed">Mock provider reversal</option>@endif</select><button class="dash-btn-sm" type="submit">Simulate event</button></form>@else Await provider event / finalized @endif</td></tr>@empty<tr><td colspan="5">No funding intents.</td></tr>@endforelse
-        </tbody></table></div>{{ $intents->links() }}
-    </section>
+    @include('finance.partials.demo-funding')
     <section class="dash-panel" id="wallet-withdrawals"><h2>Withdrawal requests</h2><p>Requests reserve available funds immediately. Execution is a sandbox ledger operation, not a bank transfer.</p>
         @if(in_array($actor->role, ['buyer', 'seller', 'courier', 'sorting_center'], true))<form method="POST" action="{{ route('finance.wallet.withdraw') }}" data-decision="financial_action" data-decision-title="Request a withdrawal?" data-decision-message="This reserves the amount from available funds. Administrator review and sandbox execution are separate steps." data-decision-label="Request withdrawal">@csrf<input type="hidden" name="request_key" value="{{ old('request_key', Str::uuid()) }}"><label>Amount PHP<input name="amount" type="number" min="0.01" max="1000000" step="0.01" value="{{ old('amount') }}" required></label><label>Sandbox destination reference<input name="destination" minlength="5" maxlength="500" value="{{ old('destination') }}" required placeholder="Test destination only"></label><button type="submit" class="dash-btn-sm">Request withdrawal</button></form>@endif
         <div class="dash-table-wrapper"><table class="dash-table"><thead><tr><th>Reference</th><th>Account</th><th>Amount PHP</th><th>Status</th><th>Review</th></tr></thead><tbody>

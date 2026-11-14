@@ -117,6 +117,9 @@
                             </div>
 
                             <div class="u-extracted-487b2c5804">
+                                @if($order->isAwaitingWalletPayment())
+                                    <a class="dash-btn-sm" href="{{ route('buyer.orders.wallet-payment', $order) }}">Pay or cancel reservation</a>
+                                @endif
                                 @if ($order->dispute)
                                     <span
                                         class="status-pill status-badge-{{ strtolower(str_replace('_', '-', $order->dispute->status)) }}">
@@ -140,7 +143,7 @@
 
                                 @if ($order->pendingCancellation)
                                     <a class="dash-btn-sm" href="{{ route('buyer.orders.show', $order) }}">Cancellation pending</a>
-                                @elseif (in_array($order->status, ['PLACED', 'CONFIRMED', 'PREPARING'], true))
+                                @elseif (! $order->isAwaitingWalletPayment() && in_array($order->status, ['PLACED', 'CONFIRMED', 'PREPARING'], true))
                                     <form action="{{ route('buyer.orders.cancel', $order) }}" method="POST" data-decision="buyer.orders.cancel" data-decision-title="Request cancellation?" data-decision-message="The seller has 24 hours to respond before automatic approval. Cancellation is unavailable after physical pickup." data-decision-label="Request cancellation" data-decision-tone="danger" onsubmit="return window.eziDecisionReady ? true : window.confirm(this.dataset.decisionMessage)">
                                         @csrf
                                         <button type="submit" class="dash-btn-sm">Request

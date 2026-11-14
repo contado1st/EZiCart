@@ -7,6 +7,7 @@
             <p>Create operational zones, then map each province and municipality to its delivery zone. Multiple municipalities can use one area.</p>
         </div>
     </header>
+    <p><a class="ops-btn" href="{{ route('logistics-zone-readiness') }}">Check zone readiness and parcel pricing</a></p>
 
     <x-workspace-tabs :tabs="[
         ['id' => 'routing-areas', 'label' => 'Configured areas', 'count' => $areas->total()],

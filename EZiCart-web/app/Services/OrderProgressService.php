@@ -44,6 +44,9 @@ class OrderProgressService
         };
         if ($order->pendingCancellation) {
             [$owner, $label, $route] = ['seller', 'Cancellation requested. Fulfillment is paused until the seller responds.', 'seller.orders.cancellation'];
+        } elseif ($order->isAwaitingWalletPayment()) {
+            $stage = null;
+            [$owner, $label, $route] = ['buyer', 'Awaiting demo wallet payment. Pay before the reservation deadline; the seller cannot prepare an unpaid order.', 'buyer.orders.wallet-payment'];
         } elseif ($order->activeTransfer) {
             [$owner, $label, $route] = ['sorting_center', 'A hub transfer is active. Complete the physical dispatch and receiving scans in Hub transfers.', ''];
         } elseif (in_array($order->dispute?->status, ['PENDING', 'UNDER_REVIEW'], true)) {

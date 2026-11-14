@@ -102,6 +102,7 @@
                     </p>
                 </div>
                 <div class="courier-actions">
+                    <a class="ops-btn" href="{{ route('logistics-corrections.create', $order) }}">Request correction review</a>
                     <span class="ops-status {{ $order->status === 'DELIVERY_FAILED' ? 'ops-status--danger' : ($order->status === 'RETURN_IN_TRANSIT' ? 'ops-status--amber' : ($order->status === 'DELIVERED' || $order->status === 'COMPLETED' ? 'ops-status--green' : 'ops-status--pink')) }}">
                         {{ str_replace('_', ' ', $order->status) }}
                     </span>

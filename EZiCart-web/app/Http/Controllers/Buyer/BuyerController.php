@@ -77,6 +77,6 @@ class BuyerController extends Controller
         $data = $request->validate(['reason' => ['nullable', 'string', 'min:5', 'max:500']]);
         $transitions->requestCancellation($order, $this->authenticatedUser(), $data['reason'] ?? 'Buyer requested cancellation before shipment.');
 
-        return back()->with('success', 'Cancellation pending seller approval. Fulfillment is paused; unanswered requests are approved after 24 hours.');
+        return back()->with('success', $order->fresh()->status === 'CANCELLED' ? 'Unpaid reservation cancelled. No wallet funds were charged.' : 'Cancellation pending seller approval. Fulfillment is paused; unanswered requests are approved after 24 hours.');
     }
 }

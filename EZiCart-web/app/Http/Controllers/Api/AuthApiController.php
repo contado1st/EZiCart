@@ -10,6 +10,7 @@ use App\Notifications\EmailVerificationCodeNotification;
 use App\Notifications\PasswordRecoveryCodeNotification;
 use App\Services\RegistrationIdentityService;
 use Carbon\Carbon;
+use Carbon\CarbonInterface;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -17,7 +18,6 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Password as PasswordRule;
-use Illuminate\Validation\ValidationException;
 
 class AuthApiController extends Controller
 {
@@ -351,7 +351,8 @@ class AuthApiController extends Controller
 
         $counts = [
             'all' => $user->buyerOrders()->count(),
-            'to_ship' => $user->buyerOrders()->whereIn('status', ['PLACED', 'CONFIRMED', 'PREPARING'])->count(),
+            'to_ship' => $user->buyerOrders()->whereIn('status', ['PLACED', 'CONFIRMED', 'PREPARING'])->whereNot(fn ($q) => $q->awaitingWalletPayment())->count(),
+            'to_pay' => $user->buyerOrders()->awaitingWalletPayment()->count(),
             'to_receive' => $user->buyerOrders()->whereIn('status', ['READY_FOR_PICKUP', 'PICKED_UP', 'AT_SORTING_CENTER', 'SORTED', 'ASSIGNED_TO_RIDER', 'OUT_FOR_DELIVERY', 'DELIVERED', 'DELIVERY_FAILED', 'RETURN_IN_TRANSIT'])->count(),
             'completed' => $user->buyerOrders()->whereIn('status', ['COMPLETED', 'CANCELLED', 'RETURNED', 'RETURNED_TO_SELLER'])->count(),
         ];
@@ -424,7 +425,7 @@ class AuthApiController extends Controller
             'name' => trim("{$user->first_name} {$user->last_name}"),
             'email' => $user->email,
             'contact_no' => $user->contact_no,
-            'birthday' => $user->birthday instanceof \Carbon\CarbonInterface ? $user->birthday->format('Y-m-d') : ($user->birthday ? (string) $user->birthday : null),
+            'birthday' => $user->birthday instanceof CarbonInterface ? $user->birthday->format('Y-m-d') : ($user->birthday ? (string) $user->birthday : null),
             'age' => $user->age,
             'role' => $user->role,
             'status' => $user->status,

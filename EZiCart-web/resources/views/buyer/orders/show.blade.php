@@ -19,6 +19,9 @@
             </div>
 
             @if($order->purchase)
+                @if($order->isAwaitingWalletPayment())
+                    <section class="dash-panel"><h2>Awaiting demo wallet payment</h2><p>Pay by {{ $order->wallet_payment_due_at->format('M d, Y h:i A') }}. The seller cannot prepare this unpaid reservation.</p><a class="dash-btn-sm" href="{{ route('buyer.orders.wallet-payment', $order) }}">Pay or cancel unpaid reservation</a></section>
+                @endif
                 <section class="dash-panel"><h2>Purchase #{{ $order->purchase->id }}</h2><p>Purchase total: ₱{{ number_format($order->purchase->total_cents / 100, 2) }}</p>
                     @foreach($order->purchase->orders as $sibling)<p><a href="{{ route('buyer.orders.show', $sibling) }}">{{ $sibling->order_number }}</a> — {{ $sibling->seller->business_name ?? 'Merchant' }}{{ $sibling->replacement_for_order_id ? ' (replacement shipment)' : '' }}</p>@endforeach
                 </section>

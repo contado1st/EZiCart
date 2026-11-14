@@ -1,0 +1,41 @@
+@extends('layouts.app')
+@section('title', 'Zone readiness | EZiCart')
+@push('styles') @vite('resources/css/shared/dashboard.css') @endpush
+@section('content')
+<main class="web-operations">
+    @include('components.feature-feedback')
+    <header class="dash-header"><div><h1 class="dash-title">Zone readiness</h1><p class="dash-subtitle">Connect area mapping, independent tariff approval and parcel planning before operational activation.</p></div></header>
+    <x-workspace-tabs :default-tab="$preview ? 'readiness-preview' : 'readiness-steps'" :tabs="[['id' => 'readiness-steps', 'label' => 'Setup & activation'], ['id' => 'readiness-preview', 'label' => 'Parcel preview']]" />
+    <section class="dash-panel" id="readiness-steps"><h2>Configure a delivery zone</h2>
+        <ol class="grid gap-4">
+            <li>Create an active routing area and map the correct province/municipality. Assign it to an approved hub. Confirm the seller origin has its own active pickup-hub mapping.
+                <a class="dash-btn-sm" href="{{ $actor->role === 'sorting_center' ? route('logistics.areas', ['workspace_tab' => 'routing-tools']) : route('logistics-admin.dashboard', ['workspace_tab' => 'service-areas']) }}">Review area mappings</a></li>
+            <li>Logistics administration drafts a tariff using reviewed operating costs and weight brackets. A different logistics administrator approves it. Future-effective drafts/approvals do not supply a current quote.
+                @if($actor->isLogisticsAdmin())<a class="dash-btn-sm" href="{{ route('finance.rates') }}#tariff-draft">Draft and review tariffs</a>@endif</li>
+            <li>Check a planning parcel in <a href="#readiness-preview">Parcel preview</a>. Compare actual and volumetric weight, the applicable route and recorded coverage vehicles. Mapping and tariff configuration alone do not reserve a rider or guarantee dispatch.</li>
+            <li>After reviewing all normal route approvals and the operating environment, use the existing explicit activation action. Existing order price/rate snapshots remain unchanged.
+                @if($actor->isLogisticsAdmin())<a class="dash-btn-sm" href="{{ route('finance.rates') }}#tariff-activation">Review activation controls</a>@else Ask logistics administration to review and activate pricing when appropriate.@endif</li>
+        </ol>
+        <p>Current pricing: <strong>{{ $activation['enabled'] ? 'Versioned tariffs enabled' : 'Legacy flat shipping' }}</strong>. {{ $activation['ready'] ? 'All four required route classes have an effective approved version.' : 'Effective approval is missing for at least one required route class.' }} Sandbox tariffs also require the existing financial sandbox setting. Opening this page does not enable pricing.</p>
+        <div class="dash-table-wrapper"><table class="dash-table"><thead><tr><th scope="col">Required route</th><th scope="col">Effective approved version</th><th scope="col">Environment</th></tr></thead><tbody>@foreach($activation['routes'] as $class => $rate)<tr><td>{{ ucwords(str_replace('_', ' ', $class)) }}</td><td>{{ $rate ? '#'.$rate->id.' '.$rate->name : 'Approval missing or not yet effective' }}</td><td>{{ $rate ? ($rate->sandbox ? 'Sandbox example' : 'Operator-approved tariff') : 'Not configured' }}</td></tr>@endforeach</tbody></table></div>
+        <p class="web-muted">Long-distance routes additionally require an explicitly configured effective destination zone and tariff. The current tariff model has effective dates and immutable versions; it has no expiry-date field. Create/review a replacement version when costs change.</p>
+    </section>
+    <section class="dash-panel" id="readiness-preview"><h2>Preview a planning parcel</h2>
+        <form class="web-form" method="GET" action="{{ route('logistics-zone-readiness') }}"><input type="hidden" name="preview" value="1">
+            <label class="web-wide">Destination routing area<select name="area_id" required><option value="">Choose a permitted area</option>@foreach($areas as $area)<option value="{{ $area->id }}" @selected((string) request('area_id') === (string) $area->id)>{{ $area->name }} ({{ $area->code }})</option>@endforeach</select></label>
+            <fieldset class="web-wide grid gap-3 sm:grid-cols-3"><legend>Seller origin</legend>@foreach(['origin_province' => 'Origin province', 'origin_municipality' => 'Origin municipality', 'origin_barangay' => 'Origin barangay'] as $key => $label)<label class="grid gap-2">{{ $label }}<input name="{{ $key }}" maxlength="120" value="{{ request($key) }}" required></label>@endforeach</fieldset>
+            <fieldset class="web-wide grid gap-3 sm:grid-cols-3"><legend>Delivery destination</legend>@foreach(['province' => 'Destination province', 'municipality' => 'Destination municipality', 'barangay' => 'Destination barangay'] as $key => $label)<label class="grid gap-2">{{ $label }}<input name="{{ $key }}" maxlength="120" value="{{ request($key) }}" required></label>@endforeach</fieldset>
+            <label>Actual packed weight (kg)<input type="number" name="weight_kg" min="0.001" max="1000" step="0.001" value="{{ request('weight_kg', 1) }}" required></label>
+            @foreach(['length_mm' => 'Length (mm)', 'width_mm' => 'Width (mm)', 'height_mm' => 'Height (mm)'] as $key => $label)<label>{{ $label }}<input type="number" name="{{ $key }}" min="1" max="5000" step="1" value="{{ request($key, 100) }}" required></label>@endforeach
+            <label>Payment method<select name="payment_method">@foreach(['COD' => 'Cash on delivery', 'WALLET' => 'Existing sandbox wallet'] as $value => $label)<option value="{{ $value }}" @selected(request('payment_method', 'COD') === $value)>{{ $label }}</option>@endforeach</select></label><button class="dash-btn-sm dash-btn-primary" type="submit">Check zone and parcel</button>
+        </form>
+        @if($preview)
+            <h3>Planning result — {{ $preview['area']->name }}</h3><p>Route: <strong>{{ ucwords(str_replace('_', ' ', $preview['route'])) }}</strong>. {{ $preview['routing_and_tariff_configured'] ? 'Selected-area mapping and current versioned pricing are configured for this input.' : 'Review the configuration issues below before claiming zone readiness.' }}</p>
+            @if($preview['issues'])<ul role="status">@foreach($preview['issues'] as $issue)<li>{{ $issue }}</li>@endforeach</ul>@endif
+            @if($preview['quote'])<dl class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4"><div><dt>Current planning shipping fee</dt><dd>PHP {{ number_format($preview['quote']['total_cents'] / 100, 2) }}</dd></div><div><dt>Actual weight</dt><dd>{{ \App\Services\ParcelLoadService::kg($preview['weight_grams']) }}</dd></div><div><dt>Volumetric weight</dt><dd>{{ isset($preview['quote']['volumetric_grams']) ? \App\Services\ParcelLoadService::kg($preview['quote']['volumetric_grams']) : 'Legacy fee; not calculated' }}</dd></div><div><dt>Chargeable weight</dt><dd>{{ isset($preview['quote']['chargeable_grams']) ? \App\Services\ParcelLoadService::kg($preview['quote']['chargeable_grams']) : 'Legacy fee; not calculated' }}</dd></div></dl><p>Tariff: {{ $preview['quote']['rate_name'] ?? 'Legacy flat shipping; compensation unconfigured' }}{{ !empty($preview['quote']['sandbox']) ? ' — sandbox example' : '' }}.</p>@endif
+            <p><strong>{{ $preview['capacity_candidates'] }}</strong> approved local coverage vehicles have a verified capacity at least this actual parcel weight, subject to the current availability mode and recorded licence-expiry check. Largest matching verified limit: {{ $preview['maximum_verified_capacity'] ? \App\Services\ParcelLoadService::kg($preview['maximum_verified_capacity']) : 'None recorded' }}.</p>
+            <p class="web-muted">{{ $preview['availability_enforced'] ? 'Manual availability enforcement is active.' : 'Availability remains in preparation mode.' }} Candidate counts precede current cargo reservations, job limits, barangay assignment/override rules and physical handoff checks. Dedicated hub-transfer drivers are excluded from local candidates. Checkout recalculates the current tariff for its actual products/address; stock, vouchers, payment and dispatch eligibility remain separate. This preview writes no area, tariff, assignment, order, account or money record.</p>
+        @endif
+    </section>
+</main>
+@endsection

@@ -32,7 +32,9 @@ class OrderApiController extends Controller
         if ($status) {
             $query->where('status', $status);
         } elseif ($tab === 'to_ship') {
-            $query->whereIn('status', ['PLACED', 'CONFIRMED', 'PREPARING']);
+            $query->whereIn('status', ['PLACED', 'CONFIRMED', 'PREPARING'])->whereNot(fn ($q) => $q->awaitingWalletPayment());
+        } elseif ($tab === 'to_pay') {
+            $query->awaitingWalletPayment();
         } elseif ($tab === 'to_receive') {
             $query->whereIn('status', ['READY_FOR_PICKUP', 'PICKED_UP', 'AT_SORTING_CENTER', 'SORTED', 'ASSIGNED_TO_RIDER', 'OUT_FOR_DELIVERY', 'DELIVERED', 'DELIVERY_FAILED', 'RETURN_IN_TRANSIT']);
         } elseif ($tab === 'completed') {
@@ -45,7 +47,8 @@ class OrderApiController extends Controller
 
         $counts = [
             'all' => $buyer->buyerOrders()->count(),
-            'to_ship' => $buyer->buyerOrders()->whereIn('status', ['PLACED', 'CONFIRMED', 'PREPARING'])->count(),
+            'to_ship' => $buyer->buyerOrders()->whereIn('status', ['PLACED', 'CONFIRMED', 'PREPARING'])->whereNot(fn ($q) => $q->awaitingWalletPayment())->count(),
+            'to_pay' => $buyer->buyerOrders()->awaitingWalletPayment()->count(),
             'to_receive' => $buyer->buyerOrders()->whereIn('status', ['READY_FOR_PICKUP', 'PICKED_UP', 'AT_SORTING_CENTER', 'SORTED', 'ASSIGNED_TO_RIDER', 'OUT_FOR_DELIVERY', 'DELIVERED', 'DELIVERY_FAILED', 'RETURN_IN_TRANSIT'])->count(),
             'completed' => $buyer->buyerOrders()->where('status', 'COMPLETED')->count(),
             'cancelled' => $buyer->buyerOrders()->whereIn('status', ['CANCELLED', 'RETURNED', 'RETURNED_TO_SELLER'])->count(),
@@ -217,7 +220,7 @@ class OrderApiController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => 'Cancellation requested. Fulfillment is paused awaiting seller confirmation.',
+            'message' => $order->fresh()->status === 'CANCELLED' ? 'Unpaid reservation cancelled. No wallet funds were charged.' : 'Cancellation requested. Fulfillment is paused awaiting seller confirmation.',
         ]);
     }
 

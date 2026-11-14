@@ -37,9 +37,9 @@ class PartialBuyerDiscoveryTest extends TestCase
         $other = $this->order($seller, $this->user('buyer'), 'COMPLETED');
         $response = $this->actingAs($buyer)->get(route('buyer.dashboard'))->assertOk()->assertDontSee($other->order_number);
         $counts = $response->viewData('counts');
-        $this->assertSame(['all' => 17, 'to_ship' => 3, 'to_receive' => 8, 'completed' => 1, 'cancelled' => 1, 'returns' => 3, 'other' => 1], $counts);
+        $this->assertSame(['all' => 17, 'to_pay' => 0, 'to_ship' => 3, 'to_receive' => 8, 'completed' => 1, 'cancelled' => 1, 'returns' => 3, 'other' => 1], $counts);
         $seen = [];
-        foreach (['to_ship', 'to_receive', 'completed', 'cancelled', 'returns', 'other'] as $group) {
+        foreach (['to_pay', 'to_ship', 'to_receive', 'completed', 'cancelled', 'returns', 'other'] as $group) {
             $orders = $this->get(route('buyer.dashboard', ['order_group' => $group]))->assertOk()->viewData('orders');
             $this->assertSame($counts[$group], $orders->total());
             foreach ($orders as $order) {
@@ -83,7 +83,7 @@ class PartialBuyerDiscoveryTest extends TestCase
         $this->assertSame(26, $response->viewData('orders')->total());
         $this->assertCount(1, $response->viewData('orders'));
         $response->assertSee('status=CANCELLED', false)->assertSee('name="order_group" value="cancelled"', false);
-        $this->getJson(route('buyer.dashboard', ['order_group' => 'to_pay']))->assertJsonValidationErrors('order_group');
+        $this->getJson(route('buyer.dashboard', ['order_group' => 'unsupported_group']))->assertJsonValidationErrors('order_group');
         $this->getJson(route('buyer.dashboard', ['status' => 'UNSAFE_STATUS']))->assertJsonValidationErrors('status');
     }
 

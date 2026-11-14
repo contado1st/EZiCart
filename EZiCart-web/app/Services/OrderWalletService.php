@@ -9,24 +9,44 @@ use App\Models\OrderFinance;
 use App\Models\RefundExecution;
 use App\Models\SellerPayout;
 use App\Models\User;
+use App\Notifications\OrderWorkflowNotification;
 use Illuminate\Support\Facades\DB;
 
 class OrderWalletService
 {
-    public function __construct(private FinancialLedgerService $ledger, private AdministrativeAuditService $audits) {}
+    public function __construct(private FinancialLedgerService $ledger, private AdministrativeAuditService $audits, private TransactionAwareNotificationSender $notifications) {}
 
     public function paymentReady(Order $order): bool
     {
         if ($order->payment_method === 'COD') {
             return true;
         }
-        if ($order->payment_method !== 'WALLET' || $order->financial_version !== 1 || ! $order->wallet_transaction_id || $order->wallet_paid_cents !== CheckoutPricingService::cents($order->total_amount)) {
+        if ($order->payment_method !== 'WALLET' || $order->financial_version !== 1 || ! $order->wallet_transaction_id || $order->wallet_paid_cents <= 0 || $order->wallet_paid_cents !== CheckoutPricingService::cents($order->total_amount)) {
             return false;
         }
         $transaction = LedgerTransaction::find($order->wallet_transaction_id);
 
-        return $transaction?->type === 'order_payment' && (int) ($transaction->metadata['order_id'] ?? 0) === $order->id
-            && FinancialAccount::where('key', 'user:'.$order->buyer_id.':available')->where('user_id', $order->buyer_id)->where('frozen', false)->exists();
+        if ($transaction?->type !== 'order_payment' || (int) ($transaction->metadata['order_id'] ?? 0) !== $order->id
+            || (int) ($transaction->metadata['buyer_id'] ?? 0) !== $order->buyer_id || (int) $transaction->actor_id !== $order->buyer_id
+            || $transaction->reversal_of !== null || LedgerTransaction::where('reversal_of', $transaction->id)->exists()) {
+            return false;
+        }
+
+        // Verify the original posting, not today's balance: funded proceeds may already be staged.
+        // These are reads only; verification must never create a wallet or escrow account.
+        $accounts = FinancialAccount::whereIn('key', ['user:'.$order->buyer_id.':available', 'order:'.$order->id.':escrow'])
+            ->where('currency', 'PHP')->where('frozen', false)->get()->keyBy('key');
+        $wallet = $accounts->get('user:'.$order->buyer_id.':available');
+        $escrow = $accounts->get('order:'.$order->id.':escrow');
+        if (! $wallet || ! $escrow || (int) $wallet->user_id !== $order->buyer_id || $wallet->bucket !== 'available'
+            || $escrow->type !== 'order_escrow' || $escrow->bucket !== 'held' || $escrow->user_id !== null) {
+            return false;
+        }
+        $entries = $transaction->entries()->get();
+
+        return $entries->count() === 2
+            && (int) $entries->where('account_id', $wallet->id)->first()?->delta_cents === -$order->wallet_paid_cents
+            && (int) $entries->where('account_id', $escrow->id)->first()?->delta_cents === $order->wallet_paid_cents;
     }
 
     /** Runs in PlacePurchaseService's transaction; stock, wallet, promotion and order roll back together. */
@@ -75,10 +95,15 @@ class OrderWalletService
         if ($order->financial_version !== 1) {
             return;
         }
+        if ($order->payment_method === 'WALLET' && $order->wallet_paid_cents > 0) {
+            abort_unless($this->paymentReady($order), 422, 'Reconcile the recorded wallet payment and account hold before refunding.');
+        }
         $this->unstage($order, $finance, $actor);
         app(VoucherFundingService::class)->restore($order, $actor);
         if ($order->payment_method === 'WALLET' && $order->wallet_paid_cents > 0) {
-            $this->ledger->transfer('order:'.$order->id.':cancel-refund', 'cancelled_order_refund', $this->ledger->escrow($order->id), $this->ledger->wallet($order->buyer), $order->wallet_paid_cents, $actor, ['order_id' => $order->id]);
+            $transaction = $this->ledger->transfer('order:'.$order->id.':cancel-refund', 'cancelled_order_refund', $this->ledger->escrow($order->id), $this->ledger->wallet($order->buyer), $order->wallet_paid_cents, $actor, ['order_id' => $order->id]);
+            $this->audits->record($actor, $order, 'cancelled_wallet_payment_refunded', [], ['transaction_id' => $transaction->id, 'amount_cents' => $order->wallet_paid_cents], 'Full internal wallet payment restored after cancellation.');
+            $this->notifications->send($order->buyer, new OrderWorkflowNotification($order, 'wallet_refunded', 'Cancelled order: PHP '.number_format($order->wallet_paid_cents / 100, 2).' demo funds were credited back to your available wallet.'));
         }
     }
 
@@ -90,6 +115,7 @@ class OrderWalletService
             $locked = RefundExecution::whereKey($refund->id)->lockForUpdate()->firstOrFail();
             $finance = OrderFinance::where('order_id', $order->id)->lockForUpdate()->firstOrFail();
             abort_unless($order->financial_version === 1 && $order->payment_method === 'WALLET' && $locked->status === 'AUTHORIZED' && $order->status === 'RETURNED_TO_SELLER' && $finance->ledger_funded_at !== null, 422, 'An authorized funded wallet return is required.');
+            abort_unless($this->paymentReady($order), 422, 'Reconcile the original wallet posting and account hold before refund execution.');
             if ($locked->rts_order_id !== null) {
                 abort_unless((int) $locked->rts_order_id === $order->id && app(ReturnWorkflowService::class)->receiptConfirmed($order)
                     && $order->delivered_at === null && ! $order->deliveryAttempts()->where('outcome', 'delivered')->exists()
@@ -102,6 +128,7 @@ class OrderWalletService
             $transaction = $this->ledger->transfer('refund:'.$locked->id, 'refund_credit', $this->ledger->escrow($order->id), $this->ledger->wallet($order->buyer), $locked->amount_cents, $actor, ['order_id' => $order->id, 'refund_id' => $locked->id]);
             $locked->update(['status' => 'EXECUTED', 'executed_by' => $actor->id, 'reference' => 'wallet:'.$transaction->reference, 'executed_at' => now()]);
             $this->audits->record($actor, $locked, 'wallet_refund_credited', [], ['transaction_id' => $transaction->id], $reason);
+            $this->notifications->send($order->buyer, new OrderWorkflowNotification($order, 'wallet_refunded', 'Return refund: PHP '.number_format($locked->amount_cents / 100, 2).' demo funds were credited back to your available wallet.'));
         });
     }
 

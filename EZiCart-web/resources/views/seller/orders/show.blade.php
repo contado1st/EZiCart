@@ -60,7 +60,8 @@
 
                 <h2 class="courier-section-title">Order summary</h2>
                 @if (! app(\App\Services\OrderWalletService::class)->paymentReady($order) && in_array($order->status, ['PLACED', 'CONFIRMED', 'PREPARING', 'READY_FOR_PICKUP'], true))
-                    <p role="status">Fulfillment is on hold because payment verification for {{ $order->payment_method }} is not configured yet.</p>
+                    @if($order->isAwaitingWalletPayment())<p role="status">Awaiting the buyer's demo wallet payment. Do not prepare this unpaid reservation.</p>
+                    @else<p role="status">Fulfillment is on hold because payment verification for {{ $order->payment_method }} is not configured yet.</p>@endif
                 @endif
                 <p>Subtotal: {{ number_format($order->subtotal, 2) }}</p>
                 @if ($order->discount_amount)
@@ -78,7 +79,7 @@
                         waybill</a>
                     <a href="{{ route('seller.orders.messages.show', $order) }}" class="dash-btn-sm dash-btn-outline">Message buyer</a>
                     @if (! app(\App\Services\OrderWalletService::class)->paymentReady($order) && in_array($order->status, ['PLACED', 'CONFIRMED', 'PREPARING', 'READY_FOR_PICKUP'], true))
-                        <span>Fulfillment is on hold until payment verification is configured.</span>
+                        <span>{{ $order->isAwaitingWalletPayment() ? 'Awaiting buyer payment; preparation is blocked.' : 'Fulfillment is on hold until payment verification is configured.' }}</span>
                     @elseif ($order->status === 'PLACED')
                         <form action="{{ route('seller.orders.updateStatus', $order->id) }}" method="POST" data-decision="seller.orders.updateStatus" data-decision-title="Update order status?" data-decision-message="Check the selected status. This updates the order workflow and may notify the buyer and delivery staff." data-decision-label="Update status" data-decision-tone="normal" onsubmit="return window.eziDecisionReady ? true : window.confirm(this.dataset.decisionMessage)">
                             @csrf

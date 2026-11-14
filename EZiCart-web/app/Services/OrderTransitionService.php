@@ -211,6 +211,26 @@ class OrderTransitionService
         });
     }
 
+    public function expireWalletPayment(Order $order): bool
+    {
+        return DB::transaction(function () use ($order): bool {
+            $locked = Order::whereKey($order->id)->lockForUpdate()->firstOrFail();
+            if (! $locked->isAwaitingWalletPayment() || $locked->wallet_payment_due_at->isFuture() || $locked->pendingCancellation()->exists()
+                || $locked->wallet_paid_cents !== 0 || $locked->picked_up_at !== null || $locked->seller_handover_at !== null
+                || $locked->received_at !== null || $locked->hub_released_at !== null) {
+                return false;
+            }
+            $locked->forceFill(['status' => OrderStatus::Cancelled->value])->save();
+            $this->inventoryRestoration->restore($locked);
+            $this->finances->voidUncollected($locked, null);
+            ParcelTrackingEvent::create(['order_id' => $locked->id, 'event_type' => 'wallet_payment_expired', 'status' => 'CANCELLED', 'notes' => 'Unpaid wallet reservation expired. No wallet funds were charged.']);
+            $this->audits->record(null, $locked, 'wallet_payment_expired', ['status' => 'PLACED'], ['status' => 'CANCELLED'], 'Unpaid stock/voucher reservation released at its payment deadline.');
+            $this->notifications->send($locked->buyer, new OrderWorkflowNotification($locked, 'wallet_payment_expired', 'Payment time expired. The unpaid order was cancelled and its reservations released. No demo wallet funds were charged.'));
+
+            return true;
+        }, 3);
+    }
+
     public function expireSellerDeadline(Order $order): bool
     {
         return DB::transaction(function () use ($order): bool {
@@ -244,6 +264,11 @@ class OrderTransitionService
             $locked = Order::query()->whereKey($order->id)->lockForUpdate()->firstOrFail();
             abort_unless($buyer->role === 'buyer' && $locked->buyer_id === $buyer->id, 403);
             $this->authorizeCancellation($locked, $buyer, $locked->status, $reason);
+            if ($locked->isAwaitingWalletPayment()) {
+                $this->transition($locked, $buyer, OrderStatus::Cancelled, 'unpaid_wallet_cancelled', notes: $reason.' No wallet payment was charged.');
+
+                return;
+            }
             abort_if($locked->pendingCancellation()->exists(), 422, 'A cancellation request is already pending.');
             OrderCancellationRequest::create([
                 'order_id' => $locked->id, 'active_order_id' => $locked->id, 'requested_by' => $buyer->id,
@@ -613,7 +638,7 @@ class OrderTransitionService
         }
     }
 
-    private function validateSellerOrderInventory(Order $order): void
+    public function validateSellerOrderInventory(Order $order): void
     {
         $items = OrderItem::query()
             ->where('order_id', $order->id)

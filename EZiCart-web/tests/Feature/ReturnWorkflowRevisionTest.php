@@ -12,6 +12,7 @@ use App\Models\ReturnInspectionItem;
 use App\Models\SellerPayout;
 use App\Models\User;
 use App\Notifications\OrderWorkflowNotification;
+use App\Services\DemoWalletFundingService;
 use App\Services\FinancialLedgerService;
 use App\Services\InventoryRestorationService;
 use App\Services\OrderFinancialService;
@@ -190,9 +191,11 @@ class ReturnWorkflowRevisionTest extends TestCase
         $this->get(route('returns.workflow', $order))->assertOk()->assertSee('Legacy inspection recorded without a per-item breakdown');
     }
 
-    public function test_wallet_rts_authorization_holds_existing_payout_and_execution_credits_exactly_once(): void
+    #[TestWith([false])]
+    #[TestWith([true])]
+    public function test_wallet_rts_authorization_holds_existing_payout_and_execution_credits_exactly_once(bool $internalDemo): void
     {
-        [$order, $product, $item] = $this->paidReturn();
+        [$order, $product, $item] = $this->paidReturn($internalDemo);
         $payout = SellerPayout::create(['order_id' => $order->id, 'seller_id' => $this->seller->id, 'amount_cents' => 29000, 'status' => 'REQUESTED', 'requested_by' => $this->seller->id]);
         app(ReturnInspectionService::class)->inspect($order, $this->seller, ['quantities' => [$item->id => 0], 'reason' => 'Damaged units excluded from stock.']);
         $ledger = app(FinancialLedgerService::class);
@@ -373,10 +376,16 @@ class ReturnWorkflowRevisionTest extends TestCase
         return collect(['order_finances', 'financial_accounts', 'ledger_transactions', 'refund_executions', 'return_inspection_items', 'administrative_audits'])->mapWithKeys(fn ($table) => [$table => DB::table($table)->count()])->all();
     }
 
-    private function paidReturn(): array
+    private function paidReturn(bool $internalDemo = false): array
     {
-        $funding = app(WalletFundingService::class);
-        $funding->simulate($funding->create($this->buyer, 40000, (string) Str::uuid()), $this->admin, 'paid');
+        if ($internalDemo) {
+            $funding = app(DemoWalletFundingService::class);
+            $intent = $funding->request($this->buyer, 40000, (string) Str::uuid(), 'demo_credit', ['reason' => 'Internal demo RTS funding.']);
+            $funding->review($intent, $this->admin, 'approve', 'Independent RTS demo credit review.');
+        } else {
+            $funding = app(WalletFundingService::class);
+            $funding->simulate($funding->create($this->buyer, 40000, (string) Str::uuid()), $this->admin, 'paid');
+        }
         $parcel = $this->parcel(['status' => 'RETURN_IN_TRANSIT', 'payment_method' => 'WALLET', 'financial_version' => 1]);
         app(OrderWalletService::class)->pay($parcel[0], $this->buyer);
         $this->receive($parcel[0]);
