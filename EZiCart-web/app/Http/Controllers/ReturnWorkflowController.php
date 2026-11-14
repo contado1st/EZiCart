@@ -13,6 +13,7 @@ class ReturnWorkflowController extends Controller
     {
         abort_unless($workflow->canView($request->user(), $order), 404);
         $order->load('items.product');
+        $order->load('dispute.sellerResponse');
         $summary = $workflow->summary($order);
         $actor = $request->user();
 

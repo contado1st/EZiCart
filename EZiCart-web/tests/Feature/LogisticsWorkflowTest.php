@@ -3126,6 +3126,7 @@ class LogisticsWorkflowTest extends TestCase
             'status' => $status,
             'vehicle_capacity_grams' => $role === 'courier' ? 100000 : null,
             'vehicle_capacity_verified_at' => $role === 'courier' ? now() : null,
+            'work_availability' => $role === 'courier' ? 'available' : 'unavailable',
             'first_name' => fake()->firstName(),
             'last_name' => fake()->lastName(),
             'sex' => 'Other',

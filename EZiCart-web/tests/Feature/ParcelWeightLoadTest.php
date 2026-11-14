@@ -193,6 +193,10 @@ class ParcelWeightLoadTest extends TestCase
 
     private function user(string $role, array $extra = []): User
     {
+        if ($role === 'courier') {
+            $extra += ['work_availability' => 'available'];
+        }
+
         return User::forceCreate(array_merge(['email' => fake()->unique()->safeEmail(), 'password' => 'Password123!', 'first_name' => 'Weight', 'last_name' => 'Test', 'role' => $role, 'status' => 'approved', 'contact_no' => '09'.fake()->unique()->numerify('#########'), 'business_name' => 'Weight shop', 'vehicle_capacity_grams' => $role === 'courier' ? 100000 : null, 'vehicle_capacity_verified_at' => $role === 'courier' ? now() : null], $extra));
     }
 

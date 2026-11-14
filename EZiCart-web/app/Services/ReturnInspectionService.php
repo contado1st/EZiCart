@@ -26,6 +26,7 @@ class ReturnInspectionService
         DB::transaction(function () use ($order, $actor, $data, $reason): void {
             $actor = User::whereKey($actor->id)->lockForUpdate()->firstOrFail();
             $locked = Order::whereKey($order->id)->lockForUpdate()->firstOrFail();
+            ParcelIncidentService::assertClear($locked);
             abort_unless($actor->role === 'seller' && $actor->status === 'approved' && (int) $locked->seller_id === $actor->id, 403);
             abort_unless($locked->status === 'RETURNED_TO_SELLER' && $locked->restock_inspected_at === null && $locked->inventory_restored_at === null, 422, 'This return is not awaiting inspection or its stock was already restored.');
             $items = $locked->items()->orderBy('id')->lockForUpdate()->get();

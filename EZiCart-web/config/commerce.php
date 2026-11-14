@@ -8,6 +8,8 @@ return [
     'seller_preparation_hours' => 48,
     'parcel_alert_hours' => 24,
     'cancellation_response_hours' => 24,
+    // Nullable enrollment fields prevent any historical-delivery mass completion on rollout.
+    'auto_completion_rollout_at' => env('AUTO_COMPLETION_ROLLOUT_AT', '2026-11-15T00:00:00+08:00'),
     'rider_acceptance_minutes' => 15,
     'low_stock_threshold' => 5,
     'logistics_provider' => 'EZiCart Logistics',

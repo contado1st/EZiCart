@@ -7,6 +7,7 @@ use App\Models\Review;
 use App\Models\User;
 use App\Services\ProductCategoryService;
 use App\Services\ProductDiscoveryService;
+use App\Services\ProductPriceService;
 use Illuminate\Contracts\View\View;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
@@ -47,10 +48,10 @@ class SearchController extends Controller
             $query->whereHas('seller', fn (Builder $sellers) => $sellers->where('province', $filters['province']));
         }
         if (isset($filters['min_price'])) {
-            $query->whereRaw(Product::MINIMUM_PURCHASABLE_PRICE_SQL.' >= CAST(? AS DECIMAL(20, 2))', [$filters['min_price']]);
+            $query->whereRaw(ProductPriceService::minimumSql().' >= CAST(? AS DECIMAL(20, 2))', [$filters['min_price']]);
         }
         if (isset($filters['max_price'])) {
-            $query->whereRaw(Product::MINIMUM_PURCHASABLE_PRICE_SQL.' <= CAST(? AS DECIMAL(20, 2))', [$filters['max_price']]);
+            $query->whereRaw(ProductPriceService::minimumSql().' <= CAST(? AS DECIMAL(20, 2))', [$filters['max_price']]);
         }
         if (isset($filters['rating'])) {
             $query->where(Review::query()->selectRaw('AVG(rating)')->whereColumn('reviews.product_id', 'products.id'), '>=', (int) $filters['rating']);
@@ -68,8 +69,8 @@ class SearchController extends Controller
         }
         match ($filters['sort']) {
             'best_selling' => $discovery->bestSelling($query),
-            'price_asc' => $query->orderByRaw(Product::MINIMUM_PURCHASABLE_PRICE_SQL.' ASC'),
-            'price_desc' => $query->orderByRaw(Product::MINIMUM_PURCHASABLE_PRICE_SQL.' DESC'),
+            'price_asc' => $query->orderByRaw(ProductPriceService::minimumSql().' ASC'),
+            'price_desc' => $query->orderByRaw(ProductPriceService::minimumSql().' DESC'),
             'rating' => $query->orderByDesc('catalog_rating')->orderByDesc('catalog_review_count'),
             'latest' => $query->orderByDesc('created_at'),
             default => $searchTerm !== ''

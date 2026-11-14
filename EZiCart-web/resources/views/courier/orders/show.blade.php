@@ -9,7 +9,7 @@
         </div>
         <div class="courier-actions">
             <span class="ops-status {{ $order->status === 'DELIVERY_FAILED' ? 'ops-status--danger' : ($order->status === 'OUT_FOR_DELIVERY' ? 'ops-status--pink' : 'ops-status--amber') }}">
-                {{ str_replace('_', ' ', $order->status) }}
+                {{ str_replace('_', ' ', $order->operational_status) }}
             </span>
             <a class="ops-btn" href="{{ route('courier.orders.messages.show', $order) }}">Order messages</a>
             <a class="ops-btn" href="{{ route('courier.dashboard') }}">Back to board</a>

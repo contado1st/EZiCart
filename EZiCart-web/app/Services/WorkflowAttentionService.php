@@ -2,8 +2,11 @@
 
 namespace App\Services;
 
+use App\Models\DispatchOffer;
 use App\Models\Order;
+use App\Models\ParcelIncident;
 use App\Models\Product;
+use App\Models\SellerReturnResponse;
 use App\Models\StaffProfileRevision;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Builder;
@@ -18,6 +21,20 @@ class WorkflowAttentionService
     {
         $items = [];
         $count = 0;
+        if ($user->role === 'courier') {
+            $pending = DispatchOffer::where('rider_id', $user->id)->where('status', 'PENDING')->where('expires_at', '>', now())->count();
+            if ($pending) {
+                $count += $pending;
+                $items[] = ['label' => 'Respond to automatic parcel offers', 'url' => route('dispatch.index'), 'count' => $pending, 'target' => null];
+            }
+        }
+        if ($user->isCommerceAdmin() || $user->isLogisticsAdmin()) {
+            $incidents = ParcelIncident::where('status', 'OPEN')->count();
+            if ($incidents) {
+                $count += $incidents;
+                $items[] = ['label' => 'Review Lost/Damaged incidents and claims', 'url' => route('parcel-incidents.index'), 'count' => $incidents, 'target' => null];
+            }
+        }
         if ($user->isCommerceAdmin() || $user->isLogisticsAdmin()) {
             $groups = [
                 ['query' => app(DemoWalletFundingService::class)->visible($user)->where('provider', 'internal_demo')->where('status', 'PENDING')->where('user_id', '!=', $user->id)->where('expires_at', '>', now()), 'label' => 'Review demo wallet funding requests', 'route' => 'finance.wallet'],
@@ -48,7 +65,7 @@ class WorkflowAttentionService
             }
             $query = $this->candidates($user);
             $count = (clone $query)->count();
-            foreach ($query->with(['pendingCancellation', 'activeTransfer', 'deliveryAssignments', 'dispute', 'items', 'reviews'])->oldest('orders.id')->limit(20)->get() as $order) {
+            foreach ($query->with(['pendingCancellation', 'activeTransfer', 'deliveryAssignments', 'dispute.sellerResponse', 'items', 'reviews'])->oldest('orders.id')->limit(20)->get() as $order) {
                 $state = $this->progress->forViewer($order, $user);
                 $actionRoute = $state['action_route'];
                 $target = $actionRoute && Route::has($actionRoute) ? route($actionRoute, ['order' => $order->id]) : null;
@@ -62,6 +79,16 @@ class WorkflowAttentionService
                 if ($transfers) {
                     $items[] = ['label' => 'Scan and complete hub transfers', 'url' => route('parcel-transfers.index'), 'count' => $transfers, 'target' => null];
                 }
+            }
+        }
+        if (in_array($user->role, ['buyer', 'seller'], true)) {
+            $responses = SellerReturnResponse::whereHas('dispute', fn ($q) => $q->where($user->role === 'seller' ? 'seller_id' : 'buyer_id', $user->id)->where('status', 'PENDING'))
+                ->where('stage', $user->role === 'seller' ? 'awaiting_seller' : 'seller_rejected')
+                ->where($user->role === 'seller' ? 'response_due_at' : 'escalation_due_at', '>', now());
+            $responseCount = (clone $responses)->count();
+            $count += $responseCount;
+            foreach ($responses->with('dispute')->oldest('id')->limit(10)->get() as $response) {
+                $items[] = ['label' => $user->role === 'seller' ? 'Respond to return request #'.$response->dispute_id : 'Review rejection / escalation for return #'.$response->dispute_id, 'url' => route('returns.workflow', $response->dispute->order_id), 'count' => 1, 'target' => null];
             }
         }
         $returns = $this->returnTasks($user)->count();
@@ -78,7 +105,7 @@ class WorkflowAttentionService
         }
         $states = [];
         if ($visibleIds !== []) {
-            foreach ($this->scoped($user)->whereIn('orders.id', $visibleIds)->with(['pendingCancellation', 'activeTransfer', 'deliveryAssignments', 'dispute', 'items', 'reviews'])->get() as $order) {
+            foreach ($this->scoped($user)->whereIn('orders.id', $visibleIds)->with(['pendingCancellation', 'activeTransfer', 'deliveryAssignments', 'dispute.sellerResponse', 'items', 'reviews'])->get() as $order) {
                 $states[$order->id] = $this->progress->forViewer($order, $user);
             }
         }

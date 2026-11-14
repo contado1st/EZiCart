@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use App\Models\Order;
 use App\Models\OrderCancellationRequest;
+use App\Models\ParcelIncident;
 use App\Services\OrderTransitionService;
 use App\Services\StockSubscriptionService;
 use Illuminate\Console\Command;
@@ -19,6 +20,9 @@ class ProcessRoadmapAutomation extends Command
     {
         OrderCancellationRequest::where('status', 'PENDING')->where('respond_by', '<=', now())->chunkById(100, function ($requests) use ($transitions) {
             foreach ($requests as $request) {
+                if (ParcelIncident::where('open_order_id', $request->order_id)->exists()) {
+                    continue;
+                }
                 $transitions->resolveCancellation(Order::findOrFail($request->order_id), null, true, 'Automatically approved after the seller response window expired.');
             }
         });

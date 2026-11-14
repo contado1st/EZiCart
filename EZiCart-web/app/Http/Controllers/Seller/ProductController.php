@@ -3,7 +3,6 @@
 namespace App\Http\Controllers\Seller;
 
 use App\Http\Controllers\Controller;
-use App\Models\OrderItem;
 use App\Models\Product;
 use App\Models\ProductComplianceEvent;
 use App\Models\ProductDraft;
@@ -13,6 +12,7 @@ use App\Services\ProductCategoryService;
 use App\Services\ProductDraftService;
 use App\Services\ProductMediaService;
 use App\Services\ProductVariationEditorService;
+use App\Services\SellerCatalogOperationService;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -305,12 +305,7 @@ class ProductController extends Controller
     {
         abort_unless($product->user_id === $this->authenticatedUser()->id, 403);
         $data = $request->validate(['is_seller_active' => ['required', 'boolean']]);
-        DB::transaction(function () use ($product, $data): void {
-            $locked = Product::whereKey($product->id)->lockForUpdate()->firstOrFail();
-            $before = ['is_seller_active' => (bool) $locked->is_seller_active];
-            $locked->forceFill(['is_seller_active' => (bool) $data['is_seller_active']])->save();
-            $this->audits->record($this->authenticatedUser(), $locked, 'seller_product_availability', $before, ['is_seller_active' => (bool) $locked->is_seller_active], 'Seller changed availability; administrator compliance is unchanged.');
-        });
+        app(SellerCatalogOperationService::class)->availability($this->authenticatedUser(), $product, (bool) $data['is_seller_active']);
 
         return back()->with('success', 'Availability updated. Only listings approved by compliance can be sold.');
     }
@@ -327,19 +322,7 @@ class ProductController extends Controller
     {
         abort_if($product->user_id !== $this->authenticatedUser()->id, 403);
 
-        $archived = DB::transaction(function () use ($product): bool {
-            $product = Product::whereKey($product->id)->lockForUpdate()->firstOrFail();
-            if ($product->complianceEvents()->exists() || OrderItem::where('product_id', $product->id)->exists()) {
-                $product->update(['is_archived' => true]);
-
-                return true;
-            }
-            $paths = [$product->image_path, ...$product->media()->pluck('path')->all(), ...$product->variations()->whereNotNull('image_path')->pluck('image_path')->all()];
-            $product->delete();
-            DB::afterCommit(fn () => $this->media->deleteFiles($paths));
-
-            return false;
-        });
+        $archived = app(SellerCatalogOperationService::class)->remove($this->authenticatedUser(), $product);
 
         return redirect()->route('seller.products.index')->with('success', $archived ? 'Product archived so its order and compliance history is preserved.' : 'Product removed from inventory.');
     }

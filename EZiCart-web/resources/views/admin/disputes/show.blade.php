@@ -28,6 +28,7 @@
                 <div class="dash-alert-success"><x-shop-icon name="checklist" /> {{ session('success') }}</div>
             @endif
 
+            <x-return-request-stage :case="$dispute" :viewer="auth()->user()" />
             <div class="dispute-detail-grid">
                 <!-- Case Evidence & Statements -->
                 <div class="dash-panel">

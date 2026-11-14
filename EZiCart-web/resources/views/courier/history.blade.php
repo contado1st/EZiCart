@@ -66,7 +66,7 @@
                             </td>
                             <td data-label="Stage">
                                 <span class="ops-status {{ $order->status === 'DELIVERY_FAILED' ? 'ops-status--danger' : (in_array($order->status, ['DELIVERED', 'COMPLETED', 'PICKED_UP'], true) ? 'ops-status--green' : 'ops-status--amber') }}">
-                                    {{ str_replace('_', ' ', $order->status) }}
+                                    {{ str_replace('_', ' ', $order->operational_status) }}
                                 </span>
                             </td>
                             <td data-label="Destination">{{ $order->delivery_area ?? $order->municipality }}</td>

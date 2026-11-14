@@ -6,12 +6,13 @@
     <header class="dash-header"><div><h1 class="dash-title">Return workflow · {{ $order->order_number }}</h1><p class="dash-subtitle">Receipt, inventory inspection and payment review are separate recorded actions.</p></div>
         <a class="dash-btn-sm" href="{{ $actor->role === 'seller' ? route('seller.orders.show', $order) : ($actor->role === 'buyer' ? route('buyer.orders.show', $order) : route('finance.index')) }}">Back to order records</a>
     </header>
+    <x-return-request-stage :case="$order->dispute" :viewer="$actor" />
     <section class="dash-panel"><h2>Recorded progress</h2><dl class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <div><dt>Courier handover</dt><dd>{{ $order->return_handed_to_seller_at?->format('d M Y H:i') ?? 'Not recorded' }}</dd></div>
         <div><dt>Seller receipt</dt><dd>{{ $summary['receipt_confirmed'] ? 'Receipt evidence recorded' : ($order->status === 'RETURNED_TO_SELLER' ? 'Return status recorded; detailed receipt evidence requires review' : 'Awaiting physical receipt') }}</dd></div>
         <div><dt>Inspection</dt><dd>{{ $order->restock_inspected_at?->format('d M Y H:i') ?? 'Not recorded' }}</dd></div>
         <div><dt>Buyer refund</dt><dd>{{ $summary['refund']?->status ?? 'No authorization recorded' }}</dd></div>
-    </dl><p>Current parcel stage: <strong>{{ str_replace('_', ' ', $order->status) }}</strong>. Receipt alone does not restore stock or pay money. Buyer-refund review does not require approval of damaged units for restocking.</p></section>
+    </dl><p>Current parcel stage: <strong>{{ str_replace('_', ' ', $order->operational_status) }}</strong>. Receipt alone does not restore stock or pay money. Buyer-refund review does not require approval of damaged units for restocking.</p></section>
     <x-workspace-tabs :default-tab="$actor->isCommerceAdmin() ? 'return-refund' : ($actor->isLogisticsAdmin() ? 'return-costs' : ($actor->role === 'seller' && $order->status === 'RETURNED_TO_SELLER' && !$order->restock_inspected_at ? 'return-inspection' : 'return-receipt'))" :tabs="[
         ['id' => 'return-receipt', 'label' => 'Receipt'], ['id' => 'return-inspection', 'label' => 'Inspection'], ['id' => 'return-refund', 'label' => 'Refund'], ['id' => 'return-costs', 'label' => 'Logistics costs'],
     ]" />
@@ -25,7 +26,7 @@
                 <div class="web-actions"><button class="dash-btn-sm" type="button" data-qr-start>Use camera</button><button class="dash-btn-sm" type="button" data-qr-stop hidden>Stop camera</button><button class="dash-btn-sm dash-btn-primary" type="submit">Confirm scanned return received</button></div><video data-qr-video playsinline hidden></video><p data-qr-status role="status">Camera, handheld scanner or manual badge code entry is supported.</p>
             </form>
         @elseif($summary['receipt_confirmed'])<p>Seller receipt evidence is recorded. Continue to inspection to decide which units are sellable.</p>
-        @else<p>The current stage is {{ str_replace('_', ' ', $order->status) }}. Follow its handover/receipt workflow; missing historical evidence requires administrator review.</p>@endif
+        @else<p>The current stage is {{ str_replace('_', ' ', $order->operational_status) }}. Follow its handover/receipt workflow; missing historical evidence requires administrator review.</p>@endif
         <a class="dash-btn-sm" href="#return-inspection">Review inspection</a>
     </section>
 

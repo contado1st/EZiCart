@@ -56,7 +56,7 @@ class PlacePurchaseService
                 app(VoucherClaimService::class)->assertUsable($buyer, $voucher);
             }
             app(ShopAvailabilityService::class)->assertOpen($cart);
-            $quote = $this->pricing->quote($cart, $voucher, true, ['address' => $address, 'payment_method' => $paymentMethod]);
+            $quote = $this->pricing->quote($cart, $voucher, true, ['address' => $address, 'payment_method' => $paymentMethod, 'buyer' => $buyer]);
             if ($deferWalletPayment && $quote['total_cents'] <= 0) {
                 throw ValidationException::withMessages(['payment_method' => 'Use COD for a zero-total order. No wallet payment is required.']);
             }
@@ -93,6 +93,7 @@ class PlacePurchaseService
                     'wallet_payment_due_at' => $deferWalletPayment ? now()->addMinutes((int) config('financial.wallet_reservation_minutes')) : null,
                 ]);
                 ShipmentFinancial::create(['order_id' => $order->id, 'rate_version_id' => $group['shipping_snapshot']['rate_version_id'], 'quote_snapshot' => $group['shipping_snapshot'], 'buyer_shipping_cents' => $group['shipping_cents'], 'seller_shipping_cents' => $budgeted && $voucher->seller_id !== null ? $group['shipping_discount_cents'] : 0, 'platform_shipping_cents' => $platformShipping]);
+                app(FlashSaleService::class)->reserve($order, $group['lines']);
                 if ($voucher) {
                     app(VoucherFundingService::class)->consume($voucher, $order, $group['discount_cents'] + $group['shipping_discount_cents'], $buyer);
                 }
@@ -119,6 +120,7 @@ class PlacePurchaseService
                         'variation_info' => $line['variation_info'], 'product_name' => $line['name'],
                         'unit_price' => $line['unit_cents'] / 100, 'quantity' => $line['quantity'], 'item_total' => $line['item_cents'] / 100,
                         'unit_weight_grams' => $line['product']->weight_grams,
+                        'pricing_snapshot' => $line['pricing_snapshot'],
                         'purchased_image_path' => $line['variation']?->image_path ?: $line['product']->image_path,
                     ]);
                 }

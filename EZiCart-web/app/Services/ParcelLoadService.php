@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\DispatchOffer;
 use App\Models\Order;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Builder;
@@ -37,7 +38,7 @@ class ParcelLoadService
     {
         $rows = $this->activeLoads($rider->id)->get(['id', 'parcel_weight_grams']);
 
-        return $this->summarize($rider, $rows);
+        return $this->withOffers($this->summarize($rider, $rows), DispatchOffer::where('rider_id', $rider->id)->where('status', 'PENDING')->where('expires_at', '>', now())->get());
     }
 
     /** @param Collection<int, User> $riders */
@@ -58,7 +59,24 @@ class ParcelLoadService
             $result[$rider->id] = $this->summarize($rider, $assigned);
         }
 
+        $offers = DispatchOffer::whereIn('rider_id', $ids)->where('status', 'PENDING')->where('expires_at', '>', now())->get()->groupBy('rider_id');
+        foreach ($riders as $rider) {
+            $result[$rider->id] = $this->withOffers($result[$rider->id], $offers->get($rider->id, collect()));
+        }
+
         return $result;
+    }
+
+    private function withOffers(array $summary, $offers): array
+    {
+        $summary['offer_count'] = $offers->count();
+        $summary['offer_grams'] = (int) $offers->sum('weight_grams');
+        $summary['count'] += $summary['offer_count'];
+        $summary['grams'] += $summary['offer_grams'];
+        $summary['remaining'] = $summary['capacity'] !== null && $summary['unknown'] === 0 ? max(0, $summary['capacity'] - $summary['grams']) : null;
+        $summary['overweight'] = $summary['capacity'] !== null && $summary['grams'] > $summary['capacity'];
+
+        return $summary;
     }
 
     /** @param Collection<int, Order> $rows */
@@ -85,6 +103,7 @@ class ParcelLoadService
     /** Call within the existing operation transaction; reserve planned and physically held loads. */
     public function assertFits(Order $order, User $rider, bool $hubTransfer = false, bool $newWork = false): void
     {
+        ParcelIncidentService::assertClear($order);
         $grams = $this->requireWeight($order);
         $rider = $this->lockVehicle($rider->id);
         if ((bool) $rider->hub_transfer_only !== $hubTransfer) {
@@ -107,7 +126,8 @@ class ParcelLoadService
         if ($rows->contains(fn ($row) => ! $row->parcel_weight_grams)) {
             throw ValidationException::withMessages(['parcel_weight_kg' => 'Another parcel reserved for this rider has no recorded weight. Weigh all reserved parcels before adding or moving this load.']);
         }
-        $reserved = (int) $rows->sum('parcel_weight_grams');
+        $offers = DispatchOffer::where('rider_id', $rider->id)->where('order_id', '!=', $order->id)->where('status', 'PENDING')->where('expires_at', '>', now())->orderBy('id')->lockForUpdate()->get();
+        $reserved = (int) $rows->sum('parcel_weight_grams') + (int) $offers->sum('weight_grams');
         if ($reserved + $grams > $rider->vehicle_capacity_grams) {
             throw ValidationException::withMessages(['vehicle_capacity_kg' => 'This vehicle would carry '.self::kg($reserved + $grams).' against a verified limit of '.self::kg($rider->vehicle_capacity_grams).'. Choose another vehicle or reduce its assigned load.']);
         }

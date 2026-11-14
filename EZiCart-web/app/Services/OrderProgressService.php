@@ -12,7 +12,7 @@ class OrderProgressService
 
     public function describe(Order $order): array
     {
-        $order->loadMissing(['pendingCancellation', 'activeTransfer', 'deliveryAssignments', 'dispute', 'returnPickupAssignment']);
+        $order->loadMissing(['pendingCancellation', 'activeTransfer', 'deliveryAssignments', 'dispute.sellerResponse', 'returnPickupAssignment']);
         $stage = match ($order->status) {
             'PLACED' => 0, 'CONFIRMED', 'PREPARING' => 1, 'READY_FOR_PICKUP' => 2, 'PICKED_UP' => 3,
             'AT_SORTING_CENTER', 'SORTED', 'ASSIGNED_TO_RIDER' => 4, 'OUT_FOR_DELIVERY', 'DELIVERY_FAILED' => 5,
@@ -49,6 +49,10 @@ class OrderProgressService
             [$owner, $label, $route] = ['buyer', 'Awaiting demo wallet payment. Pay before the reservation deadline; the seller cannot prepare an unpaid order.', 'buyer.orders.wallet-payment'];
         } elseif ($order->activeTransfer) {
             [$owner, $label, $route] = ['sorting_center', 'A hub transfer is active. Complete the physical dispatch and receiving scans in Hub transfers.', ''];
+        } elseif ($order->dispute?->status === 'PENDING' && $order->dispute?->sellerResponse?->stage === 'awaiting_seller') {
+            [$owner, $label, $route] = ['seller', 'A return request awaits the seller response within 72 hours. Open Return requests to respond.', 'returns.workflow'];
+        } elseif ($order->dispute?->status === 'PENDING' && $order->dispute?->sellerResponse?->stage === 'seller_rejected') {
+            [$owner, $label, $route] = ['buyer', 'The seller rejected this return request. Review the reason and escalate within 72 hours if needed.', 'returns.workflow'];
         } elseif (in_array($order->dispute?->status, ['PENDING', 'UNDER_REVIEW'], true)) {
             [$owner, $label, $route] = ['ecommerce_admin', 'A dispute is under review. Wait for the marketplace administrator’s decision.', ''];
         } elseif (in_array($order->status, ['DELIVERED', 'COMPLETED'], true) && in_array($order->dispute?->status, ['REFUND_APPROVED', 'REPLACEMENT_APPROVED'], true)) {
@@ -71,7 +75,11 @@ class OrderProgressService
             }
         }
 
-        return ['stage' => $stage, 'status' => $order->status, 'owner' => $owner, 'message' => $label, 'action_route' => $route];
+        if ($order->activeIncident) {
+            [$owner, $label, $route] = ['logistics_admin', $order->activeIncident->kind.' incident hold. Movement and completion are paused; review custody and the claim in Parcel incidents.', ''];
+        }
+
+        return ['stage' => $stage, 'status' => $order->operational_status, 'physical_status' => $order->status, 'owner' => $owner, 'message' => $label, 'action_route' => $route];
     }
 
     private function pickup(Order $order): array

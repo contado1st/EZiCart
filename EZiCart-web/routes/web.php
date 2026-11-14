@@ -21,6 +21,7 @@ use App\Http\Controllers\Buyer\CheckoutController;
 use App\Http\Controllers\Buyer\DiscoveryController;
 use App\Http\Controllers\Buyer\DisputeController;
 use App\Http\Controllers\Buyer\EmailChangeController;
+use App\Http\Controllers\Buyer\FlashReminderController;
 use App\Http\Controllers\Buyer\ReviewController;
 use App\Http\Controllers\Buyer\WalletPaymentController;
 use App\Http\Controllers\Buyer\WishlistController;
@@ -33,6 +34,7 @@ use App\Http\Controllers\Courier\WorkAvailabilityController;
 use App\Http\Controllers\DeliveryRetryController;
 use App\Http\Controllers\DemoWalletFundingController;
 use App\Http\Controllers\DirectMessageController;
+use App\Http\Controllers\DispatchController;
 use App\Http\Controllers\FinancialController;
 use App\Http\Controllers\FinancialOperationsController;
 use App\Http\Controllers\HomeController;
@@ -43,6 +45,7 @@ use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\OrderMessageController;
 use App\Http\Controllers\ParcelCorrectionController;
 use App\Http\Controllers\ParcelEvidenceController;
+use App\Http\Controllers\ParcelIncidentController;
 use App\Http\Controllers\ParcelTransferController;
 use App\Http\Controllers\ParcelWeightController;
 use App\Http\Controllers\ProfileAppearanceController;
@@ -53,15 +56,20 @@ use App\Http\Controllers\SalesReportController;
 use App\Http\Controllers\SearchController;
 use App\Http\Controllers\SecureDocumentController;
 use App\Http\Controllers\Seller\CancellationController;
+use App\Http\Controllers\Seller\CatalogOperationController;
+use App\Http\Controllers\Seller\FlashBundleController;
 use App\Http\Controllers\Seller\ProductController;
 use App\Http\Controllers\Seller\ProductDraftController;
+use App\Http\Controllers\Seller\ProductSaleController;
 use App\Http\Controllers\Seller\ReturnInspectionController;
 use App\Http\Controllers\Seller\SellerController;
 use App\Http\Controllers\Seller\SellerOrderController;
 use App\Http\Controllers\Seller\SellerReportController;
 use App\Http\Controllers\Seller\SellerReviewController;
 use App\Http\Controllers\Seller\SellerVoucherController;
+use App\Http\Controllers\Seller\StoreCategoryController;
 use App\Http\Controllers\SellerPromotionController;
+use App\Http\Controllers\SellerReturnController;
 use App\Http\Controllers\SellerShopController;
 use App\Http\Controllers\ShopAvailabilityController;
 use App\Http\Controllers\StaffProfileController;
@@ -135,6 +143,18 @@ Route::middleware('applicant.drafts')->prefix('applicant/drafts')->name('applica
 // 3. Protected Routes (Strictly Isolated by Role)
 Route::middleware(['auth', 'account.active', 'auth.session'])->group(function () {
     Route::get('/workflow-attention', WorkflowAttentionController::class)->name('workflow.attention');
+    Route::get('/dispatch-offers', [DispatchController::class, 'index'])->middleware('role:courier,sorting_center,logistics_admin')->name('dispatch.index');
+    Route::post('/dispatch-offers/position', [DispatchController::class, 'position'])->middleware(['role:courier', 'throttle:10,1'])->name('dispatch.position');
+    Route::post('/dispatch-offers/pin', [DispatchController::class, 'pin'])->middleware(['role:sorting_center,logistics_admin', 'throttle:operational-action'])->name('dispatch.pin');
+    Route::post('/dispatch-offers/orders/{order}', [DispatchController::class, 'start'])->middleware(['role:sorting_center', 'throttle:operational-action'])->name('dispatch.start');
+    Route::post('/dispatch-offers/{offer}/respond', [DispatchController::class, 'respond'])->middleware(['role:courier', 'throttle:operational-action'])->name('dispatch.respond');
+    Route::post('/dispatch-cycles/{cycle}/cancel', [DispatchController::class, 'cancel'])->middleware(['role:sorting_center,logistics_admin', 'throttle:operational-action'])->name('dispatch.cancel');
+    Route::get('/parcel-incidents', [ParcelIncidentController::class, 'index'])->name('parcel-incidents.index');
+    Route::post('/parcel-incidents', [ParcelIncidentController::class, 'store'])->middleware(['role:sorting_center,logistics_admin', 'throttle:operational-action'])->name('parcel-incidents.store');
+    Route::get('/parcel-incidents/{incident}', [ParcelIncidentController::class, 'show'])->name('parcel-incidents.show');
+    Route::get('/parcel-incidents/{incident}/evidence/{which}', [ParcelIncidentController::class, 'evidence'])->whereIn('which', ['report', 'resolution'])->name('parcel-incidents.evidence');
+    Route::post('/parcel-incidents/{incident}/review', [ParcelIncidentController::class, 'review'])->middleware(['role:admin,ecommerce_admin', 'throttle:operational-action'])->name('parcel-incidents.review');
+    Route::post('/parcel-incidents/{incident}/clear', [ParcelIncidentController::class, 'clear'])->middleware(['role:logistics_admin', 'throttle:operational-action'])->name('parcel-incidents.clear');
     Route::get('/load-planning', LoadPlanningController::class)->middleware('role:seller,courier,sorting_center,logistics_admin')->name('load-planning.index');
     Route::patch('/orders/{order}/weight', [ParcelWeightController::class, 'record'])->middleware(['role:seller,sorting_center', 'throttle:operational-action'])->name('orders.weight');
     Route::middleware('role:admin,ecommerce_admin,logistics_admin')->group(function () {
@@ -206,6 +226,10 @@ Route::middleware(['auth', 'account.active', 'auth.session'])->group(function ()
     Route::get('/account/documents/{type}', [SecureDocumentController::class, 'ownDocument'])->name('account.documents.show');
     Route::get('/account', [AccountController::class, 'edit'])->name('account.profile.edit');
     Route::get('/returns/{order}/workflow', [ReturnWorkflowController::class, 'show'])->name('returns.workflow');
+    Route::get('/seller/returns', [SellerReturnController::class, 'index'])->middleware('role:seller')->name('seller.returns.index');
+    Route::get('/return-requests/{dispute}/evidence', [SellerReturnController::class, 'evidence'])->middleware('role:buyer,seller,admin,ecommerce_admin')->name('returns.request-evidence');
+    Route::post('/seller/disputes/{dispute}/response', [SellerReturnController::class, 'decide'])->middleware(['role:seller', 'throttle:operational-action'])->name('seller.returns.respond');
+    Route::post('/buyer/disputes/{dispute}/escalate', [SellerReturnController::class, 'escalate'])->middleware(['role:buyer', 'throttle:operational-action'])->name('buyer.returns.escalate');
     Route::get('/logistics-zone-readiness', ZoneReadinessController::class)->middleware('role:sorting_center,logistics_admin')->name('logistics-zone-readiness');
     Route::middleware('role:sorting_center,logistics_admin')->prefix('logistics-corrections')->name('logistics-corrections.')->group(function () {
         Route::get('/', [ParcelCorrectionController::class, 'index'])->name('index');
@@ -302,6 +326,8 @@ Route::middleware(['auth', 'account.active', 'auth.session'])->group(function ()
         Route::post('/buyer/orders/{order}/wallet-payment', [WalletPaymentController::class, 'pay'])->middleware('throttle:operational-action')->name('buyer.orders.wallet-payment.pay');
         Route::post('/buyer/orders/{order}/wallet-payment/cancel', [WalletPaymentController::class, 'cancel'])->middleware('throttle:operational-action')->name('buyer.orders.wallet-payment.cancel');
         Route::post('/checkout/cancel', [CheckoutController::class, 'cancel'])->name('checkout.cancel');
+        Route::post('/cart/selection-quote', [CartController::class, 'selectionQuote'])->middleware('throttle:operational-action')->name('cart.selection-quote');
+        Route::post('/flash-reminders/{slot}', [FlashReminderController::class, 'store'])->middleware('throttle:operational-action')->name('buyer.flash-reminders.store');
         Route::post('/checkout', [CheckoutController::class, 'process'])->middleware('throttle:operational-action')->name('checkout.process');
         Route::post('/checkout/voucher', [CheckoutController::class, 'applyVoucher'])->middleware('throttle:operational-action')->name('checkout.voucher.apply');
         Route::delete('/checkout/voucher', [CheckoutController::class, 'removeVoucher'])->middleware('throttle:operational-action')->name('checkout.voucher.remove');
@@ -310,6 +336,24 @@ Route::middleware(['auth', 'account.active', 'auth.session'])->group(function ()
     // Seller-Only Routes
     Route::middleware(['role:seller'])->prefix('seller')->name('seller.')->group(function () {
         Route::get('/dashboard', [SellerController::class, 'dashboard'])->name('dashboard');
+        Route::get('/sales', [ProductSaleController::class, 'index'])->name('sales.index');
+        Route::get('/flash-bundles', [FlashBundleController::class, 'index'])->name('flash-bundles.index');
+        Route::post('/flash-bundles/slots', [FlashBundleController::class, 'flash'])->middleware('throttle:operational-action')->name('flash-bundles.flash');
+        Route::post('/flash-bundles/deals', [FlashBundleController::class, 'bundle'])->middleware('throttle:operational-action')->name('flash-bundles.bundle');
+        Route::post('/flash-bundles/slots/{slot}/end', [FlashBundleController::class, 'endFlash'])->middleware('throttle:operational-action')->name('flash-bundles.flash.end');
+        Route::post('/flash-bundles/deals/{deal}/end', [FlashBundleController::class, 'endBundle'])->middleware('throttle:operational-action')->name('flash-bundles.bundle.end');
+        Route::post('/sales', [ProductSaleController::class, 'store'])->middleware('throttle:operational-action')->name('sales.store');
+        Route::patch('/sales/{sale}', [ProductSaleController::class, 'update'])->middleware('throttle:operational-action')->name('sales.update');
+        Route::post('/sales/{sale}/end', [ProductSaleController::class, 'end'])->middleware('throttle:operational-action')->name('sales.end');
+        Route::patch('/products/{product}/purchase-limit', [ProductSaleController::class, 'limit'])->middleware('throttle:operational-action')->name('products.purchase-limit');
+        Route::post('/products/bulk', [CatalogOperationController::class, 'bulk'])->middleware('throttle:operational-action')->name('products.bulk');
+        Route::post('/products/{product}/duplicate', [CatalogOperationController::class, 'duplicate'])->middleware('throttle:operational-action')->name('products.duplicate');
+        Route::get('/categories', [StoreCategoryController::class, 'index'])->name('categories.index');
+        Route::post('/categories', [StoreCategoryController::class, 'store'])->middleware('throttle:operational-action')->name('categories.store');
+        Route::patch('/categories/{category}', [StoreCategoryController::class, 'update'])->middleware('throttle:operational-action')->name('categories.update');
+        Route::get('/categories/{category}/delete', [StoreCategoryController::class, 'preview'])->name('categories.preview');
+        Route::delete('/categories/{category}', [StoreCategoryController::class, 'destroy'])->middleware('throttle:operational-action')->name('categories.destroy');
+        Route::patch('/products/{product}/store-categories', [StoreCategoryController::class, 'assign'])->middleware('throttle:operational-action')->name('categories.assign');
         Route::resource('products', ProductController::class)->except(['show']);
         Route::patch('/products/{product}/availability', [ProductController::class, 'availability'])->middleware('throttle:operational-action')->name('products.availability');
         Route::get('/product-drafts', [ProductDraftController::class, 'index'])->name('product-drafts.index');
@@ -320,6 +364,8 @@ Route::middleware(['auth', 'account.active', 'auth.session'])->group(function ()
         Route::get('/product-drafts/{draft}/media/{field}', [ProductDraftController::class, 'media'])->name('product-drafts.media');
         Route::get('/reports', [SellerReportController::class, 'index'])->name('reports.index');
         Route::get('/reviews', [SellerReviewController::class, 'index'])->name('reviews.index');
+        Route::post('/reviews/{review}/reply', [SellerReviewController::class, 'reply'])->middleware('throttle:operational-action')->name('reviews.reply');
+        Route::patch('/reviews/{review}/reply', [SellerReviewController::class, 'updateReply'])->middleware('throttle:operational-action')->name('reviews.reply.update');
 
         // Order Fulfillment & Waybill Routes
         Route::get('/orders', [SellerOrderController::class, 'index'])->name('orders.index');

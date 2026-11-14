@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Courier;
 use App\Http\Controllers\Controller;
 use App\Models\Order;
 use App\Services\AdministrativeAuditService;
+use App\Services\ParcelIncidentService;
 use App\Services\ParcelLoadService;
 use App\Services\RiderWorkAvailabilityService;
 use Illuminate\Http\Request;
@@ -18,6 +19,7 @@ class AssignmentAcceptanceController extends Controller
             $rider = app(ParcelLoadService::class)->lockVehicle($request->user()->id);
             abort_unless($rider->role === 'courier' && $rider->status === 'approved', 403);
             $locked = Order::whereKey($order->id)->lockForUpdate()->firstOrFail();
+            ParcelIncidentService::assertClear($locked);
             abort_unless($locked->delivery_courier_id === $request->user()->id, 403);
             abort_unless($locked->status === 'ASSIGNED_TO_RIDER' && $locked->hub_released_at === null, 422);
             $assignment = $locked->deliveryAssignments()->where('status', 'active')->where('rider_id', $request->user()->id)->lockForUpdate()->firstOrFail();

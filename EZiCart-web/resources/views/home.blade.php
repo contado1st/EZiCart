@@ -52,7 +52,7 @@
                         @if ($featuredProduct->image_path)
                             <img src="{{ asset('storage/' . $featuredProduct->image_path) }}" alt="{{ $featuredProduct->name }}" loading="lazy">
                         @endif
-                        <span><small>Recently listed</small><strong>{{ \Illuminate\Support\Str::limit($featuredProduct->name, 48) }}</strong><b>₱{{ number_format($featuredProduct->price, 2) }}</b></span>
+                        <span><small>Recently listed</small><strong>{{ \Illuminate\Support\Str::limit($featuredProduct->name, 48) }}</strong><b>₱{{ number_format($featuredProduct->effective_price, 2) }}</b></span>
                     </a>
                 @endif
             </section>
@@ -107,7 +107,7 @@
                                 <span class="buyer-arrival-meta">
                                     <strong>{{ $product->name }}</strong>
                                     <small>{{ $product->seller->business_name ?? 'EZiCart seller' }}</small>
-                                    <b>{{ $product->display_price_label }}</b>
+                                    <b><x-product-price :product="$product" /></b>
                                 </span>
                             </a>
                         @endforeach
@@ -159,7 +159,7 @@
                                 <span class="buyer-product-details">
                                     <strong>{{ $product->name }}</strong>
                                     <small>{{ $product->seller->business_name ?? 'EZiCart seller' }}</small>
-                                    <span class="buyer-product-price-row"><b>{{ $product->display_price_label }}</b><span>{{ $product->average_rating > 0 ? number_format($product->average_rating, 1) . ' / 5' : 'New listing' }}</span></span>
+                                    <span class="buyer-product-price-row"><b><x-product-price :product="$product" /></b><span>{{ $product->average_rating > 0 ? number_format($product->average_rating, 1) . ' / 5' : 'New listing' }}</span></span>
                                 </span>
                             </a>
                         @endforeach

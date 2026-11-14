@@ -153,7 +153,7 @@
                                         <td>
                                             <span
                                                 class="ops-status {{ $order->status === 'DELIVERY_FAILED' ? 'ops-status--danger' : 'ops-status--pink' }}">
-                                                {{ str_replace('_', ' ', $order->status) }}
+                                                {{ str_replace('_', ' ', $order->operational_status) }}
                                             </span>
                                         </td>
                                         <td class="ops-muted">{{ $order->updated_at->diffForHumans() }}</td>

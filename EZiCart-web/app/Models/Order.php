@@ -14,6 +14,18 @@ use LogicException;
 
 class Order extends Model
 {
+    protected $with = ['activeIncident'];
+
+    public function activeIncident(): HasOne
+    {
+        return $this->hasOne(ParcelIncident::class, 'open_order_id');
+    }
+
+    public function getOperationalStatusAttribute(): string
+    {
+        return $this->activeIncident?->kind ?? $this->status;
+    }
+
     protected $hidden = ['parcel_weight_grams', 'weight_recorded_by', 'weight_recorded_at'];
 
     use HasFactory;
@@ -247,6 +259,9 @@ class Order extends Model
             'delivery_recovered_at' => 'datetime',
             'out_for_delivery_at' => 'datetime',
             'delivered_at' => 'datetime',
+            'completion_enrolled_at' => 'datetime',
+            'auto_completion_due_at' => 'datetime',
+            'auto_completed_at' => 'datetime',
             'failed_at' => 'datetime',
             'return_handed_to_seller_at' => 'datetime',
             'inventory_restored_at' => 'datetime',

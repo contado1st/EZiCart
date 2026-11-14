@@ -8,7 +8,7 @@
         @php($assignment = $order->returnPickupAssignment)
         <section class="dash-panel">
             <h2>{{ $order->order_number }}</h2>
-            <p>{{ $order->seller?->business_name }} · {{ $order->dispute->status }} · {{ str_replace('_', ' ', $order->status) }}</p>
+            <p>{{ $order->seller?->business_name }} · {{ $order->dispute->status }} · {{ str_replace('_', ' ', $order->operational_status) }}</p>
             <x-parcel-weight :order="$order" compact />
             <p><a href="{{ route('parcel-evidence.show', $order) }}">Journey & evidence</a></p>
             @if(in_array($order->status, ['DELIVERED', 'COMPLETED'], true))

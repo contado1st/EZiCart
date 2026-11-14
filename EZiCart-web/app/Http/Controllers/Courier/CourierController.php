@@ -19,6 +19,7 @@ use App\Services\DeliveryRetryService;
 use App\Services\LogisticsHubNotificationService;
 use App\Services\OrderTransitionService;
 use App\Services\OrderWalletService;
+use App\Services\ParcelIncidentService;
 use App\Services\ParcelLoadService;
 use App\Services\QrCodeService;
 use App\Services\RiderBadgeService;
@@ -124,6 +125,7 @@ class CourierController extends Controller
         return DB::transaction(function () use ($order, $courier, $notifications): RedirectResponse {
             app(ParcelLoadService::class)->lockVehicle($courier->id);
             $lockedOrder = Order::whereKey($order->id)->lockForUpdate()->firstOrFail();
+            ParcelIncidentService::assertClear($lockedOrder);
             abort_unless($courier->status === 'approved', 403, 'Your rider account is not approved for pickups.');
             abort_unless($lockedOrder->pickup_courier_id === $courier->id, 403);
             abort_unless(
@@ -149,6 +151,7 @@ class CourierController extends Controller
 
         return DB::transaction(function () use ($order, $courier, $validated, $notifications, $hubNotifications): RedirectResponse {
             $lockedOrder = Order::query()->whereKey($order->id)->lockForUpdate()->firstOrFail();
+            ParcelIncidentService::assertClear($lockedOrder);
             abort_unless($courier->status === 'approved' && $lockedOrder->status === 'READY_FOR_PICKUP', 422, 'This pickup cannot be declined.');
             abort_unless($lockedOrder->pickup_courier_id === $courier->id && $lockedOrder->pickup_claimed_at === null, 403);
 
@@ -201,6 +204,7 @@ class CourierController extends Controller
             return DB::transaction(function () use ($request, $order, $courier, $transitions, $notifications, $validated, $scannedReference): RedirectResponse {
                 app(ParcelLoadService::class)->lockVehicle($courier->id);
                 $lockedOrder = Order::whereKey($order->id)->lockForUpdate()->firstOrFail();
+                ParcelIncidentService::assertClear($lockedOrder);
                 abort_unless($lockedOrder->pickup_courier_id === $courier->id, 403);
                 abort_unless(
                     $courier->status === 'approved'
@@ -285,6 +289,7 @@ class CourierController extends Controller
             return DB::transaction(function () use ($request, $order, $courier, $transitions, $deliveryCodes, $validated, $scannedReference): RedirectResponse {
                 app(ParcelLoadService::class)->lockVehicle($courier->id);
                 $lockedOrder = Order::whereKey($order->id)->lockForUpdate()->firstOrFail();
+                ParcelIncidentService::assertClear($lockedOrder);
                 abort_unless($lockedOrder->delivery_courier_id === $courier->id, 403);
                 abort_unless($courier->status === 'approved' && $lockedOrder->status === 'ASSIGNED_TO_RIDER', 422, 'This parcel cannot be started for delivery.');
                 abort_unless(app(OrderWalletService::class)->paymentReady($lockedOrder), 422, 'Delivery is on hold until payment verification for this method is configured.');
@@ -367,6 +372,7 @@ class CourierController extends Controller
         try {
             DB::transaction(function () use ($request, $order, $courier, $notifications, $validated, $scannedReference): void {
                 $lockedOrder = Order::query()->whereKey($order->id)->lockForUpdate()->firstOrFail();
+                ParcelIncidentService::assertClear($lockedOrder);
                 abort_unless($lockedOrder->delivery_courier_id === $courier->id, 403);
                 abort_unless($courier->status === 'approved' && $lockedOrder->status === OrderStatus::ReturnInTransit->value, 422, 'This parcel is not on an active return to seller.');
                 abort_unless($lockedOrder->return_handed_to_seller_at === null, 422, 'The seller handoff has already been recorded.');
@@ -429,6 +435,7 @@ class CourierController extends Controller
 
         $codeResult = DB::transaction(function () use ($order, $courier, $deliveryCode, $deliveryCodes): array {
             $lockedOrder = Order::query()->whereKey($order->id)->lockForUpdate()->firstOrFail();
+            ParcelIncidentService::assertClear($lockedOrder);
             abort_unless($lockedOrder->delivery_courier_id === $courier->id, 403);
             abort_unless($courier->status === 'approved' && $lockedOrder->status === 'OUT_FOR_DELIVERY', 422, 'This parcel is not out for delivery.');
             abort_unless(app(OrderWalletService::class)->paymentReady($lockedOrder), 422, 'Delivery is on hold until payment verification for this method is configured.');
@@ -458,6 +465,7 @@ class CourierController extends Controller
         try {
             return DB::transaction(function () use ($request, $order, $courier, $validated, $transitions, $deliveryCodes, $deliveryCode, &$proofPath): RedirectResponse {
                 $lockedOrder = Order::whereKey($order->id)->lockForUpdate()->firstOrFail();
+                ParcelIncidentService::assertClear($lockedOrder);
                 abort_unless($lockedOrder->delivery_courier_id === $courier->id, 403);
                 abort_unless($courier->status === 'approved' && $lockedOrder->status === 'OUT_FOR_DELIVERY', 422, 'This parcel is not out for delivery.');
                 abort_unless(app(OrderWalletService::class)->paymentReady($lockedOrder), 422, 'Delivery is on hold until payment verification for this method is configured.');
@@ -502,6 +510,7 @@ class CourierController extends Controller
 
         return DB::transaction(function () use ($order, $courier, $validated, $transitions): RedirectResponse {
             $lockedOrder = Order::whereKey($order->id)->lockForUpdate()->firstOrFail();
+            ParcelIncidentService::assertClear($lockedOrder);
             abort_unless($lockedOrder->delivery_courier_id === $courier->id, 403);
             abort_unless($courier->status === 'approved' && $lockedOrder->status === 'OUT_FOR_DELIVERY', 422, 'Only a delivery in progress can be marked failed.');
             $notes = $validated['failure_reason'].(filled($validated['delivery_notes'] ?? null) ? ': '.$validated['delivery_notes'] : '');

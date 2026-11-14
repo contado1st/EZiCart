@@ -6,6 +6,7 @@ use App\Models\Order;
 use App\Models\ParcelTransfer;
 use App\Models\User;
 use App\Services\ParcelLoadService;
+use App\Services\RiderWorkAvailabilityService;
 use Database\Seeders\HubTransferDemoSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
@@ -24,6 +25,7 @@ class HubTransferFlowTest extends TestCase
     public function test_full_hub_transfer_reserves_dedicated_driver_delivers_to_destination_and_resumes_last_mile(): void
     {
         $this->seed(HubTransferDemoSeeder::class);
+        User::where('role', 'courier')->get()->each(fn (User $rider) => app(RiderWorkAvailabilityService::class)->choose($rider, 'available', (int) $rider->work_availability_version));
         $order = Order::where('order_number', 'HUB-DEMO-001')->firstOrFail();
         $source = $this->account('hub.majayjay');
         $destination = $this->account('hub.santacruz');

@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class Voucher extends Model
@@ -30,17 +31,29 @@ class Voucher extends Model
         'max_discount',
         'discount_target',
         'recipient_limit', 'claimed_count', 'per_buyer_limit',
+        'visibility', 'product_scoped', 'terms_version',
     ];
 
     protected $casts = [
         'expires_at' => 'datetime',
         'starts_at' => 'datetime',
         'is_active' => 'boolean',
+        'product_scoped' => 'boolean',
     ];
 
     public function seller(): BelongsTo
     {
         return $this->belongsTo(User::class, 'seller_id');
+    }
+
+    public function products(): BelongsToMany
+    {
+        return $this->belongsToMany(Product::class, 'voucher_products');
+    }
+
+    public function scopePubliclyListed(Builder $query): Builder
+    {
+        return $query->where('visibility', 'public');
     }
 
     public function budget(): HasOne

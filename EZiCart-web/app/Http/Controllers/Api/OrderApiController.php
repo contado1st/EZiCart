@@ -13,6 +13,8 @@ use App\Services\ReviewService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
+use Throwable;
 
 class OrderApiController extends Controller
 {
@@ -92,7 +94,7 @@ class OrderApiController extends Controller
                 if ($deliveryCode !== null) {
                     $deliveryQrString = 'EZD:'.$deliveryCode;
                 }
-            } catch (\Throwable $e) {
+            } catch (Throwable $e) {
                 // Ignore code reveal errors if not ready
             }
         }
@@ -110,7 +112,7 @@ class OrderApiController extends Controller
                 'id' => $order->id,
                 'order_number' => $order->order_number,
                 'parcel_code' => $order->parcel_code,
-                'status' => $order->status,
+                'status' => $order->status, 'incident_status' => $order->activeIncident?->kind, 'fulfillment_on_hold' => $order->activeIncident !== null,
                 'status_label' => str_replace('_', ' ', $order->status),
                 'created_at' => $order->created_at->toIso8601String(),
                 'total_amount' => $totalAmount,
@@ -182,7 +184,7 @@ class OrderApiController extends Controller
                 $order->municipality,
                 'Buyer confirmed delivery receipt.'
             );
-        } catch (\Throwable $e) {
+        } catch (Throwable $e) {
             return response()->json(['success' => false, 'message' => $e->getMessage()], 422);
         }
 
@@ -214,7 +216,7 @@ class OrderApiController extends Controller
                 $buyer,
                 $validated['reason'] ?? 'Buyer requested order cancellation before shipment.'
             );
-        } catch (\Throwable $e) {
+        } catch (Throwable $e) {
             return response()->json(['success' => false, 'message' => $e->getMessage()], 422);
         }
 
@@ -319,19 +321,25 @@ class OrderApiController extends Controller
         ]);
 
         $evidencePath = null;
-        if ($request->hasFile('evidence_file')) {
-            $evidencePath = $request->file('evidence_file')->store('disputes/evidence', 'public');
-        }
+        try {
+            $dispute = DB::transaction(function () use ($order, $buyer, $validated, $request, &$evidencePath) {
+                $locked = Order::whereKey($order->id)->lockForUpdate()->firstOrFail();
+                abort_unless($locked->buyer_id === $buyer->id, 404);
+                abort_unless(in_array($locked->status, ['DELIVERED', 'COMPLETED'], true), 422, 'Disputes require delivered or completed orders.');
+                abort_if($locked->dispute()->exists(), 422, 'A dispute case is already open for this order.');
+                if ($request->hasFile('evidence_file')) {
+                    $evidencePath = $request->file('evidence_file')->store('disputes/evidence', 'private');
+                }
 
-        $dispute = Dispute::create([
-            'order_id' => $order->id,
-            'buyer_id' => $buyer->id,
-            'seller_id' => $order->seller_id,
-            'reason' => $validated['reason'],
-            'description' => $validated['description'],
-            'evidence_path' => $evidencePath,
-            'status' => 'PENDING',
-        ]);
+                return Dispute::create(['order_id' => $locked->id, 'buyer_id' => $buyer->id, 'seller_id' => $locked->seller_id,
+                    'reason' => $validated['reason'], 'description' => $validated['description'], 'evidence_path' => $evidencePath, 'status' => 'PENDING']);
+            });
+        } catch (Throwable $error) {
+            if ($evidencePath !== null) {
+                Storage::disk('private')->delete($evidencePath);
+            }
+            throw $error;
+        }
 
         return response()->json([
             'success' => true,

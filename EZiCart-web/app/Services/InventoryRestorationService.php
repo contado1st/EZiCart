@@ -14,6 +14,7 @@ class InventoryRestorationService
     {
         DB::transaction(function () use ($order): void {
             $locked = Order::query()->whereKey($order->id)->lockForUpdate()->firstOrFail();
+            ParcelIncidentService::assertClear($locked);
             if ($locked->inventory_restored_at !== null) {
                 return;
             }
@@ -37,6 +38,7 @@ class InventoryRestorationService
                     ProductVariation::query()->whereKey($item->variation_id)->where('product_id', $item->product_id)->increment('stock', $quantity);
                 }
             }
+            app(FlashSaleService::class)->releaseCancelled($locked);
             $locked->forceFill(['inventory_restored_at' => now()])->save();
         }, 3);
     }

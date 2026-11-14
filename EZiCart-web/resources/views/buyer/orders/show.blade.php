@@ -18,6 +18,11 @@
                 <a href="{{ route('buyer.dashboard') }}" class="dash-btn-sm dash-btn-outline">Back to orders</a>
             </div>
 
+            @include('components.feature-feedback')
+            <x-return-request-stage :case="$order->dispute" :viewer="auth()->user()" />
+            @if($order->status === 'DELIVERED')
+                <section class="dash-panel"><h2>Receipt window</h2><p>{{ $order->auto_completion_due_at ? 'Automatic completion is scheduled from '.$order->auto_completion_due_at->timezone('Asia/Manila')->format('d M Y H:i:s').' Philippine time, subject to delivery evidence and open-case checks.' : 'This historical delivery is not enrolled in automatic completion.' }}</p><p>Check the items and confirm receipt when ready. Open returns, disputes and unresolved evidence or settlement exceptions pause completion. Completion does not itself release earnings.</p></section>
+            @endif
             @if($order->purchase)
                 @if($order->isAwaitingWalletPayment())
                     <section class="dash-panel"><h2>Awaiting demo wallet payment</h2><p>Pay by {{ $order->wallet_payment_due_at->format('M d, Y h:i A') }}. The seller cannot prepare this unpaid reservation.</p><a class="dash-btn-sm" href="{{ route('buyer.orders.wallet-payment', $order) }}">Pay or cancel unpaid reservation</a></section>
@@ -38,7 +43,7 @@
                         <div class="order-date">{{ $order->payment_method }}</div>
                     </div>
                     <span
-                        class="status-pill status-{{ strtolower(str_replace('_', '-', $order->status)) }}">{{ str_replace('_', ' ', $order->status) }}</span>
+                        class="status-pill status-{{ strtolower(str_replace('_', '-', $order->status)) }}">{{ str_replace('_', ' ', $order->operational_status) }}</span>
                 </div>
 
                 @if (! app(\App\Services\OrderWalletService::class)->paymentReady($order) && ! in_array($order->status, ['CANCELLED', 'COMPLETED', 'RETURN_IN_TRANSIT', 'RETURNED_TO_SELLER'], true))
@@ -75,6 +80,7 @@
                                 <span>({{ $item->variation_info }})</span>
                             @endif
                             <span>&times; {{ $item->quantity }}</span>
+                            <x-item-price-note :item="$item" />
                         </div>
                         <div>{{ number_format($item->item_total, 2) }}</div>
                     </div>
@@ -139,11 +145,13 @@
                             dispute</a>
                     @endif
 
-                    @if ($order->status === 'DELIVERED')
+                    @if ($order->status === 'DELIVERED' && !$completionHold)
                         <form action="{{ route('buyer.orders.confirm', $order->id) }}" method="POST" data-decision="buyer.orders.confirm" data-decision-title="Confirm receipt?" data-decision-message="Confirm only after you have received the parcel and checked your items. This records your receipt of the order." data-decision-label="Confirm receipt" data-decision-tone="normal" onsubmit="return window.eziDecisionReady ? true : window.confirm(this.dataset.decisionMessage)">
                             @csrf
                             <button type="submit" class="dash-btn-sm dash-btn-success">Confirm receipt</button>
                         </form>
+                    @elseif($order->status === 'DELIVERED')
+                        <p role="status">Receipt confirmation is paused: {{ $completionHold }}</p>
                     @endif
                 </div>
             </section>

@@ -107,6 +107,7 @@ class OrderFinancialService
 
         return DB::transaction(function () use ($dispute, $actor): RefundExecution {
             $order = Order::query()->whereKey($dispute->order_id)->lockForUpdate()->firstOrFail();
+            ParcelIncidentService::assertClear($order);
             $dispute = Dispute::query()->whereKey($dispute->id)->lockForUpdate()->firstOrFail();
             abort_unless($dispute->status === 'REFUND_APPROVED', 422, 'A marketplace refund decision is required before financial authorization.');
             abort_if(RefundExecution::where('order_id', $order->id)->whereNotNull('rts_order_id')->exists(), 422, 'A dedicated RTS refund authorization already exists. Review that record instead of creating a second refund.');
@@ -139,6 +140,7 @@ class OrderFinancialService
             $actor = User::whereKey($actor->id)->lockForUpdate()->firstOrFail();
             abort_unless($actor->status === 'approved' && $actor->isCommerceAdmin(), 403);
             $locked = Order::whereKey($order->id)->lockForUpdate()->firstOrFail();
+            ParcelIncidentService::assertClear($locked);
             abort_unless(app(ReturnWorkflowService::class)->receiptConfirmed($locked), 422, 'Recorded courier handover and seller receipt evidence are required before RTS refund authorization.');
             abort_unless($locked->payment_method === 'WALLET' && $locked->financial_version === 1 && $locked->delivered_at === null
                 && ! $locked->deliveryAttempts()->where('outcome', 'delivered')->exists(), 422, 'This action is for an undelivered ledger-wallet RTS. Delivered returns use marketplace dispute authorization; external providers are not connected.');
@@ -176,6 +178,7 @@ class OrderFinancialService
         abort_unless($actor->isCommerceAdmin(), 403);
         DB::transaction(function () use ($refund, $actor, $reference, $evidence, $reason): void {
             $order = Order::query()->whereKey($refund->order_id)->lockForUpdate()->firstOrFail();
+            ParcelIncidentService::assertClear($order);
             abort_if($order->payment_method === 'WALLET', 422, 'Refund this wallet purchase through its wallet credit action.');
             $locked = RefundExecution::query()->whereKey($refund->id)->lockForUpdate()->firstOrFail();
             abort_unless($locked->status === 'AUTHORIZED', 422, 'This refund is not awaiting execution.');
@@ -189,6 +192,7 @@ class OrderFinancialService
 
     private function assertPayable(Order $order, OrderFinance $finance): void
     {
+        ParcelIncidentService::assertClear($order);
         $completed = $order->status === 'COMPLETED' || ($order->status === 'RETURNED_TO_SELLER' && Order::query()->where('replacement_for_order_id', $order->id)->where('status', 'COMPLETED')->exists());
         abort_unless($completed && $order->delivered_at !== null && $order->delivered_at->lte(now()->subDays(7))
             && ! ($order->status !== 'RETURNED_TO_SELLER' && $order->dispute()->where('status', 'REPLACEMENT_APPROVED')->exists())
@@ -223,6 +227,7 @@ class OrderFinancialService
 
         return DB::transaction(function () use ($order, $seller): SellerPayout {
             $locked = Order::query()->whereKey($order->id)->lockForUpdate()->firstOrFail();
+            ParcelIncidentService::assertClear($locked);
             $finance = $this->initialize($locked);
             $this->assertPayable($locked, $finance);
             $payout = SellerPayout::query()->firstOrCreate(['order_id' => $locked->id], ['seller_id' => $seller->id, 'amount_cents' => $finance->seller_payable_cents, 'status' => 'REQUESTED']);
@@ -243,6 +248,7 @@ class OrderFinancialService
         abort_unless($actor->isCommerceAdmin() && $actor->id !== $payout->seller_id, 403);
         DB::transaction(function () use ($payout, $actor, $reason): void {
             $order = Order::query()->whereKey($payout->order_id)->lockForUpdate()->firstOrFail();
+            ParcelIncidentService::assertClear($order);
             $locked = SellerPayout::query()->whereKey($payout->id)->lockForUpdate()->firstOrFail();
             $this->assertPayable($order, $this->initialize($order));
             abort_unless($locked->status === 'REQUESTED', 422, 'Only requested payouts may be approved.');
@@ -259,6 +265,7 @@ class OrderFinancialService
         abort_unless($actor->isCommerceAdmin(), 403);
         DB::transaction(function () use ($payout, $actor, $reference, $evidence, $reason): void {
             $order = Order::query()->whereKey($payout->order_id)->lockForUpdate()->firstOrFail();
+            ParcelIncidentService::assertClear($order);
             $locked = SellerPayout::query()->whereKey($payout->id)->lockForUpdate()->firstOrFail();
             $this->assertPayable($order, $this->initialize($order));
             abort_unless($locked->status === 'APPROVED', 422, 'Approve the payout before recording settlement.');
@@ -275,6 +282,7 @@ class OrderFinancialService
         abort_unless($actor->status === 'approved' && $actor->isCommerceAdmin() && strlen(trim($reason)) >= 5, 403);
         DB::transaction(function () use ($payout, $actor, $reason): void {
             $order = Order::whereKey($payout->order_id)->lockForUpdate()->firstOrFail();
+            ParcelIncidentService::assertClear($order);
             $locked = SellerPayout::whereKey($payout->id)->lockForUpdate()->firstOrFail();
             $this->assertPayable($order, $this->initialize($order));
             abort_unless($locked->status === 'APPROVED', 422, 'Approve this payout before crediting available seller balance.');

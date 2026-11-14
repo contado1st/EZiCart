@@ -21,6 +21,7 @@
                 ['seller.vouchers.index', 'voucher', 'Vouchers', 'seller.vouchers.*'],
                 ['seller.reports.index', 'note', 'Reports', 'seller.reports.*'],
                 ['seller.reviews.index', 'star', 'Customer reviews', 'seller.reviews.*'],
+                ['seller.returns.index', 'checklist', 'Return requests', 'seller.returns.*'],
                 ['sales-reports.index', 'note', 'Sales exports', 'sales-reports.*'],
                 ['chat.index', 'chat', 'Chat', 'chat.index'],
                 ['finance.index', 'money', 'Financial records', 'finance.*'],
@@ -92,6 +93,8 @@
     };
     $navigation['Insights'] = [['analytics.index', 'diagram', 'Analytics', 'analytics.*']];
     $navigation['Parcel records'] = [['parcel-evidence.index', 'package1', 'Journey & evidence', 'parcel-evidence.*']];
+    $navigation['Parcel records'][] = ['parcel-incidents.index', 'shield', 'Parcel incidents & claims', 'parcel-incidents.*'];
+    if (in_array($sidebarUser->role, ['courier', 'sorting_center', 'logistics_admin'], true)) $navigation['Parcel records'][] = ['dispatch.index', 'location', 'Automatic dispatch', 'dispatch.*'];
     $navigation['Parcel records'][] = ['return-pickups.index', 'delivery1', 'Approved return pickups', 'return-pickups.*'];
     if (in_array($sidebarUser->role, ['sorting_center', 'logistics_admin'], true)) $navigation['Parcel records'][] = ['logistics-corrections.index', 'note', 'Correction reviews', 'logistics-corrections.*'];
     if (in_array($sidebarUser->role, ['sorting_center', 'logistics_admin'], true)) $navigation['Parcel records'][] = ['logistics-zone-readiness', 'location', 'Zone readiness', 'logistics-zone-readiness'];

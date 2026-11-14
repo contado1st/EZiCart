@@ -210,8 +210,8 @@ class AnalyticsService
             ])->all());
             $metrics[] = ['key' => 'transport_legs', 'label' => 'Hub transport legs', 'unit' => 'count', 'value' => $legs->count(), 'previous' => null, 'change' => null];
         }
-        $statuses = $orders->countBy('status')->map(fn ($count, $status) => ['label' => Str::headline(strtolower($status)), 'value' => $count])->values()->all();
-        $add('statuses', 'Order status distribution', $orders->countBy('status')->map(fn ($count, $status) => ['Status' => $status, 'Orders' => $count])->all());
+        $statuses = $orders->countBy('operational_status')->map(fn ($count, $status) => ['label' => Str::headline(strtolower($status)), 'value' => $count])->values()->all();
+        $add('statuses', 'Order status distribution', $orders->countBy('operational_status')->map(fn ($count, $status) => ['Status' => $status, 'Orders' => $count])->all());
         $add('locations', 'Orders by municipality', $orders->countBy(fn ($o) => $o->municipality ?: 'Not recorded')->sortDesc()->map(fn ($count, $place) => ['Municipality' => $place, 'Orders' => $count])->all());
         if ($commercial) {
             usort($productRows, fn ($a, $b) => $b['Gross PHP'] <=> $a['Gross PHP']);

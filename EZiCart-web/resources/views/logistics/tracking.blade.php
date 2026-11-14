@@ -104,7 +104,7 @@
                 <div class="courier-actions">
                     <a class="ops-btn" href="{{ route('logistics-corrections.create', $order) }}">Request correction review</a>
                     <span class="ops-status {{ $order->status === 'DELIVERY_FAILED' ? 'ops-status--danger' : ($order->status === 'RETURN_IN_TRANSIT' ? 'ops-status--amber' : ($order->status === 'DELIVERED' || $order->status === 'COMPLETED' ? 'ops-status--green' : 'ops-status--pink')) }}">
-                        {{ str_replace('_', ' ', $order->status) }}
+                        {{ str_replace('_', ' ', $order->operational_status) }}
                     </span>
                     @if ($order->status === 'DELIVERY_FAILED')
                         <form method="POST" action="{{ route('logistics.orders.return', $order) }}" data-decision="logistics.orders.return" data-decision-title="Start return handling?" data-decision-message="This moves the selected parcel into the return workflow. Check the reason first." data-decision-label="Start return" data-decision-tone="danger" onsubmit="return window.eziDecisionReady ? true : window.confirm(this.dataset.decisionMessage)">

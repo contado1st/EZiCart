@@ -12,7 +12,15 @@
     </form>
     <section class="feature-panel"><h2>{{ $reviews->total() }} matching reviews</h2><p>25 per page. Date filtering uses the original posting date; edits show their updated time.</p>
         <div class="feature-table-scroll"><table class="feature-table"><thead><tr><th>Purchased product / options</th><th>Buyer</th><th>Rating</th><th>Feedback / photos</th><th>Posted / edited</th></tr></thead><tbody>
-            @forelse($reviews as $review)<tr><td>{{ $review->purchase_context['product_name'] ?? $review->order->items->firstWhere('product_id', $review->product_id)?->product_name ?? $review->product?->name ?? 'Historical product' }}<br>{{ implode(' · ', $review->purchased_variants) }}</td><td>{{ $review->public_buyer_name }}</td><td>{{ $review->rating }}/5</td><td>{{ $review->comment ?: 'Rating only' }}<x-review-photos :review="$review" :photos="$review->photos" /></td><td>{{ $review->created_at->format('M d, Y h:i A') }}@if($review->revision_version > 1)<br>Edited {{ $review->updated_at->format('M d, Y h:i A') }}@endif</td></tr>@empty<tr><td colspan="5">No reviews match these filters.</td></tr>@endforelse
+            @forelse($reviews as $review)<tr><td>{{ $review->purchase_context['product_name'] ?? $review->order->items->firstWhere('product_id', $review->product_id)?->product_name ?? $review->product?->name ?? 'Historical product' }}<br>{{ implode(' · ', $review->purchased_variants) }}</td><td>{{ $review->public_buyer_name }}</td><td>{{ $review->rating }}/5</td><td>{{ $review->comment ?: 'Rating only' }}<x-review-photos :review="$review" :photos="$review->photos" />
+<details><summary>{{ $review->reply ? 'Edit seller response' : 'Reply as seller' }}</summary>
+    @if($review->reply)<p><strong>Seller response:</strong> {{ $review->reply->body }}</p>@endif
+    <form class="feature-form" method="POST" action="{{ $review->reply ? route('seller.reviews.reply.update', $review) : route('seller.reviews.reply', $review) }}">@csrf
+        @if($review->reply)@method('PATCH')<input type="hidden" name="version" value="{{ $review->reply->version }}">@endif
+        <label>Seller response (up to 1,000 characters)<textarea name="body" maxlength="1000" required>{{ $review->reply?->body }}</textarea></label>
+        <button class="feature-button" type="submit">{{ $review->reply ? 'Save response' : 'Post response' }}</button>
+    </form>
+</details></td><td>{{ $review->created_at->format('M d, Y h:i A') }}@if($review->revision_version > 1)<br>Edited {{ $review->updated_at->format('M d, Y h:i A') }}@endif</td></tr>@empty<tr><td colspan="5">No reviews match these filters.</td></tr>@endforelse
         </tbody></table></div>{{ $reviews->links() }}
     </section>
 </main>

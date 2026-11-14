@@ -30,7 +30,7 @@
             <div class="vouchers-grid">
                 <!-- 1. Create Voucher Form -->
                 <div class="voucher-form-card">
-                    <h2 class="voucher-form-title">Create New Voucher</h2>
+                    <h2 class="voucher-form-title">Create New Voucher</h2><p>After the first claim, new campaigns allow only expiry extensions and higher total usage limits. Added usage reserves added funds.</p><a href="{{ route('seller.sales.index') }}">Manage scheduled product sales</a>
 
                     <form action="{{ route('seller.vouchers.store') }}" method="POST">
                         @csrf
@@ -81,6 +81,9 @@
                         <div class="voucher-form-group"><label class="voucher-form-label" for="voucher-recipients">Maximum unique buyers</label><input id="voucher-recipients" class="voucher-input" type="number" name="recipient_limit" min="1" max="1000000" value="{{ old('recipient_limit') }}" placeholder="Blank for unlimited recipients"></div>
                         <div class="voucher-form-group"><label class="voucher-form-label" for="voucher-per-buyer">Uses per buyer</label><input id="voucher-per-buyer" class="voucher-input" type="number" name="per_buyer_limit" min="1" max="1000" value="{{ old('per_buyer_limit', 1) }}"></div>
                         @if($errors->any())<p role="alert">{{ $errors->first() }}</p>@endif
+                        <div class="voucher-form-group"><label class="voucher-form-label">Visibility<select name="visibility" class="voucher-select"><option value="public">Public / claimable</option><option value="code_only" @selected(old('visibility') === 'code_only')>Code only (hidden from public lists)</option></select></label></div>
+                        <div class="voucher-form-group"><label class="voucher-form-label">Product scope<select name="product_scoped" class="voucher-select"><option value="0">All products from my shop</option><option value="1" @selected(old('product_scoped') == 1)>Selected products only</option></select></label>
+                        <label class="voucher-form-label">Eligible products (select up to 100)<select name="product_ids[]" class="voucher-select" multiple size="5">@foreach($voucherProducts as $voucherProduct)<option value="{{ $voucherProduct->id }}" @selected(in_array($voucherProduct->id, old('product_ids', [])))>{{ $voucherProduct->name }}</option>@endforeach</select></label><p>Minimum spend counts only selected merchandise after sale discounts. Shipping vouchers use the all-products scope.</p></div>
                         @include('components.voucher-budget-preview')
 
                         <button type="submit" class="dash-btn-primary u-extracted-92762f464d">
@@ -145,7 +148,17 @@
                                                         class="dash-btn-sm dash-btn-danger">End offer</button>
                                                 </form>
                                             </div>
-                                            <details class="web-section"><summary>Edit recipient limits</summary><form class="web-form" method="POST" action="{{ route('seller.vouchers.limits', $voucher) }}">@csrf @method('PATCH')<label for="limit-{{ $voucher->id }}">Maximum buyers<input id="limit-{{ $voucher->id }}" type="number" name="recipient_limit" min="{{ max(1, $voucher->claimed_count) }}" max="1000000" value="{{ $voucher->recipient_limit }}"></label><label for="buyer-limit-{{ $voucher->id }}">Uses per buyer<input id="buyer-limit-{{ $voucher->id }}" type="number" name="per_buyer_limit" min="1" max="1000" value="{{ $voucher->per_buyer_limit }}"></label><label for="expiry-{{ $voucher->id }}">Expires<input id="expiry-{{ $voucher->id }}" type="datetime-local" name="expires_at" value="{{ $voucher->expires_at?->format('Y-m-d\TH:i') }}"></label><button class="dash-btn-sm" type="submit">Save limits</button></form></details>
+                                            <small>{{ $voucher->visibility === 'code_only' ? 'Code only · hidden' : 'Public' }} · {{ $voucher->product_scoped ? 'Selected products' : 'All shop products' }}</small>
+                                            <details class="web-section"><summary>Edit expiry / limits</summary><form class="web-form" method="POST" action="{{ route('seller.vouchers.limits', $voucher) }}">@csrf @method('PATCH')
+                                                @if($voucher->claimed_count < 1 || $voucher->terms_version < 2)
+                                                <label>Maximum buyers<input type="number" name="recipient_limit" min="{{ max(1, $voucher->claimed_count) }}" max="1000000" value="{{ $voucher->recipient_limit }}"></label>
+                                                <label>Uses per buyer<input type="number" name="per_buyer_limit" min="1" max="1000" value="{{ $voucher->per_buyer_limit }}"></label>
+                                                @else<p>Claimed offer: discount, minimum spend, product scope, start time and recipient limits are locked.</p>@endif
+                                                <label>Expires ({{ config('app.timezone') }})<input type="datetime-local" name="expires_at" step="1" value="{{ $voucher->expires_at?->format('Y-m-dTH:i:s') }}"></label>
+                                                @if($voucher->usage_limit !== null)<label>Total redemptions<input type="number" name="usage_limit" min="{{ max(1, $voucher->usage_limit) }}" max="1000000" value="{{ $voucher->usage_limit }}" required></label>@else<p>This legacy offer has no total usage limit. Create a funded offer to add a bounded campaign budget.</p>@endif
+                                                <p>A higher total limit reserves the additional campaign budget from your available funds. Insufficient funds leave everything unchanged.</p>
+                                                <button class="dash-btn-sm" type="submit">Save limits</button>
+                                            </form></details>
                                         </td>
                                     </tr>
                                 @empty

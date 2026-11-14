@@ -15,7 +15,7 @@ class SellerPromotionService
         SellerPromotion::whereNull('cancelled_at')->where('starts_at', '<=', now())->where('expires_at', '>', now())->with(['seller', 'product', 'voucher'])->chunkById(100, function ($promotions) use (&$sent) {
             foreach ($promotions as $promotion) {
                 if (! $promotion->seller->acceptsWebOrders() || ($promotion->product_id && ($promotion->product?->compliance_status !== 'approved' || $promotion->product->is_archived))
-                    || ($promotion->voucher_id && (! $promotion->voucher?->is_active || $promotion->voucher->expires_at?->isPast()))) {
+                    || ($promotion->voucher_id && (! $promotion->voucher?->is_active || $promotion->voucher->visibility === 'code_only' || $promotion->voucher->expires_at?->isPast()))) {
                     continue;
                 }
                 $promotion->seller->shopFollowers()->where('role', 'buyer')->where('status', 'approved')->where('seller_promotions_enabled', true)->select('users.*')->chunkById(100, function ($buyers) use ($promotion, &$sent) {

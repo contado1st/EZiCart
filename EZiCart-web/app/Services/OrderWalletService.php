@@ -116,6 +116,7 @@ class OrderWalletService
         abort_unless($actor->status === 'approved' && $actor->isCommerceAdmin() && strlen(trim($reason)) >= 5, 403);
         DB::transaction(function () use ($refund, $actor, $reason): void {
             $order = Order::whereKey($refund->order_id)->lockForUpdate()->firstOrFail();
+            ParcelIncidentService::assertClear($order);
             $locked = RefundExecution::whereKey($refund->id)->lockForUpdate()->firstOrFail();
             $finance = OrderFinance::where('order_id', $order->id)->lockForUpdate()->firstOrFail();
             abort_unless($order->financial_version === 1 && $order->payment_method === 'WALLET' && $locked->status === 'AUTHORIZED' && $order->status === 'RETURNED_TO_SELLER' && $finance->ledger_funded_at !== null, 422, 'An authorized funded wallet return is required.');
@@ -138,6 +139,7 @@ class OrderWalletService
 
     public function externalRefund(Order $order, OrderFinance $finance, RefundExecution $refund, User $actor): void
     {
+        ParcelIncidentService::assertClear($order);
         if ($order->financial_version !== 1) {
             return;
         }
@@ -149,6 +151,7 @@ class OrderWalletService
     public function settleSeller(SellerPayout $payout, User $actor, bool $toWallet, string $reason): void
     {
         $order = Order::whereKey($payout->order_id)->lockForUpdate()->firstOrFail();
+        ParcelIncidentService::assertClear($order);
         $finance = OrderFinance::where('order_id', $order->id)->lockForUpdate()->firstOrFail();
         abort_unless($order->financial_version === 1 && $finance->ledger_funded_at !== null, 422, 'This order has no staged ledger proceeds.');
         $destination = $toWallet ? $this->ledger->wallet($order->seller) : $this->ledger->account('platform:cod-cash-control', 'cash_control', null, 'available', true);
@@ -169,6 +172,7 @@ class OrderWalletService
     {
         abort_unless($seller->role === 'seller' && $seller->id === $payout->seller_id && $payout->status === 'REQUESTED', 403);
         $order = Order::query()->whereKey($payout->order_id)->lockForUpdate()->firstOrFail();
+        ParcelIncidentService::assertClear($order);
         $finance = OrderFinance::query()->where('order_id', $order->id)->lockForUpdate()->firstOrFail();
         abort_unless($order->seller_id === $seller->id && $order->financial_version === 1
             && $finance->ledger_funded_at !== null && $payout->amount_cents === $finance->seller_payable_cents, 422,

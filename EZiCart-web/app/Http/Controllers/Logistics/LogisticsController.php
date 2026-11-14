@@ -17,6 +17,7 @@ use App\Notifications\OrderWorkflowNotification;
 use App\Notifications\RiderActivationNotification;
 use App\Services\AdministrativeAuditService;
 use App\Services\DeliveryRetryService;
+use App\Services\DispatchOfferService;
 use App\Services\HubOrderScope;
 use App\Services\LogisticsCoverageService;
 use App\Services\LogisticsExceptionService;
@@ -24,6 +25,7 @@ use App\Services\LogisticsQueueService;
 use App\Services\OrderAreaService;
 use App\Services\OrderTransitionService;
 use App\Services\OrderWalletService;
+use App\Services\ParcelIncidentService;
 use App\Services\ParcelLoadService;
 use App\Services\QrCodeService;
 use App\Services\RegistrationIdentityService;
@@ -274,6 +276,8 @@ class LogisticsController extends Controller
         return DB::transaction(function () use ($order, $validated, $operator, $notifications): RedirectResponse {
             app(ParcelLoadService::class)->lockVehicle((int) $validated['pickup_courier_id']);
             $lockedOrder = Order::query()->whereKey($order->id)->lockForUpdate()->firstOrFail();
+            ParcelIncidentService::assertClear($lockedOrder);
+            DispatchOfferService::assertNoOffer($lockedOrder);
             abort_unless(
                 $lockedOrder->status === 'READY_FOR_PICKUP'
                     && app(OrderWalletService::class)->paymentReady($lockedOrder)
@@ -441,6 +445,7 @@ class LogisticsController extends Controller
         $center = $this->authenticatedUser();
         DB::transaction(function () use ($order, $center, $transitions, $areaService, $method): void {
             $lockedOrder = Order::query()->whereKey($order->id)->lockForUpdate()->firstOrFail();
+            ParcelIncidentService::assertClear($lockedOrder);
             abort_unless($lockedOrder->status === OrderStatus::PickedUp->value, 422, 'This parcel is not eligible for hub intake.');
             abort_unless($lockedOrder->sorting_center_id === null || (int) $lockedOrder->sorting_center_id === $center->id, 403, 'This parcel belongs to another sorting center.');
 
@@ -609,6 +614,7 @@ class LogisticsController extends Controller
                     ? substr($validated['location_reference'], 4)
                     : $validated['location_reference'];
                 $order = Order::query()->where('parcel_code', $parcelCode)->orWhere('order_number', $parcelCode)->lockForUpdate()->firstOrFail();
+                ParcelIncidentService::assertClear($order);
                 $location = DB::table('storage_locations')->where('hub_id', $operator->id)->where('code', $locationCode)->lockForUpdate()->first();
                 abort_unless($location !== null && $location->is_active, 422, 'The storage location is unknown or inactive.');
                 $orderId = $order->id;
@@ -689,6 +695,7 @@ class LogisticsController extends Controller
 
         $removed = DB::transaction(function () use ($order, $location, $operator, $method, $request): bool {
             $lockedOrder = Order::query()->whereKey($order->id)->lockForUpdate()->firstOrFail();
+            ParcelIncidentService::assertClear($lockedOrder);
             abort_unless((int) $lockedOrder->sorting_center_id === $operator->id, 403, 'This parcel belongs to another sorting center.');
             abort_if(ParcelTransfer::query()->where('active_order_id', $order->id)->where('status', 'IN_TRANSIT')->exists(), 422, 'This parcel is in transit between hubs.');
             $placement = DB::table('parcel_placements')->where('order_id', $order->id)->where('location_id', $location->id)
@@ -907,6 +914,8 @@ class LogisticsController extends Controller
         return DB::transaction(function () use ($order, $validated, $operator, $transitions, $notifications): RedirectResponse {
             app(ParcelLoadService::class)->lockVehicle((int) $validated['delivery_courier_id']);
             $lockedOrder = Order::whereKey($order->id)->lockForUpdate()->firstOrFail();
+            ParcelIncidentService::assertClear($lockedOrder);
+            DispatchOfferService::assertNoOffer($lockedOrder);
             $this->assertHubAccess($lockedOrder, $operator);
             $previousRiderId = $lockedOrder->delivery_courier_id
                 ?? DB::table('delivery_assignments')->where('order_id', $lockedOrder->id)->orderByDesc('assigned_at')->value('rider_id');
@@ -1056,6 +1065,7 @@ class LogisticsController extends Controller
         return DB::transaction(function () use ($request, $order, $operator, $notifications, $badges, $validated, $badgeRiderId, $submittedBadge, $scannedParcelCode): RedirectResponse {
             app(ParcelLoadService::class)->lockVehicle((int) $badgeRiderId);
             $lockedOrder = Order::query()->whereKey($order->id)->lockForUpdate()->firstOrFail();
+            ParcelIncidentService::assertClear($lockedOrder);
             $this->assertHubAccess($lockedOrder, $operator);
             abort_unless($lockedOrder->status === OrderStatus::AssignedToRider->value, 422, 'Assign this parcel before releasing it to a rider.');
             abort_unless(app(OrderWalletService::class)->paymentReady($lockedOrder), 422, 'This parcel is on hold until payment verification is configured.');
@@ -1148,6 +1158,7 @@ class LogisticsController extends Controller
 
                 foreach ($orders as $order) {
                     $this->assertHubAccess($order, $operator);
+                    ParcelIncidentService::assertClear($order);
                     app(ParcelLoadService::class)->assertFits($order, $lockedRider);
                     abort_unless($order->status === OrderStatus::AssignedToRider->value && app(OrderWalletService::class)->paymentReady($order) && $order->delivery_courier_id === $lockedRider->id && $order->hub_released_at === null, 422, 'Every selected parcel must be assigned to this rider, fulfillable, and not yet released.');
                     $this->recordAcceptanceAtHandoff($order);

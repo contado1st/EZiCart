@@ -57,7 +57,7 @@ class SalesReportService
 
         return [
             'order' => $order->order_number, 'placed' => $order->created_at->format('Y-m-d'),
-            'seller' => $order->seller?->business_name ?? 'Seller', 'municipality' => $order->municipality, 'status' => $order->status,
+            'seller' => $order->seller?->business_name ?? 'Seller', 'municipality' => $order->municipality, 'status' => $order->operational_status,
             'gross' => $gross, 'seller_discount' => $sellerDiscount, 'platform_discount' => $platform,
             'shipping' => CheckoutPricingService::cents($order->shipping_fee ?? 0), 'refund' => $refund,
             'merchandise_refund' => $merchandiseRefund, 'platform_reversal' => $platformReversal, 'commission' => $commission,

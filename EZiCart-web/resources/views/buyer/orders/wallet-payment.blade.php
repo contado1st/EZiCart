@@ -6,6 +6,7 @@
     @include('components.feature-feedback')
     <section class="dash-panel">
         <h2>{{ $order->isAwaitingWalletPayment() ? 'Reserved, awaiting payment' : 'Review this order' }}</h2>
+        <p>Leaving this page or closing your browser keeps the same unpaid reservation until its deadline. Use Back to To Pay to resume it. If payment was already confirmed, reopening shows the recorded payment; repeating it does not charge again. This is an internal school-demo wallet, with no external gateway callback.</p>
         <p>Stock and any applied voucher are reserved until {{ $order->wallet_payment_due_at->format('M d, Y h:i A') }}. Seller preparation starts after the full payment is posted.</p>
         <dl class="grid gap-4 sm:grid-cols-3 my-4">
             <div><dt>Order total</dt><dd class="font-semibold">PHP {{ number_format($order->total_amount, 2) }}</dd></div>

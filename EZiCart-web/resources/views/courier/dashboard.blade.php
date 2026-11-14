@@ -405,7 +405,7 @@
                         <tr>
                             <td class="ops-mono" data-label="Order">
                                 <a href="{{ route('courier.orders.show', $order) }}"><strong>{{ $order->order_number }}</strong><x-parcel-weight :order="$order" compact /></a>
-                                <div><span class="ops-status {{ $order->status === 'OUT_FOR_DELIVERY' ? 'ops-status--pink' : 'ops-status--amber' }}">{{ str_replace('_', ' ', $order->status) }}</span></div>
+                                <div><span class="ops-status {{ $order->status === 'OUT_FOR_DELIVERY' ? 'ops-status--pink' : 'ops-status--amber' }}">{{ str_replace('_', ' ', $order->operational_status) }}</span></div>
                                 <div class="ops-muted">Assigned {{ $order->assigned_at?->diffForHumans() }}</div>
                             </td>
                             <td data-label="Recipient">

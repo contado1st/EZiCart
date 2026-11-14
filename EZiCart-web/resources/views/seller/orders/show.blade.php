@@ -8,6 +8,7 @@
     @include('components.order-deadlines', ['order' => $order])
     <div class="dash-wrapper">
 <main class="dash-main">
+            <x-return-request-stage :case="$order->dispute" :viewer="auth()->user()" />
             @if (session('success'))
                 <p role="status">{{ session('success') }}</p>
             @endif
@@ -35,7 +36,7 @@
                         <div class="order-date">Payment: {{ $order->payment_method }}</div>
                     </div>
                     <span
-                        class="status-pill status-{{ strtolower(str_replace('_', '-', $order->status)) }}">{{ str_replace('_', ' ', $order->status) }}</span>
+                        class="status-pill status-{{ strtolower(str_replace('_', '-', $order->status)) }}">{{ str_replace('_', ' ', $order->operational_status) }}</span>
                 </div>
 
                 <h2 class="courier-section-title">Recipient</h2>
@@ -53,6 +54,7 @@
                                 <span>({{ $item->variation_info }})</span>
                             @endif
                             <span>&times; {{ $item->quantity }}</span>
+                            <x-item-price-note :item="$item" />
                         </div>
                         <div>{{ number_format($item->item_total, 2) }}</div>
                     </div>

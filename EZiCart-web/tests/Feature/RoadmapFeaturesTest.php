@@ -300,7 +300,7 @@ class RoadmapFeaturesTest extends TestCase
 
     private function user(string $role): User
     {
-        return User::forceCreate(['email' => Str::uuid().'@example.com', 'password' => 'password', 'vehicle_capacity_grams' => $role === 'courier' ? 100000 : null, 'vehicle_capacity_verified_at' => $role === 'courier' ? now() : null, 'role' => $role, 'status' => 'approved', 'first_name' => 'Roadmap', 'last_name' => 'User', 'business_name' => 'Roadmap Shop', 'contact_no' => '09123456789', 'province' => 'Laguna', 'municipality' => 'Majayjay']);
+        return User::forceCreate(['email' => Str::uuid().'@example.com', 'password' => 'password', 'vehicle_capacity_grams' => $role === 'courier' ? 100000 : null, 'vehicle_capacity_verified_at' => $role === 'courier' ? now() : null, 'work_availability' => $role === 'courier' ? 'available' : 'unavailable', 'role' => $role, 'status' => 'approved', 'first_name' => 'Roadmap', 'last_name' => 'User', 'business_name' => 'Roadmap Shop', 'contact_no' => '09123456789', 'province' => 'Laguna', 'municipality' => 'Majayjay']);
     }
 
     private function product(array $data = []): Product

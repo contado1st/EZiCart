@@ -4,6 +4,8 @@
 **Scope:** Laravel web application only; mobile application excluded.  
 **State:** Assessment and implementation plan only. No application behavior, schema, configuration, fixture, or teacher checkbox was changed for this plan.
 
+**Workbook execution scope:** the [56-case implementation plan](missing-56-features-implementation-plan.md) now provides the exact Missing-case inventory, six delivery batches, scope reconciliations, and progress register. Use that narrower plan for this implementation batch; this document remains the broader checklist roadmap.
+
 ## 1. Purpose and baseline
 
 The completed “54 partial revisions” are a separate scope: the final review records 54 delivered revisions with passing automated regression checks. This does not mean the entire teacher checklists are complete.

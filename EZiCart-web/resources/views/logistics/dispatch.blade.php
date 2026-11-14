@@ -126,7 +126,7 @@
                             <td class="ops-mono">
                                 <strong>{{ $order->order_number }}</strong><x-parcel-weight :order="$order" compact />
                                 <div>
-                                    <span class="ops-status">{{ str_replace('_', ' ', $order->status) }}</span>
+                                    <span class="ops-status">{{ str_replace('_', ' ', $order->operational_status) }}</span>
                                 </div>
                             </td>
                             <td>

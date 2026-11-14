@@ -111,7 +111,7 @@
                                         <td>
                                             <span
                                                 class="status-pill status-{{ strtolower(str_replace('_', '-', $order->status)) }}">
-                                                {{ str_replace('_', ' ', $order->status) }}
+                                                {{ str_replace('_', ' ', $order->operational_status) }}
                                             </span>
                                         </td>
                                         <td>

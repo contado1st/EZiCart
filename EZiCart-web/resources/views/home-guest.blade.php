@@ -95,7 +95,7 @@
                                     </span>
                                     <span
                                         class="edit-seller">{{ $product->seller->business_name ?? 'EZiCart seller' }}</span>
-                                    <span class="edit-price">{{ $product->display_price_label }}</span>
+                                    <span class="edit-price"><x-product-price :product="$product" /></span>
                                     <span class="edit-arrow" aria-hidden="true">↗</span>
                                 </a>
                             @endforeach
@@ -149,7 +149,7 @@
                         @endif
                         @if ($featuredProduct)
                             <span
-                                class="composition-label"><span>{{ $featuredProduct->category }}</span><strong>{{ $featuredProduct->name }}</strong><em>₱{{ number_format($featuredProduct->price, 2) }}</em></span>
+                                class="composition-label"><span>{{ $featuredProduct->category }}</span><strong>{{ $featuredProduct->name }}</strong><em>₱{{ number_format($featuredProduct->effective_price, 2) }}</em></span>
                         @else
                             <span class="composition-label"><span>EZiCart</span><strong>Browse the
                                     marketplace</strong><em>Explore available finds</em></span>
@@ -218,7 +218,7 @@
                                         <span
                                             class="product-seller">{{ $product->seller->business_name ?? 'EZiCart seller' }}</span>
                                         <span class="product-bottom"><span
-                                                class="product-price">{{ $product->display_price_label }}</span><span
+                                                class="product-price"><x-product-price :product="$product" /></span><span
                                                 class="product-rating">{{ $product->average_rating > 0 ? number_format($product->average_rating, 1) . ' / 5' : 'New listing' }}</span></span>
                                     </span>
                                 </a>

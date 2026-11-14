@@ -210,6 +210,9 @@ class ModuleRevisionTest extends TestCase
     private function user(string $role, array $extra = []): User
     {
         $extra += ['email_verified_at' => now()];
+        if ($role === 'courier') {
+            $extra += ['work_availability' => 'available'];
+        }
 
         return User::forceCreate(array_merge(['email' => Str::uuid().'@example.test', 'password' => 'Password123!', 'role' => $role, 'status' => 'approved', 'first_name' => 'Test', 'last_name' => $role, 'business_name' => 'Test '.$role, 'contact_no' => '09123456789', 'vehicle_capacity_grams' => 100000, 'vehicle_capacity_verified_at' => now(), 'license_expires_at' => today()->addYear()], $extra));
     }

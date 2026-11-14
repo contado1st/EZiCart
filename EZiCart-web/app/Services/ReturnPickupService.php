@@ -16,6 +16,7 @@ class ReturnPickupService
 
     public function authorized(Order $order, User $actor): void
     {
+        ParcelIncidentService::assertClear($order);
         ParcelTrackingEvent::create(['order_id' => $order->id, 'actor_id' => $actor->id, 'event_type' => 'return_authorized', 'status' => $order->status, 'notes' => 'Return approved. Parcel remains with the buyer until a verified rider accepts and collects it.']);
         $this->notify($order, 'Return approved. Logistics must arrange pickup; approval does not mean the parcel was collected.');
         $this->audits->record($actor, $order, 'return_authorized', [], ['status' => $order->status], 'Return authorization only; physical custody unchanged.');
@@ -27,6 +28,7 @@ class ReturnPickupService
         DB::transaction(function () use ($order, $actor, $rider): void {
             $rider = app(ParcelLoadService::class)->lockVehicle($rider->id);
             $locked = Order::whereKey($order->id)->lockForUpdate()->firstOrFail();
+            ParcelIncidentService::assertClear($locked);
             abort_unless($actor->isLogisticsAdmin() || $locked->sorting_center_id === $actor->id, 403);
             $this->assertAwaitingPickup($locked);
             abort_unless($locked->sorting_center_id !== null && ((int) $rider->logistics_owner_id === (int) $locked->sorting_center_id || $rider->serviceAreas()->where('sorting_center_id', $locked->sorting_center_id)->exists()), 422, 'Choose a local rider belonging to the parcel destination hub.');
@@ -47,6 +49,7 @@ class ReturnPickupService
         DB::transaction(function () use ($order, $rider): void {
             app(ParcelLoadService::class)->lockVehicle($rider->id);
             $locked = Order::whereKey($order->id)->lockForUpdate()->firstOrFail();
+            ParcelIncidentService::assertClear($locked);
             $this->assertAwaitingPickup($locked);
             $assignment = $this->assignment($locked, $rider);
             app(ParcelLoadService::class)->assertFits($locked, $rider, newWork: $assignment->accepted_at === null);
@@ -62,6 +65,7 @@ class ReturnPickupService
         abort_unless($buyer->role === 'buyer' && $buyer->status === 'approved' && $order->buyer_id === $buyer->id, 403);
         DB::transaction(function () use ($order, $buyer): void {
             $locked = Order::whereKey($order->id)->lockForUpdate()->firstOrFail();
+            ParcelIncidentService::assertClear($locked);
             $this->assertAwaitingPickup($locked);
             $assignment = $locked->returnPickupAssignment()->lockForUpdate()->firstOrFail();
             abort_unless($assignment->accepted_at !== null, 422, 'Wait for the assigned rider to accept this pickup.');
@@ -75,6 +79,7 @@ class ReturnPickupService
         DB::transaction(function () use ($order, $rider, $reference): void {
             app(ParcelLoadService::class)->lockVehicle($rider->id);
             $locked = Order::whereKey($order->id)->lockForUpdate()->firstOrFail();
+            ParcelIncidentService::assertClear($locked);
             $this->assertAwaitingPickup($locked);
             $assignment = $this->assignment($locked, $rider);
             abort_unless($assignment->accepted_at && $locked->trackingEvents()->where('event_type', 'return_buyer_handover')->where('actor_id', $locked->buyer_id)->where('notes', 'Return pickup assignment #'.$assignment->id)->exists(), 422, 'Rider acceptance and buyer handover confirmation are required before collection.');

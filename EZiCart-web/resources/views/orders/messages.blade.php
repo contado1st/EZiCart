@@ -7,7 +7,7 @@
     @include('components.conversation-list')
     <section class="conversation-thread" aria-labelledby="conversation-title">
         <header class="conversation-thread-heading"><div><a class="conversation-mobile-back" href="{{ route('chat.index', ['panel' => request()->boolean('panel') ? 1 : null]) }}">All conversations</a><h2 id="conversation-title">{{ $partner->business_name ?: trim($partner->first_name.' '.$partner->last_name) }}</h2><p>Private conversation &middot; {{ str_replace('_', ' ', $partner->role) }}</p><x-user-activity :user="$partner" /></div><a class="communications-text-link" href="{{ url()->full() }}">Refresh</a></header>
-        @if($order)<div class="conversation-order-context"><div><strong>{{ $order->order_number }}</strong><span>{{ str_replace('_', ' ', $order->status) }}</span></div><a href="{{ $orderUrl }}" @if(request()->boolean('panel')) target="_top" @endif>View order</a></div>@endif
+        @if($order)<div class="conversation-order-context"><div><strong>{{ $order->order_number }}</strong><span>{{ str_replace('_', ' ', $order->operational_status) }}</span></div><a href="{{ $orderUrl }}" @if(request()->boolean('panel')) target="_top" @endif>View order</a></div>@endif
         @if($productContext ?? null)<div class="conversation-order-context"><div><strong>Enquiry about {{ $productContext->name }}</strong><span>{{ $productContext->display_price_label }}</span></div><p>The product card is shared when you send your question, not when you open this conversation.</p></div>@endif
         <div class="conversation-history" data-conversation-history tabindex="0" aria-label="Message history">
             @forelse($messages as $message)

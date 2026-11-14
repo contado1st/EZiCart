@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Order;
 use App\Services\BuyerOrderGroupingService;
 use App\Services\DeliveryCodeService;
+use App\Services\OrderCompletionEligibilityService;
 use App\Services\OrderTransitionService;
 use App\Services\QrCodeService;
 use Illuminate\Http\RedirectResponse;
@@ -26,7 +27,7 @@ class BuyerController extends Controller
             ->when($request->filled('status'), fn ($q) => $q->where('status', $request->query('status')));
         $counts = $grouping->counts($base);
         $orders = $base->when($orderGroup !== 'all', fn ($q) => $q->whereRaw($expression.' = ?', [$orderGroup]))
-            ->with(['seller', 'items.product', 'pendingCancellation', 'dispute', 'reviews'])
+            ->with(['seller', 'items.product', 'pendingCancellation', 'dispute.sellerResponse', 'reviews'])
             ->latest('created_at')->latest('id')->paginate(25)->withQueryString();
         $groupLabels = BuyerOrderGroupingService::LABELS;
 
@@ -37,12 +38,13 @@ class BuyerController extends Controller
     {
         abort_if($order->buyer_id !== $this->authenticatedUser()->id, 403);
 
-        $order->load(['seller', 'items.product', 'reviews', 'dispute', 'trackingEvents.actor', 'deliveryAttempts', 'purchase.orders.seller']);
+        $order->load(['seller', 'items.product', 'reviews', 'dispute.sellerResponse', 'trackingEvents.actor', 'deliveryAttempts', 'purchase.orders.seller']);
 
         $deliveryCode = $deliveryCodes->reveal($order);
         $deliveryCodeQr = $deliveryCode === null ? null : $qrCodes->svg('EZD:'.$deliveryCode, 180);
+        $completionHold = $order->status === 'DELIVERED' ? app(OrderCompletionEligibilityService::class)->holdReason($order) : null;
 
-        return view('buyer.orders.show', compact('order', 'deliveryCode', 'deliveryCodeQr'));
+        return view('buyer.orders.show', compact('order', 'deliveryCode', 'deliveryCodeQr', 'completionHold'));
     }
 
     public function refreshDeliveryCode(Order $order, DeliveryCodeService $deliveryCodes): RedirectResponse

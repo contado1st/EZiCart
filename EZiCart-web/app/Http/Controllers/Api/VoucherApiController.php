@@ -20,7 +20,7 @@ class VoucherApiController extends Controller
         $buyer = $request->user();
 
         $vouchers = Voucher::with('seller:id,business_name,first_name,last_name')
-            ->availableNow()
+            ->publiclyListed()->availableNow()
             ->where(fn ($q) => $q->whereNull('expires_at')->orWhere('expires_at', '>', now()))
             ->where(fn ($q) => $q->whereNull('seller_id')->orWhereHas('seller', fn ($s) => $s->where('role', 'seller')->where('status', 'approved')))
             ->latest('id')
@@ -72,7 +72,7 @@ class VoucherApiController extends Controller
         $buyer = $request->user();
         $voucher = Voucher::find($id);
 
-        if (! $voucher) {
+        if (! $voucher || ($voucher->visibility === 'code_only' && ! DB::table('voucher_claims')->where('voucher_id', $voucher->id)->where('buyer_id', $buyer->id)->exists())) {
             return response()->json([
                 'success' => false,
                 'message' => 'Voucher not found.',

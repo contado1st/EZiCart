@@ -11,6 +11,7 @@ use App\Notifications\OrderWorkflowNotification;
 use App\Services\LogisticsHubNotificationService;
 use App\Services\OrderTransitionService;
 use App\Services\OrderWalletService;
+use App\Services\ParcelIncidentService;
 use App\Services\ParcelLabelService;
 use App\Services\ParcelLoadService;
 use App\Services\QrCodeService;
@@ -66,7 +67,7 @@ class SellerOrderController extends Controller
     {
         abort_if($order->seller_id !== $this->authenticatedUser()->id, 403);
 
-        $order->load(['buyer', 'items.product']);
+        $order->load(['buyer', 'items.product', 'dispute.sellerResponse']);
 
         return view('seller.orders.show', compact('order'));
     }
@@ -153,6 +154,7 @@ class SellerOrderController extends Controller
 
         DB::transaction(function () use ($request, $order, $actor, $transitions, $validated, $rider): void {
             $lockedOrder = Order::query()->whereKey($order->id)->lockForUpdate()->firstOrFail();
+            ParcelIncidentService::assertClear($lockedOrder);
             abort_unless($lockedOrder->return_handed_to_seller_at !== null, 422, 'The courier must record the return handoff before you confirm receipt.');
             abort_unless((int) $lockedOrder->delivery_courier_id === $rider->id, 422, 'The return assignment changed after the rider badge scan. Scan the current badge again.');
             $transitions->transition($lockedOrder, $actor, OrderStatus::ReturnedToSeller, 'returned_to_seller', $actor->municipality, 'Seller confirmed receipt of the returned parcel.');
@@ -183,6 +185,7 @@ class SellerOrderController extends Controller
 
         return DB::transaction(function () use ($order, $seller, $validated, $notifications, $hubNotifications) {
             $lockedOrder = Order::query()->whereKey($order->id)->lockForUpdate()->firstOrFail();
+            ParcelIncidentService::assertClear($lockedOrder);
             abort_unless(
                 $lockedOrder->status === 'READY_FOR_PICKUP'
                     && app(OrderWalletService::class)->paymentReady($lockedOrder)
@@ -258,6 +261,7 @@ class SellerOrderController extends Controller
                 app(ParcelLoadService::class)->lockVehicle((int) $order->pickup_courier_id);
             }
             $lockedOrder = Order::query()->whereKey($order->id)->lockForUpdate()->firstOrFail();
+            ParcelIncidentService::assertClear($lockedOrder);
             abort_if($lockedOrder->pendingCancellation()->exists(), 422, 'Resolve the pending cancellation request before parcel handover.');
             abort_unless(
                 $lockedOrder->status === 'READY_FOR_PICKUP'

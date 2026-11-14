@@ -6,12 +6,12 @@
         'sorting_center' => 'logistics.dashboard',
         default => null,
     };
-    $isRoleWorkspaceRoute = request()->routeIs('courier.*', 'logistics.*');
+    $isRoleWorkspaceRoute = request()->routeIs('courier.*', 'logistics.*', 'dispatch.*') || (request()->routeIs('parcel-incidents.*') && in_array(auth()->user()?->role, ['courier', 'sorting_center'], true));
     $workspaceLabel = auth()->user()?->role === 'courier' ? 'Courier workspace' : 'Logistics workspace';
     $isDashboardWorkspace = auth()->check() && request()->routeIs(
         'admin.*', 'seller.*', 'courier.*', 'logistics.*', 'logistics-admin.*',
         'buyer.dashboard', 'buyer.orders.*', 'buyer.reviews.*', 'buyer.addresses.*', 'finance.*', 'parcel-transfers.*', 'return-pickups.*', 'returns.*', 'logistics-corrections.*', 'logistics-zone-readiness',
-        'account.profile.*', 'notifications.*', 'buyer.for-you*', 'buyer.wishlist.*', 'buyer.stock.*', 'chat.*', 'sales-reports.*', 'activity-logs.*', 'coverage.*', 'analytics.*', 'staff.*', 'parcel-evidence.*', 'buyer.vouchers.*', 'load-planning.*'
+        'account.profile.*', 'notifications.*', 'buyer.for-you*', 'buyer.wishlist.*', 'buyer.stock.*', 'chat.*', 'sales-reports.*', 'activity-logs.*', 'coverage.*', 'analytics.*', 'staff.*', 'parcel-evidence.*', 'buyer.vouchers.*', 'load-planning.*', 'dispatch.*', 'parcel-incidents.*'
     );
 @endphp
 

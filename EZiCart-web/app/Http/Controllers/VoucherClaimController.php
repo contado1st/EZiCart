@@ -18,7 +18,7 @@ class VoucherClaimController extends Controller
         if ($view === 'saved') {
             $query->whereIn('id', $claims->keys());
         } else {
-            $query->where('is_active', true)->where(fn ($q) => $q->whereNull('expires_at')->orWhere('expires_at', '>', now()))
+            $query->publiclyListed()->where('is_active', true)->where(fn ($q) => $q->whereNull('expires_at')->orWhere('expires_at', '>', now()))
                 ->where(fn ($q) => $q->whereNull('seller_id')->orWhereHas('seller', fn ($s) => $s->where('role', 'seller')->where('status', 'approved')));
         }
         $vouchers = $query->latest()->paginate(20)->withQueryString();
@@ -28,6 +28,7 @@ class VoucherClaimController extends Controller
 
     public function store(Request $request, Voucher $voucher, VoucherClaimService $claims)
     {
+        abort_if($voucher->visibility === 'code_only' && ! DB::table('voucher_claims')->where('voucher_id', $voucher->id)->where('buyer_id', $request->user()->id)->exists(), 404);
         $claims->claim($request->user(), $voucher);
 
         return back()->with('success', 'Voucher saved to your account. Use its code at checkout before it expires.');

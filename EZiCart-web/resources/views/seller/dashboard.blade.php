@@ -77,7 +77,7 @@
                                 <div class="u-extracted-13cbe03b9a">
                                     <span
                                         class="status-pill status-{{ strtolower(str_replace('_', '-', $order->status)) }}">
-                                        {{ str_replace('_', ' ', $order->status) }}
+                                        {{ str_replace('_', ' ', $order->operational_status) }}
                                     </span>
                                     <div class="u-extracted-102e7d3885">
                                         ₱{{ number_format($order->total_amount, 2) }}</div>

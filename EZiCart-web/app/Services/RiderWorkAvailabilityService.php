@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\Order;
+use App\Models\ParcelIncident;
 use App\Models\ParcelTrackingEvent;
 use App\Models\User;
 use App\Notifications\OrderWorkflowNotification;
@@ -79,6 +80,9 @@ class RiderWorkAvailabilityService
                     ->whereDoesntHave('trackingEvents', fn ($e) => $e->whereIn('event_type', ['return_buyer_handover', 'return_pickup_collected']))))->orderBy('id')->pluck('id');
             foreach ($ids as $id) {
                 $order = Order::whereKey($id)->lockForUpdate()->firstOrFail();
+                if (ParcelIncident::where('open_order_id', $order->id)->lockForUpdate()->first()) {
+                    continue;
+                }
                 if ($order->status === 'READY_FOR_PICKUP' && (int) $order->pickup_courier_id === $rider->id
                     && $order->pickup_claimed_at === null && $order->pickup_arrived_at === null && $order->seller_handover_at === null) {
                     $order->forceFill(['pickup_courier_id' => null])->save();

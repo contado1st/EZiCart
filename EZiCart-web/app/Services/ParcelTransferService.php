@@ -21,6 +21,8 @@ class ParcelTransferService
 
         return DB::transaction(function () use ($order, $actor, $destination, $reason): ParcelTransfer {
             $locked = Order::query()->whereKey($order->id)->lockForUpdate()->firstOrFail();
+            ParcelIncidentService::assertClear($locked);
+            DispatchOfferService::assertNoOffer($locked);
             abort_unless(in_array($locked->status, ['AT_SORTING_CENTER', 'SORTED'], true) && $locked->sorting_center_id !== null, 422, 'Transfer only a parcel physically received at a hub and not assigned to a rider.');
             abort_unless($destination->role === 'sorting_center' && $destination->status === 'approved' && $destination->id !== $locked->sorting_center_id, 422, 'Choose a different approved destination hub.');
             abort_unless($locked->destinationArea?->sorting_center_id === $destination->id, 422, 'The destination hub must own the parcel service area.');
@@ -42,6 +44,7 @@ class ParcelTransferService
                 $carrier = app(ParcelLoadService::class)->lockVehicle($carrier->id);
             }
             $order = Order::query()->whereKey($transfer->order_id)->lockForUpdate()->firstOrFail();
+            ParcelIncidentService::assertClear($order);
             $locked = ParcelTransfer::query()->whereKey($transfer->id)->lockForUpdate()->firstOrFail();
             abort_unless($actor->role === 'sorting_center' && $actor->status === 'approved' && $actor->id === $locked->source_hub_id, 403);
             abort_unless($locked->status === 'PLANNED' && $order->sorting_center_id === $actor->id && in_array($order->status, ['AT_SORTING_CENTER', 'SORTED'], true), 422, 'This transfer is not awaiting source release.');
@@ -69,6 +72,7 @@ class ParcelTransferService
         DB::transaction(function () use ($transfer, $actor, $replacement, $reference, $reason): void {
             $replacement = app(ParcelLoadService::class)->lockVehicle($replacement->id);
             $order = Order::whereKey($transfer->order_id)->lockForUpdate()->firstOrFail();
+            ParcelIncidentService::assertClear($order);
             $locked = ParcelTransfer::whereKey($transfer->id)->lockForUpdate()->firstOrFail();
             abort_unless($locked->status === 'IN_TRANSIT' && $locked->active_order_id === $order->id, 422, 'Only an active in-transit transfer can change carrier.');
             $previous = $locked->carrier;

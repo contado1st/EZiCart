@@ -48,7 +48,7 @@ class CheckoutController extends Controller
             if ($voucher) {
                 app(VoucherClaimService::class)->assertUsable($request->user(), $voucher);
             }
-            $quote = $pricing->quote($cart, $voucher, false, ['address' => $selectedAddress?->toArray() ?? $request->session()->get('checkout_shipping_context') ?? $user->only(['province', 'municipality', 'barangay']), 'payment_method' => $paymentMethod]);
+            $quote = $pricing->quote($cart, $voucher, false, ['address' => $selectedAddress?->toArray() ?? $request->session()->get('checkout_shipping_context') ?? $user->only(['province', 'municipality', 'barangay']), 'payment_method' => $paymentMethod, 'buyer' => $request->user()]);
         } catch (ValidationException $exception) {
             if (isset($exception->errors()['voucher_code'])) {
                 $request->session()->forget('applied_voucher');
@@ -66,9 +66,10 @@ class CheckoutController extends Controller
             $appliedVoucher = ['id' => $voucher->id, 'code' => $voucher->code];
             $request->session()->put('applied_voucher', $appliedVoucher);
         }
+        $sourceItems = $cart;
         $cart = array_map(fn ($line) => array_diff_key($line, array_flip(['product', 'variation'])), $quote['lines']);
         $checkoutMode = $request->session()->get('checkout_context.mode', 'cart');
-        $request->session()->put('checkout_context', ['mode' => $checkoutMode, 'items' => array_map(fn ($line) => Arr::only($line, ['product_id', 'variation_id', 'quantity']), $cart)]);
+        $request->session()->put('checkout_context', ['mode' => $checkoutMode, 'items' => array_map(fn ($line) => Arr::only($line, ['product_id', 'variation_id', 'quantity']), $sourceItems)]);
         $token = $request->session()->get('checkout_token', (string) Str::uuid());
         $request->session()->put(['checkout_token' => $token, 'checkout_quote_hash' => $quote['hash']]);
         $subtotal = $quote['subtotal_cents'] / 100;
@@ -88,7 +89,7 @@ class CheckoutController extends Controller
         }
         $items = $this->checkoutItems($request);
         app(WebCheckoutService::class)->assertShopsOpen($items);
-        $pricing->quote($items, $voucher);
+        $pricing->quote($items, $voucher, context: ['buyer' => $request->user()]);
         app(VoucherClaimService::class)->claim($request->user(), $voucher);
         app(VoucherClaimService::class)->assertUsable($request->user(), $voucher);
         $request->session()->put('applied_voucher', ['id' => $voucher->id, 'code' => $voucher->code]);
