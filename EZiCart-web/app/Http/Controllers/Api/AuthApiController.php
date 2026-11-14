@@ -514,6 +514,13 @@ class AuthApiController extends Controller
             'street_address' => $user->street_address,
             'house_number' => $user->house_number,
             'postal_code' => $user->postal_code,
+            'profile_display_name' => $user->profile_display_name,
+            'profile_bio' => $user->profile_bio,
+            'profile_theme' => $user->profile_theme ?: 'rose',
+            'has_avatar' => !empty($user->profile_avatar_path),
+            'has_banner' => !empty($user->profile_banner_path),
+            'avatar_url' => $user->profile_avatar_path ? url('/api/account/profile/media/avatar?v='.($user->updated_at?->timestamp ?? time())) : null,
+            'banner_url' => $user->profile_banner_path ? url('/api/account/profile/media/banner?v='.($user->updated_at?->timestamp ?? time())) : null,
         ];
     }
 }

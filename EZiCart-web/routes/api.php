@@ -80,6 +80,8 @@ $defineApiRoutes = function () {
         // Profile & Security Management
         Route::put('/account/profile', [ProfileApiController::class, 'updateProfile']);
         Route::put('/account/password', [ProfileApiController::class, 'updatePassword']);
+        Route::post('/account/appearance', [ProfileApiController::class, 'updateAppearance']);
+        Route::get('/account/profile/media/{type}', [ProfileApiController::class, 'media']);
 
         // Seller Shop Following
         Route::post('/shops/{id}/follow', [ShopApiController::class, 'follow'])->whereNumber('id')->middleware('throttle:operational-action');

@@ -54,6 +54,15 @@ class SellerShopController extends Controller
         $data = $request->validate(['following' => ['required', 'boolean']]);
         $follows->set($request->user(), $seller, (bool) $data['following']);
 
+        if ($request->wantsJson()) {
+            return response()->json([
+                'success' => true,
+                'following' => (bool) $data['following'],
+                'follower_count' => $seller->shopFollowers()->count(),
+                'message' => $data['following'] ? 'You are now following this shop.' : 'You have unfollowed this shop.',
+            ]);
+        }
+
         return back()->with('success', $data['following'] ? 'You are now following this shop.' : 'You have unfollowed this shop.');
     }
 

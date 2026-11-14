@@ -65,26 +65,63 @@ class ShopApiController extends Controller
         match ($sort) {
             'price_asc' => $query->orderBy('price'),
             'price_desc' => $query->orderByDesc('price'),
-            'rating' => $query->orderByDesc('rating'),
-            default => $query->orderByDesc('id'),
+            'rating' => $query->orderByDesc('rating')->orderByDesc('reviews_count'),
+            default => $query->orderByDesc('created_at'),
         };
 
         $products = $query->paginate($perPage);
 
         $followerCount = $seller->shopFollowers()->count();
-        $isFollowing = false;
-        if ($request->user() && $request->user()->role === 'buyer') {
-            $isFollowing = $request->user()->followedShops()->whereKey($seller->id)->exists();
+        $user = $request->user();
+        if (! $user && ($token = $request->bearerToken())) {
+            $apiToken = \App\Models\ApiToken::findByPlainTextToken($token);
+            if ($apiToken && $apiToken->isValid() && $apiToken->user?->status === 'approved') {
+                $user = $apiToken->user;
+            }
         }
+
+        $isFollowing = false;
+        if ($user && $user->role === 'buyer') {
+            $isFollowing = $user->followedShops()->whereKey($seller->id)->exists();
+        }
+
+        $onlineMinutes = (int) config('web-commerce.online_minutes', 15);
+        $recent = $seller->last_web_activity_at && $seller->last_web_activity_at->gte(now()->subMinutes($onlineMinutes));
+        $lastActiveText = $recent
+            ? 'Active recently'
+            : ($seller->last_web_activity_at ? 'Last active '.$seller->last_web_activity_at->diffForHumans() : 'Activity not recorded yet');
+
+        $shopAvailability = method_exists($seller, 'effectiveShopAvailability')
+            ? $seller->effectiveShopAvailability()
+            : ($seller->shop_availability ?? 'open');
+
+        $availabilityNote = match ($shopAvailability) {
+            'vacation' => 'Seller on vacation. New orders are paused.',
+            'closed' => 'Shop temporarily closed. New orders are paused.',
+            default => 'Shop open',
+        };
+
+        $inactiveWarningDays = (int) config('web-commerce.inactive_warning_days', 30);
+        $inactivityWarning = ($seller->last_web_activity_at && $seller->last_web_activity_at->lte(now()->subDays($inactiveWarningDays)))
+            ? 'This seller has been inactive for '.(int) $seller->last_web_activity_at->diffInDays(now()).' days. Consider contacting the shop before purchasing.'
+            : null;
+
+        $displayName = $seller->profile_display_name ?: $seller->business_name ?: trim("{$seller->first_name} {$seller->last_name}");
+        $avatarUrl = $seller->profile_photo_path ? url("/profiles/{$seller->id}/media/avatar?v=".($seller->updated_at?->timestamp ?? 0)) : null;
+        $bannerUrl = $seller->profile_banner_path ? url("/profiles/{$seller->id}/media/banner?v=".($seller->updated_at?->timestamp ?? 0)) : null;
 
         return response()->json([
             'success' => true,
             'shop' => [
                 'id' => $seller->id,
-                'name' => $seller->business_name ?: trim("{$seller->first_name} {$seller->last_name}"),
+                'name' => $displayName,
+                'display_name' => $displayName,
                 'business_name' => $seller->business_name,
                 'owner_name' => trim("{$seller->first_name} {$seller->last_name}"),
                 'description' => $seller->line_of_business ?? 'Verified Merchant on EZiCart',
+                'about' => $seller->profile_bio ?: 'This seller has not added a shop introduction yet.',
+                'bio' => $seller->profile_bio ?: '',
+                'line_of_business' => $seller->line_of_business,
                 'location' => trim("{$seller->municipality}, {$seller->province}"),
                 'rating' => round((float) $rating, 1),
                 'review_count' => $reviewCount,
@@ -92,6 +129,17 @@ class ShopApiController extends Controller
                 'follower_count' => $followerCount,
                 'is_following' => $isFollowing,
                 'member_since' => $seller->created_at?->format('M Y'),
+                'profile_theme' => $seller->profile_theme ?: 'rose',
+                'avatar_url' => $avatarUrl,
+                'banner_url' => $bannerUrl,
+                'has_avatar' => (bool) $seller->profile_photo_path,
+                'has_banner' => (bool) $seller->profile_banner_path,
+                'last_active' => $lastActiveText,
+                'is_active_recently' => (bool) $recent,
+                'shop_availability' => $shopAvailability,
+                'availability_note' => $availabilityNote,
+                'inactivity_warning' => $inactivityWarning,
+                'rating_note' => 'Rating includes reviews of approved, non-archived products, including items currently out of stock.',
                 'categories' => $categories,
             ],
             'products' => [
@@ -145,23 +193,30 @@ class ShopApiController extends Controller
         $buyer = $request->user();
 
         $shops = $buyer->followedShops()
+            ->where('role', 'seller')
             ->where('status', 'approved')
+            ->orderByPivot('created_at', 'desc')
             ->withCount(['products' => fn ($q) => $q->availableForMarketplace()])
             ->get()
             ->map(function ($seller) {
                 return [
                     'id' => $seller->id,
-                    'name' => $seller->business_name ?: trim("{$seller->first_name} {$seller->last_name}"),
+                    'name' => $seller->profile_display_name ?: $seller->business_name ?: trim("{$seller->first_name} {$seller->last_name}"),
+                    'display_name' => $seller->profile_display_name ?: $seller->business_name ?: trim("{$seller->first_name} {$seller->last_name}"),
                     'business_name' => $seller->business_name,
-                    'location' => trim("{$seller->municipality}, {$seller->province}"),
+                    'location' => trim(implode(', ', array_filter([$seller->municipality, $seller->province]))) ?: 'Philippines',
                     'product_count' => $seller->products_count,
                     'member_since' => $seller->created_at?->format('M Y'),
+                    'profile_theme' => $seller->profile_theme ?: 'rose',
+                    'avatar_url' => $seller->profile_photo_path ? url("/profiles/{$seller->id}/media/avatar?v=".($seller->updated_at?->timestamp ?? 0)) : null,
+                    'has_avatar' => (bool) $seller->profile_photo_path,
                 ];
             });
 
         return response()->json([
             'success' => true,
             'data' => $shops,
+            'shops' => $shops,
         ]);
     }
 }
