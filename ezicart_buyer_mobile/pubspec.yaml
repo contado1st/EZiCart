@@ -24,6 +24,13 @@ dev_dependencies:
 flutter:
   uses-material-design: true
   assets:
-    - assets/images/ezicart-background.png
-    - assets/images/ezicart-logo.png
-    - assets/images/hero-asset.png
+    - assets/images/
+    - assets/fonts/
+
+  fonts:
+    - family: Instrument Sans
+      fonts:
+        - asset: assets/fonts/InstrumentSans.ttf
+    - family: Bodoni Moda
+      fonts:
+        - asset: assets/fonts/BodoniModa.ttf

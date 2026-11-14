@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../../config/api_config.dart';
 import '../../config/theme.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/cart_provider.dart';
 import 'forgot_password_page.dart';
 import 'otp_verification_page.dart';
 import 'register_page.dart';
@@ -41,7 +42,9 @@ class _LoginPageState extends State<LoginPage> {
 
     if (!mounted) return;
 
-    if (!success) {
+    if (success) {
+      context.read<CartProvider>().syncLocalCartToServer();
+    } else {
       if (auth.pendingVerificationEmail != null) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(

@@ -63,6 +63,14 @@ $defineApiRoutes = function () {
 
     // Authenticated Buyer Only Routes
     Route::middleware('auth.api:buyer')->group(function () {
+        // Persistent Buyer Cart (synchronized with Web database)
+        Route::get('/cart', [CartApiController::class, 'index']);
+        Route::post('/cart/items', [CartApiController::class, 'addItem']);
+        Route::patch('/cart/items/{key}', [CartApiController::class, 'updateItem']);
+        Route::delete('/cart/items/{key}', [CartApiController::class, 'removeItem']);
+        Route::delete('/cart', [CartApiController::class, 'clearCart']);
+        Route::post('/cart/sync', [CartApiController::class, 'sync']);
+
         // Current User Profile & Logout
         Route::get('/me', [AuthApiController::class, 'me']);
         Route::get('/auth/me', [AuthApiController::class, 'me']);

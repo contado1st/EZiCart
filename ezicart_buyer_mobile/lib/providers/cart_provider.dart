@@ -7,6 +7,8 @@ import '../services/api_service.dart';
 
 class CartProvider extends ChangeNotifier {
   final Map<String, CartItemModel> _items = {};
+  final Set<String> _selectedKeys = {};
+
   String? _checkoutToken;
   String? _quoteHash;
   String? _appliedVoucherCode;
@@ -18,10 +20,75 @@ class CartProvider extends ChangeNotifier {
   double _total = 0.0;
 
   bool _isLoading = false;
+  bool _isSyncing = false;
   String? _errorMessage;
 
   Map<String, CartItemModel> get items => {..._items};
   int get itemCount => _items.values.fold(0, (sum, i) => sum + i.quantity);
+
+  // Item selection for checkout
+  Set<String> get selectedKeys => {..._selectedKeys};
+  bool isSelected(String cartKey) => _selectedKeys.contains(cartKey);
+
+  void toggleSelect(String cartKey) {
+    if (_selectedKeys.contains(cartKey)) {
+      _selectedKeys.remove(cartKey);
+    } else {
+      _selectedKeys.add(cartKey);
+    }
+    _recalculateLocalTotals();
+    notifyListeners();
+  }
+
+  void selectShop(int sellerId, bool select) {
+    for (final entry in _items.entries) {
+      if ((entry.value.product.sellerId ?? 0) == sellerId) {
+        if (select) {
+          _selectedKeys.add(entry.key);
+        } else {
+          _selectedKeys.remove(entry.key);
+        }
+      }
+    }
+    _recalculateLocalTotals();
+    notifyListeners();
+  }
+
+  void selectAll(bool select) {
+    if (select) {
+      _selectedKeys.addAll(_items.keys);
+    } else {
+      _selectedKeys.clear();
+    }
+    _recalculateLocalTotals();
+    notifyListeners();
+  }
+
+  bool get isAllSelected => _items.isNotEmpty && _selectedKeys.length == _items.length;
+
+  List<CartItemModel> get selectedItems =>
+      _items.entries.where((e) => _selectedKeys.contains(e.key)).map((e) => e.value).toList();
+
+  List<CartItemModel> get checkoutItems =>
+      selectedItems.isNotEmpty ? selectedItems : _items.values.toList();
+
+  int get selectedItemCount => selectedItems.fold(0, (sum, i) => sum + i.quantity);
+
+  double get selectedSubtotal => selectedItems.fold(0.0, (sum, i) => sum + i.total);
+
+  Set<int?> get selectedShopIds => selectedItems.map((i) => i.product.sellerId).toSet();
+
+  bool get hasMultipleShopsSelected => selectedShopIds.length > 1;
+
+  void removePurchasedItems() {
+    for (final item in selectedItems) {
+      _items.remove(item.cartKey);
+    }
+    _selectedKeys.clear();
+    _recalculateLocalTotals();
+    clearQuote();
+    notifyListeners();
+  }
 
   String? get checkoutToken => _checkoutToken;
   String? get quoteHash => _quoteHash;
@@ -34,12 +101,61 @@ class CartProvider extends ChangeNotifier {
   double get total => _total;
 
   bool get isLoading => _isLoading;
+  bool get isSyncing => _isSyncing;
   String? get errorMessage => _errorMessage;
 
-  void addItem(ProductModel product, {ProductVariation? variation, int quantity = 1}) {
+  /// Fetch buyer's persistent cart from the backend database (same as web)
+  Future<void> fetchCart({bool calculateQuote = true}) async {
+    final token = await ApiService.getToken();
+    if (token == null || token.isEmpty) return;
+
+    _isSyncing = true;
+    notifyListeners();
+
+    try {
+      final res = await ApiService.get(ApiConfig.cartEndpoint);
+      _isSyncing = false;
+
+      if (res.statusCode == 200) {
+        final body = jsonDecode(res.body);
+        if (body['success'] == true && body['data'] != null && body['data']['items'] is List) {
+          _updateItemsFromApi(body['data']['items'] as List);
+          if (calculateQuote && checkoutItems.isNotEmpty) {
+            fetchAuthoritativeQuote();
+          } else if (_items.isEmpty) {
+            clearQuote();
+          }
+          return;
+        }
+      }
+    } catch (_) {
+      _isSyncing = false;
+    }
+    notifyListeners();
+  }
+
+  void _updateItemsFromApi(List apiLines) {
+    _items.clear();
+    for (final line in apiLines) {
+      if (line is Map<String, dynamic>) {
+        final item = CartItemModel.fromApiJson(line);
+        _items[item.cartKey] = item;
+      }
+    }
+    _selectedKeys.removeWhere((k) => !_items.containsKey(k));
+    if (_selectedKeys.isEmpty) {
+      _selectedKeys.addAll(_items.keys);
+    }
+    _recalculateLocalTotals();
+    notifyListeners();
+  }
+
+  /// Add item to cart, optimistically updating local UI and syncing with web database
+  Future<void> addItem(ProductModel product, {ProductVariation? variation, int quantity = 1}) async {
     final maxStock = variation != null ? variation.stock : product.stock;
     final limit = maxStock > 0 ? (maxStock < 20 ? maxStock : 20) : 1;
     final key = '${product.id}${variation != null ? "_${variation.id}" : ""}';
+
     if (_items.containsKey(key)) {
       final newQty = _items[key]!.quantity + quantity;
       _items[key]!.quantity = newQty.clamp(1, limit);
@@ -50,42 +166,129 @@ class CartProvider extends ChangeNotifier {
         quantity: quantity.clamp(1, limit),
       );
     }
+    _selectedKeys.add(key);
     _recalculateLocalTotals();
     notifyListeners();
     Future.microtask(() => fetchAuthoritativeQuote());
+
+    // Synchronize to persistent web database
+    final token = await ApiService.getToken();
+    if (token != null && token.isNotEmpty) {
+      try {
+        final res = await ApiService.post(ApiConfig.cartItemsEndpoint, {
+          'product_id': product.id,
+          if (variation != null) 'variation_id': variation.id,
+          'quantity': quantity,
+        });
+
+        if (res.statusCode == 200) {
+          final body = jsonDecode(res.body);
+          if (body['success'] == true && body['data'] != null && body['data']['items'] is List) {
+            _updateItemsFromApi(body['data']['items'] as List);
+          }
+        }
+      } catch (_) {}
+    }
   }
 
-  void updateQuantity(String cartKey, int quantity) {
+  /// Update item quantity, syncing with web database
+  Future<void> updateQuantity(String cartKey, int quantity) async {
     if (_items.containsKey(cartKey)) {
       final item = _items[cartKey]!;
       final maxStock = item.availableStock;
       final limit = maxStock > 0 ? (maxStock < 20 ? maxStock : 20) : 1;
+
       if (quantity <= 0) {
         _items.remove(cartKey);
+        _selectedKeys.remove(cartKey);
       } else {
         _items[cartKey]!.quantity = quantity.clamp(1, limit);
       }
       _recalculateLocalTotals();
       notifyListeners();
       Future.microtask(() => fetchAuthoritativeQuote());
+
+      // Synchronize to persistent web database
+      final token = await ApiService.getToken();
+      if (token != null && token.isNotEmpty) {
+        try {
+          final url = ApiConfig.cartItemEndpoint(cartKey);
+          if (quantity <= 0) {
+            await ApiService.delete(url);
+          } else {
+            await ApiService.patch(url, {'quantity': quantity.clamp(1, limit)});
+          }
+        } catch (_) {}
+      }
     }
   }
 
-  void removeItem(String cartKey) {
+  /// Remove item from cart, syncing with web database
+  Future<void> removeItem(String cartKey) async {
     _items.remove(cartKey);
+    _selectedKeys.remove(cartKey);
     _recalculateLocalTotals();
     notifyListeners();
-    if (_items.isNotEmpty) {
+
+    if (checkoutItems.isNotEmpty) {
       Future.microtask(() => fetchAuthoritativeQuote());
     } else {
       clearQuote();
     }
+
+    // Synchronize to persistent web database
+    final token = await ApiService.getToken();
+    if (token != null && token.isNotEmpty) {
+      try {
+        await ApiService.delete(ApiConfig.cartItemEndpoint(cartKey));
+      } catch (_) {}
+    }
   }
 
-  void clearCart() {
+  /// Clear cart, syncing with web database
+  Future<void> clearCart() async {
     _items.clear();
+    _selectedKeys.clear();
     clearQuote();
     notifyListeners();
+
+    final token = await ApiService.getToken();
+    if (token != null && token.isNotEmpty) {
+      try {
+        await ApiService.delete(ApiConfig.cartEndpoint);
+      } catch (_) {}
+    }
+  }
+
+  /// Sync local offline items to web backend upon login
+  Future<void> syncLocalCartToServer() async {
+    final token = await ApiService.getToken();
+    if (token == null || token.isEmpty) return;
+
+    if (_items.isEmpty) {
+      await fetchCart();
+      return;
+    }
+
+    final lines = _items.values.map((item) => {
+      'product_id': item.product.id,
+      'variation_id': item.variation?.id,
+      'quantity': item.quantity,
+    }).toList();
+
+    try {
+      final res = await ApiService.post(ApiConfig.cartSyncEndpoint, {'items': lines});
+      if (res.statusCode == 200) {
+        final body = jsonDecode(res.body);
+        if (body['success'] == true && body['data'] != null && body['data']['items'] is List) {
+          _updateItemsFromApi(body['data']['items'] as List);
+          fetchAuthoritativeQuote();
+          return;
+        }
+      }
+    } catch (_) {}
+
+    await fetchCart();
   }
 
   void clearQuote() {
@@ -100,13 +303,14 @@ class CartProvider extends ChangeNotifier {
   }
 
   void _recalculateLocalTotals() {
-    _subtotal = _items.values.fold(0.0, (sum, item) => sum + item.total);
+    _subtotal = selectedSubtotal;
     _total = _subtotal - _discount + _shippingFee;
     if (_total < 0) _total = 0.0;
   }
 
   Future<bool> fetchAuthoritativeQuote({String? voucherCode, Map<String, dynamic>? destination}) async {
-    if (_items.isEmpty) {
+    final targetItems = checkoutItems;
+    if (targetItems.isEmpty) {
       clearQuote();
       notifyListeners();
       return true;
@@ -116,7 +320,7 @@ class CartProvider extends ChangeNotifier {
     _errorMessage = null;
     notifyListeners();
 
-    final lines = _items.values.map((item) => {
+    final lines = targetItems.map((item) => {
       'product_id': item.product.id,
       'variation_id': item.variation?.id,
       'quantity': item.quantity,
@@ -171,8 +375,8 @@ class CartProvider extends ChangeNotifier {
     }
   }
 
-  Future<bool> applyVoucher(String code) async {
-    final success = await fetchAuthoritativeQuote(voucherCode: code.trim());
+  Future<bool> applyVoucher(String code, {Map<String, dynamic>? destination}) async {
+    final success = await fetchAuthoritativeQuote(voucherCode: code.trim(), destination: destination);
     if (success) {
       _appliedVoucherCode = code.trim().toUpperCase();
     }

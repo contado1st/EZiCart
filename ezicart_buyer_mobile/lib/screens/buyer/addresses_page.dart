@@ -19,6 +19,9 @@ class _AddressesPageState extends State<AddressesPage> {
   List<AddressModel> _addresses = [];
   bool _isLoading = true;
 
+  static final RegExp _phMobileRegex = RegExp(r'^(09\d{9}|\+639\d{9})$');
+  static final RegExp _postalCodeRegex = RegExp(r'^\d{4}$');
+
   @override
   void initState() {
     super.initState();
@@ -35,22 +38,34 @@ class _AddressesPageState extends State<AddressesPage> {
           final list = (body['data'] as List)
               .map((a) => AddressModel.fromJson(a as Map<String, dynamic>))
               .toList();
-          setState(() {
-            _addresses = list;
-            _isLoading = false;
-          });
+          if (mounted) {
+            setState(() {
+              _addresses = list;
+              _isLoading = false;
+            });
+          }
           return;
         }
       }
     } catch (_) {}
-    setState(() => _isLoading = false);
+    if (mounted) setState(() => _isLoading = false);
   }
 
   void _showAddEditSheet({AddressModel? address}) {
+    if (address == null && _addresses.length >= 10) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Address book limit reached (maximum 10 addresses).'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
     final labelCtrl = TextEditingController(text: address?.label ?? 'Home');
     final nameCtrl = TextEditingController(text: address?.recipientName ?? '');
     final contactCtrl = TextEditingController(text: address?.recipientContact ?? '');
-    bool isDefault = address?.isDefault ?? false;
+    bool isDefault = address?.isDefault ?? (_addresses.isEmpty);
 
     AddressFormData formData = AddressFormData(
       region: address?.region ?? '',
@@ -60,8 +75,11 @@ class _AddressesPageState extends State<AddressesPage> {
       houseNumber: address?.houseNumber,
       streetAddress: address?.streetAddress,
       postalCode: address?.postalCode,
-      isManual: address == null,
+      isManual: false,
     );
+
+    bool isSaving = false;
+    String? sheetError;
 
     showModalBottomSheet(
       context: context,
@@ -91,20 +109,48 @@ class _AddressesPageState extends State<AddressesPage> {
                     ),
                     IconButton(
                       icon: const Icon(Icons.close),
-                      onPressed: () => Navigator.pop(ctx),
+                      onPressed: isSaving ? null : () => Navigator.pop(ctx),
                     ),
                   ],
                 ),
+                if (sheetError != null) ...[
+                  const SizedBox(height: 8),
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: Colors.red.shade50,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.red.shade200),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(Icons.error_outline, color: Colors.red.shade700, size: 18),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            sheetError!,
+                            style: TextStyle(fontSize: 12, color: Colors.red.shade900),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
                 const SizedBox(height: 12),
 
-                // Label & Recipient
+                // Label & Recipient Name
                 Row(
                   children: [
                     Expanded(
                       flex: 1,
                       child: TextField(
                         controller: labelCtrl,
-                        decoration: const InputDecoration(labelText: 'Label (e.g. Home)'),
+                        maxLength: 50,
+                        decoration: const InputDecoration(
+                          labelText: 'Label',
+                          hintText: 'e.g. Home, Office',
+                          counterText: '',
+                        ),
                       ),
                     ),
                     const SizedBox(width: 8),
@@ -112,25 +158,31 @@ class _AddressesPageState extends State<AddressesPage> {
                       flex: 2,
                       child: TextField(
                         controller: nameCtrl,
-                        decoration: const InputDecoration(labelText: 'Recipient Name *'),
+                        maxLength: 255,
+                        decoration: const InputDecoration(
+                          labelText: 'Recipient Name *',
+                          hintText: 'Full name',
+                          counterText: '',
+                        ),
                       ),
                     ),
                   ],
                 ),
                 const SizedBox(height: 12),
 
+                // Recipient Mobile Number
                 TextField(
                   controller: contactCtrl,
                   keyboardType: TextInputType.phone,
                   decoration: const InputDecoration(
                     labelText: 'Recipient Mobile Number *',
-                    hintText: '09XXXXXXXXX',
+                    hintText: '09XXXXXXXXX or +639XXXXXXXXX',
                     prefixIcon: Icon(Icons.phone_android_outlined, size: 20),
                   ),
                 ),
                 const SizedBox(height: 16),
 
-                // PSGC Address Section
+                // PSGC Address Form (Region, Province, Municipality, Barangay, Street, House, Zip)
                 PsgcAddressForm(
                   initialData: formData,
                   onChanged: (data) => formData = data,
@@ -140,53 +192,128 @@ class _AddressesPageState extends State<AddressesPage> {
                 CheckboxListTile(
                   contentPadding: EdgeInsets.zero,
                   value: isDefault,
-                  onChanged: (v) => setSheetState(() => isDefault = v ?? false),
+                  onChanged: isSaving
+                      ? null
+                      : (v) => setSheetState(() => isDefault = v ?? false),
                   title: const Text('Set as default delivery address', style: TextStyle(fontSize: 13)),
                   controlAffinity: ListTileControlAffinity.leading,
                 ),
                 const SizedBox(height: 20),
 
                 ElevatedButton(
-                  onPressed: () async {
-                    if (nameCtrl.text.trim().isEmpty || contactCtrl.text.trim().isEmpty) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Please enter recipient name and contact number.')),
-                      );
-                      return;
-                    }
-                    if (formData.region.isEmpty || formData.province.isEmpty || formData.municipality.isEmpty || formData.barangay.isEmpty) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Please complete the region, province, city, and barangay location details.')),
-                      );
-                      return;
-                    }
+                  onPressed: isSaving
+                      ? null
+                      : () async {
+                          // Clean & normalize contact
+                          String contact = contactCtrl.text.trim();
+                          if (contact.length == 10 && contact.startsWith('9')) {
+                            contact = '0$contact';
+                          }
 
-                    Navigator.pop(ctx);
+                          // 1. Recipient Name validation
+                          final name = nameCtrl.text.trim();
+                          if (name.length < 2) {
+                            setSheetState(() => sheetError = 'Recipient name must be at least 2 characters.');
+                            return;
+                          }
 
-                    final payload = {
-                      'label': labelCtrl.text.trim().isNotEmpty ? labelCtrl.text.trim() : 'Delivery',
-                      'recipient_name': nameCtrl.text.trim(),
-                      'recipient_contact': contactCtrl.text.trim(),
-                      'region': formData.region,
-                      'province': formData.province,
-                      'municipality': formData.municipality,
-                      'barangay': formData.barangay,
-                      'street_address': formData.streetAddress,
-                      'house_number': formData.houseNumber,
-                      'postal_code': formData.postalCode,
-                      'is_default': isDefault,
-                    };
+                          // 2. Contact validation (Philippine format)
+                          if (!_phMobileRegex.hasMatch(contact)) {
+                            setSheetState(() => sheetError = 'Invalid Philippine mobile number. Must start with 09 (11 digits) or +639 (13 characters).');
+                            return;
+                          }
 
-                    try {
-                      if (address == null) {
-                        await ApiService.post(ApiConfig.addressesEndpoint, payload);
-                      } else {
-                        await ApiService.put(ApiConfig.addressDetailEndpoint(address.id), payload);
-                      }
-                      _fetchAddresses();
-                    } catch (_) {}
-                  },
-                  child: const Text('Save Delivery Address'),
+                          // 3. Location validation
+                          if (formData.region.trim().isEmpty ||
+                              formData.province.trim().isEmpty ||
+                              formData.municipality.trim().isEmpty ||
+                              formData.barangay.trim().isEmpty) {
+                            setSheetState(() => sheetError = 'Please select or complete region, province, city/municipality, and barangay.');
+                            return;
+                          }
+
+                          // 4. Postal Code validation (must be 4 digits if present)
+                          final postal = formData.postalCode?.trim();
+                          if (postal != null && postal.isNotEmpty && !_postalCodeRegex.hasMatch(postal)) {
+                            setSheetState(() => sheetError = 'Postal ZIP code must be exactly 4 digits.');
+                            return;
+                          }
+
+                          // 5. Label
+                          final label = labelCtrl.text.trim().isNotEmpty ? labelCtrl.text.trim() : 'Home';
+
+                          // Clear sheet error and show saving indicator
+                          setSheetState(() {
+                            sheetError = null;
+                            isSaving = true;
+                          });
+
+                          // Prepare payload - send null for empty optional fields to prevent 422
+                          final scaffoldMessenger = ScaffoldMessenger.of(context);
+                          final payload = <String, dynamic>{
+                            'label': label,
+                            'recipient_name': name,
+                            'recipient_contact': contact,
+                            'region': formData.region.trim(),
+                            'province': formData.province.trim(),
+                            'municipality': formData.municipality.trim(),
+                            'barangay': formData.barangay.trim(),
+                            'street_address': (formData.streetAddress != null && formData.streetAddress!.trim().isNotEmpty)
+                                ? formData.streetAddress!.trim()
+                                : null,
+                            'house_number': (formData.houseNumber != null && formData.houseNumber!.trim().isNotEmpty)
+                                ? formData.houseNumber!.trim()
+                                : null,
+                            'postal_code': (postal != null && postal.isNotEmpty) ? postal : null,
+                            'is_default': isDefault,
+                          };
+
+                          try {
+                            final res = address == null
+                                ? await ApiService.post(ApiConfig.addressesEndpoint, payload)
+                                : await ApiService.put(ApiConfig.addressDetailEndpoint(address.id), payload);
+
+                            final body = jsonDecode(res.body);
+
+                            if ((res.statusCode == 200 || res.statusCode == 201) && body['success'] == true) {
+                              if (ctx.mounted) {
+                                Navigator.pop(ctx);
+                              }
+                              scaffoldMessenger.showSnackBar(
+                                SnackBar(
+                                  content: Text(body['message'] ?? 'Delivery address saved successfully!'),
+                                  backgroundColor: Colors.green,
+                                ),
+                              );
+                              if (mounted) {
+                                await _fetchAddresses();
+                              }
+                            } else {
+                              String errorMsg = body['message'] ?? 'Failed to save address.';
+                              if (body['errors'] is Map) {
+                                final errMap = body['errors'] as Map<String, dynamic>;
+                                final messages = errMap.values.expand((v) => v is List ? v : [v.toString()]).join('\n');
+                                if (messages.isNotEmpty) errorMsg = messages;
+                              }
+                              setSheetState(() {
+                                isSaving = false;
+                                sheetError = errorMsg;
+                              });
+                            }
+                          } catch (e) {
+                            setSheetState(() {
+                              isSaving = false;
+                              sheetError = 'Network error: ${e.toString()}';
+                            });
+                          }
+                        },
+                  child: isSaving
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                        )
+                      : Text(address == null ? 'Save Delivery Address' : 'Update Delivery Address'),
                 ),
                 const SizedBox(height: 24),
               ],
@@ -199,17 +326,33 @@ class _AddressesPageState extends State<AddressesPage> {
 
   Future<void> _makeDefault(int id) async {
     try {
-      await ApiService.patch(ApiConfig.addressDefaultEndpoint(id), {});
-      _fetchAddresses();
+      final res = await ApiService.patch(ApiConfig.addressDefaultEndpoint(id), {});
+      final body = jsonDecode(res.body);
+      if (res.statusCode == 200 && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(body['message'] ?? 'Default delivery address updated.'), backgroundColor: Colors.green),
+        );
+        _fetchAddresses();
+      }
     } catch (_) {}
   }
 
-  Future<void> _deleteAddress(int id) async {
+  Future<void> _deleteAddress(AddressModel addr) async {
+    if (addr.isDefault && _addresses.length > 1) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('The default address cannot be deleted. Please set another address as default first.'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Delete Address'),
-        content: const Text('Are you sure you want to remove this address from your address book?'),
+        content: Text('Are you sure you want to remove "${addr.label}" from your address book?'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
           ElevatedButton(
@@ -223,9 +366,12 @@ class _AddressesPageState extends State<AddressesPage> {
 
     if (confirm == true) {
       try {
-        final res = await ApiService.delete(ApiConfig.addressDetailEndpoint(id));
+        final res = await ApiService.delete(ApiConfig.addressDetailEndpoint(addr.id));
         final body = jsonDecode(res.body);
-        if (res.statusCode == 200) {
+        if (res.statusCode == 200 && mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(body['message'] ?? 'Address removed from your address book.'), backgroundColor: Colors.green),
+          );
           _fetchAddresses();
         } else if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -249,11 +395,13 @@ class _AddressesPageState extends State<AddressesPage> {
       appBar: AppBar(
         title: Text(widget.selectMode ? 'Select Delivery Address' : 'Address Book'),
       ),
-      floatingActionButton: FloatingActionButton(
-        backgroundColor: AppTheme.primary,
-        onPressed: () => _showAddEditSheet(),
-        child: const Icon(Icons.add, color: Colors.white),
-      ),
+      floatingActionButton: _addresses.length < 10
+          ? FloatingActionButton(
+              backgroundColor: AppTheme.primary,
+              onPressed: () => _showAddEditSheet(),
+              child: const Icon(Icons.add, color: Colors.white),
+            )
+          : null,
       body: SafeArea(
         child: _isLoading
             ? const Center(child: CircularProgressIndicator())
@@ -323,7 +471,7 @@ class _AddressesPageState extends State<AddressesPage> {
                                       ),
                                       IconButton(
                                         icon: const Icon(Icons.delete_outline, size: 18, color: Colors.red),
-                                        onPressed: () => _deleteAddress(addr.id),
+                                        onPressed: () => _deleteAddress(addr),
                                       ),
                                     ],
                                   ),
@@ -353,4 +501,3 @@ class _AddressesPageState extends State<AddressesPage> {
     );
   }
 }
-

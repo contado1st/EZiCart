@@ -139,6 +139,15 @@ class CheckoutApiController extends Controller
             ], 500);
         }
 
+        // Remove purchased items from persistent cart so web and mobile stay in sync
+        try {
+            $buyerCarts = app(\App\Services\BuyerCartService::class);
+            foreach ($validated['cart'] as $item) {
+                $key = \App\Services\BuyerCartService::key((int) $item['product_id'], empty($item['variation_id']) ? null : (int) $item['variation_id']);
+                $buyerCarts->remove($buyer, $key);
+            }
+        } catch (\Throwable) {}
+
         $orders = $purchase->orders()->with('seller:id,business_name')->get();
 
         return response()->json([

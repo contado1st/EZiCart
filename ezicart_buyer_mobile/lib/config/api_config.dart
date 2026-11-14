@@ -99,6 +99,10 @@ class ApiConfig {
   static String get followedShopsEndpoint => '$baseUrl/buyer/followed-shops';
 
   // Cart & Pricing endpoints
+  static String get cartEndpoint => '$baseUrl/cart';
+  static String get cartItemsEndpoint => '$baseUrl/cart/items';
+  static String cartItemEndpoint(String key) => '$baseUrl/cart/items/$key';
+  static String get cartSyncEndpoint => '$baseUrl/cart/sync';
   static String get cartQuoteEndpoint => '$baseUrl/cart/quote';
 
   // Checkout & Orders endpoints

@@ -50,6 +50,7 @@ class _BuyerDashboardState extends State<BuyerDashboard> {
       _fetchProducts(),
       _fetchCategories(),
       _fetchNotificationCount(),
+      context.read<CartProvider>().fetchCart(calculateQuote: false),
     ]);
     if (mounted) setState(() => _isLoading = false);
   }
@@ -68,8 +69,8 @@ class _BuyerDashboardState extends State<BuyerDashboard> {
 
   Future<void> _fetchProducts() async {
     try {
-      // Daily discoveries shows random products on each load/refresh
-      final uri = Uri.parse(ApiConfig.productsEndpoint).replace(queryParameters: {'sort': 'random'});
+      // Daily discoveries shows newest products (same as web)
+      final uri = Uri.parse(ApiConfig.productsEndpoint).replace(queryParameters: {'sort': 'latest'});
       final res = await ApiService.get(uri.toString());
 
       if (res.statusCode == 200) {
@@ -143,11 +144,7 @@ class _BuyerDashboardState extends State<BuyerDashboard> {
     return Container(
       margin: const EdgeInsets.fromLTRB(16, 6, 16, 10),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFFFFF7F9), Color(0xFFFFEEF3), Color(0xFFFFD4E2)],
-          begin: Alignment.centerLeft,
-          end: Alignment.centerRight,
-        ),
+        color: const Color(0xFFF7F7F4),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: const Color(0xFFFFDDE7)),
         boxShadow: [
@@ -161,102 +158,121 @@ class _BuyerDashboardState extends State<BuyerDashboard> {
       clipBehavior: Clip.antiAlias,
       child: Stack(
         children: [
-          // Background content row
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 16, 6, 16),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                // Left copy
-                Expanded(
-                  flex: 6,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Text(
-                        'THE EZICART MARKETPLACE',
-                        style: TextStyle(
-                          fontSize: 9.5,
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: 1.0,
-                          color: Color(0xFFBE2854),
-                        ),
-                      ),
-                      const SizedBox(height: 5),
-                      Text(
-                        greeting,
-                        style: const TextStyle(
-                          fontSize: 22,
-                          fontWeight: FontWeight.w800,
-                          color: Color(0xFF1D2129),
-                          height: 1.15,
-                          letterSpacing: -0.4,
-                        ),
-                      ),
-                      const SizedBox(height: 6),
-                      const Text(
-                        'Browse approved, in-stock products from EZiCart sellers. Compare details and prices before you choose.',
-                        style: TextStyle(
-                          fontSize: 10.5,
-                          color: Color(0xFF5A6270),
-                          height: 1.3,
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      InkWell(
-                        onTap: () => _navigateToSearch(),
-                        borderRadius: BorderRadius.circular(4),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFE26A7A),
-                            borderRadius: BorderRadius.circular(4),
-                            boxShadow: [
-                              BoxShadow(
-                                color: const Color(0xFFE26A7A).withValues(alpha: 0.35),
-                                blurRadius: 6,
-                                offset: const Offset(0, 2),
-                              ),
-                            ],
-                          ),
-                          child: const Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(
-                                'EXPLORE PRODUCTS',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 9.5,
-                                  fontWeight: FontWeight.bold,
-                                  letterSpacing: 0.8,
-                                ),
-                              ),
-                              SizedBox(width: 4),
-                              Icon(Icons.south_east, color: Colors.white, size: 11),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ],
+          // Full card background image
+          Positioned.fill(
+            child: Image.asset(
+              'assets/images/hero-asset.png',
+              fit: BoxFit.cover,
+              alignment: Alignment.centerRight,
+              errorBuilder: (_, __, ___) => Container(
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [Color(0xFFFFF7F9), Color(0xFFFFEEF3), Color(0xFFFFD4E2)],
+                    begin: Alignment.centerLeft,
+                    end: Alignment.centerRight,
                   ),
                 ),
+              ),
+            ),
+          ),
 
-                const SizedBox(width: 4),
+          // Subtle soft fade on the left side matching web .buyer-promo::after
+          Positioned.fill(
+            child: Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    const Color(0xFFFDF7F8).withValues(alpha: 0.95),
+                    const Color(0xFFFDF7F8).withValues(alpha: 0.85),
+                    const Color(0xFFFDF7F8).withValues(alpha: 0.20),
+                    Colors.transparent,
+                  ],
+                  stops: const [0.0, 0.40, 0.65, 1.0],
+                  begin: Alignment.centerLeft,
+                  end: Alignment.centerRight,
+                ),
+              ),
+            ),
+          ),
 
-                // Right scooter asset
-                Expanded(
-                  flex: 5,
-                  child: Align(
-                    alignment: Alignment.centerRight,
-                    child: Image.asset(
-                      'assets/images/hero-asset.png',
-                      height: 170,
-                      fit: BoxFit.contain,
+          // Content overlay on the left
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 18, 16, 18),
+            child: FractionallySizedBox(
+              widthFactor: 0.60,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text(
+                    'THE EZICART MARKETPLACE',
+                    style: TextStyle(
+                      fontFamily: 'Instrument Sans',
+                      fontSize: 9.0,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 1.2,
+                      color: Color(0xFF8C3845),
                     ),
                   ),
-                ),
-              ],
+                  const SizedBox(height: 6),
+                  Text(
+                    greeting,
+                    style: AppTheme.displayFont(
+                      fontSize: 23,
+                      fontWeight: FontWeight.w700,
+                      color: const Color(0xFF1D2129),
+                      height: 1.1,
+                      letterSpacing: -0.4,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'Browse approved, in-stock products from EZiCart sellers. Compare details and prices before you choose.',
+                    style: TextStyle(
+                      fontFamily: 'Instrument Sans',
+                      fontSize: 10.5,
+                      color: Color(0xFF393437),
+                      height: 1.35,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  InkWell(
+                    onTap: () => _navigateToSearch(),
+                    borderRadius: BorderRadius.circular(4),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7.5),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFBE2854),
+                        borderRadius: BorderRadius.circular(4),
+                        boxShadow: [
+                          BoxShadow(
+                            color: const Color(0xFFBE2854).withValues(alpha: 0.3),
+                            blurRadius: 6,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            'EXPLORE PRODUCTS',
+                            style: TextStyle(
+                              fontFamily: 'Instrument Sans',
+                              color: Colors.white,
+                              fontSize: 9.5,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: 0.8,
+                            ),
+                          ),
+                          SizedBox(width: 4),
+                          Icon(Icons.south_east, color: Colors.white, size: 11),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
 
@@ -644,20 +660,25 @@ class _BuyerDashboardState extends State<BuyerDashboard> {
           // Product Grid
           if (_isLoading)
             const SliverFillRemaining(
+              hasScrollBody: false,
               child: Center(child: CircularProgressIndicator()),
             )
           else if (_products.isEmpty)
             SliverFillRemaining(
+              hasScrollBody: false,
               child: Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(Icons.search_off_outlined, size: 56, color: Colors.grey.shade400),
-                    const SizedBox(height: 12),
-                    const Text('No products found', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                    const SizedBox(height: 4),
-                    const Text('Pull down to refresh and discover new items.', style: TextStyle(color: AppTheme.muted, fontSize: 13)),
-                  ],
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.search_off_outlined, size: 48, color: Colors.grey.shade400),
+                      const SizedBox(height: 8),
+                      const Text('No products found', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                      const SizedBox(height: 4),
+                      const Text('Pull down to refresh and discover new items.', style: TextStyle(color: AppTheme.muted, fontSize: 12), textAlign: TextAlign.center),
+                    ],
+                  ),
                 ),
               ),
             )
