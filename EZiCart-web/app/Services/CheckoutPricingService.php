@@ -41,7 +41,7 @@ class CheckoutPricingService
             }
             $variation = empty($item['variation_id']) ? null : $variations->get($item['variation_id']);
             if ((! empty($item['variation_id']) && (! $variation || $variation->product_id !== $product->id || ! $variation->is_active))
-                || (empty($item['variation_id']) && $variations->contains(fn ($variant) => $variant->product_id === $product->id))) {
+                || (empty($item['variation_id']) && $product->usesVariations($variations->contains(fn ($variant) => $variant->product_id === $product->id)))) {
                 throw ValidationException::withMessages(['variation_id' => 'Choose an available variation belonging to this product.']);
             }
             $priceSnapshot = app(ProductPriceService::class)->resolve($product, $variation, false);

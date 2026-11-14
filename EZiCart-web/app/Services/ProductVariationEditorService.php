@@ -10,6 +10,35 @@ use Illuminate\Validation\ValidationException;
 
 class ProductVariationEditorService
 {
+    /** Translate explicit per-option prices into the existing base/adjustment contract. */
+    public function normalizeInput(Request $request): void
+    {
+        // Older clients retain their existing base + adjustment payload.
+        if (! $request->has('variations_enabled')) {
+            return;
+        }
+        $request->validate(['variations_enabled' => ['required', 'boolean']]);
+        if (! $request->boolean('variations_enabled')) {
+            $request->merge(['variations_present' => 1, 'variations' => []]);
+            $request->files->remove('variations');
+
+            return;
+        }
+        $data = $request->validate([
+            'variations' => ['required', 'array', 'min:1', 'max:100'],
+            'variations.*.price' => ['required', 'numeric', 'min:0.01', 'max:99999999.99', 'decimal:0,2'],
+            'variations.*.stock' => ['required', 'integer', 'min:0', 'max:1000000'],
+        ]);
+        $prices = array_map(fn ($row) => CheckoutPricingService::cents($row['price']), $data['variations']);
+        $base = min($prices);
+        $rows = $request->input('variations');
+        foreach ($rows as $index => &$row) {
+            $row['price_adjustment'] = (CheckoutPricingService::cents($row['price']) - $base) / 100;
+        }
+        unset($row);
+        $request->merge(['price' => $base / 100, 'stock' => array_sum(array_column($rows, 'stock')), 'variations' => $rows, 'variations_present' => 1]);
+    }
+
     public function prepare(Request $request, array $data): array
     {
         if (isset($data['variations'])) {

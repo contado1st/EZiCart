@@ -5,12 +5,33 @@
     const template = editor.querySelector('[data-variation-template]');
     const feedback = editor.querySelector('[data-variation-feedback]');
     const stock = editor.closest('form').querySelector('[name="stock"]');
+    const toggle = editor.closest('form').querySelector('[data-variations-toggle]');
+    const base = editor.closest('form').querySelector('[data-base-pricing]');
+    const optionsPanel = editor.querySelector('[data-variation-options]');
+    const summary = editor.querySelector('[data-variation-summary]');
     let next = Math.max(-1, ...[...rows.querySelectorAll('[name]')].map(input => Number(input.name.match(/variations\[(\d+)\]/)?.[1] ?? -1))) + 1;
     const updateStock = () => {
         const inputs = [...rows.querySelectorAll('[data-variation-stock]')];
-        stock.readOnly = inputs.length > 0;
-        if (inputs.length) stock.value = inputs.reduce((sum, input) => sum + Math.max(0, Number(input.value) || 0), 0);
+        const total = inputs.reduce((sum, input) => sum + Math.max(0, Number(input.value) || 0), 0);
+        if (!toggle) {
+            stock.readOnly = inputs.length > 0;
+            if (inputs.length) stock.value = total;
+            return;
+        }
+        const prices = [...rows.querySelectorAll('[data-variation-price]')].map(input => Number(input.value));
+        const valid = prices.length && prices.every(price => Number.isFinite(price) && price >= 0.01);
+        const money = value => new Intl.NumberFormat('en-PH', {style: 'currency', currency: 'PHP'}).format(value);
+        summary.textContent = valid ? `Estimated price: ${money(Math.min(...prices))}${Math.min(...prices) !== Math.max(...prices) ? ` – ${money(Math.max(...prices))}` : ''} · Combined stock: ${total}` : 'Enter a price and stock for each variation to preview the product card.';
     };
+    const updateMode = () => {
+        base.hidden = toggle.checked;
+        base.disabled = toggle.checked;
+        optionsPanel.hidden = !toggle.checked;
+        optionsPanel.disabled = !toggle.checked;
+        toggle.setAttribute('aria-expanded', String(toggle.checked));
+        updateStock();
+    };
+    if (toggle) toggle.addEventListener('change', updateMode);
     const add = (type = '', value = '') => {
         if (rows.children.length >= 100) { feedback.textContent = 'A product can have at most 100 combinations.'; return; }
         const fragment = template.content.cloneNode(true);
@@ -38,5 +59,5 @@
         missing.forEach(value => add(type, value));
         feedback.textContent = `${missing.length} combinations added. Set prices, stock, SKUs and optional photos before saving.`;
     });
-    updateStock();
+    if (toggle) updateMode(); else updateStock();
 })();

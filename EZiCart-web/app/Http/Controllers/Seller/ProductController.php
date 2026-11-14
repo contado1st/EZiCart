@@ -66,6 +66,7 @@ class ProductController extends Controller
 
     private function createProduct(Request $request): Product
     {
+        app(ProductVariationEditorService::class)->normalizeInput($request);
         if ($request->has('variations_present') && ! $request->has('variations')) {
             $request->merge(['variations' => []]);
         }
@@ -95,6 +96,7 @@ class ProductController extends Controller
             if ($request->boolean('variations_present') && ! empty($validated['variations'])) {
                 $validated['stock'] = array_sum(array_column($validated['variations'], 'stock'));
             }
+            $validated['variations_enabled'] = $request->has('variations_enabled') ? $request->boolean('variations_enabled') : null;
             $cover = $request->file('image') ?? collect($request->file('gallery_images', []))->first();
             if ($cover) {
                 $imagePath = $cover->store('products', 'public');
@@ -112,6 +114,7 @@ class ProductController extends Controller
                     'weight_grams' => ParcelLoadService::grams($validated['weight_kg']),
                     'length_mm' => $validated['length_mm'] ?? null, 'width_mm' => $validated['width_mm'] ?? null, 'height_mm' => $validated['height_mm'] ?? null,
                     'stock' => $validated['stock'],
+                    'variations_enabled' => $validated['variations_enabled'],
                     'image_path' => $imagePath,
                     'is_archived' => false,
                 ]);
@@ -165,6 +168,7 @@ class ProductController extends Controller
             $request->merge(['variations' => []]);
         }
         abort_if($product->user_id !== $this->authenticatedUser()->id, 403);
+        app(ProductVariationEditorService::class)->normalizeInput($request);
         $validatedVariantIds = $request->validate(['variations.*.id' => ['nullable', 'integer', 'distinct', Rule::exists('product_variations', 'id')->where('product_id', $product->id)]]);
 
         $validated = $request->validate([
@@ -207,13 +211,14 @@ class ProductController extends Controller
 
             return DB::transaction(function () use ($request, $product, $validated, $uploadedImagePath, $staged) {
                 $product = Product::query()->whereKey($product->id)->lockForUpdate()->firstOrFail();
-                $previousValues = $product->only(['name', 'price', 'stock', 'category', 'weight_grams', 'length_mm', 'width_mm', 'height_mm']);
+                $previousValues = $product->only(['name', 'price', 'stock', 'category', 'weight_grams', 'length_mm', 'width_mm', 'height_mm', 'variations_enabled']);
                 $previousValues['variations'] = $product->variations()->get(['id', 'type', 'value', 'sku', 'image_path', 'stock', 'price_adjustment', 'is_active'])->map(fn ($variant) => $variant->only(['id', 'type', 'value', 'sku', 'image_path', 'stock', 'price_adjustment', 'is_active']))->all();
                 $previousValues['media'] = $product->media()->get(['id', 'kind', 'path', 'sort_order'])->toArray();
                 $previousValues['image_path'] = $product->image_path;
                 $previousImagePath = $product->image_path;
                 $imagePath = $request->boolean('remove_cover') ? null : ($uploadedImagePath ?? $product->image_path);
                 $complianceFieldsChanged = $product->name !== $validated['name']
+                    || ($request->has('variations_enabled') && $product->usesVariations() !== $request->boolean('variations_enabled'))
                     || (int) $product->weight_grams !== ParcelLoadService::grams($validated['weight_kg'])
                     || (int) $product->length_mm !== (int) ($validated['length_mm'] ?? 0)
                     || (int) $product->width_mm !== (int) ($validated['width_mm'] ?? 0)
@@ -237,6 +242,7 @@ class ProductController extends Controller
                     'weight_grams' => ParcelLoadService::grams($validated['weight_kg']),
                     'length_mm' => $validated['length_mm'] ?? null, 'width_mm' => $validated['width_mm'] ?? null, 'height_mm' => $validated['height_mm'] ?? null,
                     'stock' => $validated['stock'],
+                    'variations_enabled' => $request->has('variations_enabled') ? $request->boolean('variations_enabled') : (! empty($validated['variations']) ? true : $product->variations_enabled),
                     'image_path' => $imagePath,
                 ]);
 
@@ -284,7 +290,7 @@ class ProductController extends Controller
                     });
                 }
 
-                $nextValues = $product->only(['name', 'price', 'stock', 'category', 'weight_grams', 'length_mm', 'width_mm', 'height_mm']);
+                $nextValues = $product->only(['name', 'price', 'stock', 'category', 'weight_grams', 'length_mm', 'width_mm', 'height_mm', 'variations_enabled']);
                 $nextValues['variations'] = $product->variations()->get(['id', 'type', 'value', 'sku', 'image_path', 'stock', 'price_adjustment', 'is_active'])->map(fn ($variant) => $variant->only(['id', 'type', 'value', 'sku', 'image_path', 'stock', 'price_adjustment', 'is_active']))->all();
                 $nextValues['media'] = $product->media()->get(['id', 'kind', 'path', 'sort_order'])->toArray();
                 $nextValues['image_path'] = $product->image_path;

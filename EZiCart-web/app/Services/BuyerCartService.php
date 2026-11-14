@@ -69,7 +69,7 @@ class BuyerCartService
                 ! $product || ! $product->isListingVisible() || $product->seller?->status !== 'approved' => 'Product is currently unavailable.',
                 ! $product->seller->acceptsWebOrders() => 'This shop is temporarily unavailable.',
                 $line['variation_id'] && (! $variation || ! $variation->is_active) => 'This variation is unavailable.',
-                ! $line['variation_id'] && $options->isNotEmpty() => 'Choose a variation on the product page.',
+                ! $line['variation_id'] && $product->usesVariations($options->isNotEmpty()) => 'Choose a variation on the product page.',
                 $stock < 1 => 'Currently out of stock.',
                 $line['quantity'] > $stock => 'Only '.$stock.' available. Update the quantity.',
                 $price < 1 => 'Price is unavailable.',

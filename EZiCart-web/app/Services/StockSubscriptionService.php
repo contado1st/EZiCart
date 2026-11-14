@@ -15,7 +15,7 @@ class StockSubscriptionService
     {
         $product->loadMissing('seller', 'variations');
         $stock = (int) $product->stock;
-        if ($product->variations->isNotEmpty()) {
+        if ($product->usesVariations($product->variations->isNotEmpty())) {
             $stock = min($stock, (int) $product->variations->where('is_active', true)->sum('stock'));
         }
         if (! $product->isListingVisible() || $product->seller?->status !== 'approved' || $stock <= 0) {

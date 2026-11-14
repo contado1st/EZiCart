@@ -46,7 +46,7 @@ class Product extends Model
 
     protected $fillable = [
         'user_id', 'name', 'description', 'category',
-        'price', 'stock', 'image_path', 'is_archived', 'weight_grams',
+        'price', 'stock', 'image_path', 'is_archived', 'weight_grams', 'variations_enabled',
         'length_mm', 'width_mm', 'height_mm',
     ];
 
@@ -56,8 +56,15 @@ class Product extends Model
             ->whereHas('seller', fn (Builder $sellers) => $sellers->where('role', 'seller')->where('status', 'approved'))
             ->where('is_archived', false)->where('is_seller_active', true)
             ->where('stock', '>', 0)
-            ->where(fn (Builder $products) => $products->whereDoesntHave('variations')
-                ->orWhereHas('variations', fn (Builder $variations) => $variations->where('is_active', true)->where('stock', '>', 0)));
+            ->where(fn (Builder $products) => $products->where('variations_enabled', false)
+                ->orWhere(fn (Builder $legacy) => $legacy->whereNull('variations_enabled')->whereDoesntHave('variations'))
+                ->orWhere(fn (Builder $options) => $options->where(fn (Builder $mode) => $mode->where('variations_enabled', true)->orWhereNull('variations_enabled'))
+                    ->whereHas('variations', fn (Builder $variations) => $variations->where('is_active', true)->where('stock', '>', 0))));
+    }
+
+    public function usesVariations(?bool $hasHistoricalOptions = null): bool
+    {
+        return $this->variations_enabled ?? ($hasHistoricalOptions ?? $this->variations()->exists());
     }
 
     public function isListingVisible(): bool
@@ -146,7 +153,7 @@ class Product extends Model
 
     protected function casts(): array
     {
-        return ['compliance_reviewed_at' => 'datetime'];
+        return ['compliance_reviewed_at' => 'datetime', 'variations_enabled' => 'boolean'];
     }
 
     public function getAverageRatingAttribute(): float

@@ -41,7 +41,7 @@ class SellerCatalogOperationService
             $result = $this->operation($seller, $key, ['duplicate', $source->id], function () use ($seller, $source, &$staged) {
                 $source = Product::whereKey($source->id)->where('user_id', $seller->id)->lockForUpdate()->firstOrFail();
                 $source->load('media', 'variations');
-                $payload = $source->only(['name', 'category', 'description', 'price', 'stock', 'length_mm', 'width_mm', 'height_mm']);
+                $payload = $source->only(['name', 'category', 'description', 'price', 'stock', 'length_mm', 'width_mm', 'height_mm', 'variations_enabled']);
                 $payload['weight_kg'] = $source->weight_grams ? $source->weight_grams / 1000 : null;
                 $payload['variations_present'] = true;
                 $payload['variations'] = [];

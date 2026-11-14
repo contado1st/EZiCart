@@ -13,7 +13,7 @@ use Illuminate\Validation\ValidationException;
 
 class ProductDraftService
 {
-    private const FIELDS = ['name', 'category', 'description', 'price', 'stock', 'weight_kg', 'length_mm', 'width_mm', 'height_mm', 'variations', 'variations_present'];
+    private const FIELDS = ['name', 'category', 'description', 'price', 'stock', 'weight_kg', 'length_mm', 'width_mm', 'height_mm', 'variations', 'variations_present', 'variations_enabled'];
 
     public function save(Request $request, ?ProductDraft $draft = null): ProductDraft
     {
@@ -24,6 +24,8 @@ class ProductDraftService
             'stock' => ['nullable', 'integer', 'min:0'], 'weight_kg' => ['nullable', 'numeric', 'min:0.001', 'max:100000'],
             'length_mm' => ['nullable', 'integer', 'min:1', 'max:5000'], 'width_mm' => ['nullable', 'integer', 'min:1', 'max:5000'], 'height_mm' => ['nullable', 'integer', 'min:1', 'max:5000'],
             'variations_present' => ['nullable', 'boolean'], 'variations' => ['nullable', 'array', 'max:100'],
+            'variations_enabled' => ['nullable', 'boolean'],
+            'variations.*.price' => ['nullable', 'numeric', 'min:0.01', 'max:99999999.99', 'decimal:0,2'],
             'variations.*.type' => ['nullable', 'string', 'max:50'], 'variations.*.value' => ['nullable', 'string', 'max:50'],
             'variations.*.sku' => ['nullable', 'string', 'max:64'], 'variations.*.price_adjustment' => ['nullable', 'numeric'],
             'variations.*.stock' => ['nullable', 'integer', 'min:0', 'max:1000000'],
@@ -33,7 +35,7 @@ class ProductDraftService
             'clear_draft_media' => ['nullable', 'array', 'max:110'], 'clear_draft_media.*' => ['string', 'max:100'],
         ]);
         $payload = Arr::only($data, self::FIELDS);
-        $payload['variations'] = array_map(fn ($row) => Arr::only($row, ['type', 'value', 'sku', 'price_adjustment', 'stock']), $payload['variations'] ?? []);
+        $payload['variations'] = array_map(fn ($row) => Arr::only($row, ['type', 'value', 'sku', 'price', 'price_adjustment', 'stock']), $payload['variations'] ?? []);
         $staged = [];
         try {
             foreach (Arr::dot($request->allFiles()) as $field => $file) {

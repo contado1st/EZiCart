@@ -49,18 +49,7 @@
                 @include('seller.products.media-fields')
                 @include('seller.products.weight-field')
 
-                <div class="form-grid">
-                    <div class="form-group">
-                        <label class="form-label">Price (₱) *</label>
-                        <input type="number" step="0.01" name="price" class="form-control"
-                            value="{{ old('price', $product->price) }}" required>
-                    </div>
-                    <div class="form-group">
-                        <label class="form-label">Current Stock Units *</label>
-                        <input type="number" name="stock" class="form-control"
-                            value="{{ old('stock', $product->stock) }}" required>
-                    </div>
-                </div>
+                @include('seller.products.pricing-fields')
 
                 <div class="form-group">
                     <label class="form-label">Description</label>

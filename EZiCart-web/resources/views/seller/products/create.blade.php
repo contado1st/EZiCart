@@ -49,16 +49,7 @@
                 @endif
                 @include('seller.products.weight-field')
 
-                <div class="form-grid">
-                    <div class="form-group">
-                        <label class="form-label">Price (₱) *</label>
-                        <input type="number" step="0.01" min="0.01" name="price" class="form-control" value="{{ old('price', $draftValues['price'] ?? '') }}" required aria-label="Product base price in PHP">
-                    </div>
-                    <div class="form-group">
-                        <label class="form-label">Initial Stock *</label>
-                        <input type="number" min="0" name="stock" class="form-control" value="{{ old('stock', $draftValues['stock'] ?? '') }}" required aria-label="Product stock">
-                    </div>
-                </div>
+                @include('seller.products.pricing-fields')
 
                 <div class="form-group">
                     <label class="form-label">Description</label>

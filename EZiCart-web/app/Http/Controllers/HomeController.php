@@ -59,7 +59,7 @@ class HomeController extends Controller
         abort_if(! $product->isListingVisible() || $product->stock <= 0, 404);
 
         $product->load(['seller', 'media', 'currentSale', 'currentFlashSale', 'variations' => fn ($query) => $query->where('is_active', true)]);
-        abort_if($product->variations()->exists() && $product->variations->isEmpty(), 404);
+        abort_if($product->usesVariations() && $product->variations->isEmpty(), 404);
 
         if ($request->user()?->role === 'buyer') {
             $recommendations->recordView($request->user(), $product);
