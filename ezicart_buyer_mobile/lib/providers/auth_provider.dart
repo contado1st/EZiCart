@@ -374,6 +374,57 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
+  Future<bool> updateAppearance({
+    String? displayName,
+    String? bio,
+    String? theme,
+    bool removeAvatar = false,
+    bool removeBanner = false,
+  }) async {
+    _isLoading = true;
+    notifyListeners();
+
+    try {
+      final res = await ApiService.post(
+        ApiConfig.updateAppearanceEndpoint,
+        {
+          'profile_display_name': displayName,
+          'profile_bio': bio,
+          'profile_theme': theme ?? (_user?.profileTheme ?? 'rose'),
+          if (removeAvatar) 'remove_avatar': true,
+          if (removeBanner) 'remove_banner': true,
+        },
+      );
+      final data = jsonDecode(res.body);
+      _isLoading = false;
+      if (res.statusCode == 200 && data['success'] == true) {
+        await refreshUser();
+        return true;
+      }
+      _errorMessage = data['message'] ?? 'Failed to update appearance.';
+      notifyListeners();
+      return false;
+    } catch (e) {
+      _isLoading = false;
+      _errorMessage = e.toString();
+      notifyListeners();
+      return false;
+    }
+  }
+
+  Future<void> refreshUser() async {
+    try {
+      final res = await ApiService.get(ApiConfig.meEndpoint);
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body);
+        if (data['user'] != null) {
+          _user = UserModel.fromJson(data['user']);
+          notifyListeners();
+        }
+      }
+    } catch (_) {}
+  }
+
   Future<bool> updatePassword(
     String currentPassword,
     String newPassword,
