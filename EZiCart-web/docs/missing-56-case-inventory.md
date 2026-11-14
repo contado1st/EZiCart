@@ -2,7 +2,7 @@
 
 Prepared 14 November 2026; final implementation/scope review 15 November 2026. Laravel web only. Every row below retains its original Missing baseline. **53 case revisions (M01–M12) are implemented; three cases (M13/M14) are scope-reconciled with deliberate differences; zero cases remain unaddressed.** This is not a claim that all original expectations are Aligned or that teacher cases were literally replayed. See the [final seven-case audit](missing-56-final-seven-audit.md) and progress register for evidence and acceptance limits.
 
-See [implementation plan](missing-56-features-implementation-plan.md) and [machine-readable progress register](audits/missing-56-implementation-progress.json) for original expected results, source identity, states and eventual evidence.
+See [implementation plan](missing-56-features-implementation-plan.md) and [machine-readable progress register](audits/missing-56-implementation-progress.json) for original expected results, source identity, states and eventual evidence. The [final verification](missing-56-final-check.md) records the fresh full-suite, frontend, integrity and MySQL concurrency results, retained differences and remaining acceptance limits.
 
 | Case | Scenario | Source sheet / row | Group | Release | Planned treatment |
 | --- | --- | --- | --- | ---: | --- |
