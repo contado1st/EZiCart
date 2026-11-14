@@ -68,7 +68,8 @@ class MessagesPageState extends State<MessagesPage> {
       final diff = now.difference(dt);
       if (diff.inDays == 0 && dt.day == now.day) {
         return DateFormat('h:mm a').format(dt);
-      } else if (diff.inDays <= 1 || (now.day - dt.day == 1 && diff.inHours < 48)) {
+      } else if (diff.inDays <= 1 ||
+          (now.day - dt.day == 1 && diff.inHours < 48)) {
         return 'Yesterday';
       } else if (diff.inDays < 7) {
         return DateFormat('EEE').format(dt);
@@ -133,7 +134,7 @@ class MessagesPageState extends State<MessagesPage> {
             // Search Bar Header
             Container(
               color: Colors.white,
-              padding: const EdgeInsets.fromLTRB(16, 6, 16, 12),
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
               child: Container(
                 height: 42,
                 decoration: BoxDecoration(
@@ -141,26 +142,52 @@ class MessagesPageState extends State<MessagesPage> {
                   borderRadius: BorderRadius.circular(22),
                   border: Border.all(color: const Color(0xFFE2E8F0)),
                 ),
-                child: TextField(
-                  controller: _searchCtrl,
-                  onChanged: (val) => setState(() => _searchQuery = val),
-                  decoration: InputDecoration(
-                    hintText: 'Search chats, merchants, riders...',
-                    hintStyle: const TextStyle(fontSize: 13, color: AppTheme.muted),
-                    prefixIcon: const Icon(Icons.search, size: 20, color: AppTheme.muted),
-                    suffixIcon: _searchQuery.isNotEmpty
-                        ? IconButton(
-                            icon: const Icon(Icons.clear, size: 16, color: AppTheme.muted),
-                            onPressed: () {
-                              _searchCtrl.clear();
-                              setState(() => _searchQuery = '');
-                            },
-                          )
-                        : null,
-                    border: InputBorder.none,
-                    enabledBorder: InputBorder.none,
-                    focusedBorder: InputBorder.none,
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                child: Center(
+                  child: TextField(
+                    controller: _searchCtrl,
+                    textAlignVertical: TextAlignVertical.center,
+                    onChanged: (val) => setState(() => _searchQuery = val),
+                    decoration: InputDecoration(
+                      isDense: true,
+                      hintText: 'Search chats, merchants, riders...',
+                      hintStyle: const TextStyle(
+                        fontSize: 13,
+                        color: AppTheme.muted,
+                      ),
+                      prefixIcon: const Icon(
+                        Icons.search,
+                        size: 20,
+                        color: AppTheme.muted,
+                      ),
+                      prefixIconConstraints: const BoxConstraints(
+                        minWidth: 40,
+                        minHeight: 40,
+                      ),
+                      suffixIcon: _searchQuery.isNotEmpty
+                          ? IconButton(
+                              icon: const Icon(
+                                Icons.clear,
+                                size: 16,
+                                color: AppTheme.muted,
+                              ),
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints(
+                                minWidth: 36,
+                                minHeight: 36,
+                              ),
+                              onPressed: () {
+                                _searchCtrl.clear();
+                                setState(() => _searchQuery = '');
+                              },
+                            )
+                          : null,
+                      border: InputBorder.none,
+                      enabledBorder: InputBorder.none,
+                      focusedBorder: InputBorder.none,
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                      ),
+                    ),
                   ),
                 ),
               ),
@@ -172,219 +199,285 @@ class MessagesPageState extends State<MessagesPage> {
               child: _isLoading
                   ? const Center(child: CircularProgressIndicator())
                   : _threads.isEmpty
-                      ? RefreshIndicator(
-                          onRefresh: _fetchThreads,
-                          child: SingleChildScrollView(
-                            physics: const AlwaysScrollableScrollPhysics(),
-                            child: SizedBox(
-                              height: MediaQuery.of(context).size.height * 0.65,
-                              child: Center(
-                                child: Padding(
-                                  padding: const EdgeInsets.all(32),
-                                  child: Column(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      Container(
-                                        padding: const EdgeInsets.all(22),
-                                        decoration: BoxDecoration(
-                                          color: Colors.white,
-                                          shape: BoxShape.circle,
-                                          boxShadow: [
-                                            BoxShadow(
-                                              color: Colors.black.withValues(alpha: 0.04),
-                                              blurRadius: 14,
-                                              offset: const Offset(0, 4),
-                                            ),
-                                          ],
+                  ? RefreshIndicator(
+                      onRefresh: _fetchThreads,
+                      child: SingleChildScrollView(
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        child: SizedBox(
+                          height: MediaQuery.of(context).size.height * 0.65,
+                          child: Center(
+                            child: Padding(
+                              padding: const EdgeInsets.all(32),
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.all(22),
+                                    decoration: BoxDecoration(
+                                      color: Colors.white,
+                                      shape: BoxShape.circle,
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: Colors.black.withValues(
+                                            alpha: 0.04,
+                                          ),
+                                          blurRadius: 14,
+                                          offset: const Offset(0, 4),
                                         ),
-                                        child: const Icon(Icons.chat_bubble_outline_rounded, size: 48, color: AppTheme.primary),
-                                      ),
-                                      const SizedBox(height: 16),
-                                      const Text(
-                                        'No conversations yet',
-                                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppTheme.ink),
-                                      ),
-                                      const SizedBox(height: 6),
-                                      const Text(
-                                        'When you message sellers or delivery riders, conversations will be organized here.',
-                                        textAlign: TextAlign.center,
-                                        style: TextStyle(color: AppTheme.muted, fontSize: 13, height: 1.35),
-                                      ),
-                                    ],
+                                      ],
+                                    ),
+                                    child: const Icon(
+                                      Icons.chat_bubble_outline_rounded,
+                                      size: 48,
+                                      color: AppTheme.primary,
+                                    ),
                                   ),
-                                ),
+                                  const SizedBox(height: 16),
+                                  const Text(
+                                    'No conversations yet',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 16,
+                                      color: AppTheme.ink,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 6),
+                                  const Text(
+                                    'When you message sellers or delivery riders, conversations will be organized here.',
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(
+                                      color: AppTheme.muted,
+                                      fontSize: 13,
+                                      height: 1.35,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
                           ),
-                        )
-                      : _filteredThreads.isEmpty
-                          ? Center(
-                              child: Text(
-                                'No conversations matching "$_searchQuery"',
-                                style: const TextStyle(color: AppTheme.muted, fontSize: 13),
-                              ),
-                            )
-                          : RefreshIndicator(
-                              onRefresh: _fetchThreads,
-                              child: ListView.separated(
-                                physics: const AlwaysScrollableScrollPhysics(),
-                                padding: const EdgeInsets.symmetric(vertical: 8),
-                                itemCount: _filteredThreads.length,
-                                separatorBuilder: (_, __) => const Divider(
-                                  height: 1,
-                                  indent: 74,
-                                  color: Color(0xFFF1F3F6),
+                        ),
+                      ),
+                    )
+                  : _filteredThreads.isEmpty
+                  ? Center(
+                      child: Text(
+                        'No conversations matching "$_searchQuery"',
+                        style: const TextStyle(
+                          color: AppTheme.muted,
+                          fontSize: 13,
+                        ),
+                      ),
+                    )
+                  : RefreshIndicator(
+                      onRefresh: _fetchThreads,
+                      child: ListView.separated(
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        itemCount: _filteredThreads.length,
+                        separatorBuilder: (_, __) => const Divider(
+                          height: 1,
+                          indent: 74,
+                          color: Color(0xFFF1F3F6),
+                        ),
+                        itemBuilder: (context, i) {
+                          final t = _filteredThreads[i];
+                          final hasUnread = t.unreadCount > 0;
+                          final roleColor = _getRoleColor(t.partnerRole);
+
+                          return Material(
+                            color: hasUnread
+                                ? const Color(0xFFFFFBFB)
+                                : Colors.white,
+                            child: InkWell(
+                              onTap: () {
+                                Navigator.of(context)
+                                    .push(
+                                      MaterialPageRoute(
+                                        builder: (_) => ChatConversationScreen(
+                                          conversationId: t.id,
+                                          partnerName: t.partnerName,
+                                        ),
+                                      ),
+                                    )
+                                    .then((_) => _fetchThreads());
+                              },
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                  vertical: 12,
                                 ),
-                                itemBuilder: (context, i) {
-                                  final t = _filteredThreads[i];
-                                  final hasUnread = t.unreadCount > 0;
-                                  final roleColor = _getRoleColor(t.partnerRole);
-
-                                  return Material(
-                                    color: hasUnread ? const Color(0xFFFFFBFB) : Colors.white,
-                                    child: InkWell(
-                                      onTap: () {
-                                        Navigator.of(context).push(
-                                          MaterialPageRoute(
-                                            builder: (_) => ChatConversationScreen(
-                                              conversationId: t.id,
-                                              partnerName: t.partnerName,
-                                            ),
-                                          ),
-                                        ).then((_) => _fetchThreads());
-                                      },
-                                      child: Padding(
-                                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                                        child: Row(
-                                          children: [
-                                            // Avatar with gradient
-                                            Container(
-                                              width: 48,
-                                              height: 48,
-                                              decoration: BoxDecoration(
-                                                gradient: LinearGradient(
-                                                  colors: [
-                                                    roleColor.withValues(alpha: 0.15),
-                                                    roleColor.withValues(alpha: 0.25),
-                                                  ],
-                                                  begin: Alignment.topLeft,
-                                                  end: Alignment.bottomRight,
-                                                ),
-                                                shape: BoxShape.circle,
-                                              ),
-                                              child: Center(
-                                                child: Text(
-                                                  t.partnerName.isNotEmpty ? t.partnerName[0].toUpperCase() : 'S',
-                                                  style: TextStyle(
-                                                    fontWeight: FontWeight.bold,
-                                                    fontSize: 18,
-                                                    color: roleColor,
-                                                  ),
-                                                ),
-                                              ),
-                                            ),
-                                            const SizedBox(width: 12),
-
-                                            // Details
-                                            Expanded(
-                                              child: Column(
-                                                crossAxisAlignment: CrossAxisAlignment.start,
-                                                children: [
-                                                  Row(
-                                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                                    children: [
-                                                      Expanded(
-                                                        child: Row(
-                                                          children: [
-                                                            Flexible(
-                                                              child: Text(
-                                                                t.partnerName,
-                                                                maxLines: 1,
-                                                                overflow: TextOverflow.ellipsis,
-                                                                style: TextStyle(
-                                                                  fontWeight: hasUnread ? FontWeight.bold : FontWeight.w600,
-                                                                  fontSize: 14.5,
-                                                                  color: AppTheme.ink,
-                                                                ),
-                                                              ),
-                                                            ),
-                                                            const SizedBox(width: 6),
-                                                            Container(
-                                                              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
-                                                              decoration: BoxDecoration(
-                                                                color: roleColor.withValues(alpha: 0.1),
-                                                                borderRadius: BorderRadius.circular(4),
-                                                              ),
-                                                              child: Text(
-                                                                t.partnerRole.toUpperCase(),
-                                                                style: TextStyle(
-                                                                  fontSize: 9,
-                                                                  fontWeight: FontWeight.bold,
-                                                                  color: roleColor,
-                                                                  letterSpacing: 0.3,
-                                                                ),
-                                                              ),
-                                                            ),
-                                                          ],
-                                                        ),
-                                                      ),
-                                                      const SizedBox(width: 8),
-                                                      Text(
-                                                        _formatThreadDate(t.lastMessageAt),
-                                                        style: TextStyle(
-                                                          fontSize: 11,
-                                                          color: hasUnread ? AppTheme.primary : AppTheme.muted,
-                                                          fontWeight: hasUnread ? FontWeight.bold : FontWeight.normal,
-                                                        ),
-                                                      ),
-                                                    ],
-                                                  ),
-                                                  const SizedBox(height: 4),
-                                                  Row(
-                                                    children: [
-                                                      Expanded(
-                                                        child: Text(
-                                                          t.lastMessage.isNotEmpty ? t.lastMessage : 'Tap to start conversation',
-                                                          maxLines: 1,
-                                                          overflow: TextOverflow.ellipsis,
-                                                          style: TextStyle(
-                                                            color: hasUnread ? AppTheme.ink : const Color(0xFF64748B),
-                                                            fontWeight: hasUnread ? FontWeight.w600 : FontWeight.normal,
-                                                            fontSize: 13,
-                                                          ),
-                                                        ),
-                                                      ),
-                                                      if (hasUnread) ...[
-                                                        const SizedBox(width: 8),
-                                                        Container(
-                                                          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-                                                          decoration: BoxDecoration(
-                                                            color: AppTheme.primary,
-                                                            borderRadius: BorderRadius.circular(10),
-                                                          ),
-                                                          child: Text(
-                                                            '${t.unreadCount}',
-                                                            style: const TextStyle(
-                                                              color: Colors.white,
-                                                              fontSize: 10.5,
-                                                              fontWeight: FontWeight.bold,
-                                                            ),
-                                                          ),
-                                                        ),
-                                                      ],
-                                                    ],
-                                                  ),
-                                                ],
-                                              ),
-                                            ),
+                                child: Row(
+                                  children: [
+                                    // Avatar with gradient
+                                    Container(
+                                      width: 48,
+                                      height: 48,
+                                      decoration: BoxDecoration(
+                                        gradient: LinearGradient(
+                                          colors: [
+                                            roleColor.withValues(alpha: 0.15),
+                                            roleColor.withValues(alpha: 0.25),
                                           ],
+                                          begin: Alignment.topLeft,
+                                          end: Alignment.bottomRight,
+                                        ),
+                                        shape: BoxShape.circle,
+                                      ),
+                                      child: Center(
+                                        child: Text(
+                                          t.partnerName.isNotEmpty
+                                              ? t.partnerName[0].toUpperCase()
+                                              : 'S',
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 18,
+                                            color: roleColor,
+                                          ),
                                         ),
                                       ),
                                     ),
-                                  );
-                                },
+                                    const SizedBox(width: 12),
+
+                                    // Details
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Row(
+                                            mainAxisAlignment:
+                                                MainAxisAlignment.spaceBetween,
+                                            children: [
+                                              Expanded(
+                                                child: Row(
+                                                  children: [
+                                                    Flexible(
+                                                      child: Text(
+                                                        t.partnerName,
+                                                        maxLines: 1,
+                                                        overflow: TextOverflow
+                                                            .ellipsis,
+                                                        style: TextStyle(
+                                                          fontWeight: hasUnread
+                                                              ? FontWeight.bold
+                                                              : FontWeight.w600,
+                                                          fontSize: 14.5,
+                                                          color: AppTheme.ink,
+                                                        ),
+                                                      ),
+                                                    ),
+                                                    const SizedBox(width: 6),
+                                                    Container(
+                                                      padding:
+                                                          const EdgeInsets.symmetric(
+                                                            horizontal: 5,
+                                                            vertical: 1.5,
+                                                          ),
+                                                      decoration: BoxDecoration(
+                                                        color: roleColor
+                                                            .withValues(
+                                                              alpha: 0.1,
+                                                            ),
+                                                        borderRadius:
+                                                            BorderRadius.circular(
+                                                              4,
+                                                            ),
+                                                      ),
+                                                      child: Text(
+                                                        t.partnerRole
+                                                            .toUpperCase(),
+                                                        style: TextStyle(
+                                                          fontSize: 9,
+                                                          fontWeight:
+                                                              FontWeight.bold,
+                                                          color: roleColor,
+                                                          letterSpacing: 0.3,
+                                                        ),
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                              ),
+                                              const SizedBox(width: 8),
+                                              Text(
+                                                _formatThreadDate(
+                                                  t.lastMessageAt,
+                                                ),
+                                                style: TextStyle(
+                                                  fontSize: 11,
+                                                  color: hasUnread
+                                                      ? AppTheme.primary
+                                                      : AppTheme.muted,
+                                                  fontWeight: hasUnread
+                                                      ? FontWeight.bold
+                                                      : FontWeight.normal,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                          const SizedBox(height: 4),
+                                          Row(
+                                            children: [
+                                              Expanded(
+                                                child: Text(
+                                                  t.lastMessage.isNotEmpty
+                                                      ? t.lastMessage
+                                                      : 'Tap to start conversation',
+                                                  maxLines: 1,
+                                                  overflow:
+                                                      TextOverflow.ellipsis,
+                                                  style: TextStyle(
+                                                    color: hasUnread
+                                                        ? AppTheme.ink
+                                                        : const Color(
+                                                            0xFF64748B,
+                                                          ),
+                                                    fontWeight: hasUnread
+                                                        ? FontWeight.w600
+                                                        : FontWeight.normal,
+                                                    fontSize: 13,
+                                                  ),
+                                                ),
+                                              ),
+                                              if (hasUnread) ...[
+                                                const SizedBox(width: 8),
+                                                Container(
+                                                  padding:
+                                                      const EdgeInsets.symmetric(
+                                                        horizontal: 7,
+                                                        vertical: 2,
+                                                      ),
+                                                  decoration: BoxDecoration(
+                                                    color: AppTheme.primary,
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                          10,
+                                                        ),
+                                                  ),
+                                                  child: Text(
+                                                    '${t.unreadCount}',
+                                                    style: const TextStyle(
+                                                      color: Colors.white,
+                                                      fontSize: 10.5,
+                                                      fontWeight:
+                                                          FontWeight.bold,
+                                                    ),
+                                                  ),
+                                                ),
+                                              ],
+                                            ],
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ),
                             ),
+                          );
+                        },
+                      ),
+                    ),
             ),
           ],
         ),
@@ -431,7 +524,9 @@ class _ChatConversationScreenState extends State<ChatConversationScreen> {
 
   Future<void> _loadMessages() async {
     try {
-      final res = await ApiService.get(ApiConfig.chatConversationEndpoint(widget.conversationId));
+      final res = await ApiService.get(
+        ApiConfig.chatConversationEndpoint(widget.conversationId),
+      );
       if (res.statusCode == 200) {
         final body = jsonDecode(res.body);
         final rawMessages = body['data']?['messages'];
@@ -484,10 +579,7 @@ class _ChatConversationScreenState extends State<ChatConversationScreen> {
     try {
       final res = await ApiService.post(
         ApiConfig.chatSendMessageEndpoint(widget.conversationId),
-        {
-          'body': text,
-          if (widget.orderId != null) 'order_id': widget.orderId,
-        },
+        {'body': text, if (widget.orderId != null) 'order_id': widget.orderId},
       );
 
       if (res.statusCode == 201) {
@@ -505,7 +597,9 @@ class _ChatConversationScreenState extends State<ChatConversationScreen> {
           _msgCtrl.text = text;
           setState(() => _isSending = false);
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Failed to send message. Please retry.')),
+            const SnackBar(
+              content: Text('Failed to send message. Please retry.'),
+            ),
           );
         }
       }
@@ -513,9 +607,9 @@ class _ChatConversationScreenState extends State<ChatConversationScreen> {
       if (mounted) {
         _msgCtrl.text = text;
         setState(() => _isSending = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Could not send message: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Could not send message: $e')));
       }
     }
   }
@@ -539,8 +633,14 @@ class _ChatConversationScreenState extends State<ChatConversationScreen> {
               ),
               child: Center(
                 child: Text(
-                  widget.partnerName.isNotEmpty ? widget.partnerName[0].toUpperCase() : 'S',
-                  style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.primary, fontSize: 15),
+                  widget.partnerName.isNotEmpty
+                      ? widget.partnerName[0].toUpperCase()
+                      : 'S',
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: AppTheme.primary,
+                    fontSize: 15,
+                  ),
                 ),
               ),
             ),
@@ -553,10 +653,16 @@ class _ChatConversationScreenState extends State<ChatConversationScreen> {
                     widget.partnerName,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: AppTheme.ink),
+                    style: const TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.bold,
+                      color: AppTheme.ink,
+                    ),
                   ),
                   Text(
-                    widget.orderId != null ? 'Ref: Order #${widget.orderId}' : 'EZiCart Merchant',
+                    widget.orderId != null
+                        ? 'Ref: Order #${widget.orderId}'
+                        : 'EZiCart Merchant',
                     style: const TextStyle(fontSize: 11, color: AppTheme.muted),
                   ),
                 ],
@@ -573,93 +679,121 @@ class _ChatConversationScreenState extends State<ChatConversationScreen> {
               child: _isLoading
                   ? const Center(child: CircularProgressIndicator())
                   : _messages.isEmpty
-                      ? Center(
-                          child: Padding(
-                            padding: const EdgeInsets.all(24),
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                const Icon(Icons.waving_hand_outlined, size: 40, color: Color(0xFFE26A7A)),
-                                const SizedBox(height: 10),
-                                Text(
-                                  'Say hello to ${widget.partnerName}!',
-                                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppTheme.ink),
-                                ),
-                                const SizedBox(height: 4),
-                                const Text(
-                                  'Ask questions about products, availability, or orders.',
-                                  textAlign: TextAlign.center,
-                                  style: TextStyle(fontSize: 12, color: AppTheme.muted),
+                  ? Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(24),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Icon(
+                              Icons.waving_hand_outlined,
+                              size: 40,
+                              color: Color(0xFFE26A7A),
+                            ),
+                            const SizedBox(height: 10),
+                            Text(
+                              'Say hello to ${widget.partnerName}!',
+                              style: const TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                                color: AppTheme.ink,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            const Text(
+                              'Ask questions about products, availability, or orders.',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: AppTheme.muted,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    )
+                  : ListView.builder(
+                      controller: _scrollCtrl,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 12,
+                      ),
+                      itemCount: _messages.length,
+                      itemBuilder: (context, i) {
+                        final m = _messages[i];
+                        final timeStr = _formatMsgTime(m.createdAt);
+
+                        return Align(
+                          alignment: m.isMe
+                              ? Alignment.centerRight
+                              : Alignment.centerLeft,
+                          child: Container(
+                            margin: const EdgeInsets.symmetric(vertical: 4),
+                            constraints: BoxConstraints(
+                              maxWidth:
+                                  MediaQuery.of(context).size.width * 0.76,
+                            ),
+                            padding: const EdgeInsets.fromLTRB(14, 10, 14, 8),
+                            decoration: BoxDecoration(
+                              gradient: m.isMe
+                                  ? const LinearGradient(
+                                      colors: [
+                                        Color(0xFFD63363),
+                                        Color(0xFFBE2854),
+                                      ],
+                                      begin: Alignment.topLeft,
+                                      end: Alignment.bottomRight,
+                                    )
+                                  : null,
+                              color: m.isMe ? null : Colors.white,
+                              borderRadius: BorderRadius.only(
+                                topLeft: const Radius.circular(16),
+                                topRight: const Radius.circular(16),
+                                bottomLeft: Radius.circular(m.isMe ? 16 : 4),
+                                bottomRight: Radius.circular(m.isMe ? 4 : 16),
+                              ),
+                              border: m.isMe
+                                  ? null
+                                  : Border.all(color: const Color(0xFFE2E8F0)),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.03),
+                                  blurRadius: 4,
+                                  offset: const Offset(0, 1),
                                 ),
                               ],
                             ),
-                          ),
-                        )
-                      : ListView.builder(
-                          controller: _scrollCtrl,
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                          itemCount: _messages.length,
-                          itemBuilder: (context, i) {
-                            final m = _messages[i];
-                            final timeStr = _formatMsgTime(m.createdAt);
-
-                            return Align(
-                              alignment: m.isMe ? Alignment.centerRight : Alignment.centerLeft,
-                              child: Container(
-                                margin: const EdgeInsets.symmetric(vertical: 4),
-                                constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.76),
-                                padding: const EdgeInsets.fromLTRB(14, 10, 14, 8),
-                                decoration: BoxDecoration(
-                                  gradient: m.isMe
-                                      ? const LinearGradient(
-                                          colors: [Color(0xFFD63363), Color(0xFFBE2854)],
-                                          begin: Alignment.topLeft,
-                                          end: Alignment.bottomRight,
-                                        )
-                                      : null,
-                                  color: m.isMe ? null : Colors.white,
-                                  borderRadius: BorderRadius.only(
-                                    topLeft: const Radius.circular(16),
-                                    topRight: const Radius.circular(16),
-                                    bottomLeft: Radius.circular(m.isMe ? 16 : 4),
-                                    bottomRight: Radius.circular(m.isMe ? 4 : 16),
+                            child: Column(
+                              crossAxisAlignment: m.isMe
+                                  ? CrossAxisAlignment.end
+                                  : CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  m.body,
+                                  style: TextStyle(
+                                    color: m.isMe ? Colors.white : AppTheme.ink,
+                                    fontSize: 14,
+                                    height: 1.3,
                                   ),
-                                  border: m.isMe ? null : Border.all(color: const Color(0xFFE2E8F0)),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: Colors.black.withValues(alpha: 0.03),
-                                      blurRadius: 4,
-                                      offset: const Offset(0, 1),
-                                    ),
-                                  ],
                                 ),
-                                child: Column(
-                                  crossAxisAlignment: m.isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      m.body,
-                                      style: TextStyle(
-                                        color: m.isMe ? Colors.white : AppTheme.ink,
-                                        fontSize: 14,
-                                        height: 1.3,
-                                      ),
+                                if (timeStr.isNotEmpty) ...[
+                                  const SizedBox(height: 3),
+                                  Text(
+                                    timeStr,
+                                    style: TextStyle(
+                                      color: m.isMe
+                                          ? Colors.white.withValues(alpha: 0.75)
+                                          : const Color(0xFF94A3B8),
+                                      fontSize: 9.5,
                                     ),
-                                    if (timeStr.isNotEmpty) ...[
-                                      const SizedBox(height: 3),
-                                      Text(
-                                        timeStr,
-                                        style: TextStyle(
-                                          color: m.isMe ? Colors.white.withValues(alpha: 0.75) : const Color(0xFF94A3B8),
-                                          fontSize: 9.5,
-                                        ),
-                                      ),
-                                    ],
-                                  ],
-                                ),
-                              ),
-                            );
-                          },
-                        ),
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ),
+                        );
+                      },
+                    ),
             ),
 
             // Modern capsule input dock
@@ -687,12 +821,18 @@ class _ChatConversationScreenState extends State<ChatConversationScreen> {
                         onSubmitted: (_) => _send(),
                         decoration: const InputDecoration(
                           hintText: 'Type your message...',
-                          hintStyle: TextStyle(fontSize: 13, color: AppTheme.muted),
+                          hintStyle: TextStyle(
+                            fontSize: 13,
+                            color: AppTheme.muted,
+                          ),
                           border: InputBorder.none,
                           enabledBorder: InputBorder.none,
                           focusedBorder: InputBorder.none,
                           counterText: '',
-                          contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                          contentPadding: EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 10,
+                          ),
                         ),
                       ),
                     ),
@@ -713,7 +853,9 @@ class _ChatConversationScreenState extends State<ChatConversationScreen> {
                         shape: BoxShape.circle,
                         boxShadow: [
                           BoxShadow(
-                            color: const Color(0xFFBE2854).withValues(alpha: 0.3),
+                            color: const Color(
+                              0xFFBE2854,
+                            ).withValues(alpha: 0.3),
                             blurRadius: 6,
                             offset: const Offset(0, 2),
                           ),
@@ -724,9 +866,16 @@ class _ChatConversationScreenState extends State<ChatConversationScreen> {
                             ? const SizedBox(
                                 width: 18,
                                 height: 18,
-                                child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Colors.white,
+                                ),
                               )
-                            : const Icon(Icons.send_rounded, color: Colors.white, size: 20),
+                            : const Icon(
+                                Icons.send_rounded,
+                                color: Colors.white,
+                                size: 20,
+                              ),
                       ),
                     ),
                   ),

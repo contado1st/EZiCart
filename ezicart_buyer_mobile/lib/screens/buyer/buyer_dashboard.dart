@@ -33,7 +33,8 @@ class BuyerDashboard extends StatefulWidget {
 class _BuyerDashboardState extends State<BuyerDashboard> {
   int _currentIndex = 0;
   int _unreadNotificationCount = 0;
-  final GlobalKey<MessagesPageState> _messagesKey = GlobalKey<MessagesPageState>();
+  final GlobalKey<MessagesPageState> _messagesKey =
+      GlobalKey<MessagesPageState>();
   List<ProductModel> _products = [];
   List<CategoryModel> _categories = [];
   bool _isLoading = true;
@@ -57,7 +58,9 @@ class _BuyerDashboardState extends State<BuyerDashboard> {
 
   Future<void> _fetchNotificationCount() async {
     try {
-      final res = await ApiService.get(ApiConfig.notificationsUnreadCountEndpoint);
+      final res = await ApiService.get(
+        ApiConfig.notificationsUnreadCountEndpoint,
+      );
       if (res.statusCode == 200) {
         final body = jsonDecode(res.body);
         if (body['unread_count'] is int && mounted) {
@@ -70,7 +73,9 @@ class _BuyerDashboardState extends State<BuyerDashboard> {
   Future<void> _fetchProducts() async {
     try {
       // Daily discoveries shows newest products (same as web)
-      final uri = Uri.parse(ApiConfig.productsEndpoint).replace(queryParameters: {'sort': 'latest'});
+      final uri = Uri.parse(
+        ApiConfig.productsEndpoint,
+      ).replace(queryParameters: {'sort': 'latest'});
       final res = await ApiService.get(uri.toString());
 
       if (res.statusCode == 200) {
@@ -105,17 +110,53 @@ class _BuyerDashboardState extends State<BuyerDashboard> {
       setState(() {
         _categories = [
           CategoryModel(name: 'Pet Supplies', icon: 'pets', productCount: 0),
-          CategoryModel(name: 'Electronics and Gadgets', icon: 'devices', productCount: 0),
-          CategoryModel(name: "Women's Apparel", icon: 'woman', productCount: 0),
+          CategoryModel(
+            name: 'Electronics and Gadgets',
+            icon: 'devices',
+            productCount: 0,
+          ),
+          CategoryModel(
+            name: "Women's Apparel",
+            icon: 'woman',
+            productCount: 0,
+          ),
           CategoryModel(name: "Men's Apparel", icon: 'man', productCount: 0),
-          CategoryModel(name: 'Kids and Baby', icon: 'child_care', productCount: 0),
+          CategoryModel(
+            name: 'Kids and Baby',
+            icon: 'child_care',
+            productCount: 0,
+          ),
           CategoryModel(name: 'Home and Garden', icon: 'yard', productCount: 0),
-          CategoryModel(name: 'Sports and Outdoors', icon: 'sports_basketball', productCount: 0),
-          CategoryModel(name: 'Health and Beauty', icon: 'spa', productCount: 0),
-          CategoryModel(name: 'Books and Media', icon: 'menu_book', productCount: 0),
-          CategoryModel(name: 'Food and Gourmet', icon: 'restaurant', productCount: 0),
-          CategoryModel(name: 'Furniture and Office Equipment', icon: 'chair', productCount: 0),
-          CategoryModel(name: 'Jewelry and Watches', icon: 'watch', productCount: 0),
+          CategoryModel(
+            name: 'Sports and Outdoors',
+            icon: 'sports_basketball',
+            productCount: 0,
+          ),
+          CategoryModel(
+            name: 'Health and Beauty',
+            icon: 'spa',
+            productCount: 0,
+          ),
+          CategoryModel(
+            name: 'Books and Media',
+            icon: 'menu_book',
+            productCount: 0,
+          ),
+          CategoryModel(
+            name: 'Food and Gourmet',
+            icon: 'restaurant',
+            productCount: 0,
+          ),
+          CategoryModel(
+            name: 'Furniture and Office Equipment',
+            icon: 'chair',
+            productCount: 0,
+          ),
+          CategoryModel(
+            name: 'Jewelry and Watches',
+            icon: 'watch',
+            productCount: 0,
+          ),
         ];
       });
     }
@@ -126,11 +167,14 @@ class _BuyerDashboardState extends State<BuyerDashboard> {
   }
 
   void _navigateToSearch({String? category, String? query}) {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => SearchPage(initialCategory: category, initialQuery: query),
-      ),
-    ).then((_) => _fetchProducts());
+    Navigator.of(context)
+        .push(
+          MaterialPageRoute(
+            builder: (_) =>
+                SearchPage(initialCategory: category, initialQuery: query),
+          ),
+        )
+        .then((_) => _fetchProducts());
   }
 
   Widget _buildHeroBanner() {
@@ -167,7 +211,11 @@ class _BuyerDashboardState extends State<BuyerDashboard> {
               errorBuilder: (_, __, ___) => Container(
                 decoration: const BoxDecoration(
                   gradient: LinearGradient(
-                    colors: [Color(0xFFFFF7F9), Color(0xFFFFEEF3), Color(0xFFFFD4E2)],
+                    colors: [
+                      Color(0xFFFFF7F9),
+                      Color(0xFFFFEEF3),
+                      Color(0xFFFFD4E2),
+                    ],
                     begin: Alignment.centerLeft,
                     end: Alignment.centerRight,
                   ),
@@ -240,13 +288,18 @@ class _BuyerDashboardState extends State<BuyerDashboard> {
                     onTap: () => _navigateToSearch(),
                     borderRadius: BorderRadius.circular(4),
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7.5),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 7.5,
+                      ),
                       decoration: BoxDecoration(
                         color: const Color(0xFFBE2854),
                         borderRadius: BorderRadius.circular(4),
                         boxShadow: [
                           BoxShadow(
-                            color: const Color(0xFFBE2854).withValues(alpha: 0.3),
+                            color: const Color(
+                              0xFFBE2854,
+                            ).withValues(alpha: 0.3),
                             blurRadius: 6,
                             offset: const Offset(0, 2),
                           ),
@@ -285,7 +338,8 @@ class _BuyerDashboardState extends State<BuyerDashboard> {
                 onTap: () {
                   Navigator.of(context).push(
                     MaterialPageRoute(
-                      builder: (_) => ProductDetailsPage(product: featuredProduct),
+                      builder: (_) =>
+                          ProductDetailsPage(product: featuredProduct),
                     ),
                   );
                 },
@@ -309,15 +363,24 @@ class _BuyerDashboardState extends State<BuyerDashboard> {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       if (featuredProduct.imagePath != null &&
-                          ApiConfig.resolveImageUrl(featuredProduct.imagePath) != null)
+                          ApiConfig.resolveImageUrl(
+                                featuredProduct.imagePath,
+                              ) !=
+                              null)
                         ClipRRect(
                           borderRadius: BorderRadius.circular(4),
                           child: CachedNetworkImage(
-                            imageUrl: ApiConfig.resolveImageUrl(featuredProduct.imagePath)!,
+                            imageUrl: ApiConfig.resolveImageUrl(
+                              featuredProduct.imagePath,
+                            )!,
                             width: 28,
                             height: 28,
                             fit: BoxFit.cover,
-                            errorWidget: (_, __, ___) => const Icon(Icons.inventory_2, size: 16, color: AppTheme.muted),
+                            errorWidget: (_, __, ___) => const Icon(
+                              Icons.inventory_2,
+                              size: 16,
+                              color: AppTheme.muted,
+                            ),
                           ),
                         ),
                       const SizedBox(width: 6),
@@ -328,17 +391,29 @@ class _BuyerDashboardState extends State<BuyerDashboard> {
                           children: [
                             const Text(
                               'Recently listed',
-                              style: TextStyle(fontSize: 8.5, color: AppTheme.muted, height: 1.1),
+                              style: TextStyle(
+                                fontSize: 8.5,
+                                color: AppTheme.muted,
+                                height: 1.1,
+                              ),
                             ),
                             Text(
                               featuredProduct.name,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold, color: AppTheme.ink),
+                              style: const TextStyle(
+                                fontSize: 9.5,
+                                fontWeight: FontWeight.bold,
+                                color: AppTheme.ink,
+                              ),
                             ),
                             Text(
                               '₱${featuredProduct.price.toStringAsFixed(2)}',
-                              style: const TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold, color: Color(0xFFBE2854)),
+                              style: const TextStyle(
+                                fontSize: 9.5,
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFFBE2854),
+                              ),
                             ),
                           ],
                         ),
@@ -364,7 +439,12 @@ class _BuyerDashboardState extends State<BuyerDashboard> {
           // Single Clean Search Header Bar
           SliverToBoxAdapter(
             child: Container(
-              color: Colors.white,
+              decoration: const BoxDecoration(
+                color: Color(0xFFFFF7F9),
+                border: Border(
+                  bottom: BorderSide(color: Color(0xFFFFDDE5), width: 1),
+                ),
+              ),
               padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
               child: InkWell(
                 onTap: () => _navigateToSearch(),
@@ -373,13 +453,24 @@ class _BuyerDashboardState extends State<BuyerDashboard> {
                   height: 44,
                   padding: const EdgeInsets.symmetric(horizontal: 14),
                   decoration: BoxDecoration(
-                    color: Colors.grey.shade100,
+                    color: Colors.white,
                     borderRadius: BorderRadius.circular(24),
-                    border: Border.all(color: AppTheme.line),
+                    border: Border.all(color: const Color(0xFFFFD1DC)),
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFFBE2854).withValues(alpha: 0.04),
+                        blurRadius: 6,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
                   ),
                   child: Row(
                     children: [
-                      const Icon(Icons.search, size: 22, color: AppTheme.primary),
+                      const Icon(
+                        Icons.search,
+                        size: 22,
+                        color: AppTheme.primary,
+                      ),
                       const SizedBox(width: 10),
                       const Expanded(
                         child: Text(
@@ -390,14 +481,34 @@ class _BuyerDashboardState extends State<BuyerDashboard> {
                         ),
                       ),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 5,
+                        ),
                         decoration: BoxDecoration(
-                          color: AppTheme.primary,
+                          gradient: const LinearGradient(
+                            colors: [Color(0xFFD63363), Color(0xFFBE2854)],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
                           borderRadius: BorderRadius.circular(14),
+                          boxShadow: [
+                            BoxShadow(
+                              color: const Color(
+                                0xFFBE2854,
+                              ).withValues(alpha: 0.25),
+                              blurRadius: 4,
+                              offset: const Offset(0, 1),
+                            ),
+                          ],
                         ),
                         child: const Text(
                           'Search',
-                          style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                       ),
                     ],
@@ -408,9 +519,7 @@ class _BuyerDashboardState extends State<BuyerDashboard> {
           ),
 
           // Web-Style Hero Banner with hero-asset.png
-          SliverToBoxAdapter(
-            child: _buildHeroBanner(),
-          ),
+          SliverToBoxAdapter(child: _buildHeroBanner()),
 
           // Quick Action Shortcut Tiles
           SliverToBoxAdapter(
@@ -422,7 +531,9 @@ class _BuyerDashboardState extends State<BuyerDashboard> {
                     child: InkWell(
                       onTap: () {
                         Navigator.of(context).push(
-                          MaterialPageRoute(builder: (_) => const VouchersPage()),
+                          MaterialPageRoute(
+                            builder: (_) => const VouchersPage(),
+                          ),
                         );
                       },
                       borderRadius: BorderRadius.circular(10),
@@ -435,11 +546,19 @@ class _BuyerDashboardState extends State<BuyerDashboard> {
                         ),
                         child: Column(
                           children: [
-                            Icon(Icons.confirmation_number_outlined, color: Colors.indigo.shade800, size: 22),
+                            Icon(
+                              Icons.confirmation_number_outlined,
+                              color: Colors.indigo.shade800,
+                              size: 22,
+                            ),
                             const SizedBox(height: 4),
                             Text(
                               'Vouchers',
-                              style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.indigo.shade900),
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.indigo.shade900,
+                              ),
                             ),
                           ],
                         ),
@@ -464,11 +583,19 @@ class _BuyerDashboardState extends State<BuyerDashboard> {
                         ),
                         child: Column(
                           children: [
-                            Icon(Icons.auto_awesome_outlined, color: Colors.teal.shade800, size: 22),
+                            Icon(
+                              Icons.auto_awesome_outlined,
+                              color: Colors.teal.shade800,
+                              size: 22,
+                            ),
                             const SizedBox(height: 4),
                             Text(
                               'Deals For You',
-                              style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.teal.shade900),
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.teal.shade900,
+                              ),
                             ),
                           ],
                         ),
@@ -480,7 +607,9 @@ class _BuyerDashboardState extends State<BuyerDashboard> {
                     child: InkWell(
                       onTap: () {
                         Navigator.of(context).push(
-                          MaterialPageRoute(builder: (_) => const StockWatchlistPage()),
+                          MaterialPageRoute(
+                            builder: (_) => const StockWatchlistPage(),
+                          ),
                         );
                       },
                       borderRadius: BorderRadius.circular(10),
@@ -493,11 +622,19 @@ class _BuyerDashboardState extends State<BuyerDashboard> {
                         ),
                         child: Column(
                           children: [
-                            Icon(Icons.notifications_active_outlined, color: Colors.amber.shade900, size: 22),
+                            Icon(
+                              Icons.notifications_active_outlined,
+                              color: Colors.amber.shade900,
+                              size: 22,
+                            ),
                             const SizedBox(height: 4),
                             Text(
                               'Alerts',
-                              style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.amber.shade900),
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.amber.shade900,
+                              ),
                             ),
                           ],
                         ),
@@ -509,7 +646,9 @@ class _BuyerDashboardState extends State<BuyerDashboard> {
                     child: InkWell(
                       onTap: () {
                         Navigator.of(context).push(
-                          MaterialPageRoute(builder: (_) => const AddressesPage()),
+                          MaterialPageRoute(
+                            builder: (_) => const AddressesPage(),
+                          ),
                         );
                       },
                       borderRadius: BorderRadius.circular(10),
@@ -522,11 +661,19 @@ class _BuyerDashboardState extends State<BuyerDashboard> {
                         ),
                         child: Column(
                           children: [
-                            Icon(Icons.pin_drop_outlined, color: Colors.orange.shade900, size: 22),
+                            Icon(
+                              Icons.pin_drop_outlined,
+                              color: Colors.orange.shade900,
+                              size: 22,
+                            ),
                             const SizedBox(height: 4),
                             Text(
                               'Addresses',
-                              style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.orange.shade900),
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.orange.shade900,
+                              ),
                             ),
                           ],
                         ),
@@ -556,17 +703,35 @@ class _BuyerDashboardState extends State<BuyerDashboard> {
                     children: [
                       const Text(
                         'Categories',
-                        style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: AppTheme.ink),
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.bold,
+                          color: AppTheme.ink,
+                        ),
                       ),
                       InkWell(
                         onTap: () => setState(() => _currentIndex = 1),
                         borderRadius: BorderRadius.circular(4),
                         child: const Padding(
-                          padding: EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                          padding: EdgeInsets.symmetric(
+                            horizontal: 4,
+                            vertical: 2,
+                          ),
                           child: Row(
                             children: [
-                              Text('See All', style: TextStyle(fontSize: 12, color: AppTheme.primary, fontWeight: FontWeight.w600)),
-                              Icon(Icons.chevron_right, size: 16, color: AppTheme.primary),
+                              Text(
+                                'See All',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: AppTheme.primary,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              Icon(
+                                Icons.chevron_right,
+                                size: 16,
+                                color: AppTheme.primary,
+                              ),
                             ],
                           ),
                         ),
@@ -579,12 +744,13 @@ class _BuyerDashboardState extends State<BuyerDashboard> {
                     height: 180,
                     child: GridView.builder(
                       scrollDirection: Axis.horizontal,
-                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: 2,
-                        childAspectRatio: 0.95,
-                        mainAxisSpacing: 10,
-                        crossAxisSpacing: 10,
-                      ),
+                      gridDelegate:
+                          const SliverGridDelegateWithFixedCrossAxisCount(
+                            crossAxisCount: 2,
+                            childAspectRatio: 0.95,
+                            mainAxisSpacing: 10,
+                            crossAxisSpacing: 10,
+                          ),
                       itemCount: _categories.length,
                       itemBuilder: (context, i) {
                         final cat = _categories[i];
@@ -610,7 +776,11 @@ class _BuyerDashboardState extends State<BuyerDashboard> {
                                     color: iconColor.withValues(alpha: 0.12),
                                     shape: BoxShape.circle,
                                   ),
-                                  child: Icon(iconData, color: iconColor, size: 20),
+                                  child: Icon(
+                                    iconData,
+                                    color: iconColor,
+                                    size: 20,
+                                  ),
                                 ),
                                 const SizedBox(height: 6),
                                 Text(
@@ -646,7 +816,11 @@ class _BuyerDashboardState extends State<BuyerDashboard> {
                 children: [
                   const Text(
                     'Daily Discoveries',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.ink),
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: AppTheme.ink,
+                    ),
                   ),
                   Text(
                     '${_products.length} Products',
@@ -668,15 +842,32 @@ class _BuyerDashboardState extends State<BuyerDashboard> {
               hasScrollBody: false,
               child: Center(
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
+                  padding: const EdgeInsets.symmetric(
+                    vertical: 24,
+                    horizontal: 16,
+                  ),
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.search_off_outlined, size: 48, color: Colors.grey.shade400),
+                      Icon(
+                        Icons.search_off_outlined,
+                        size: 48,
+                        color: Colors.grey.shade400,
+                      ),
                       const SizedBox(height: 8),
-                      const Text('No products found', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                      const Text(
+                        'No products found',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 15,
+                        ),
+                      ),
                       const SizedBox(height: 4),
-                      const Text('Pull down to refresh and discover new items.', style: TextStyle(color: AppTheme.muted, fontSize: 12), textAlign: TextAlign.center),
+                      const Text(
+                        'Pull down to refresh and discover new items.',
+                        style: TextStyle(color: AppTheme.muted, fontSize: 12),
+                        textAlign: TextAlign.center,
+                      ),
                     ],
                   ),
                 ),
@@ -692,168 +883,241 @@ class _BuyerDashboardState extends State<BuyerDashboard> {
                   crossAxisSpacing: 12,
                   mainAxisSpacing: 12,
                 ),
-                delegate: SliverChildBuilderDelegate(
-                  (context, i) {
-                    final product = _products[i];
-                    return Card(
-                      elevation: 0,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        side: const BorderSide(color: AppTheme.line),
-                      ),
-                      child: InkWell(
-                        borderRadius: BorderRadius.circular(12),
-                        onTap: () {
-                          Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder: (_) => ProductDetailsPage(product: product),
-                            ),
-                          ).then((_) => _fetchProducts());
-                        },
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            // Product Image
-                            Expanded(
-                              flex: 11,
-                              child: ClipRRect(
-                                borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
-                                child: Stack(
-                                  fit: StackFit.expand,
-                                  children: [
-                                    Container(
-                                      color: Colors.grey.shade100,
-                                      child: ApiConfig.resolveImageUrl(product.imagePath) != null
-                                          ? CachedNetworkImage(
-                                              imageUrl: ApiConfig.resolveImageUrl(product.imagePath)!,
-                                              fit: BoxFit.cover,
-                                              errorWidget: (_, __, ___) => const Center(
-                                                child: Icon(Icons.inventory_2_outlined, color: AppTheme.muted),
-                                              ),
-                                            )
-                                          : const Center(
-                                              child: Icon(Icons.inventory_2_outlined, color: AppTheme.muted),
+                delegate: SliverChildBuilderDelegate((context, i) {
+                  final product = _products[i];
+                  return Card(
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      side: const BorderSide(color: AppTheme.line),
+                    ),
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(12),
+                      onTap: () {
+                        Navigator.of(context)
+                            .push(
+                              MaterialPageRoute(
+                                builder: (_) =>
+                                    ProductDetailsPage(product: product),
+                              ),
+                            )
+                            .then((_) => _fetchProducts());
+                      },
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Product Image
+                          Expanded(
+                            flex: 11,
+                            child: ClipRRect(
+                              borderRadius: const BorderRadius.vertical(
+                                top: Radius.circular(12),
+                              ),
+                              child: Stack(
+                                fit: StackFit.expand,
+                                children: [
+                                  Container(
+                                    color: Colors.grey.shade100,
+                                    child:
+                                        ApiConfig.resolveImageUrl(
+                                              product.imagePath,
+                                            ) !=
+                                            null
+                                        ? CachedNetworkImage(
+                                            imageUrl: ApiConfig.resolveImageUrl(
+                                              product.imagePath,
+                                            )!,
+                                            fit: BoxFit.cover,
+                                            errorWidget: (_, __, ___) =>
+                                                const Center(
+                                                  child: Icon(
+                                                    Icons.inventory_2_outlined,
+                                                    color: AppTheme.muted,
+                                                  ),
+                                                ),
+                                          )
+                                        : const Center(
+                                            child: Icon(
+                                              Icons.inventory_2_outlined,
+                                              color: AppTheme.muted,
                                             ),
-                                    ),
-                                    if (product.category.isNotEmpty)
-                                      Positioned(
-                                        top: 6,
-                                        left: 6,
-                                        child: Container(
-                                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                          decoration: BoxDecoration(
-                                            color: Colors.black.withValues(alpha: 0.6),
-                                            borderRadius: BorderRadius.circular(4),
                                           ),
-                                          child: Text(
-                                            product.category,
-                                            style: const TextStyle(color: Colors.white, fontSize: 9.5, fontWeight: FontWeight.w500),
+                                  ),
+                                  if (product.category.isNotEmpty)
+                                    Positioned(
+                                      top: 6,
+                                      left: 6,
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 6,
+                                          vertical: 2,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: Colors.black.withValues(
+                                            alpha: 0.6,
+                                          ),
+                                          borderRadius: BorderRadius.circular(
+                                            4,
+                                          ),
+                                        ),
+                                        child: Text(
+                                          product.category,
+                                          style: const TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 9.5,
+                                            fontWeight: FontWeight.w500,
                                           ),
                                         ),
                                       ),
-                                  ],
-                                ),
+                                    ),
+                                ],
                               ),
                             ),
+                          ),
 
-                            // Product details
-                            Expanded(
-                              flex: 10,
-                              child: Padding(
-                                padding: const EdgeInsets.all(10),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          product.sellerName,
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                          style: const TextStyle(fontSize: 10, color: AppTheme.muted, fontWeight: FontWeight.w600),
+                          // Product details
+                          Expanded(
+                            flex: 10,
+                            child: Padding(
+                              padding: const EdgeInsets.all(10),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        product.sellerName,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: const TextStyle(
+                                          fontSize: 10,
+                                          color: AppTheme.muted,
+                                          fontWeight: FontWeight.w600,
                                         ),
-                                        const SizedBox(height: 2),
-                                        Text(
-                                          product.name,
-                                          maxLines: 2,
-                                          overflow: TextOverflow.ellipsis,
-                                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, height: 1.2),
+                                      ),
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        product.name,
+                                        maxLines: 2,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 13,
+                                          height: 1.2,
                                         ),
-                                      ],
-                                    ),
-                                    Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Row(
-                                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                          crossAxisAlignment: CrossAxisAlignment.center,
-                                          children: [
-                                            Expanded(
-                                              child: Text(
-                                                currency.format(product.price),
-                                                maxLines: 1,
-                                                overflow: TextOverflow.ellipsis,
-                                                style: const TextStyle(
-                                                  fontSize: 14,
-                                                  fontWeight: FontWeight.bold,
-                                                  color: AppTheme.primary,
-                                                ),
+                                      ),
+                                    ],
+                                  ),
+                                  Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Row(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.spaceBetween,
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.center,
+                                        children: [
+                                          Expanded(
+                                            child: Text(
+                                              currency.format(product.price),
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                              style: const TextStyle(
+                                                fontSize: 14,
+                                                fontWeight: FontWeight.bold,
+                                                color: AppTheme.primary,
                                               ),
                                             ),
-                                            IconButton(
-                                              padding: EdgeInsets.zero,
-                                              constraints: const BoxConstraints(),
-                                              icon: const Icon(Icons.add_shopping_cart, size: 20, color: AppTheme.primary),
-                                              onPressed: () {
-                                                cart.addItem(product);
-                                                ScaffoldMessenger.of(context).showSnackBar(
-                                                  SnackBar(
-                                                    content: Text('Added ${product.name} to cart!'),
-                                                    duration: const Duration(seconds: 1),
-                                                    backgroundColor: AppTheme.primary,
+                                          ),
+                                          IconButton(
+                                            padding: EdgeInsets.zero,
+                                            constraints: const BoxConstraints(),
+                                            icon: const Icon(
+                                              Icons.add_shopping_cart,
+                                              size: 20,
+                                              color: AppTheme.primary,
+                                            ),
+                                            onPressed: () {
+                                              cart.addItem(product);
+                                              ScaffoldMessenger.of(
+                                                context,
+                                              ).showSnackBar(
+                                                SnackBar(
+                                                  content: Text(
+                                                    'Added ${product.name} to cart!',
                                                   ),
-                                                );
-                                              },
+                                                  duration: const Duration(
+                                                    seconds: 1,
+                                                  ),
+                                                  backgroundColor:
+                                                      AppTheme.primary,
+                                                ),
+                                              );
+                                            },
+                                          ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 3),
+                                      Row(
+                                        children: [
+                                          if (product.reviewsCount > 0 &&
+                                              product.rating > 0.0) ...[
+                                            const Icon(
+                                              Icons.star,
+                                              color: Colors.amber,
+                                              size: 12,
                                             ),
-                                          ],
-                                        ),
-                                        const SizedBox(height: 3),
-                                        Row(
-                                          children: [
-                                            if (product.reviewsCount > 0 && product.rating > 0.0) ...[
-                                              const Icon(Icons.star, color: Colors.amber, size: 12),
-                                              const SizedBox(width: 2),
-                                              Text(
-                                                product.rating.toStringAsFixed(1),
-                                                style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600),
-                                              ),
-                                            ] else ...[
-                                              const Icon(Icons.star_border, color: AppTheme.muted, size: 12),
-                                              const SizedBox(width: 2),
-                                              const Text('0.0', style: TextStyle(fontSize: 10, color: AppTheme.muted)),
-                                            ],
-                                            const SizedBox(width: 6),
+                                            const SizedBox(width: 2),
                                             Text(
-                                              product.salesCount > 0 ? '${product.salesCount} sold' : '0 sold',
-                                              style: const TextStyle(fontSize: 10, color: AppTheme.muted),
+                                              product.rating.toStringAsFixed(1),
+                                              style: const TextStyle(
+                                                fontSize: 10,
+                                                fontWeight: FontWeight.w600,
+                                              ),
+                                            ),
+                                          ] else ...[
+                                            const Icon(
+                                              Icons.star_border,
+                                              color: AppTheme.muted,
+                                              size: 12,
+                                            ),
+                                            const SizedBox(width: 2),
+                                            const Text(
+                                              '0.0',
+                                              style: TextStyle(
+                                                fontSize: 10,
+                                                color: AppTheme.muted,
+                                              ),
                                             ),
                                           ],
-                                        ),
-                                      ],
-                                    ),
-                                  ],
-                                ),
+                                          const SizedBox(width: 6),
+                                          Text(
+                                            product.salesCount > 0
+                                                ? '${product.salesCount} sold'
+                                                : '0 sold',
+                                            style: const TextStyle(
+                                              fontSize: 10,
+                                              color: AppTheme.muted,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ],
+                                  ),
+                                ],
                               ),
                             ),
-                          ],
-                        ),
+                          ),
+                        ],
                       ),
-                    );
-                  },
-                  childCount: _products.length,
-                ),
+                    ),
+                  );
+                }, childCount: _products.length),
               ),
             ),
         ],
@@ -875,28 +1139,69 @@ class _BuyerDashboardState extends State<BuyerDashboard> {
 
     return Scaffold(
       appBar: AppBar(
+        flexibleSpace: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              colors: [Color(0xFFD63363), Color(0xFFBE2854)],
+              begin: Alignment.centerLeft,
+              end: Alignment.centerRight,
+            ),
+          ),
+        ),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        scrolledUnderElevation: 0,
         title: Row(
           children: [
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
               decoration: BoxDecoration(
-                color: AppTheme.primarySoft,
+                color: Colors.white,
                 borderRadius: BorderRadius.circular(6),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.1),
+                    blurRadius: 4,
+                    offset: const Offset(0, 1),
+                  ),
+                ],
               ),
-              child: const Text('EZ', style: TextStyle(color: AppTheme.primary, fontWeight: FontWeight.bold, fontSize: 14)),
+              child: const Text(
+                'EZ',
+                style: TextStyle(
+                  color: Color(0xFFBE2854),
+                  fontWeight: FontWeight.w900,
+                  fontSize: 13,
+                  letterSpacing: 0.5,
+                ),
+              ),
             ),
             const SizedBox(width: 8),
-            const Text('EZiCart', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+            const Text(
+              'EZiCart',
+              style: TextStyle(
+                fontFamily: 'Instrument Sans',
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+                fontSize: 19,
+                letterSpacing: -0.3,
+              ),
+            ),
           ],
         ),
         actions: [
           Stack(
             children: [
               IconButton(
-                icon: const Icon(Icons.notifications_outlined),
+                icon: const Icon(
+                  Icons.notifications_outlined,
+                  color: Colors.white,
+                ),
                 onPressed: () async {
                   await Navigator.of(context).push(
-                    MaterialPageRoute(builder: (_) => const NotificationsPage()),
+                    MaterialPageRoute(
+                      builder: (_) => const NotificationsPage(),
+                    ),
                   );
                   _fetchNotificationCount();
                 },
@@ -906,14 +1211,22 @@ class _BuyerDashboardState extends State<BuyerDashboard> {
                   right: 8,
                   top: 8,
                   child: Container(
-                    padding: const EdgeInsets.all(4),
-                    decoration: const BoxDecoration(
-                      color: Colors.redAccent,
+                    padding: const EdgeInsets.all(3.5),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
                       shape: BoxShape.circle,
+                      border: Border.all(
+                        color: const Color(0xFFBE2854),
+                        width: 1.5,
+                      ),
                     ),
                     child: Text(
                       '$_unreadNotificationCount',
-                      style: const TextStyle(fontSize: 10, color: Colors.white, fontWeight: FontWeight.bold),
+                      style: const TextStyle(
+                        fontSize: 9,
+                        color: Color(0xFFBE2854),
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ),
                 ),
@@ -922,11 +1235,14 @@ class _BuyerDashboardState extends State<BuyerDashboard> {
           Stack(
             children: [
               IconButton(
-                icon: const Icon(Icons.shopping_cart_outlined),
+                icon: const Icon(
+                  Icons.shopping_cart_outlined,
+                  color: Colors.white,
+                ),
                 onPressed: () {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(builder: (_) => const CartPage()),
-                  );
+                  Navigator.of(
+                    context,
+                  ).push(MaterialPageRoute(builder: (_) => const CartPage()));
                 },
               ),
               if (cart.itemCount > 0)
@@ -934,45 +1250,107 @@ class _BuyerDashboardState extends State<BuyerDashboard> {
                   right: 8,
                   top: 8,
                   child: Container(
-                    padding: const EdgeInsets.all(4),
-                    decoration: const BoxDecoration(
-                      color: AppTheme.primary,
+                    padding: const EdgeInsets.all(3.5),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
                       shape: BoxShape.circle,
+                      border: Border.all(
+                        color: const Color(0xFFBE2854),
+                        width: 1.5,
+                      ),
                     ),
                     child: Text(
                       '${cart.itemCount}',
-                      style: const TextStyle(fontSize: 10, color: Colors.white, fontWeight: FontWeight.bold),
+                      style: const TextStyle(
+                        fontSize: 9,
+                        color: Color(0xFFBE2854),
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ),
                 ),
             ],
           ),
+          const SizedBox(width: 4),
         ],
       ),
-      body: IndexedStack(
-        index: _currentIndex,
-        children: pages,
-      ),
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _currentIndex,
-        onTap: (index) {
-          setState(() => _currentIndex = index);
-          if (index == 3) {
-            _messagesKey.currentState?.fetchThreads();
-          }
-        },
-        type: BottomNavigationBarType.fixed,
-        selectedItemColor: AppTheme.primary,
-        unselectedItemColor: AppTheme.muted,
-        selectedFontSize: 11,
-        unselectedFontSize: 11,
-        items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.storefront_outlined), label: 'Home'),
-          BottomNavigationBarItem(icon: Icon(Icons.category_outlined), label: 'Categories'),
-          BottomNavigationBarItem(icon: Icon(Icons.receipt_long_outlined), label: 'Orders'),
-          BottomNavigationBarItem(icon: Icon(Icons.chat_bubble_outline), label: 'Messages'),
-          BottomNavigationBarItem(icon: Icon(Icons.person_outline), label: 'Profile'),
+      body: Stack(
+        fit: StackFit.expand,
+        children: [
+          // Subtle EZiCart branded background watermark
+          Positioned.fill(
+            child: Opacity(
+              opacity: 0.045,
+              child: Image.asset(
+                'assets/images/ezicart-background.png',
+                fit: BoxFit.cover,
+                alignment: Alignment.center,
+                errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+              ),
+            ),
+          ),
+          IndexedStack(index: _currentIndex, children: pages),
         ],
+      ),
+      bottomNavigationBar: Container(
+        decoration: BoxDecoration(
+          color: const Color(0xFFFFF7F9), // Soft EZiCart pink
+          border: const Border(
+            top: BorderSide(color: Color(0xFFFFDDE5), width: 1),
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFFBE2854).withValues(alpha: 0.05),
+              blurRadius: 10,
+              offset: const Offset(0, -3),
+            ),
+          ],
+        ),
+        child: BottomNavigationBar(
+          currentIndex: _currentIndex,
+          onTap: (index) {
+            setState(() => _currentIndex = index);
+            if (index == 3) {
+              _messagesKey.currentState?.fetchThreads();
+            }
+          },
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          type: BottomNavigationBarType.fixed,
+          selectedItemColor: const Color(0xFFBE2854),
+          unselectedItemColor: const Color(0xFF8A757D),
+          selectedFontSize: 11,
+          unselectedFontSize: 11,
+          selectedLabelStyle: const TextStyle(fontWeight: FontWeight.bold),
+          unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.w500),
+          items: const [
+            BottomNavigationBarItem(
+              icon: Icon(Icons.storefront_outlined),
+              activeIcon: Icon(Icons.storefront),
+              label: 'Home',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.category_outlined),
+              activeIcon: Icon(Icons.category),
+              label: 'Categories',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.receipt_long_outlined),
+              activeIcon: Icon(Icons.receipt_long),
+              label: 'Orders',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.chat_bubble_outline),
+              activeIcon: Icon(Icons.chat_bubble),
+              label: 'Messages',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.person_outline),
+              activeIcon: Icon(Icons.person),
+              label: 'Profile',
+            ),
+          ],
+        ),
       ),
     );
   }
