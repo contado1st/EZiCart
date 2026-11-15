@@ -1867,26 +1867,35 @@ body.landing-page {
 
 .buyer-category-tile {
     display: grid;
-    min-height: 8rem;
-    align-content: space-between;
-    gap: 0.7rem;
-    padding: 1rem;
+    grid-template-rows: 6rem 1fr auto;
+    min-height: 15rem;
+    min-width: 0;
+    justify-items: center;
+    gap: 1rem;
+    padding: 1.5rem 1rem;
     color: var(--landing-ink);
-    background: linear-gradient(145deg, #fffdfa 0%, #f8e9eb 100%);
+    background: #faf1f2;
     border-right: 1px solid rgb(7 7 7 / 10%);
     border-bottom: 1px solid rgb(7 7 7 / 10%);
+    text-align: center;
     text-decoration: none;
     transition: background-color 180ms ease, color 180ms ease;
 }
 
-.buyer-category-tile:hover {
-    background: var(--landing-blush);
+.buyer-category-tile .buyer-category-icon {
+    width: 6rem;
+    height: 6rem;
+    color: #8c3845;
 }
 
-.buyer-category-number {
-    color: #a34755;
-    font-size: 0.65rem;
-    letter-spacing: 0.1em;
+.buyer-category-tile:focus-visible {
+    position: relative;
+    outline: 2px solid #8c3845;
+    outline-offset: -3px;
+}
+
+.buyer-category-tile:hover {
+    background: var(--landing-blush);
 }
 
 .buyer-category-tile strong {
@@ -2253,8 +2262,14 @@ body.landing-page {
     }
 
     .buyer-category-tile {
-        min-height: 7rem;
-        padding: 0.75rem;
+        grid-template-rows: 4.5rem 1fr auto;
+        min-height: 13rem;
+        padding: 1.25rem 0.75rem;
+    }
+
+    .buyer-category-tile .buyer-category-icon {
+        width: 4.5rem;
+        height: 4.5rem;
     }
 
     .buyer-arrival-grid,

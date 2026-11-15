@@ -79,7 +79,7 @@
                 <div class="buyer-category-grid">
                     @foreach ($categories as $category)
                         <a class="buyer-category-tile" href="{{ route('home', ['category' => $category['name']]) }}#browse-products">
-                            <span class="buyer-category-number">{{ str_pad($loop->iteration, 2, '0', STR_PAD_LEFT) }}</span>
+                            <x-shop-icon :name="$category['icon']" class="buyer-category-icon" />
                             <strong>{{ $category['name'] }}</strong>
                             <span class="buyer-category-link">Explore category <span aria-hidden="true">↗</span></span>
                         </a>
