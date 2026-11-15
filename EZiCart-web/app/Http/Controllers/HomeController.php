@@ -29,7 +29,8 @@ class HomeController extends Controller
         }
 
         $categoryIcons = config('web-commerce.category_icons', []);
-        $categories = array_map(fn ($name) => ['name' => $name, 'icon' => $categoryIcons[$name] ?? 'package1'], app(ProductCategoryService::class)->browseOptions(Product::availableForMarketplace()->distinct()->pluck('category')));
+        $categoryImages = config('web-commerce.category_images', []);
+        $categories = array_map(fn ($name) => ['name' => $name, 'icon' => $categoryIcons[$name] ?? 'package1', 'image' => $categoryImages[$name] ?? null], app(ProductCategoryService::class)->browseOptions(Product::availableForMarketplace()->distinct()->pluck('category')));
 
         $query = Product::query()->availableForMarketplace()
             ->with('seller')->withVariantPrices();
