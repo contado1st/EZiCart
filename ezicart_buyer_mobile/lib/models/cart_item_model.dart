@@ -19,7 +19,8 @@ class CartItemModel {
   });
 
   String get cartKey =>
-      customKey ?? '${product.id}${variation != null ? "_${variation!.id}" : ""}';
+      customKey ??
+      '${product.id}${variation != null ? "_${variation!.id}" : ""}';
 
   double get unitPrice => product.price + (variation?.priceAdjustment ?? 0.0);
 
@@ -27,11 +28,13 @@ class CartItemModel {
 
   String? get displayImage =>
       (variation?.imagePath != null && variation!.imagePath!.trim().isNotEmpty)
-          ? variation!.imagePath
-          : product.imagePath;
+      ? variation!.imagePath
+      : product.imagePath;
+
+  bool get needsVariation => variation == null && product.variations.isNotEmpty;
 
   int get availableStock =>
-      variation != null ? variation!.stock : product.stock;
+      variation != null ? variation!.stock : product.availableStock;
 
   Map<String, dynamic> toLineMap() => {
     'product_id': product.id,
@@ -42,7 +45,9 @@ class CartItemModel {
 
   factory CartItemModel.fromApiJson(Map<String, dynamic> json) {
     final prodId = parseInt(json['product_id']);
-    final varId = json['variation_id'] != null ? parseInt(json['variation_id']) : null;
+    final varId = json['variation_id'] != null
+        ? parseInt(json['variation_id'])
+        : null;
     final maxStock = parseInt(json['max_quantity'], 20);
     final price = parseDouble(json['price']);
 

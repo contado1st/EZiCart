@@ -7,7 +7,9 @@ class ChatAttachmentModel {
   final int size;
   final String url;
   final String? previewUrl;
+  final String? downloadUrl;
   final bool isImage;
+  final bool isUnsent;
 
   ChatAttachmentModel({
     required this.id,
@@ -16,7 +18,9 @@ class ChatAttachmentModel {
     required this.size,
     required this.url,
     this.previewUrl,
+    this.downloadUrl,
     this.isImage = false,
+    this.isUnsent = false,
   });
 
   factory ChatAttachmentModel.fromJson(Map<String, dynamic> json) {
@@ -27,7 +31,9 @@ class ChatAttachmentModel {
       size: parseInt(json['size']),
       url: json['url']?.toString() ?? '',
       previewUrl: json['preview_url']?.toString(),
+      downloadUrl: json['download_url']?.toString(),
       isImage: json['is_image'] == true,
+      isUnsent: json['is_unsent'] == true,
     );
   }
 
@@ -90,16 +96,20 @@ class ChatMessageModel {
   final int id;
   final int senderId;
   final bool isMe;
+  final bool isUnsent;
   final String body;
   final String createdAt;
+  final Map<String, dynamic>? productContext;
   final List<ChatAttachmentModel> attachments;
 
   ChatMessageModel({
     required this.id,
     required this.senderId,
     required this.isMe,
+    this.isUnsent = false,
     required this.body,
     required this.createdAt,
+    this.productContext,
     this.attachments = const [],
   });
 
@@ -115,8 +125,10 @@ class ChatMessageModel {
       id: parseInt(json['id']),
       senderId: parseInt(json['sender_id']),
       isMe: json['is_me'] == true,
+      isUnsent: json['is_unsent'] == true,
       body: json['body']?.toString() ?? '',
       createdAt: json['created_at']?.toString() ?? '',
+      productContext: json['product_context'] as Map<String, dynamic>?,
       attachments: atts,
     );
   }

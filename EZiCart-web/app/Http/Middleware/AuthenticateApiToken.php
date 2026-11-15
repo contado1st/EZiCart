@@ -17,7 +17,7 @@ class AuthenticateApiToken
      */
     public function handle(Request $request, Closure $next, ?string $roleRequired = 'buyer'): Response
     {
-        $token = $request->bearerToken();
+        $token = $request->bearerToken() ?: $request->query('token') ?: $request->query('api_token');
 
         if (empty($token)) {
             return response()->json([

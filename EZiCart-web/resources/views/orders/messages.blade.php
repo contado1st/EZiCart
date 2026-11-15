@@ -3,7 +3,7 @@
 @section('communications-title', 'Messages')
 @section('communications-description', 'Private conversations with your contacts.')
 @section('communications-content')
-<div class="messaging-frame messaging-frame--thread" data-message-retractions="{{ route('chat.retractions', $conversation) }}">
+<div class="messaging-frame messaging-frame--thread" data-message-retractions="{{ route('chat.retractions', $conversation) }}" data-message-updates="{{ route('chat.updates', [$conversation, 'panel' => request()->boolean('panel') ? 1 : null]) }}">
     @include('components.conversation-list')
     <section class="conversation-thread" aria-labelledby="conversation-title">
         <header class="conversation-thread-heading"><div><a class="conversation-mobile-back" href="{{ route('chat.index', ['panel' => request()->boolean('panel') ? 1 : null]) }}">All conversations</a><h2 id="conversation-title">{{ $partner->business_name ?: trim($partner->first_name.' '.$partner->last_name) }}</h2><p>Private conversation &middot; {{ str_replace('_', ' ', $partner->role) }}</p><x-user-activity :user="$partner" /></div><a class="communications-text-link" href="{{ url()->full() }}">Refresh</a></header>

@@ -82,79 +82,92 @@ class _CategoriesPageState extends State<CategoriesPage> {
       body: SafeArea(
         child: RefreshIndicator(
           onRefresh: _fetchCategories,
-          child: GridView.builder(
-            padding: const EdgeInsets.all(16),
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 3,
-              mainAxisSpacing: 12,
-              crossAxisSpacing: 12,
-              childAspectRatio: 0.85,
-            ),
-            itemCount: _categories.length,
-            itemBuilder: (context, i) {
-              final cat = _categories[i];
-              final iconData = CategoryModel.getIcon(cat.name);
-              final iconColor = CategoryModel.getColor(cat.name);
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final width = constraints.maxWidth;
+              final crossAxisCount = width < 330 ? 2 : 3;
+              final childAspectRatio = width < 330
+                  ? 0.95
+                  : (width < 370 ? 0.70 : 0.74);
 
-              return Material(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(14),
-                elevation: 0,
-                child: InkWell(
-                  borderRadius: BorderRadius.circular(14),
-                  onTap: () {
-                    if (widget.onSelectCategory != null) {
-                      widget.onSelectCategory!(cat.name);
-                    } else {
-                      Navigator.of(context).pop(cat.name);
-                    }
-                  },
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(14),
-                      border: Border.all(color: AppTheme.line),
-                    ),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(10),
-                          decoration: BoxDecoration(
-                            color: iconColor.withValues(alpha: 0.1),
-                            shape: BoxShape.circle,
-                          ),
-                          child: Icon(
-                            iconData,
-                            color: iconColor,
-                            size: 26,
-                          ),
-                        ),
-                        const SizedBox(height: 10),
-                        Text(
-                          cat.name,
-                          textAlign: TextAlign.center,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            fontWeight: FontWeight.w600,
-                            fontSize: 11.5,
-                            color: AppTheme.ink,
-                            height: 1.2,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          '${cat.productCount} items',
-                          style: const TextStyle(
-                            fontSize: 10,
-                            color: AppTheme.muted,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
+              return GridView.builder(
+                padding: const EdgeInsets.all(14),
+                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: crossAxisCount,
+                  mainAxisSpacing: 10,
+                  crossAxisSpacing: 10,
+                  childAspectRatio: childAspectRatio,
                 ),
+                itemCount: _categories.length,
+                itemBuilder: (context, i) {
+                  final cat = _categories[i];
+                  final iconData = CategoryModel.getIcon(cat.name);
+                  final iconColor = CategoryModel.getColor(cat.name);
+
+                  return Material(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                    elevation: 0,
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(12),
+                      onTap: () {
+                        if (widget.onSelectCategory != null) {
+                          widget.onSelectCategory!(cat.name);
+                        } else {
+                          Navigator.of(context).pop(cat.name);
+                        }
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 6,
+                          vertical: 8,
+                        ),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: AppTheme.line),
+                        ),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: iconColor.withValues(alpha: 0.1),
+                                shape: BoxShape.circle,
+                              ),
+                              child: Icon(
+                                iconData,
+                                color: iconColor,
+                                size: 22,
+                              ),
+                            ),
+                            const SizedBox(height: 6),
+                            Text(
+                              cat.name,
+                              textAlign: TextAlign.center,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w600,
+                                fontSize: 11,
+                                color: AppTheme.ink,
+                                height: 1.15,
+                              ),
+                            ),
+                            const SizedBox(height: 3),
+                            Text(
+                              '${cat.productCount} items',
+                              style: const TextStyle(
+                                fontSize: 9.5,
+                                color: AppTheme.muted,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  );
+                },
               );
             },
           ),

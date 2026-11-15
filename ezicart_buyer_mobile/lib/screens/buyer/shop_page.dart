@@ -2,10 +2,12 @@ import 'dart:convert';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
 import '../../config/api_config.dart';
 import '../../config/theme.dart';
 import '../../models/product_model.dart';
 import '../../models/shop_model.dart';
+import '../../providers/cart_provider.dart';
 import '../../services/api_service.dart';
 import 'messages_page.dart';
 import 'product_details_page.dart';
@@ -208,7 +210,7 @@ class _ShopPageState extends State<ShopPage> {
   Future<void> _startChat() async {
     try {
       final res = await ApiService.post(ApiConfig.chatStartEndpoint(widget.sellerId), {});
-      if (res.statusCode == 200 && mounted) {
+      if ((res.statusCode == 200 || res.statusCode == 201) && mounted) {
         final body = jsonDecode(res.body);
         final conversationId = body['conversation_id'];
         Navigator.of(context).push(
@@ -216,8 +218,15 @@ class _ShopPageState extends State<ShopPage> {
             builder: (_) => ChatConversationScreen(
               conversationId: conversationId,
               partnerName: _shop?.displayName ?? _shop?.name ?? 'Merchant',
+              partnerId: widget.sellerId,
+              partnerRole: 'seller',
             ),
           ),
+        );
+      } else if (mounted) {
+        final err = jsonDecode(res.body);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(err['message'] ?? 'Could not start chat.')),
         );
       }
     } catch (e) {
@@ -347,7 +356,7 @@ class _ShopPageState extends State<ShopPage> {
                         sliver: SliverGrid(
                           gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                             crossAxisCount: 2,
-                            childAspectRatio: 0.64,
+                            childAspectRatio: 0.53,
                             crossAxisSpacing: 12,
                             mainAxisSpacing: 12,
                           ),
@@ -992,110 +1001,180 @@ class _ShopPageState extends State<ShopPage> {
   Widget _buildProductCard(ProductModel product, _ShopThemePalette theme) {
     final imageUrl = ApiConfig.resolveImageUrl(product.imagePath);
 
-    return InkWell(
-      onTap: () {
-        Navigator.of(context).push(
-          MaterialPageRoute(
-            builder: (_) => ProductDetailsPage(product: product),
-          ),
-        );
-      },
-      borderRadius: BorderRadius.circular(10),
-      child: Container(
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: AppTheme.line),
-        ),
+    return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(10),
+        side: const BorderSide(color: AppTheme.line),
+      ),
+      child: InkWell(
+        onTap: () {
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) => ProductDetailsPage(product: product),
+            ),
+          );
+        },
+        borderRadius: BorderRadius.circular(10),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Image
             Expanded(
+              flex: 9,
               child: ClipRRect(
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(9)),
-                child: imageUrl != null
-                    ? CachedNetworkImage(
-                        imageUrl: imageUrl,
-                        width: double.infinity,
-                        fit: BoxFit.cover,
-                        placeholder: (_, __) => Container(
-                          color: const Color(0xFFF3F4F6),
-                          child: const Center(
-                            child: SizedBox(
-                              width: 22,
-                              height: 22,
-                              child: CircularProgressIndicator(strokeWidth: 2),
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(10)),
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    Container(
+                      color: const Color(0xFFF3F4F6),
+                      child: imageUrl != null
+                          ? CachedNetworkImage(
+                              imageUrl: imageUrl,
+                              fit: BoxFit.cover,
+                              placeholder: (_, __) => const Center(
+                                child: SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(strokeWidth: 2),
+                                ),
+                              ),
+                              errorWidget: (_, __, ___) => const Center(
+                                child: Icon(Icons.inventory_2_outlined, color: AppTheme.muted, size: 30),
+                              ),
+                            )
+                          : const Center(
+                              child: Icon(Icons.inventory_2_outlined, color: AppTheme.muted, size: 30),
+                            ),
+                    ),
+                    if (product.category.isNotEmpty)
+                      Positioned(
+                        top: 6,
+                        left: 6,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: Colors.black.withValues(alpha: 0.6),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(
+                            product.category,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 9.5,
+                              fontWeight: FontWeight.w500,
                             ),
                           ),
                         ),
-                        errorWidget: (_, __, ___) => Container(
-                          color: const Color(0xFFF3F4F6),
-                          child: const Icon(Icons.inventory_2_outlined, color: AppTheme.muted, size: 36),
-                        ),
-                      )
-                    : Container(
-                        color: const Color(0xFFF3F4F6),
-                        child: const Center(
-                          child: Icon(Icons.inventory_2_outlined, color: AppTheme.muted, size: 36),
-                        ),
                       ),
+                  ],
+                ),
               ),
             ),
 
+            // Divider line between Product image and Title
+            const Divider(height: 1, thickness: 1, color: AppTheme.line),
+
             // Product Details
-            Padding(
-              padding: const EdgeInsets.all(10),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Category Label
-                  if (product.category.isNotEmpty)
-                    Text(
-                      product.category,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontSize: 10, color: AppTheme.muted, fontWeight: FontWeight.w500),
+            Expanded(
+              flex: 11,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(8, 6, 8, 8),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          product.name,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 12.5,
+                            height: 1.2,
+                          ),
+                        ),
+                      ],
                     ),
-                  const SizedBox(height: 2),
-
-                  // Product Title
-                  Text(
-                    product.name,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, height: 1.3),
-                  ),
-                  const SizedBox(height: 6),
-
-                  // Price
-                  Text(
-                    currencyFormat.format(product.price),
-                    style: TextStyle(
-                      color: theme.accent,
-                      fontWeight: FontWeight.w800,
-                      fontSize: 14,
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            Expanded(
+                              child: Text(
+                                product.formattedPrice,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  color: theme.accent,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 13,
+                                ),
+                              ),
+                            ),
+                            InkWell(
+                              onTap: () {
+                                final cart = Provider.of<CartProvider>(context, listen: false);
+                                cart.addItem(product);
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text('Added ${product.name} to cart!'),
+                                    duration: const Duration(seconds: 1),
+                                    backgroundColor: theme.accent,
+                                  ),
+                                );
+                              },
+                              borderRadius: BorderRadius.circular(6),
+                              child: Container(
+                                padding: const EdgeInsets.all(4),
+                                decoration: BoxDecoration(
+                                  color: theme.soft,
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: Icon(
+                                  Icons.add_shopping_cart,
+                                  size: 16,
+                                  color: theme.accent,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 3),
+                        Row(
+                          children: [
+                            if (product.rating > 0.0) ...[
+                              const Icon(Icons.star, size: 12, color: Colors.amber),
+                              const SizedBox(width: 2),
+                              Text(
+                                product.rating.toStringAsFixed(1),
+                                style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600),
+                              ),
+                            ] else ...[
+                              const Icon(Icons.star_border, size: 12, color: AppTheme.muted),
+                              const SizedBox(width: 2),
+                              const Text('0.0', style: TextStyle(fontSize: 10, color: AppTheme.muted)),
+                            ],
+                            const SizedBox(width: 6),
+                            Text(
+                              product.salesCount > 0
+                                  ? '${product.salesCount} sold'
+                                  : '${product.availableStock} in stock',
+                              style: const TextStyle(fontSize: 10, color: AppTheme.muted),
+                            ),
+                          ],
+                        ),
+                      ],
                     ),
-                  ),
-                  const SizedBox(height: 6),
-
-                  // Rating & Stock
-                  Row(
-                    children: [
-                      const Icon(Icons.star, size: 12, color: Colors.amber),
-                      const SizedBox(width: 3),
-                      Text(
-                        product.rating > 0 ? product.rating.toStringAsFixed(1) : 'No ratings',
-                        style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
-                      ),
-                      const Spacer(),
-                      Text(
-                        '${product.stock} left',
-                        style: const TextStyle(fontSize: 10, color: AppTheme.muted),
-                      ),
-                    ],
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           ],

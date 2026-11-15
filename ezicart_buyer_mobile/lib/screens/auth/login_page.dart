@@ -118,6 +118,11 @@ class _LoginPageState extends State<LoginPage> {
                   ),
                   ActionChip(
                     backgroundColor: const Color(0xFFF1F5F9),
+                    label: const Text('192.168.1.2 (Wi-Fi Physical Device)', style: TextStyle(fontSize: 11)),
+                    onPressed: () => domainCtrl.text = 'http://192.168.1.2:8000/api',
+                  ),
+                  ActionChip(
+                    backgroundColor: const Color(0xFFF1F5F9),
                     label: const Text('Live Server', style: TextStyle(fontSize: 11)),
                     onPressed: () => domainCtrl.text = 'https://shop.ezicart.trade/api/v1',
                   ),

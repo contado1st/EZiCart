@@ -1,10 +1,11 @@
 import 'dart:convert';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
 import '../../config/api_config.dart';
 import '../../config/theme.dart';
 import '../../models/product_model.dart';
+import '../../providers/cart_provider.dart';
 import '../../services/api_service.dart';
 import 'product_details_page.dart';
 
@@ -79,7 +80,7 @@ class _ForYouPageState extends State<ForYouPage> {
 
   @override
   Widget build(BuildContext context) {
-    final currency = NumberFormat.currency(symbol: '₱', decimalDigits: 2);
+    final cart = context.read<CartProvider>();
 
     return Scaffold(
       appBar: AppBar(
@@ -123,7 +124,7 @@ class _ForYouPageState extends State<ForYouPage> {
                     padding: const EdgeInsets.all(16),
                     gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                       crossAxisCount: 2,
-                      childAspectRatio: 0.68,
+                      childAspectRatio: 0.53,
                       crossAxisSpacing: 12,
                       mainAxisSpacing: 12,
                     ),
@@ -132,78 +133,184 @@ class _ForYouPageState extends State<ForYouPage> {
                       final product = _products[i];
                       final imgUrl = ApiConfig.resolveImageUrl(product.imagePath);
 
-                      return InkWell(
-                        onTap: () {
-                          Navigator.of(context).push(
-                            MaterialPageRoute(builder: (_) => ProductDetailsPage(product: product)),
-                          );
-                        },
-                        borderRadius: BorderRadius.circular(12),
-                        child: Container(
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: AppTheme.line),
-                          ),
+                      return Card(
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                          side: const BorderSide(color: AppTheme.line),
+                        ),
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(10),
+                          onTap: () {
+                            Navigator.of(context).push(
+                              MaterialPageRoute(builder: (_) => ProductDetailsPage(product: product)),
+                            );
+                          },
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              ClipRRect(
-                                borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
-                                child: AspectRatio(
-                                  aspectRatio: 1.1,
-                                  child: imgUrl != null
-                                      ? CachedNetworkImage(
-                                          imageUrl: imgUrl,
-                                          fit: BoxFit.cover,
-                                          placeholder: (_, __) => Container(color: Colors.grey.shade100),
-                                          errorWidget: (_, __, ___) => const Center(
-                                            child: Icon(Icons.image_not_supported_outlined, color: Colors.grey),
+                              // Product Image
+                              Expanded(
+                                flex: 9,
+                                child: ClipRRect(
+                                  borderRadius: const BorderRadius.vertical(top: Radius.circular(10)),
+                                  child: Stack(
+                                    fit: StackFit.expand,
+                                    children: [
+                                      Container(
+                                        color: Colors.grey.shade100,
+                                        child: imgUrl != null
+                                            ? CachedNetworkImage(
+                                                imageUrl: imgUrl,
+                                                fit: BoxFit.cover,
+                                                placeholder: (_, __) => Container(color: Colors.grey.shade100),
+                                                errorWidget: (_, __, ___) => const Center(
+                                                  child: Icon(Icons.inventory_2_outlined, color: AppTheme.muted, size: 28),
+                                                ),
+                                              )
+                                            : const Center(
+                                                child: Icon(Icons.inventory_2_outlined, color: AppTheme.muted, size: 28),
+                                              ),
+                                      ),
+                                      if (product.category.isNotEmpty)
+                                        Positioned(
+                                          top: 6,
+                                          left: 6,
+                                          child: Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                            decoration: BoxDecoration(
+                                              color: Colors.black.withValues(alpha: 0.6),
+                                              borderRadius: BorderRadius.circular(4),
+                                            ),
+                                            child: Text(
+                                              product.category,
+                                              style: const TextStyle(
+                                                color: Colors.white,
+                                                fontSize: 9.5,
+                                                fontWeight: FontWeight.w500,
+                                              ),
+                                            ),
                                           ),
-                                        )
-                                      : Container(
-                                          color: Colors.grey.shade100,
-                                          child: const Icon(Icons.shopping_bag_outlined, color: Colors.grey),
                                         ),
+                                    ],
+                                  ),
                                 ),
                               ),
-                              Padding(
-                                padding: const EdgeInsets.all(10),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      product.name,
-                                      maxLines: 2,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      currency.format(product.price),
-                                      style: const TextStyle(
-                                        color: AppTheme.primary,
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 14,
+
+                              // Divider line between Product image and Title
+                              const Divider(height: 1, thickness: 1, color: AppTheme.line),
+
+                              // Product Details
+                              Expanded(
+                                flex: 11,
+                                child: Padding(
+                                  padding: const EdgeInsets.fromLTRB(8, 6, 8, 8),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          if (product.sellerName.isNotEmpty) ...[
+                                            Text(
+                                              product.sellerName,
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                              style: const TextStyle(
+                                                fontSize: 10,
+                                                color: AppTheme.muted,
+                                                fontWeight: FontWeight.w600,
+                                              ),
+                                            ),
+                                            const SizedBox(height: 2),
+                                          ],
+                                          Text(
+                                            product.name,
+                                            maxLines: 2,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: const TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 12.5,
+                                              height: 1.2,
+                                            ),
+                                          ),
+                                        ],
                                       ),
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Row(
-                                      children: [
-                                        const Icon(Icons.star, size: 13, color: Colors.amber),
-                                        const SizedBox(width: 2),
-                                        Text(
-                                          product.rating.toStringAsFixed(1),
-                                          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
-                                        ),
-                                        const SizedBox(width: 4),
-                                        Text(
-                                          '(${product.reviewCount})',
-                                          style: const TextStyle(fontSize: 10, color: AppTheme.muted),
-                                        ),
-                                      ],
-                                    ),
-                                  ],
+                                      Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Row(
+                                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                            crossAxisAlignment: CrossAxisAlignment.center,
+                                            children: [
+                                              Expanded(
+                                                child: Text(
+                                                  product.formattedPrice,
+                                                  maxLines: 1,
+                                                  overflow: TextOverflow.ellipsis,
+                                                  style: const TextStyle(
+                                                    fontSize: 13.5,
+                                                    fontWeight: FontWeight.bold,
+                                                    color: AppTheme.primary,
+                                                  ),
+                                                ),
+                                              ),
+                                              InkWell(
+                                                onTap: () {
+                                                  cart.addItem(product);
+                                                  ScaffoldMessenger.of(context).showSnackBar(
+                                                    SnackBar(
+                                                      content: Text('Added ${product.name} to cart!'),
+                                                      duration: const Duration(seconds: 1),
+                                                      backgroundColor: AppTheme.primary,
+                                                    ),
+                                                  );
+                                                },
+                                                borderRadius: BorderRadius.circular(6),
+                                                child: Container(
+                                                  padding: const EdgeInsets.all(4),
+                                                  decoration: BoxDecoration(
+                                                    color: AppTheme.primarySoft,
+                                                    borderRadius: BorderRadius.circular(6),
+                                                  ),
+                                                  child: const Icon(
+                                                    Icons.add_shopping_cart,
+                                                    size: 16,
+                                                    color: AppTheme.primary,
+                                                  ),
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                          const SizedBox(height: 3),
+                                          Row(
+                                            children: [
+                                              if (product.reviewsCount > 0 && product.rating > 0.0) ...[
+                                                const Icon(Icons.star, color: Colors.amber, size: 12),
+                                                const SizedBox(width: 2),
+                                                Text(
+                                                  product.rating.toStringAsFixed(1),
+                                                  style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600),
+                                                ),
+                                              ] else ...[
+                                                const Icon(Icons.star_border, color: AppTheme.muted, size: 12),
+                                                const SizedBox(width: 2),
+                                                const Text('0.0', style: TextStyle(fontSize: 10, color: AppTheme.muted)),
+                                              ],
+                                              const SizedBox(width: 6),
+                                              Text(
+                                                product.salesCount > 0
+                                                    ? '${product.salesCount} sold'
+                                                    : '${product.availableStock} in stock',
+                                                style: const TextStyle(fontSize: 10, color: AppTheme.muted),
+                                              ),
+                                            ],
+                                          ),
+                                        ],
+                                      ),
+                                    ],
+                                  ),
                                 ),
                               ),
                             ],

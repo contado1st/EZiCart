@@ -6,7 +6,9 @@ use App\Enums\OrderStatus;
 use App\Http\Controllers\Controller;
 use App\Models\Dispute;
 use App\Models\Order;
+use App\Services\BuyerOrderGroupingService;
 use App\Services\DeliveryCodeService;
+use App\Services\OrderProgressService;
 use App\Services\OrderTransitionService;
 use App\Services\QrCodeService;
 use App\Services\ReviewService;
@@ -21,40 +23,31 @@ class OrderApiController extends Controller
     /**
      * Get paginated orders list for authenticated buyer
      */
-    public function index(Request $request): JsonResponse
+    public function index(Request $request, BuyerOrderGroupingService $grouping): JsonResponse
     {
         $buyer = $request->user();
-        $tab = $request->input('tab', 'all');
+        $tab = $request->input('tab', 'all') ?: 'all';
         $status = $request->input('status');
 
-        $query = $buyer->buyerOrders()
-            ->with(['seller:id,business_name', 'items.product:id,name,image_path'])
+        $base = Order::query()->where('buyer_id', $buyer->id)
+            ->when($status, fn ($q) => $q->where('status', $status));
+
+        $counts = $grouping->counts($base);
+        $expression = $grouping->expression();
+
+        $query = (clone $base)->when($tab !== 'all', fn ($q) => $q->whereRaw($expression.' = ?', [$tab]))
+            ->with([
+                'seller:id,business_name',
+                'items.product:id,name,image_path,price',
+                'dispute.sellerResponse',
+                'pendingCancellation',
+                'activeIncident',
+                'returnPickupAssignment.rider:id,first_name,last_name',
+            ])
+            ->latest('created_at')
             ->latest('id');
 
-        if ($status) {
-            $query->where('status', $status);
-        } elseif ($tab === 'to_ship') {
-            $query->whereIn('status', ['PLACED', 'CONFIRMED', 'PREPARING'])->whereNot(fn ($q) => $q->awaitingWalletPayment());
-        } elseif ($tab === 'to_pay') {
-            $query->awaitingWalletPayment();
-        } elseif ($tab === 'to_receive') {
-            $query->whereIn('status', ['READY_FOR_PICKUP', 'PICKED_UP', 'AT_SORTING_CENTER', 'SORTED', 'ASSIGNED_TO_RIDER', 'OUT_FOR_DELIVERY', 'DELIVERED', 'DELIVERY_FAILED', 'RETURN_IN_TRANSIT']);
-        } elseif ($tab === 'completed') {
-            $query->where('status', 'COMPLETED');
-        } elseif ($tab === 'cancelled') {
-            $query->whereIn('status', ['CANCELLED', 'RETURNED', 'RETURNED_TO_SELLER']);
-        }
-
         $orders = $query->paginate(15);
-
-        $counts = [
-            'all' => $buyer->buyerOrders()->count(),
-            'to_ship' => $buyer->buyerOrders()->whereIn('status', ['PLACED', 'CONFIRMED', 'PREPARING'])->whereNot(fn ($q) => $q->awaitingWalletPayment())->count(),
-            'to_pay' => $buyer->buyerOrders()->awaitingWalletPayment()->count(),
-            'to_receive' => $buyer->buyerOrders()->whereIn('status', ['READY_FOR_PICKUP', 'PICKED_UP', 'AT_SORTING_CENTER', 'SORTED', 'ASSIGNED_TO_RIDER', 'OUT_FOR_DELIVERY', 'DELIVERED', 'DELIVERY_FAILED', 'RETURN_IN_TRANSIT'])->count(),
-            'completed' => $buyer->buyerOrders()->where('status', 'COMPLETED')->count(),
-            'cancelled' => $buyer->buyerOrders()->whereIn('status', ['CANCELLED', 'RETURNED', 'RETURNED_TO_SELLER'])->count(),
-        ];
 
         return response()->json([
             'success' => true,
@@ -69,15 +62,17 @@ class OrderApiController extends Controller
     /**
      * Get detailed order tracking view
      */
-    public function show(int $id, Request $request, DeliveryCodeService $deliveryCodes, QrCodeService $qrCodes): JsonResponse
+    public function show(int $id, Request $request, DeliveryCodeService $deliveryCodes, QrCodeService $qrCodes, OrderProgressService $orderProgressService): JsonResponse
     {
         $buyer = $request->user();
         $order = Order::with([
             'seller:id,business_name,contact_no',
             'deliveryCourier:id,first_name,last_name,contact_no,plate_number',
             'pickupCourier:id,first_name,last_name,contact_no,plate_number',
-            'items.product:id,name,image_path',
+            'items.product:id,name,image_path,price',
             'dispute',
+            'activeIncident',
+            'returnPickupAssignment.rider:id,first_name,last_name,contact_no',
             'trackingEvents' => fn ($q) => $q->latest('id'),
             'deliveryAttempts',
         ])->find($id);
@@ -100,6 +95,7 @@ class OrderApiController extends Controller
         }
 
         $courier = $order->deliveryCourier ?? $order->pickupCourier;
+        $progress = $orderProgressService->forViewer($order, $buyer);
 
         $totalAmount = (float) $order->total_amount;
         $subtotal = (float) $order->subtotal;
@@ -120,6 +116,10 @@ class OrderApiController extends Controller
                 'shipping_fee' => $shippingFee,
                 'discount' => $discount,
                 'payment_method' => $order->payment_method ?? 'COD',
+                'is_awaiting_wallet_payment' => $order->isAwaitingWalletPayment(),
+                'wallet_payment_due_at' => $order->wallet_payment_due_at?->toIso8601String(),
+                'wallet_paid_cents' => (int) $order->wallet_paid_cents,
+                'wallet_transaction_id' => $order->wallet_transaction_id,
                 'delivery_code' => $deliveryCode,
                 'delivery_qr_payload' => $deliveryQrString,
                 'recipient_name' => $order->recipient_name,
@@ -158,6 +158,21 @@ class OrderApiController extends Controller
                     'status' => $order->dispute->status,
                     'resolution' => $order->dispute->resolution,
                     'created_at' => $order->dispute->created_at->toIso8601String(),
+                ] : null,
+                'order_progress' => $progress,
+                'active_incident' => $order->activeIncident ? [
+                    'id' => $order->activeIncident->id,
+                    'kind' => $order->activeIncident->kind,
+                    'status' => $order->activeIncident->status,
+                    'claim_status' => $order->activeIncident->claim_status,
+                ] : null,
+                'return_pickup' => $order->returnPickupAssignment ? [
+                    'id' => $order->returnPickupAssignment->id,
+                    'is_accepted' => $order->returnPickupAssignment->accepted_at !== null,
+                    'rider' => $order->returnPickupAssignment->rider ? [
+                        'name' => trim("{$order->returnPickupAssignment->rider->first_name} {$order->returnPickupAssignment->rider->last_name}"),
+                        'contact' => $order->returnPickupAssignment->rider->contact_no,
+                    ] : null,
                 ] : null,
             ],
         ]);

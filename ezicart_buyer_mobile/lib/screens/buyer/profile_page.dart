@@ -8,7 +8,13 @@ import '../../models/user_model.dart';
 import '../../providers/auth_provider.dart';
 import '../../services/api_service.dart';
 import 'addresses_page.dart';
+import 'parcel_evidence_page.dart';
+import 'parcel_incidents_page.dart';
+import 'return_pickups_page.dart';
 import 'shop_page.dart';
+import 'vouchers_page.dart';
+import 'wallet_page.dart';
+import 'wishlist_page.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -1144,8 +1150,331 @@ class _ProfilePageState extends State<ProfilePage> {
             ),
             const SizedBox(height: 16),
 
-            // ─────────────────────────────────────────────────────────
-            // SECTION 3: PROFILE DETAILS ("buyer-profile")
+            // Finance & Wallet Navigation Card
+            InkWell(
+              onTap: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const WalletPage()),
+                );
+              },
+              borderRadius: BorderRadius.circular(16),
+              child: Container(
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: const Color(0xFFEAECEF)),
+                ),
+                padding: const EdgeInsets.all(16),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: Colors.green.shade50,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Icon(
+                        Icons.account_balance_wallet,
+                        color: Colors.green.shade700,
+                        size: 24,
+                      ),
+                    ),
+                    const SizedBox(width: 14),
+                    const Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Finance & Wallet',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 14.5,
+                              color: AppTheme.ink,
+                            ),
+                          ),
+                          SizedBox(height: 2),
+                          Text(
+                            'Manage demo balance, view transactions, funding and records.',
+                            style: TextStyle(
+                              fontSize: 11.5,
+                              color: AppTheme.muted,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const Icon(
+                      Icons.chevron_right,
+                      color: AppTheme.muted,
+                      size: 20,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            // Parcel Records Navigation Card (Synchronized with Web)
+            InkWell(
+              onTap: () {
+                showModalBottomSheet(
+                  context: context,
+                  shape: const RoundedRectangleBorder(
+                    borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+                  ),
+                  builder: (ctx) => SafeArea(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Padding(
+                            padding: EdgeInsets.symmetric(horizontal: 8),
+                            child: Text(
+                              'Parcel Records',
+                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: AppTheme.ink),
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          ListTile(
+                            leading: Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: AppTheme.primarySoft,
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: const Icon(Icons.timeline, color: AppTheme.primary),
+                            ),
+                            title: const Text('Journey & Evidence', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                            subtitle: const Text('Unified parcel tracking timeline and private event photos.', style: TextStyle(fontSize: 12)),
+                            onTap: () {
+                              Navigator.pop(ctx);
+                              Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ParcelEvidencePage()));
+                            },
+                          ),
+                          ListTile(
+                            leading: Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFFEF2F2),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: const Icon(Icons.shield_outlined, color: Color(0xFFDC2626)),
+                            ),
+                            title: const Text('Parcel Incidents & Claims', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                            subtitle: const Text('Transport loss, damaged parcels, and claim assessment.', style: TextStyle(fontSize: 12)),
+                            onTap: () {
+                              Navigator.pop(ctx);
+                              Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ParcelIncidentsPage()));
+                            },
+                          ),
+                          ListTile(
+                            leading: Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFF0FDF4),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: const Icon(Icons.assignment_return_outlined, color: Color(0xFF16A34A)),
+                            ),
+                            title: const Text('Approved Return Pickups', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                            subtitle: const Text('Assigned rider collection and physical handover confirmation.', style: TextStyle(fontSize: 12)),
+                            onTap: () {
+                              Navigator.pop(ctx);
+                              Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ReturnPickupsPage()));
+                            },
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                );
+              },
+              borderRadius: BorderRadius.circular(16),
+              child: Container(
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: const Color(0xFFEAECEF)),
+                ),
+                padding: const EdgeInsets.all(16),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFEFF6FF),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Icon(
+                        Icons.inventory_2_outlined,
+                        color: Color(0xFF2563EB),
+                        size: 24,
+                      ),
+                    ),
+                    const SizedBox(width: 14),
+                    const Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Parcel Records',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 14.5,
+                              color: AppTheme.ink,
+                            ),
+                          ),
+                          SizedBox(height: 2),
+                          Text(
+                            'Journey & evidence, incidents & claims, approved return pickups.',
+                            style: TextStyle(
+                              fontSize: 11.5,
+                              color: AppTheme.muted,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const Icon(
+                      Icons.chevron_right,
+                      color: AppTheme.muted,
+                      size: 20,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            // My Wishlist Quick Navigation Card
+            InkWell(
+              onTap: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const WishlistPage()),
+                );
+              },
+              borderRadius: BorderRadius.circular(16),
+              child: Container(
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: const Color(0xFFEAECEF)),
+                ),
+                padding: const EdgeInsets.all(16),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: AppTheme.primarySoft,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Icon(
+                        Icons.favorite,
+                        color: AppTheme.primary,
+                        size: 24,
+                      ),
+                    ),
+                    const SizedBox(width: 14),
+                    const Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'My Wishlist',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 14.5,
+                              color: AppTheme.ink,
+                            ),
+                          ),
+                          SizedBox(height: 2),
+                          Text(
+                            'View saved products, monitor stock and price updates.',
+                            style: TextStyle(
+                              fontSize: 11.5,
+                              color: AppTheme.muted,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const Icon(
+                      Icons.chevron_right,
+                      color: AppTheme.muted,
+                      size: 20,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            // Voucher Center Quick Navigation Card
+            InkWell(
+              onTap: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const VouchersPage()),
+                );
+              },
+              borderRadius: BorderRadius.circular(16),
+              child: Container(
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: const Color(0xFFEAECEF)),
+                ),
+                padding: const EdgeInsets.all(16),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: Colors.amber.shade50,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Icon(
+                        Icons.confirmation_number_outlined,
+                        color: Colors.amber.shade800,
+                        size: 24,
+                      ),
+                    ),
+                    const SizedBox(width: 14),
+                    const Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Voucher Center',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 14.5,
+                              color: AppTheme.ink,
+                            ),
+                          ),
+                          SizedBox(height: 2),
+                          Text(
+                            'Browse platform discounts, seller vouchers, and claim offers.',
+                            style: TextStyle(
+                              fontSize: 11.5,
+                              color: AppTheme.muted,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const Icon(
+                      Icons.chevron_right,
+                      color: AppTheme.muted,
+                      size: 20,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
             // ─────────────────────────────────────────────────────────
             Container(
               decoration: BoxDecoration(

@@ -141,9 +141,17 @@ class ProductApiController extends Controller
             ->orderBy('province')
             ->pluck('province');
 
+        $buyer = $this->resolveBuyer($request);
+        $wishlistedIds = $buyer ? $buyer->wishlistedProducts()->whereIn('products.id', $products->pluck('id'))->pluck('products.id')->flip()->all() : [];
+        $items = collect($products->items())->map(function ($item) use ($wishlistedIds) {
+            $item->setAttribute('is_wishlisted', isset($wishlistedIds[$item->id]));
+
+            return $item;
+        });
+
         return response()->json([
             'success' => true,
-            'data' => $products->items(),
+            'data' => $items,
             'related_shops' => $relatedShops,
             'provinces' => $provinces,
             'current_page' => $products->currentPage(),
@@ -222,19 +230,44 @@ class ProductApiController extends Controller
             ], 404);
         }
 
-        // Track recommendation view if buyer is authenticated
-        if ($request->user() && $request->user()->role === 'buyer') {
+        $buyer = $this->resolveBuyer($request);
+        if ($buyer) {
+            $product->setAttribute('is_wishlisted', $buyer->wishlistedProducts()->where('products.id', $product->id)->exists());
+            $isWatched = DB::table('stock_subscriptions')
+                ->where('user_id', $buyer->id)
+                ->where('product_id', $product->id)
+                ->exists();
+            $product->setAttribute('is_watched', $isWatched);
             try {
-                $recommendations->recordView($request->user(), $product);
+                $recommendations->recordView($buyer, $product);
             } catch (\Throwable $e) {
                 report($e);
             }
+        } else {
+            $product->setAttribute('is_wishlisted', false);
+            $product->setAttribute('is_watched', false);
         }
 
         return response()->json([
             'success' => true,
             'data' => $product,
         ]);
+    }
+
+    private function resolveBuyer(Request $request): ?User
+    {
+        $user = $request->user();
+        if (! $user) {
+            $token = $request->bearerToken() ?: $request->query('token') ?: $request->query('api_token');
+            if ($token) {
+                $apiToken = \App\Models\ApiToken::findByPlainTextToken($token);
+                if ($apiToken && $apiToken->isValid() && $apiToken->user?->role === 'buyer') {
+                    $user = $apiToken->user;
+                }
+            }
+        }
+
+        return ($user && $user->role === 'buyer') ? $user : null;
     }
 
     /**

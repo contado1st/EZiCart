@@ -102,8 +102,14 @@ class ApiConfig {
   static String get cartEndpoint => '$baseUrl/cart';
   static String get cartItemsEndpoint => '$baseUrl/cart/items';
   static String cartItemEndpoint(String key) => '$baseUrl/cart/items/$key';
+  static String cartItemVariationEndpoint(String key) => '$baseUrl/cart/items/$key/variation';
   static String get cartSyncEndpoint => '$baseUrl/cart/sync';
   static String get cartQuoteEndpoint => '$baseUrl/cart/quote';
+
+  // Wishlist endpoints
+  static String get wishlistEndpoint => '$baseUrl/wishlist';
+  static String get wishlistToggleEndpoint => '$baseUrl/wishlist/toggle';
+  static String wishlistProductEndpoint(int id) => '$baseUrl/wishlist/$id';
 
   // Checkout & Orders endpoints
   static String get checkoutEndpoint => '$baseUrl/checkout';
@@ -146,6 +152,8 @@ class ApiConfig {
   static String get chatThreadsEndpoint => '$baseUrl/chat/threads';
   static String chatConversationEndpoint(int id) => '$baseUrl/chat/$id';
   static String chatSendMessageEndpoint(int id) => '$baseUrl/chat/$id/messages';
+  static String chatUnsendMessageEndpoint(int conversationId, int messageId) => '$baseUrl/chat/$conversationId/messages/$messageId';
+  static String chatUnsendAttachmentEndpoint(int conversationId, int attachmentId) => '$baseUrl/chat/$conversationId/attachments/$attachmentId';
   static String chatStartEndpoint(int sellerId) => '$baseUrl/chat/start/$sellerId';
   static String chatAttachmentEndpoint(int id) => '$baseUrl/chat/attachments/$id';
 
@@ -153,4 +161,23 @@ class ApiConfig {
   static String get updateProfileEndpoint => '$baseUrl/account/profile';
   static String get updatePasswordEndpoint => '$baseUrl/account/password';
   static String get updateAppearanceEndpoint => '$baseUrl/account/appearance';
+
+  // Wallet & Finance endpoints
+  static String get walletEndpoint => '$baseUrl/wallet';
+  static String get walletDemoFundingEndpoint => '$baseUrl/wallet/demo-funding';
+  static String walletEvidenceEndpoint(int id) => '$baseUrl/wallet/demo-funding/$id/evidence';
+  static String get walletWithdrawEndpoint => '$baseUrl/wallet/withdraw';
+  static String get financeRecordsEndpoint => '$baseUrl/finance/records';
+  static String orderWalletPayEndpoint(int id) => '$baseUrl/orders/$id/wallet-pay';
+  static String orderWalletCancelEndpoint(int id) => '$baseUrl/orders/$id/wallet-cancel';
+
+  // Parcel Records endpoints (Journey & Evidence, Incidents & Claims, Approved Return Pickups)
+  static String get parcelEvidenceEndpoint => '$baseUrl/parcel-evidence';
+  static String orderEvidenceEndpoint(int id) => '$baseUrl/orders/$id/evidence';
+  static String parcelEvidencePhotoEndpoint(int id) => '$baseUrl/parcel-evidence/$id/photo';
+  static String get parcelIncidentsEndpoint => '$baseUrl/parcel-incidents';
+  static String parcelIncidentDetailEndpoint(int id) => '$baseUrl/parcel-incidents/$id';
+  static String parcelIncidentEvidenceEndpoint(int id, String which) => '$baseUrl/parcel-incidents/$id/evidence/$which';
+  static String get returnPickupsEndpoint => '$baseUrl/return-pickups';
+  static String returnPickupHandoverEndpoint(int id) => '$baseUrl/return-pickups/$id/handover';
 }

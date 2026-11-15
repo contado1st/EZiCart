@@ -80,6 +80,11 @@ class CartProvider extends ChangeNotifier {
 
   bool get hasMultipleShopsSelected => selectedShopIds.length > 1;
 
+  List<CartItemModel> get itemsRequiringVariation =>
+      checkoutItems.where((i) => i.needsVariation).toList();
+
+  bool get hasUnselectedVariations => itemsRequiringVariation.isNotEmpty;
+
   void removePurchasedItems() {
     for (final item in selectedItems) {
       _items.remove(item.cartKey);
@@ -152,7 +157,7 @@ class CartProvider extends ChangeNotifier {
 
   /// Add item to cart, optimistically updating local UI and syncing with web database
   Future<void> addItem(ProductModel product, {ProductVariation? variation, int quantity = 1}) async {
-    final maxStock = variation != null ? variation.stock : product.stock;
+    final maxStock = variation != null ? variation.stock : product.availableStock;
     final limit = maxStock > 0 ? (maxStock < 20 ? maxStock : 20) : 1;
     final key = '${product.id}${variation != null ? "_${variation.id}" : ""}';
 
@@ -254,14 +259,21 @@ class CartProvider extends ChangeNotifier {
     final token = await ApiService.getToken();
     if (token != null && token.isNotEmpty) {
       try {
-        await ApiService.delete(ApiConfig.cartItemEndpoint(oldCartKey));
-        await ApiService.post(ApiConfig.cartItemsEndpoint, {
-          'product_id': oldItem.product.id,
-          'variation_id': newVariation.id,
-          'quantity': newQuantity,
-        });
+        final res = await ApiService.patch(
+          ApiConfig.cartItemVariationEndpoint(oldCartKey),
+          {'variation_id': newVariation.id},
+        );
+        if (res.statusCode == 200) {
+          final body = jsonDecode(res.body);
+          if (body['success'] == true && body['data'] != null && body['data']['items'] is List) {
+            _updateItemsFromApi(body['data']['items'] as List);
+            return;
+          }
+        }
         await fetchCart();
-      } catch (_) {}
+      } catch (_) {
+        await fetchCart();
+      }
     }
   }
 
