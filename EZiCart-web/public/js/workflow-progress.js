@@ -13,6 +13,34 @@
     let pending = false;
     let previousCount = null;
     let previousItems = '';
+    const trigger = root?.querySelector('[data-workflow-open]');
+    const dialog = root?.querySelector('[data-workflow-dialog]');
+    if (trigger && dialog) {
+        trigger.addEventListener('click', () => {
+            if (dialog.open) return;
+            dialog.showModal();
+            trigger.setAttribute('aria-expanded', 'true');
+            document.body.classList.add('workflow-attention-open');
+            update();
+        });
+        root.querySelector('[data-workflow-close]').addEventListener('click', () => dialog.close());
+        dialog.addEventListener('close', () => {
+            trigger.setAttribute('aria-expanded', 'false');
+            document.body.classList.remove('workflow-attention-open');
+            trigger.focus({preventScroll: true});
+        });
+        const outside = event => {
+            if (event.target !== dialog) return false;
+            const rect = dialog.getBoundingClientRect();
+            return event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom;
+        };
+        let backdropPress = false;
+        dialog.addEventListener('pointerdown', event => { backdropPress = outside(event); });
+        dialog.addEventListener('click', event => {
+            if (backdropPress && outside(event)) dialog.close();
+            backdropPress = false;
+        });
+    }
     const badge = (element, count) => {
         let mark = element.querySelector('[data-workflow-generated-badge]');
         if (!count) { mark?.remove(); return; }
@@ -23,6 +51,8 @@
     const update = async () => {
         if (pending || document.hidden) return;
         pending = true;
+        const refresh = root?.querySelector('[data-workflow-refresh]');
+        if (refresh) { refresh.disabled = true; refresh.textContent = 'Refreshing actions...'; }
         const controller = new AbortController();
         const timeout = setTimeout(() => controller.abort(), 12000);
         try {
@@ -88,8 +118,11 @@
             }
             previousCount = data.count;
         } catch {
-            if (root) root.querySelector('[data-workflow-updated]').textContent = 'Could not refresh. Any displayed counts are from the last successful check. Try Refresh next steps.';
-        } finally { clearTimeout(timeout); pending = false; }
+            if (root) root.querySelector('[data-workflow-updated]').textContent = 'Could not refresh. Any displayed counts are from the last successful check. Try Refresh actions.';
+        } finally {
+            clearTimeout(timeout); pending = false;
+            if (refresh) { refresh.disabled = false; refresh.textContent = 'Refresh actions'; }
+        }
     };
     root?.querySelector('[data-workflow-refresh]').addEventListener('click', update);
     window.addEventListener('focus', update);
