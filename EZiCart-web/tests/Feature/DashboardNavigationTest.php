@@ -184,10 +184,11 @@ class DashboardNavigationTest extends TestCase
             $response = $this->signIn($this->buyer)->withSession([$key => $message])->get(route('buyer.dashboard'));
             $response->assertOk();
             $html = $response->getContent();
-            $this->assertSame(1, substr_count($html, $message), 'Feedback must not be duplicated.');
             $document = new \DOMDocument;
             $document->loadHTML($html, LIBXML_NOERROR | LIBXML_NOWARNING);
             $xpath = new \DOMXPath($document);
+            // JSON notification bootstrap data is not a second visible announcement.
+            $this->assertSame(1, $xpath->query('//text()[contains(., "'.$message.'")][not(ancestor::script)]')->length, 'Visible feedback must not be duplicated.');
             $this->assertSame(1, $xpath->query('//*[@role="'.$role.'"][contains(., "'.$message.'")]')->length);
         }
     }

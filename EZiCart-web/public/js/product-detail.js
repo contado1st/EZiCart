@@ -30,8 +30,10 @@
         try {
             await navigator.clipboard.writeText(url.href);
             status.textContent = 'Product link copied';
+            if (typeof CustomEvent === 'function') document.dispatchEvent?.(new CustomEvent('ezicart:feedback', {detail: {message: status.textContent, tone: 'success'}}));
         } catch {
             status.textContent = 'Copy the product address from your browser to share it.';
+            if (typeof CustomEvent === 'function') document.dispatchEvent?.(new CustomEvent('ezicart:feedback', {detail: {message: status.textContent, tone: 'warning'}}));
         }
     });
 })();

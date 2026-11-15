@@ -16,6 +16,7 @@
 </head>
 <body @class(['communications-embedded', 'communications-embedded--logistics' => in_array(auth()->user()?->role, ['courier', 'sorting_center', 'logistics_admin'], true)])>
     <div data-page-content>@yield('content')</div>
+    <x-action-feedback />
     <x-page-loading />
 </body>
 </html>

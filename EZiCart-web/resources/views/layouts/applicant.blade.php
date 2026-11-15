@@ -11,4 +11,5 @@
     <form method="POST" action="{{ route('logout') }}" data-decision="logout" data-decision-title="Sign out?" data-decision-message="Save your private draft before signing out. Unsaved changes will be lost." onsubmit="return window.eziDecisionReady ? true : window.confirm(this.dataset.decisionMessage)">@csrf<button class="dash-btn-outline" type="submit">Sign out</button></form>
 </header>
 @yield('content')
+<x-action-feedback />
 </body></html>

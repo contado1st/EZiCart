@@ -1,6 +1,7 @@
 <?php
 
 return [
+    'qr-code' => 'qrcode',
     // Keep existing view names stable while rendering Tabler outline artwork.
     'account' => 'user',
     'arrowback' => 'chevron-left',

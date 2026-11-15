@@ -1,7 +1,11 @@
 @extends('layouts.app')
+@push('styles')
+<link rel="stylesheet" href="{{ asset('css/staff-id.css') }}?v={{ filemtime(public_path('css/staff-id.css')) }}">
+@endpush
 @section('content')
-<main class="web-operations"><header><h1>{{ $staff->first_name }} {{ $staff->last_name }}</h1><p>{{ str_replace('_', ' ', $staff->role) }} · {{ ucfirst($staff->status) }}</p></header>
+<main class="web-operations"><header><h1>Staff profile</h1></header>
 @include('components.feature-feedback')
+<x-staff-id-card :staff="$staff" :qr-svg="$qrSvg" />
 <section class="dash-panel"><h2>Verified profile information</h2>
 @if($staff->role === 'courier')
     <x-vehicle-capacity :rider="$staff" />
@@ -13,9 +17,8 @@
         </form>
     @endif
 @endif
-@if($staff->profile_avatar_path)<img class="web-staff-photo" src="{{ route('staff.avatar', $staff) }}" alt="{{ $staff->first_name }} profile photo">@endif
 <x-user-activity :user="$staff" />
-<dl class="web-form"><div><dt>Contact</dt><dd>{{ $staff->contact_no }}</dd></div><div><dt>Operating location</dt><dd>{{ $staff->municipality }}, {{ $staff->province }}</dd></div><div><dt>Service areas</dt><dd>{{ $staff->serviceAreas->pluck('name')->join(', ') ?: 'Not assigned' }}</dd></div>
-@if($staff->role === 'courier')<div><dt>Vehicle and plate</dt><dd>{{ $staff->vehicle_type }} · {{ $staff->vehicle_description }} · {{ $staff->plate_number }}</dd></div>@if($canViewHistory)<div><dt>License expiry</dt><dd>{{ $staff->license_expires_at?->format('d M Y') ?: 'Not recorded' }}</dd></div>@endif @endif</dl><p>{{ $staff->profile_bio }}</p></section>
+<dl class="web-form"><div><dt>Service areas</dt><dd>{{ $staff->serviceAreas->pluck('name')->join(', ') ?: 'Not assigned' }}</dd></div>
+@if($staff->role === 'courier')<div><dt>Vehicle description</dt><dd>{{ $staff->vehicle_description ?: 'Not recorded' }}</dd></div>@endif</dl><p>{{ $staff->profile_bio }}</p></section>
 @if($canViewHistory)<section class="dash-panel"><h2>Update history</h2>@forelse($revisions as $revision)<article class="web-section"><strong>{{ ucfirst($revision->status) }}</strong> · {{ $revision->created_at->format('d M Y H:i') }}<p>{{ $revision->reason }}</p><p class="web-muted">Reviewer: {{ $revision->reviewer?->first_name ?: 'Awaiting review' }} @if($revision->reviewed_at) · {{ $revision->reviewed_at->format('d M Y H:i') }}@endif</p><dl>@foreach($revision->proposed_values as $field => $value)@if($field !== 'profile_avatar_path')<div><dt>{{ \Illuminate\Support\Str::headline($field) }}</dt><dd>{{ $revision->previous_values[$field] ?? 'Not recorded' }} → {{ $value ?: 'Not specified' }}</dd></div>@else<div>Profile photo change</div>@endif @endforeach</dl></article>@empty<p>No profile updates submitted.</p>@endforelse{{ $revisions->links() }}</section>@endif
 </main>@endsection

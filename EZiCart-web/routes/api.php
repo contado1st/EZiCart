@@ -55,6 +55,13 @@ $defineApiRoutes = function () {
 
     // Authenticated Buyer Only Routes
     Route::middleware('auth.api:buyer')->group(function () {
+        // Additive demo-wallet API. Existing mobile requests and response contracts are unchanged.
+        Route::get('/wallet', [\App\Http\Controllers\WalletActionsController::class, 'summary']);
+        Route::post('/wallet/send/review', [\App\Http\Controllers\WalletActionsController::class, 'preview'])->middleware('throttle:operational-action');
+        Route::post('/wallet/send', [\App\Http\Controllers\WalletActionsController::class, 'send'])->middleware('throttle:10,1');
+        Route::post('/wallet/codes/redeem', [\App\Http\Controllers\WalletActionsController::class, 'redeem'])->middleware('throttle:10,1');
+        Route::get('/wallet/codes/{reference}', [\App\Http\Controllers\WalletActionsController::class, 'codeReceipt'])->whereUuid('reference');
+        Route::get('/wallet/transfers/{reference}', [\App\Http\Controllers\WalletActionsController::class, 'receipt'])->whereUuid('reference');
         // Current User Profile & Logout
         Route::get('/me', [AuthApiController::class, 'me']);
         Route::get('/auth/me', [AuthApiController::class, 'me']);

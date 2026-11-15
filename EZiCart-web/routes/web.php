@@ -267,6 +267,13 @@ Route::middleware(['auth', 'account.active', 'auth.session'])->group(function ()
     Route::post('/seller/disputes/{dispute}/replacement', [FinancialController::class, 'replacement'])->middleware(['role:seller', 'throttle:operational-action'])->name('seller.replacements.store');
 
     Route::get('/wallet', [FinancialOperationsController::class, 'wallet'])->name('finance.wallet');
+    Route::post('/wallet/send/review', [\App\Http\Controllers\WalletActionsController::class, 'preview'])->middleware('throttle:operational-action')->name('wallet.transfer.preview');
+    Route::post('/wallet/send', [\App\Http\Controllers\WalletActionsController::class, 'send'])->middleware('throttle:10,1')->name('wallet.transfer.send');
+    Route::get('/wallet/transfers/{reference}', [\App\Http\Controllers\WalletActionsController::class, 'receipt'])->whereUuid('reference')->name('wallet.transfer.receipt');
+    Route::post('/wallet/codes/issue', [\App\Http\Controllers\WalletActionsController::class, 'issue'])->middleware(['role:admin,ecommerce_admin,logistics_admin', 'throttle:operational-action'])->name('wallet.codes.issue');
+    Route::post('/wallet/codes/redeem', [\App\Http\Controllers\WalletActionsController::class, 'redeem'])->middleware('throttle:10,1')->name('wallet.codes.redeem');
+    Route::get('/wallet/codes/{reference}', [\App\Http\Controllers\WalletActionsController::class, 'codeReceipt'])->whereUuid('reference')->name('wallet.codes.receipt');
+    Route::post('/wallet/codes/{reference}/revoke', [\App\Http\Controllers\WalletActionsController::class, 'revoke'])->whereUuid('reference')->middleware(['role:admin,ecommerce_admin,logistics_admin', 'throttle:operational-action'])->name('wallet.codes.revoke');
     Route::post('/wallet/demo-funding', [DemoWalletFundingController::class, 'store'])->middleware('throttle:operational-action')->name('wallet.demo-funding.store');
     Route::post('/wallet/demo-funding/{intent}/review', [DemoWalletFundingController::class, 'review'])->middleware(['role:admin,ecommerce_admin,logistics_admin', 'throttle:operational-action'])->name('wallet.demo-funding.review');
     Route::get('/wallet/demo-funding/{intent}/evidence', [DemoWalletFundingController::class, 'evidence'])->name('wallet.demo-funding.evidence');
@@ -426,12 +433,12 @@ Route::middleware(['auth', 'account.active', 'auth.session'])->group(function ()
         Route::post('/orders/{order}/assign-pickup', [LogisticsController::class, 'assignPickup'])->middleware('throttle:operational-action')->name('orders.assignPickup');
         Route::post('/scan', [LogisticsController::class, 'scan'])->middleware('throttle:operational-action')->name('scan');
         Route::get('/sorting', [LogisticsController::class, 'sorting'])->name('sorting');
-        Route::get('/storage', [LogisticsController::class, 'storage'])->name('storage');
-        Route::get('/scan-history', [LogisticsController::class, 'scanHistory'])->name('scan-history');
-        Route::post('/storage/locations', [LogisticsController::class, 'createStorageLocation'])->middleware('throttle:operational-action')->name('storage.locations.create');
-        Route::post('/storage/putaway', [LogisticsController::class, 'putAwayParcel'])->middleware('throttle:operational-action')->name('storage.putaway');
-        Route::post('/storage/pick', [LogisticsController::class, 'pickStoredParcel'])->middleware('throttle:operational-action')->name('storage.pick');
-        Route::post('/storage/cycle-count', [LogisticsController::class, 'cycleCount'])->middleware('throttle:operational-action')->name('storage.cycle-count');
+        Route::get('/storage', [\App\Http\Controllers\Logistics\StorageController::class, 'storage'])->name('storage');
+        Route::get('/scan-history', [\App\Http\Controllers\Logistics\StorageController::class, 'scanHistory'])->name('scan-history');
+        Route::post('/storage/locations', [\App\Http\Controllers\Logistics\StorageController::class, 'createStorageLocation'])->middleware('throttle:operational-action')->name('storage.locations.create');
+        Route::post('/storage/putaway', [\App\Http\Controllers\Logistics\StorageController::class, 'putAwayParcel'])->middleware('throttle:operational-action')->name('storage.putaway');
+        Route::post('/storage/pick', [\App\Http\Controllers\Logistics\StorageController::class, 'pickStoredParcel'])->middleware('throttle:operational-action')->name('storage.pick');
+        Route::post('/storage/cycle-count', [\App\Http\Controllers\Logistics\StorageController::class, 'cycleCount'])->middleware('throttle:operational-action')->name('storage.cycle-count');
         Route::get('/dispatch', [LogisticsController::class, 'dispatch'])->name('dispatch');
         Route::get('/tracking', [LogisticsController::class, 'tracking'])->name('tracking');
         Route::get('/orders/{order}/messages', [OrderMessageController::class, 'show'])->name('orders.messages.show');

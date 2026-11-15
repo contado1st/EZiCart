@@ -10,7 +10,7 @@
     $workspaceLabel = auth()->user()?->role === 'courier' ? 'Courier workspace' : 'Logistics workspace';
     $isDashboardWorkspace = auth()->check() && request()->routeIs(
         'admin.*', 'seller.*', 'courier.*', 'logistics.*', 'logistics-admin.*',
-        'buyer.dashboard', 'buyer.orders.*', 'buyer.reviews.*', 'buyer.addresses.*', 'finance.*', 'parcel-transfers.*', 'return-pickups.*', 'returns.*', 'logistics-corrections.*', 'logistics-zone-readiness',
+        'buyer.dashboard', 'buyer.orders.*', 'buyer.reviews.*', 'buyer.addresses.*', 'finance.*', 'wallet.*', 'parcel-transfers.*', 'return-pickups.*', 'returns.*', 'logistics-corrections.*', 'logistics-zone-readiness',
         'account.profile.*', 'notifications.*', 'buyer.wishlist.*', 'buyer.stock.*', 'chat.*', 'sales-reports.*', 'activity-logs.*', 'coverage.*', 'analytics.*', 'staff.*', 'parcel-evidence.*', 'buyer.vouchers.*', 'load-planning.*', 'dispatch.*', 'parcel-incidents.*'
     );
 @endphp
@@ -223,6 +223,7 @@
         @include('components.message-drawer')
     @endif
 
+    <x-action-feedback />
     <x-page-loading />
 </body>
 
