@@ -102,8 +102,14 @@ class ApiConfig {
   static String get cartEndpoint => '$baseUrl/cart';
   static String get cartItemsEndpoint => '$baseUrl/cart/items';
   static String cartItemEndpoint(String key) => '$baseUrl/cart/items/$key';
+  static String cartItemVariationEndpoint(String key) => '$baseUrl/cart/items/$key/variation';
   static String get cartSyncEndpoint => '$baseUrl/cart/sync';
   static String get cartQuoteEndpoint => '$baseUrl/cart/quote';
+
+  // Wishlist endpoints
+  static String get wishlistEndpoint => '$baseUrl/wishlist';
+  static String get wishlistToggleEndpoint => '$baseUrl/wishlist/toggle';
+  static String wishlistProductEndpoint(int id) => '$baseUrl/wishlist/$id';
 
   // Checkout & Orders endpoints
   static String get checkoutEndpoint => '$baseUrl/checkout';

@@ -20,11 +20,7 @@ class SearchPage extends StatefulWidget {
   final String? initialQuery;
   final String? initialCategory;
 
-  const SearchPage({
-    super.key,
-    this.initialQuery,
-    this.initialCategory,
-  });
+  const SearchPage({super.key, this.initialQuery, this.initialCategory});
 
   @override
   State<SearchPage> createState() => _SearchPageState();
@@ -34,7 +30,10 @@ class _SearchPageState extends State<SearchPage> {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   final TextEditingController _searchCtrl = TextEditingController();
   final FocusNode _focusNode = FocusNode();
-  final NumberFormat _currencyFormat = NumberFormat.currency(locale: 'en_PH', symbol: '₱');
+  final NumberFormat _currencyFormat = NumberFormat.currency(
+    locale: 'en_PH',
+    symbol: '₱',
+  );
 
   SearchMode _mode = SearchMode.history;
   Timer? _debounceTimer;
@@ -81,7 +80,8 @@ class _SearchPageState extends State<SearchPage> {
   bool _isResultsLoading = false;
   List<ProductModel> _results = [];
   List<Map<String, dynamic>> _relatedShops = [];
-  String _selectedSort = 'relevance'; // relevance, latest, top_sales, price_asc, price_desc
+  String _selectedSort =
+      'relevance'; // relevance, latest, top_sales, price_asc, price_desc
   int _currentPage = 1;
   int _totalResults = 0;
 
@@ -104,10 +104,22 @@ class _SearchPageState extends State<SearchPage> {
 
   int get _activeFilterCount {
     int count = 0;
-    if (_selectedCategory != 'All') count++;
-    if (_minPriceCtrl.text.trim().isNotEmpty || _maxPriceCtrl.text.trim().isNotEmpty) count++;
-    if (_selectedRating != null && _selectedRating! > 0) count++;
-    if (_selectedProvince != null && _selectedProvince!.isNotEmpty && _selectedProvince != 'All' && _selectedProvince != 'All locations') count++;
+    if (_selectedCategory != 'All') {
+      count++;
+    }
+    if (_minPriceCtrl.text.trim().isNotEmpty ||
+        _maxPriceCtrl.text.trim().isNotEmpty) {
+      count++;
+    }
+    if (_selectedRating != null && _selectedRating! > 0) {
+      count++;
+    }
+    if (_selectedProvince != null &&
+        _selectedProvince!.isNotEmpty &&
+        _selectedProvince != 'All' &&
+        _selectedProvince != 'All locations') {
+      count++;
+    }
     return count;
   }
 
@@ -125,7 +137,8 @@ class _SearchPageState extends State<SearchPage> {
     if (widget.initialQuery != null && widget.initialQuery!.trim().isNotEmpty) {
       _searchCtrl.text = widget.initialQuery!.trim();
       _executeSearch(widget.initialQuery!.trim());
-    } else if (widget.initialCategory != null && widget.initialCategory != 'All') {
+    } else if (widget.initialCategory != null &&
+        widget.initialCategory != 'All') {
       _executeSearch('');
     } else {
       _mode = SearchMode.history;
@@ -224,7 +237,9 @@ class _SearchPageState extends State<SearchPage> {
     if (query.isEmpty) return;
 
     try {
-      final res = await ApiService.get(ApiConfig.searchSuggestionsEndpoint(query));
+      final res = await ApiService.get(
+        ApiConfig.searchSuggestionsEndpoint(query),
+      );
       if (res.statusCode == 200) {
         final body = jsonDecode(res.body);
         if (body['success'] == true && mounted) {
@@ -232,8 +247,12 @@ class _SearchPageState extends State<SearchPage> {
           final rawShops = body['shops'] as List<dynamic>? ?? [];
 
           setState(() {
-            _productSuggestions = rawProducts.map((p) => Map<String, dynamic>.from(p as Map)).toList();
-            _shopSuggestions = rawShops.map((s) => Map<String, dynamic>.from(s as Map)).toList();
+            _productSuggestions = rawProducts
+                .map((p) => Map<String, dynamic>.from(p as Map))
+                .toList();
+            _shopSuggestions = rawShops
+                .map((s) => Map<String, dynamic>.from(s as Map))
+                .toList();
             _isSuggestionsLoading = false;
           });
           return;
@@ -303,7 +322,9 @@ class _SearchPageState extends State<SearchPage> {
         queryParams['province'] = _selectedProvince!.trim();
       }
 
-      final uri = Uri.parse(ApiConfig.productsEndpoint).replace(queryParameters: queryParams);
+      final uri = Uri.parse(
+        ApiConfig.productsEndpoint,
+      ).replace(queryParameters: queryParams);
       final res = await ApiService.get(uri.toString());
 
       if (res.statusCode == 200) {
@@ -321,9 +342,12 @@ class _SearchPageState extends State<SearchPage> {
           }
 
           if (body['provinces'] is List) {
-            final fetched = (body['provinces'] as List).map((p) => p.toString()).toList();
+            final fetched = (body['provinces'] as List)
+                .map((p) => p.toString())
+                .toList();
             for (var prov in fetched) {
-              if (prov.trim().isNotEmpty && !_availableProvinces.contains(prov.trim())) {
+              if (prov.trim().isNotEmpty &&
+                  !_availableProvinces.contains(prov.trim())) {
                 _availableProvinces.add(prov.trim());
               }
             }
@@ -400,11 +424,22 @@ class _SearchPageState extends State<SearchPage> {
                 style: const TextStyle(fontSize: 14, color: AppTheme.ink),
                 decoration: InputDecoration(
                   hintText: 'Search products and stores',
-                  hintStyle: const TextStyle(color: AppTheme.muted, fontSize: 13),
-                  prefixIcon: const Icon(Icons.search, size: 20, color: AppTheme.muted),
+                  hintStyle: const TextStyle(
+                    color: AppTheme.muted,
+                    fontSize: 13,
+                  ),
+                  prefixIcon: const Icon(
+                    Icons.search,
+                    size: 20,
+                    color: AppTheme.muted,
+                  ),
                   suffixIcon: _searchCtrl.text.isNotEmpty
                       ? IconButton(
-                          icon: const Icon(Icons.clear, size: 18, color: AppTheme.muted),
+                          icon: const Icon(
+                            Icons.clear,
+                            size: 18,
+                            color: AppTheme.muted,
+                          ),
                           onPressed: () {
                             _searchCtrl.clear();
                             _onQueryChanged('');
@@ -425,12 +460,17 @@ class _SearchPageState extends State<SearchPage> {
               backgroundColor: AppTheme.primary,
               foregroundColor: Colors.white,
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
               minimumSize: Size.zero,
               tapTargetSize: MaterialTapTargetSize.shrinkWrap,
             ),
             onPressed: () => _executeSearch(_searchCtrl.text),
-            child: const Text('Search', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+            child: const Text(
+              'Search',
+              style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+            ),
           ),
         ],
       ),
@@ -447,7 +487,11 @@ class _SearchPageState extends State<SearchPage> {
             children: [
               const Text(
                 'Recent Searches',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.ink),
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14,
+                  color: AppTheme.ink,
+                ),
               ),
               InkWell(
                 onTap: _clearAllHistory,
@@ -456,9 +500,16 @@ class _SearchPageState extends State<SearchPage> {
                   padding: EdgeInsets.symmetric(horizontal: 6, vertical: 4),
                   child: Row(
                     children: [
-                      Icon(Icons.delete_outline, size: 16, color: AppTheme.muted),
+                      Icon(
+                        Icons.delete_outline,
+                        size: 16,
+                        color: AppTheme.muted,
+                      ),
                       SizedBox(width: 4),
-                      Text('Clear History', style: TextStyle(color: AppTheme.muted, fontSize: 12)),
+                      Text(
+                        'Clear History',
+                        style: TextStyle(color: AppTheme.muted, fontSize: 12),
+                      ),
                     ],
                   ),
                 ),
@@ -471,7 +522,10 @@ class _SearchPageState extends State<SearchPage> {
             runSpacing: 8,
             children: _recentSearches.map((term) {
               return InputChip(
-                label: Text(term, style: const TextStyle(fontSize: 12, color: AppTheme.ink)),
+                label: Text(
+                  term,
+                  style: const TextStyle(fontSize: 12, color: AppTheme.ink),
+                ),
                 backgroundColor: Colors.white,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(16),
@@ -493,11 +547,19 @@ class _SearchPageState extends State<SearchPage> {
         // Trending / Popular Searches
         Row(
           children: [
-            Icon(Icons.local_fire_department, size: 20, color: Colors.orange.shade700),
+            Icon(
+              Icons.local_fire_department,
+              size: 20,
+              color: Colors.orange.shade700,
+            ),
             const SizedBox(width: 6),
             const Text(
               'Popular Discoveries',
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.ink),
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 14,
+                color: AppTheme.ink,
+              ),
             ),
           ],
         ),
@@ -507,8 +569,15 @@ class _SearchPageState extends State<SearchPage> {
           runSpacing: 8,
           children: _trendingSearches.map((tag) {
             return ActionChip(
-              avatar: const Icon(Icons.trending_up, size: 14, color: AppTheme.primary),
-              label: Text(tag, style: const TextStyle(fontSize: 12, color: AppTheme.ink)),
+              avatar: const Icon(
+                Icons.trending_up,
+                size: 14,
+                color: AppTheme.primary,
+              ),
+              label: Text(
+                tag,
+                style: const TextStyle(fontSize: 12, color: AppTheme.ink),
+              ),
               backgroundColor: Colors.white,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(16),
@@ -555,7 +624,12 @@ class _SearchPageState extends State<SearchPage> {
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
             child: Text(
               'SHOPS',
-              style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.grey.shade600, letterSpacing: 0.5),
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.bold,
+                color: Colors.grey.shade600,
+                letterSpacing: 0.5,
+              ),
             ),
           ),
           ..._shopSuggestions.map((shop) {
@@ -567,23 +641,36 @@ class _SearchPageState extends State<SearchPage> {
                   color: AppTheme.primarySoft,
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: const Icon(Icons.storefront_outlined, color: AppTheme.primary),
+                child: const Icon(
+                  Icons.storefront_outlined,
+                  color: AppTheme.primary,
+                ),
               ),
               title: Text(
                 shop['name']?.toString() ?? 'Shop',
-                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14,
+                ),
               ),
               subtitle: Text(
                 '${shop['location'] ?? 'Laguna, Philippines'} • ${shop['product_count'] ?? 0} products',
                 style: const TextStyle(fontSize: 12, color: AppTheme.muted),
               ),
-              trailing: const Icon(Icons.arrow_forward_ios, size: 14, color: AppTheme.muted),
+              trailing: const Icon(
+                Icons.arrow_forward_ios,
+                size: 14,
+                color: AppTheme.muted,
+              ),
               onTap: () {
                 final sellerId = int.tryParse(shop['id'].toString());
                 if (sellerId != null) {
                   Navigator.of(context).push(
                     MaterialPageRoute(
-                      builder: (_) => ShopPage(sellerId: sellerId, initialShopName: shop['name']?.toString()),
+                      builder: (_) => ShopPage(
+                        sellerId: sellerId,
+                        initialShopName: shop['name']?.toString(),
+                      ),
                     ),
                   );
                 }
@@ -599,12 +686,20 @@ class _SearchPageState extends State<SearchPage> {
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
             child: Text(
               'PRODUCTS',
-              style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.grey.shade600, letterSpacing: 0.5),
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.bold,
+                color: Colors.grey.shade600,
+                letterSpacing: 0.5,
+              ),
             ),
           ),
           ..._productSuggestions.map((prod) {
-            final imgUrl = ApiConfig.resolveImageUrl(prod['image_path']?.toString());
-            final price = double.tryParse(prod['price']?.toString() ?? '0') ?? 0.0;
+            final imgUrl = ApiConfig.resolveImageUrl(
+              prod['image_path']?.toString(),
+            );
+            final price =
+                double.tryParse(prod['price']?.toString() ?? '0') ?? 0.0;
             final category = prod['category']?.toString() ?? '';
 
             return ListTile(
@@ -618,7 +713,10 @@ class _SearchPageState extends State<SearchPage> {
                       ? CachedNetworkImage(
                           imageUrl: imgUrl,
                           fit: BoxFit.cover,
-                          errorWidget: (_, __, ___) => const Icon(Icons.image_outlined, color: AppTheme.muted),
+                          errorWidget: (_, __, ___) => const Icon(
+                            Icons.image_outlined,
+                            color: AppTheme.muted,
+                          ),
                         )
                       : const Icon(Icons.image_outlined, color: AppTheme.muted),
                 ),
@@ -627,32 +725,49 @@ class _SearchPageState extends State<SearchPage> {
                 prod['name']?.toString() ?? '',
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                style: const TextStyle(
+                  fontWeight: FontWeight.w600,
+                  fontSize: 13,
+                ),
               ),
               subtitle: Row(
                 children: [
                   Text(
                     _currencyFormat.format(price),
-                    style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.primary, fontSize: 12),
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: AppTheme.primary,
+                      fontSize: 12,
+                    ),
                   ),
                   if (category.isNotEmpty) ...[
                     const SizedBox(width: 8),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 6,
+                        vertical: 2,
+                      ),
                       decoration: BoxDecoration(
                         color: Colors.grey.shade100,
                         borderRadius: BorderRadius.circular(4),
                       ),
                       child: Text(
                         category,
-                        style: const TextStyle(fontSize: 10, color: AppTheme.muted),
+                        style: const TextStyle(
+                          fontSize: 10,
+                          color: AppTheme.muted,
+                        ),
                       ),
                     ),
                   ],
                 ],
               ),
               trailing: IconButton(
-                icon: const Icon(Icons.north_west, size: 16, color: AppTheme.muted),
+                icon: const Icon(
+                  Icons.north_west,
+                  size: 16,
+                  color: AppTheme.muted,
+                ),
                 onPressed: () {
                   _searchCtrl.text = prod['name']?.toString() ?? '';
                   _executeSearch(_searchCtrl.text);
@@ -693,7 +808,8 @@ class _SearchPageState extends State<SearchPage> {
       {'key': 'top_sales', 'label': 'Top Sales'},
     ];
 
-    final isPriceActive = _selectedSort == 'price_asc' || _selectedSort == 'price_desc';
+    final isPriceActive =
+        _selectedSort == 'price_asc' || _selectedSort == 'price_desc';
 
     return Container(
       decoration: const BoxDecoration(
@@ -746,7 +862,9 @@ class _SearchPageState extends State<SearchPage> {
                 decoration: BoxDecoration(
                   border: Border(
                     bottom: BorderSide(
-                      color: isPriceActive ? AppTheme.primary : Colors.transparent,
+                      color: isPriceActive
+                          ? AppTheme.primary
+                          : Colors.transparent,
                       width: 2.5,
                     ),
                   ),
@@ -758,7 +876,9 @@ class _SearchPageState extends State<SearchPage> {
                       'Price',
                       style: TextStyle(
                         fontSize: 12,
-                        fontWeight: isPriceActive ? FontWeight.bold : FontWeight.w500,
+                        fontWeight: isPriceActive
+                            ? FontWeight.bold
+                            : FontWeight.w500,
                         color: isPriceActive ? AppTheme.primary : AppTheme.ink,
                       ),
                     ),
@@ -769,12 +889,16 @@ class _SearchPageState extends State<SearchPage> {
                         Icon(
                           Icons.arrow_drop_up,
                           size: 13,
-                          color: _selectedSort == 'price_asc' ? AppTheme.primary : Colors.grey.shade400,
+                          color: _selectedSort == 'price_asc'
+                              ? AppTheme.primary
+                              : Colors.grey.shade400,
                         ),
                         Icon(
                           Icons.arrow_drop_down,
                           size: 13,
-                          color: _selectedSort == 'price_desc' ? AppTheme.primary : Colors.grey.shade400,
+                          color: _selectedSort == 'price_desc'
+                              ? AppTheme.primary
+                              : Colors.grey.shade400,
                         ),
                       ],
                     ),
@@ -798,8 +922,12 @@ class _SearchPageState extends State<SearchPage> {
                     'Filter',
                     style: TextStyle(
                       fontSize: 12,
-                      fontWeight: _hasActiveFilters ? FontWeight.bold : FontWeight.w600,
-                      color: _hasActiveFilters ? AppTheme.primary : AppTheme.ink,
+                      fontWeight: _hasActiveFilters
+                          ? FontWeight.bold
+                          : FontWeight.w600,
+                      color: _hasActiveFilters
+                          ? AppTheme.primary
+                          : AppTheme.ink,
                     ),
                   ),
                   const SizedBox(width: 4),
@@ -811,14 +939,21 @@ class _SearchPageState extends State<SearchPage> {
                   if (_activeFilterCount > 0) ...[
                     const SizedBox(width: 4),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 5,
+                        vertical: 1,
+                      ),
                       decoration: const BoxDecoration(
                         color: AppTheme.primary,
                         shape: BoxShape.circle,
                       ),
                       child: Text(
                         '$_activeFilterCount',
-                        style: const TextStyle(fontSize: 9.5, color: Colors.white, fontWeight: FontWeight.bold),
+                        style: const TextStyle(
+                          fontSize: 9.5,
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                     ),
                   ],
@@ -833,11 +968,16 @@ class _SearchPageState extends State<SearchPage> {
 
   Widget _buildRelatedShopBanner(Map<String, dynamic> shop) {
     final sellerId = int.tryParse(shop['id']?.toString() ?? '0') ?? 0;
-    final shopName = shop['name']?.toString() ?? shop['business_name']?.toString() ?? 'Merchant';
+    final shopName =
+        shop['name']?.toString() ??
+        shop['business_name']?.toString() ??
+        'Merchant';
     final location = shop['location']?.toString() ?? 'Laguna, Philippines';
     final rating = double.tryParse(shop['rating']?.toString() ?? '0.0') ?? 0.0;
-    final productCount = int.tryParse(shop['product_count']?.toString() ?? '0') ?? 0;
-    final reviewCount = int.tryParse(shop['review_count']?.toString() ?? '0') ?? 0;
+    final productCount =
+        int.tryParse(shop['product_count']?.toString() ?? '0') ?? 0;
+    final reviewCount =
+        int.tryParse(shop['review_count']?.toString() ?? '0') ?? 0;
 
     return Container(
       margin: const EdgeInsets.fromLTRB(14, 12, 14, 4),
@@ -879,14 +1019,21 @@ class _SearchPageState extends State<SearchPage> {
                     Flexible(
                       child: Text(
                         shopName,
-                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5, color: AppTheme.ink),
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13.5,
+                          color: AppTheme.ink,
+                        ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
                     const SizedBox(width: 4),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 5,
+                        vertical: 1,
+                      ),
                       decoration: BoxDecoration(
                         color: Colors.red.shade50,
                         borderRadius: BorderRadius.circular(4),
@@ -894,7 +1041,11 @@ class _SearchPageState extends State<SearchPage> {
                       ),
                       child: Text(
                         'Shop',
-                        style: TextStyle(color: Colors.red.shade700, fontSize: 9.5, fontWeight: FontWeight.bold),
+                        style: TextStyle(
+                          color: Colors.red.shade700,
+                          fontSize: 9.5,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                     ),
                   ],
@@ -907,15 +1058,25 @@ class _SearchPageState extends State<SearchPage> {
                       const SizedBox(width: 2),
                       Text(
                         rating.toStringAsFixed(1),
-                        style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+                        style: const TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                       if (reviewCount > 0)
                         Text(
                           ' ($reviewCount)',
-                          style: const TextStyle(fontSize: 10, color: AppTheme.muted),
+                          style: const TextStyle(
+                            fontSize: 10,
+                            color: AppTheme.muted,
+                          ),
                         ),
                     ] else ...[
-                      const Icon(Icons.star_border, color: AppTheme.muted, size: 14),
+                      const Icon(
+                        Icons.star_border,
+                        color: AppTheme.muted,
+                        size: 14,
+                      ),
                       const SizedBox(width: 2),
                       const Text(
                         '0.0 (No ratings yet)',
@@ -925,7 +1086,10 @@ class _SearchPageState extends State<SearchPage> {
                     const SizedBox(width: 6),
                     Text(
                       '• $productCount Products',
-                      style: const TextStyle(fontSize: 11, color: AppTheme.muted),
+                      style: const TextStyle(
+                        fontSize: 11,
+                        color: AppTheme.muted,
+                      ),
                     ),
                   ],
                 ),
@@ -943,7 +1107,9 @@ class _SearchPageState extends State<SearchPage> {
             style: OutlinedButton.styleFrom(
               foregroundColor: AppTheme.primary,
               side: const BorderSide(color: AppTheme.primary),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(18),
+              ),
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               minimumSize: Size.zero,
               tapTargetSize: MaterialTapTargetSize.shrinkWrap,
@@ -952,12 +1118,16 @@ class _SearchPageState extends State<SearchPage> {
               if (sellerId > 0) {
                 Navigator.of(context).push(
                   MaterialPageRoute(
-                    builder: (_) => ShopPage(sellerId: sellerId, initialShopName: shopName),
+                    builder: (_) =>
+                        ShopPage(sellerId: sellerId, initialShopName: shopName),
                   ),
                 );
               }
             },
-            child: const Text('Visit Shop', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
+            child: const Text(
+              'Visit Shop',
+              style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold),
+            ),
           ),
         ],
       ),
@@ -975,11 +1145,13 @@ class _SearchPageState extends State<SearchPage> {
       child: InkWell(
         borderRadius: BorderRadius.circular(10),
         onTap: () {
-          Navigator.of(context).push(
-            MaterialPageRoute(
-              builder: (_) => ProductDetailsPage(product: product),
-            ),
-          ).then((_) => _fetchResults());
+          Navigator.of(context)
+              .push(
+                MaterialPageRoute(
+                  builder: (_) => ProductDetailsPage(product: product),
+                ),
+              )
+              .then((_) => _fetchResults());
         },
         child: Container(
           decoration: BoxDecoration(
@@ -993,7 +1165,9 @@ class _SearchPageState extends State<SearchPage> {
               Expanded(
                 flex: 11,
                 child: ClipRRect(
-                  borderRadius: const BorderRadius.vertical(top: Radius.circular(10)),
+                  borderRadius: const BorderRadius.vertical(
+                    top: Radius.circular(10),
+                  ),
                   child: Stack(
                     fit: StackFit.expand,
                     children: [
@@ -1004,11 +1178,17 @@ class _SearchPageState extends State<SearchPage> {
                                 imageUrl: imgUrl,
                                 fit: BoxFit.cover,
                                 errorWidget: (_, __, ___) => const Center(
-                                  child: Icon(Icons.inventory_2_outlined, color: AppTheme.muted),
+                                  child: Icon(
+                                    Icons.inventory_2_outlined,
+                                    color: AppTheme.muted,
+                                  ),
                                 ),
                               )
                             : const Center(
-                                child: Icon(Icons.inventory_2_outlined, color: AppTheme.muted),
+                                child: Icon(
+                                  Icons.inventory_2_outlined,
+                                  color: AppTheme.muted,
+                                ),
                               ),
                       ),
                       if (product.category.isNotEmpty)
@@ -1016,14 +1196,21 @@ class _SearchPageState extends State<SearchPage> {
                           top: 6,
                           left: 6,
                           child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 2,
+                            ),
                             decoration: BoxDecoration(
                               color: Colors.black.withValues(alpha: 0.6),
                               borderRadius: BorderRadius.circular(4),
                             ),
                             child: Text(
                               product.category,
-                              style: const TextStyle(color: Colors.white, fontSize: 9.5, fontWeight: FontWeight.w500),
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 9.5,
+                                fontWeight: FontWeight.w500,
+                              ),
                             ),
                           ),
                         ),
@@ -1048,14 +1235,22 @@ class _SearchPageState extends State<SearchPage> {
                             product.sellerName,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(fontSize: 10, color: AppTheme.muted, fontWeight: FontWeight.w500),
+                            style: const TextStyle(
+                              fontSize: 10,
+                              color: AppTheme.muted,
+                              fontWeight: FontWeight.w500,
+                            ),
                           ),
                           const SizedBox(height: 2),
                           Text(
                             product.name,
                             maxLines: 2,
                             overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5, height: 1.2),
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 12.5,
+                              height: 1.2,
+                            ),
                           ),
                         ],
                       ),
@@ -1068,7 +1263,7 @@ class _SearchPageState extends State<SearchPage> {
                             children: [
                               Expanded(
                                 child: Text(
-                                  _currencyFormat.format(product.price),
+                                  product.formattedPrice,
                                   style: const TextStyle(
                                     fontSize: 14,
                                     fontWeight: FontWeight.bold,
@@ -1081,7 +1276,9 @@ class _SearchPageState extends State<SearchPage> {
                                   cart.addItem(product);
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     SnackBar(
-                                      content: Text('Added ${product.name} to cart!'),
+                                      content: Text(
+                                        'Added ${product.name} to cart!',
+                                      ),
                                       duration: const Duration(seconds: 1),
                                       backgroundColor: AppTheme.primary,
                                     ),
@@ -1094,7 +1291,11 @@ class _SearchPageState extends State<SearchPage> {
                                     color: AppTheme.primarySoft,
                                     borderRadius: BorderRadius.circular(6),
                                   ),
-                                  child: const Icon(Icons.add_shopping_cart, size: 16, color: AppTheme.primary),
+                                  child: const Icon(
+                                    Icons.add_shopping_cart,
+                                    size: 16,
+                                    color: AppTheme.primary,
+                                  ),
                                 ),
                               ),
                             ],
@@ -1102,22 +1303,45 @@ class _SearchPageState extends State<SearchPage> {
                           const SizedBox(height: 3),
                           Row(
                             children: [
-                              if (product.reviewsCount > 0 && product.rating > 0.0) ...[
-                                const Icon(Icons.star, color: Colors.amber, size: 12),
+                              if (product.reviewsCount > 0 &&
+                                  product.rating > 0.0) ...[
+                                const Icon(
+                                  Icons.star,
+                                  color: Colors.amber,
+                                  size: 12,
+                                ),
                                 const SizedBox(width: 2),
                                 Text(
                                   product.rating.toStringAsFixed(1),
-                                  style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600),
+                                  style: const TextStyle(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w600,
+                                  ),
                                 ),
                               ] else ...[
-                                const Icon(Icons.star_border, color: AppTheme.muted, size: 12),
+                                const Icon(
+                                  Icons.star_border,
+                                  color: AppTheme.muted,
+                                  size: 12,
+                                ),
                                 const SizedBox(width: 2),
-                                const Text('0.0', style: TextStyle(fontSize: 10, color: AppTheme.muted)),
+                                const Text(
+                                  '0.0',
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    color: AppTheme.muted,
+                                  ),
+                                ),
                               ],
                               const SizedBox(width: 6),
                               Text(
-                                product.salesCount > 0 ? '${product.salesCount} sold' : '0 sold',
-                                style: const TextStyle(fontSize: 10, color: AppTheme.muted),
+                                product.salesCount > 0
+                                    ? '${product.salesCount} sold'
+                                    : '0 sold',
+                                style: const TextStyle(
+                                  fontSize: 10,
+                                  color: AppTheme.muted,
+                                ),
                               ),
                             ],
                           ),
@@ -1146,13 +1370,20 @@ class _SearchPageState extends State<SearchPage> {
           children: [
             const Text(
               'Selected: ',
-              style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.muted),
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.bold,
+                color: AppTheme.muted,
+              ),
             ),
             if (_selectedCategory != 'All') ...[
               Padding(
                 padding: const EdgeInsets.only(right: 6),
                 child: InputChip(
-                  label: Text(_selectedCategory, style: const TextStyle(fontSize: 11)),
+                  label: Text(
+                    _selectedCategory,
+                    style: const TextStyle(fontSize: 11),
+                  ),
                   onDeleted: () {
                     setState(() => _selectedCategory = 'All');
                     _fetchResults();
@@ -1162,7 +1393,8 @@ class _SearchPageState extends State<SearchPage> {
                 ),
               ),
             ],
-            if (_minPriceCtrl.text.isNotEmpty || _maxPriceCtrl.text.isNotEmpty) ...[
+            if (_minPriceCtrl.text.isNotEmpty ||
+                _maxPriceCtrl.text.isNotEmpty) ...[
               Padding(
                 padding: const EdgeInsets.only(right: 6),
                 child: InputChip(
@@ -1186,7 +1418,10 @@ class _SearchPageState extends State<SearchPage> {
               Padding(
                 padding: const EdgeInsets.only(right: 6),
                 child: InputChip(
-                  label: Text('$_selectedRating★ & up', style: const TextStyle(fontSize: 11)),
+                  label: Text(
+                    '$_selectedRating★ & up',
+                    style: const TextStyle(fontSize: 11),
+                  ),
                   onDeleted: () {
                     setState(() => _selectedRating = null);
                     _fetchResults();
@@ -1203,7 +1438,10 @@ class _SearchPageState extends State<SearchPage> {
               Padding(
                 padding: const EdgeInsets.only(right: 6),
                 child: InputChip(
-                  label: Text(_selectedProvince!, style: const TextStyle(fontSize: 11)),
+                  label: Text(
+                    _selectedProvince!,
+                    style: const TextStyle(fontSize: 11),
+                  ),
                   onDeleted: () {
                     setState(() => _selectedProvince = null);
                     _fetchResults();
@@ -1223,7 +1461,14 @@ class _SearchPageState extends State<SearchPage> {
                 minimumSize: Size.zero,
                 tapTargetSize: MaterialTapTargetSize.shrinkWrap,
               ),
-              child: const Text('Clear All', style: TextStyle(fontSize: 11, color: AppTheme.primary, fontWeight: FontWeight.bold)),
+              child: const Text(
+                'Clear All',
+                style: TextStyle(
+                  fontSize: 11,
+                  color: AppTheme.primary,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
             ),
           ],
         ),
@@ -1249,7 +1494,9 @@ class _SearchPageState extends State<SearchPage> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              ..._relatedShops.map((shop) => _buildRelatedShopBanner(shop)),
+                              ..._relatedShops.map(
+                                (shop) => _buildRelatedShopBanner(shop),
+                              ),
                               const SizedBox(height: 8),
                             ],
                           ),
@@ -1261,7 +1508,11 @@ class _SearchPageState extends State<SearchPage> {
                           padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
                           child: Text(
                             '$_totalResults items found',
-                            style: const TextStyle(fontSize: 12, color: AppTheme.muted, fontWeight: FontWeight.w600),
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: AppTheme.muted,
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
                         ),
                       ),
@@ -1276,17 +1527,27 @@ class _SearchPageState extends State<SearchPage> {
                               child: Column(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
-                                  Icon(Icons.search_off, size: 64, color: Colors.grey.shade400),
+                                  Icon(
+                                    Icons.search_off,
+                                    size: 64,
+                                    color: Colors.grey.shade400,
+                                  ),
                                   const SizedBox(height: 12),
                                   const Text(
                                     'No products found',
-                                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 16,
+                                    ),
                                   ),
                                   const SizedBox(height: 6),
                                   Text(
                                     'We couldn\'t find any matches for "${_searchCtrl.text}". Try different keywords, adjusting price range, or clearing filters.',
                                     textAlign: TextAlign.center,
-                                    style: const TextStyle(color: AppTheme.muted, fontSize: 13),
+                                    style: const TextStyle(
+                                      color: AppTheme.muted,
+                                      fontSize: 13,
+                                    ),
                                   ),
                                   const SizedBox(height: 16),
                                   if (_hasActiveFilters)
@@ -1306,14 +1567,16 @@ class _SearchPageState extends State<SearchPage> {
                         SliverPadding(
                           padding: const EdgeInsets.all(12),
                           sliver: SliverGrid(
-                            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                              crossAxisCount: 2,
-                              childAspectRatio: 0.62,
-                              crossAxisSpacing: 10,
-                              mainAxisSpacing: 10,
-                            ),
+                            gridDelegate:
+                                const SliverGridDelegateWithFixedCrossAxisCount(
+                                  crossAxisCount: 2,
+                                  childAspectRatio: 0.62,
+                                  crossAxisSpacing: 10,
+                                  mainAxisSpacing: 10,
+                                ),
                             delegate: SliverChildBuilderDelegate(
-                              (context, i) => _buildProductCard(_results[i], context),
+                              (context, i) =>
+                                  _buildProductCard(_results[i], context),
                               childCount: _results.length,
                             ),
                           ),
@@ -1346,7 +1609,11 @@ class _SearchPageState extends State<SearchPage> {
                   const SizedBox(width: 8),
                   const Text(
                     'Search Filters',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 17, color: AppTheme.ink),
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 17,
+                      color: AppTheme.ink,
+                    ),
                   ),
                   const Spacer(),
                   IconButton(
@@ -1365,7 +1632,11 @@ class _SearchPageState extends State<SearchPage> {
                   // 1. Category Section
                   const Text(
                     'Category',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.ink),
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                      color: AppTheme.ink,
+                    ),
                   ),
                   const SizedBox(height: 10),
                   Wrap(
@@ -1374,13 +1645,18 @@ class _SearchPageState extends State<SearchPage> {
                     children: _canonicalCategories.map((cat) {
                       final isSel = _selectedCategory == cat;
                       return ChoiceChip(
-                        label: Text(cat, style: const TextStyle(fontSize: 11.5)),
+                        label: Text(
+                          cat,
+                          style: const TextStyle(fontSize: 11.5),
+                        ),
                         selected: isSel,
                         selectedColor: AppTheme.primary,
                         backgroundColor: Colors.grey.shade100,
                         labelStyle: TextStyle(
                           color: isSel ? Colors.white : AppTheme.ink,
-                          fontWeight: isSel ? FontWeight.bold : FontWeight.normal,
+                          fontWeight: isSel
+                              ? FontWeight.bold
+                              : FontWeight.normal,
                         ),
                         onSelected: (val) {
                           if (val) {
@@ -1395,7 +1671,11 @@ class _SearchPageState extends State<SearchPage> {
                   // 2. Price Range Section
                   const Text(
                     'Price Range (₱)',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.ink),
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                      color: AppTheme.ink,
+                    ),
                   ),
                   const SizedBox(height: 10),
                   Row(
@@ -1411,7 +1691,13 @@ class _SearchPageState extends State<SearchPage> {
                           ),
                           child: Row(
                             children: [
-                              const Text('₱', style: TextStyle(color: AppTheme.muted, fontWeight: FontWeight.bold)),
+                              const Text(
+                                '₱',
+                                style: TextStyle(
+                                  color: AppTheme.muted,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
                               const SizedBox(width: 4),
                               Expanded(
                                 child: TextField(
@@ -1432,7 +1718,13 @@ class _SearchPageState extends State<SearchPage> {
                       ),
                       const Padding(
                         padding: EdgeInsets.symmetric(horizontal: 8),
-                        child: Text('–', style: TextStyle(color: AppTheme.muted, fontWeight: FontWeight.bold)),
+                        child: Text(
+                          '–',
+                          style: TextStyle(
+                            color: AppTheme.muted,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
                       ),
                       Expanded(
                         child: Container(
@@ -1445,7 +1737,13 @@ class _SearchPageState extends State<SearchPage> {
                           ),
                           child: Row(
                             children: [
-                              const Text('₱', style: TextStyle(color: AppTheme.muted, fontWeight: FontWeight.bold)),
+                              const Text(
+                                '₱',
+                                style: TextStyle(
+                                  color: AppTheme.muted,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
                               const SizedBox(width: 4),
                               Expanded(
                                 child: TextField(
@@ -1483,7 +1781,11 @@ class _SearchPageState extends State<SearchPage> {
                   // 3. Customer Ratings Section
                   const Text(
                     'Customer Ratings',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.ink),
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                      color: AppTheme.ink,
+                    ),
                   ),
                   const SizedBox(height: 10),
                   Column(
@@ -1501,7 +1803,11 @@ class _SearchPageState extends State<SearchPage> {
                   // 4. Ships From Section
                   const Text(
                     'Ships From',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.ink),
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                      color: AppTheme.ink,
+                    ),
                   ),
                   const SizedBox(height: 10),
                   Wrap(
@@ -1509,15 +1815,27 @@ class _SearchPageState extends State<SearchPage> {
                     runSpacing: 8,
                     children: [
                       ChoiceChip(
-                        label: const Text('All locations', style: TextStyle(fontSize: 11.5)),
-                        selected: _selectedProvince == null || _selectedProvince == 'All' || _selectedProvince == 'All locations',
+                        label: const Text(
+                          'All locations',
+                          style: TextStyle(fontSize: 11.5),
+                        ),
+                        selected:
+                            _selectedProvince == null ||
+                            _selectedProvince == 'All' ||
+                            _selectedProvince == 'All locations',
                         selectedColor: AppTheme.primary,
                         backgroundColor: Colors.grey.shade100,
                         labelStyle: TextStyle(
-                          color: (_selectedProvince == null || _selectedProvince == 'All' || _selectedProvince == 'All locations')
+                          color:
+                              (_selectedProvince == null ||
+                                  _selectedProvince == 'All' ||
+                                  _selectedProvince == 'All locations')
                               ? Colors.white
                               : AppTheme.ink,
-                          fontWeight: (_selectedProvince == null || _selectedProvince == 'All' || _selectedProvince == 'All locations')
+                          fontWeight:
+                              (_selectedProvince == null ||
+                                  _selectedProvince == 'All' ||
+                                  _selectedProvince == 'All locations')
                               ? FontWeight.bold
                               : FontWeight.normal,
                         ),
@@ -1528,16 +1846,23 @@ class _SearchPageState extends State<SearchPage> {
                       ..._availableProvinces.map((prov) {
                         final isSel = _selectedProvince == prov;
                         return ChoiceChip(
-                          label: Text(prov, style: const TextStyle(fontSize: 11.5)),
+                          label: Text(
+                            prov,
+                            style: const TextStyle(fontSize: 11.5),
+                          ),
                           selected: isSel,
                           selectedColor: AppTheme.primary,
                           backgroundColor: Colors.grey.shade100,
                           labelStyle: TextStyle(
                             color: isSel ? Colors.white : AppTheme.ink,
-                            fontWeight: isSel ? FontWeight.bold : FontWeight.normal,
+                            fontWeight: isSel
+                                ? FontWeight.bold
+                                : FontWeight.normal,
                           ),
                           onSelected: (val) {
-                            setState(() => _selectedProvince = val ? prov : null);
+                            setState(
+                              () => _selectedProvince = val ? prov : null,
+                            );
                           },
                         );
                       }),
@@ -1564,12 +1889,17 @@ class _SearchPageState extends State<SearchPage> {
                         foregroundColor: AppTheme.ink,
                         side: const BorderSide(color: AppTheme.line),
                         padding: const EdgeInsets.symmetric(vertical: 12),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
                       ),
                       onPressed: () {
                         _resetAllFilters();
                       },
-                      child: const Text('Reset', style: TextStyle(fontWeight: FontWeight.bold)),
+                      child: const Text(
+                        'Reset',
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -1580,14 +1910,22 @@ class _SearchPageState extends State<SearchPage> {
                         backgroundColor: AppTheme.primary,
                         foregroundColor: Colors.white,
                         padding: const EdgeInsets.symmetric(vertical: 12),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
                         elevation: 0,
                       ),
                       onPressed: () {
                         Navigator.of(context).pop();
                         _executeSearch(_searchCtrl.text);
                       },
-                      child: const Text('Apply', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                      child: const Text(
+                        'Apply',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                        ),
+                      ),
                     ),
                   ),
                 ],
@@ -1615,7 +1953,10 @@ class _SearchPageState extends State<SearchPage> {
           borderRadius: BorderRadius.circular(14),
           border: Border.all(color: Colors.grey.shade300),
         ),
-        child: Text(label, style: const TextStyle(fontSize: 10.5, color: AppTheme.muted)),
+        child: Text(
+          label,
+          style: const TextStyle(fontSize: 10.5, color: AppTheme.muted),
+        ),
       ),
     );
   }
@@ -1646,7 +1987,9 @@ class _SearchPageState extends State<SearchPage> {
                   return Icon(
                     index < starCount ? Icons.star : Icons.star_border,
                     size: 16,
-                    color: index < starCount ? Colors.amber : Colors.grey.shade300,
+                    color: index < starCount
+                        ? Colors.amber
+                        : Colors.grey.shade300,
                   );
                 }),
               ),

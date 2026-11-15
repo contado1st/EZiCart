@@ -101,7 +101,7 @@ class CartApiController extends Controller
             $key = BuyerCartService::key($product->id, $variationId);
             $checkItems = [$key => ['product_id' => $product->id, 'variation_id' => $variationId, 'quantity' => (int) $validated['quantity']]];
             app(ShopAvailabilityService::class)->assertOpen($checkItems);
-            $pricing->quote($checkItems);
+            $pricing->quote($checkItems, context: ['buyer' => $request->user(), 'allow_unselected_variation' => true]);
 
             $carts->add($request->user(), $product->id, $variationId, (int) $validated['quantity']);
         } catch (ValidationException $e) {
@@ -137,6 +137,33 @@ class CartApiController extends Controller
             } else {
                 $carts->update($request->user(), $key, $quantity);
             }
+        } catch (\Throwable $e) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage(),
+            ], 422);
+        }
+
+        return $this->index($request, $carts);
+    }
+
+    /**
+     * Change variation of an item in buyer's cart (same as web)
+     */
+    public function changeVariation(Request $request, string $key, BuyerCartService $carts): JsonResponse
+    {
+        $validated = $request->validate([
+            'variation_id' => ['required', 'integer', 'min:1'],
+        ]);
+
+        try {
+            $carts->changeVariation($request->user(), $key, (int) $validated['variation_id']);
+        } catch (ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => collect($e->errors())->flatten()->first() ?? 'Unable to change variation.',
+                'errors' => $e->errors(),
+            ], 422);
         } catch (\Throwable $e) {
             return response()->json([
                 'success' => false,

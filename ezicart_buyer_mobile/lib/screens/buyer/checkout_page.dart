@@ -147,6 +147,17 @@ class _CheckoutPageState extends State<CheckoutPage> {
       return;
     }
 
+    if (cart.hasUnselectedVariations) {
+      final missing = cart.itemsRequiringVariation.first;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Please select a variation for "${missing.product.name}" before placing order.'),
+          backgroundColor: Colors.red.shade700,
+        ),
+      );
+      return;
+    }
+
     if (cart.checkoutToken == null || cart.quoteHash == null) {
       await _refreshQuoteForSelectedAddress();
       if (!mounted) return;
@@ -410,10 +421,14 @@ class _CheckoutPageState extends State<CheckoutPage> {
                             children: [
                               Expanded(
                                 child: Text(
-                                  '${item.quantity}× ${item.product.name}${item.variation != null ? " (${item.variation!.value})" : ""}',
+                                  '${item.quantity}× ${item.product.name}${item.variation != null ? " (${item.variation!.value})" : (item.needsVariation ? " (Variation Required)" : "")}',
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(fontSize: 13),
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    color: item.needsVariation ? Colors.amber.shade900 : AppTheme.ink,
+                                    fontWeight: item.needsVariation ? FontWeight.bold : FontWeight.normal,
+                                  ),
                                 ),
                               ),
                               const SizedBox(width: 8),

@@ -26,6 +26,8 @@ class Product extends Model
 
     protected $hidden = ['weight_grams', 'is_seller_active'];
 
+    protected $appends = ['display_price_label'];
+
     public function currentSale(): HasOne
     {
         return $this->hasOne(ProductSale::class)->whereNull('ended_at')->where('starts_at', '<=', now())->where('ends_at', '>', now())->latest('id');

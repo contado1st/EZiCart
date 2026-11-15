@@ -1,7 +1,6 @@
 import 'dart:convert';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '../../config/api_config.dart';
 import '../../config/theme.dart';
@@ -19,9 +18,9 @@ import 'orders_page.dart';
 import 'product_details_page.dart';
 import 'profile_page.dart';
 import 'search_page.dart';
-import 'stock_watchlist_page.dart';
 import 'vouchers_page.dart';
 import 'notifications_page.dart';
+import 'wishlist_page.dart';
 
 class BuyerDashboard extends StatefulWidget {
   const BuyerDashboard({super.key});
@@ -408,7 +407,7 @@ class _BuyerDashboardState extends State<BuyerDashboard> {
                               ),
                             ),
                             Text(
-                              '₱${featuredProduct.price.toStringAsFixed(2)}',
+                              featuredProduct.formattedPrice,
                               style: const TextStyle(
                                 fontSize: 9.5,
                                 fontWeight: FontWeight.bold,
@@ -429,7 +428,6 @@ class _BuyerDashboardState extends State<BuyerDashboard> {
   }
 
   Widget _buildStorefront() {
-    final currency = NumberFormat.currency(symbol: '₱', decimalDigits: 2);
     final cart = context.read<CartProvider>();
 
     return RefreshIndicator(
@@ -466,19 +464,12 @@ class _BuyerDashboardState extends State<BuyerDashboard> {
                   ),
                   child: const Row(
                     children: [
-                      Icon(
-                        Icons.search,
-                        size: 22,
-                        color: AppTheme.primary,
-                      ),
+                      Icon(Icons.search, size: 22, color: AppTheme.primary),
                       SizedBox(width: 10),
                       Expanded(
                         child: Text(
                           'Search products and stores',
-                          style: TextStyle(
-                            color: AppTheme.muted,
-                            fontSize: 13,
-                          ),
+                          style: TextStyle(color: AppTheme.muted, fontSize: 13),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -577,12 +568,13 @@ class _BuyerDashboardState extends State<BuyerDashboard> {
                   const SizedBox(width: 8),
                   Expanded(
                     child: InkWell(
-                      onTap: () {
-                        Navigator.of(context).push(
+                      onTap: () async {
+                        await Navigator.of(context).push(
                           MaterialPageRoute(
-                            builder: (_) => const StockWatchlistPage(),
+                            builder: (_) => const NotificationsPage(),
                           ),
                         );
+                        _fetchNotificationCount();
                       },
                       borderRadius: BorderRadius.circular(10),
                       child: Container(
@@ -1007,7 +999,7 @@ class _BuyerDashboardState extends State<BuyerDashboard> {
                                         children: [
                                           Expanded(
                                             child: Text(
-                                              currency.format(product.price),
+                                              product.formattedPrice,
                                               maxLines: 1,
                                               overflow: TextOverflow.ellipsis,
                                               style: const TextStyle(
@@ -1144,6 +1136,19 @@ class _BuyerDashboardState extends State<BuyerDashboard> {
           ),
         ),
         actions: [
+          IconButton(
+            icon: const Icon(
+              Icons.favorite_outline,
+              color: Colors.white,
+              size: 26,
+            ),
+            tooltip: 'My Wishlist',
+            onPressed: () {
+              Navigator.of(
+                context,
+              ).push(MaterialPageRoute(builder: (_) => const WishlistPage()));
+            },
+          ),
           Stack(
             children: [
               IconButton(

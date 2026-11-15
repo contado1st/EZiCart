@@ -120,8 +120,41 @@ class ProductModel {
   final List<ReviewItemModel> reviews;
   final List<String> galleryImages;
   final List<ProductMediaItem> mediaItems;
+  final String? displayPriceLabel;
+  final bool isWishlisted;
 
   int get reviewCount => reviewsCount;
+
+  /// Returns the estimated price range (e.g. "₱100.00 – ₱150.00") or exact price
+  /// following the same calculation as the Laravel backend.
+  String get formattedPrice {
+    if (displayPriceLabel != null && displayPriceLabel!.trim().isNotEmpty) {
+      return displayPriceLabel!.trim();
+    }
+    if (variations.isNotEmpty) {
+      final active = variations.where((v) => v.stock > 0).toList();
+      if (active.isNotEmpty) {
+        final prices = active.map((v) => price + v.priceAdjustment).toList();
+        final minPrice = prices.reduce((a, b) => a < b ? a : b);
+        final maxPrice = prices.reduce((a, b) => a > b ? a : b);
+        final minStr = minPrice.toStringAsFixed(2);
+        final maxStr = maxPrice.toStringAsFixed(2);
+        return minStr == maxStr ? '₱$minStr' : '₱$minStr – ₱$maxStr';
+      }
+    }
+    return '₱${price.toStringAsFixed(2)}';
+  }
+
+  /// Returns the total available stock across all active variations, or product stock
+  int get availableStock {
+    if (variations.isNotEmpty) {
+      final active = variations.where((v) => v.stock > 0);
+      if (active.isNotEmpty) {
+        return active.fold(0, (sum, v) => sum + v.stock);
+      }
+    }
+    return stock;
+  }
 
   List<String> get allImages {
     final list = <String>[];
@@ -167,7 +200,51 @@ class ProductModel {
     this.reviews = const [],
     this.galleryImages = const [],
     this.mediaItems = const [],
+    this.displayPriceLabel,
+    this.isWishlisted = false,
   });
+
+  ProductModel copyWith({
+    int? id,
+    String? name,
+    String? description,
+    String? category,
+    double? price,
+    int? stock,
+    String? imagePath,
+    int? sellerId,
+    String? sellerName,
+    double? rating,
+    int? reviewsCount,
+    int? salesCount,
+    List<ProductVariation>? variations,
+    List<ReviewItemModel>? reviews,
+    List<String>? galleryImages,
+    List<ProductMediaItem>? mediaItems,
+    String? displayPriceLabel,
+    bool? isWishlisted,
+  }) {
+    return ProductModel(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      description: description ?? this.description,
+      category: category ?? this.category,
+      price: price ?? this.price,
+      stock: stock ?? this.stock,
+      imagePath: imagePath ?? this.imagePath,
+      sellerId: sellerId ?? this.sellerId,
+      sellerName: sellerName ?? this.sellerName,
+      rating: rating ?? this.rating,
+      reviewsCount: reviewsCount ?? this.reviewsCount,
+      salesCount: salesCount ?? this.salesCount,
+      variations: variations ?? this.variations,
+      reviews: reviews ?? this.reviews,
+      galleryImages: galleryImages ?? this.galleryImages,
+      mediaItems: mediaItems ?? this.mediaItems,
+      displayPriceLabel: displayPriceLabel ?? this.displayPriceLabel,
+      isWishlisted: isWishlisted ?? this.isWishlisted,
+    );
+  }
 
   factory ProductModel.fromJson(Map<String, dynamic> json) {
     var rawVariations = json['variations'] as List<dynamic>? ?? [];
@@ -250,6 +327,8 @@ class ProductModel {
       reviews: parsedReviews,
       galleryImages: allImages,
       mediaItems: parsedMedia,
+      displayPriceLabel: json['display_price_label']?.toString(),
+      isWishlisted: json['is_wishlisted'] == true,
     );
   }
 }

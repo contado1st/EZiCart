@@ -375,7 +375,59 @@ class _CartPageState extends State<CartPage> {
                                               fontSize: 13,
                                             ),
                                           ),
-                                          if (item.variation != null ||
+                                          if (item.needsVariation) ...[
+                                            const SizedBox(height: 4),
+                                            InkWell(
+                                              onTap: () => _showVariationPicker(
+                                                item,
+                                                key,
+                                              ),
+                                              borderRadius:
+                                                  BorderRadius.circular(4),
+                                              child: Container(
+                                                padding:
+                                                    const EdgeInsets.symmetric(
+                                                      horizontal: 6,
+                                                      vertical: 3,
+                                                    ),
+                                                decoration: BoxDecoration(
+                                                  color: Colors.amber.shade50,
+                                                  borderRadius:
+                                                      BorderRadius.circular(4),
+                                                  border: Border.all(
+                                                    color: Colors.amber.shade400,
+                                                  ),
+                                                ),
+                                                child: Row(
+                                                  mainAxisSize:
+                                                      MainAxisSize.min,
+                                                  children: [
+                                                    Icon(
+                                                      Icons.warning_amber_rounded,
+                                                      size: 13,
+                                                      color: Colors.amber.shade900,
+                                                    ),
+                                                    const SizedBox(width: 4),
+                                                    Text(
+                                                      'Select Variation Required',
+                                                      style: TextStyle(
+                                                        fontSize: 10,
+                                                        fontWeight:
+                                                            FontWeight.bold,
+                                                        color: Colors.amber.shade900,
+                                                      ),
+                                                    ),
+                                                    const SizedBox(width: 2),
+                                                    Icon(
+                                                      Icons.keyboard_arrow_down,
+                                                      size: 13,
+                                                      color: Colors.amber.shade900,
+                                                    ),
+                                                  ],
+                                                ),
+                                              ),
+                                            ),
+                                          ] else if (item.variation != null ||
                                               item.product.variations.isNotEmpty) ...[
                                             const SizedBox(height: 3),
                                             InkWell(
@@ -622,6 +674,19 @@ class _CartPageState extends State<CartPage> {
                             cart.isLoading)
                         ? null
                         : () {
+                            if (cart.hasUnselectedVariations) {
+                              final missing = cart.itemsRequiringVariation.first;
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(
+                                    'Please select a variation for "${missing.product.name}" before checking out.',
+                                  ),
+                                  backgroundColor: Colors.red.shade700,
+                                  behavior: SnackBarBehavior.floating,
+                                ),
+                              );
+                              return;
+                            }
                             Navigator.of(context).push(
                               MaterialPageRoute(
                                 builder: (_) => const CheckoutPage(),
@@ -662,8 +727,9 @@ class _CartPageState extends State<CartPage> {
         final res = await ApiService.get('${ApiConfig.productsEndpoint}/${item.product.id}');
         if (res.statusCode == 200) {
           final body = jsonDecode(res.body);
-          if (body['product'] != null) {
-            final fullProduct = ProductModel.fromJson(body['product'] as Map<String, dynamic>);
+          final pData = body['data'] ?? body['product'];
+          if (pData is Map<String, dynamic>) {
+            final fullProduct = ProductModel.fromJson(pData);
             if (fullProduct.variations.isNotEmpty) {
               availableVariations = fullProduct.variations;
             }

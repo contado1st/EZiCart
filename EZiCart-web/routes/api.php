@@ -13,6 +13,7 @@ use App\Http\Controllers\Api\ProductApiController;
 use App\Http\Controllers\Api\ProfileApiController;
 use App\Http\Controllers\Api\ShopApiController;
 use App\Http\Controllers\Api\VoucherApiController;
+use App\Http\Controllers\Api\WishlistApiController;
 use App\Http\Controllers\FinancialOperationsController;
 use App\Http\Controllers\PsgcAddressController;
 use Illuminate\Support\Facades\Route;
@@ -67,9 +68,16 @@ $defineApiRoutes = function () {
         Route::get('/cart', [CartApiController::class, 'index']);
         Route::post('/cart/items', [CartApiController::class, 'addItem']);
         Route::patch('/cart/items/{key}', [CartApiController::class, 'updateItem']);
+        Route::patch('/cart/items/{key}/variation', [CartApiController::class, 'changeVariation']);
         Route::delete('/cart/items/{key}', [CartApiController::class, 'removeItem']);
         Route::delete('/cart', [CartApiController::class, 'clearCart']);
         Route::post('/cart/sync', [CartApiController::class, 'sync']);
+
+        // Buyer Wishlist (synchronized with Web database)
+        Route::get('/wishlist', [WishlistApiController::class, 'index']);
+        Route::post('/wishlist/toggle', [WishlistApiController::class, 'toggle'])->middleware('throttle:operational-action');
+        Route::post('/wishlist/{product}', [WishlistApiController::class, 'store'])->whereNumber('product')->middleware('throttle:operational-action');
+        Route::delete('/wishlist/{product}', [WishlistApiController::class, 'destroy'])->whereNumber('product')->middleware('throttle:operational-action');
 
         // Current User Profile & Logout
         Route::get('/me', [AuthApiController::class, 'me']);
