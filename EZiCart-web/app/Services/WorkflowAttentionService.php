@@ -2,6 +2,8 @@
 
 namespace App\Services;
 
+use App\Models\DeliveryRetryRequest;
+use App\Models\DispatchCycle;
 use App\Models\DispatchOffer;
 use App\Models\Order;
 use App\Models\ParcelIncident;
@@ -21,6 +23,18 @@ class WorkflowAttentionService
     {
         $items = [];
         $count = 0;
+        if ($user->role === 'sorting_center') {
+            $retries = DeliveryRetryRequest::where('hub_id', $user->id)->where('status', 'PENDING')->count();
+            $unassigned = DispatchCycle::where('hub_id', $user->id)->where('status', 'UNASSIGNED')
+                ->whereHas('order', fn ($q) => $q->where(fn ($o) => $o->where(fn ($p) => $p->where('status', 'READY_FOR_PICKUP')->whereNull('pickup_courier_id'))->orWhere(fn ($d) => $d->where('status', 'SORTED')->whereNull('delivery_courier_id')))->whereDoesntHave('dispatchCycles', fn ($c) => $c->where('status', 'OFFERING')))
+                ->distinct()->count('order_id');
+            foreach ([[$retries, 'Review delivery retry proposals', route('logistics.dispatch').'#retry-requests'], [$unassigned, 'Resolve Unassigned parcel work', route('dispatch.index', ['status' => 'UNASSIGNED'])]] as [$total, $label, $url]) {
+                if ($total) {
+                    $count += $total;
+                    $items[] = ['label' => $label, 'url' => $url, 'count' => $total, 'target' => null];
+                }
+            }
+        }
         if ($user->role === 'courier') {
             $pending = DispatchOffer::where('rider_id', $user->id)->where('status', 'PENDING')->where('expires_at', '>', now())->count();
             if ($pending) {
@@ -69,7 +83,7 @@ class WorkflowAttentionService
                 $state = $this->progress->forViewer($order, $user);
                 $actionRoute = $state['action_route'];
                 $target = $actionRoute && Route::has($actionRoute) ? route($actionRoute, ['order' => $order->id]) : null;
-                $items[] = ['order_id' => $order->id, 'label' => $order->order_number.': '.$state['message'], 'url' => $this->orderUrl($user, $order), 'target' => $target, 'count' => 1];
+                $items[] = ['order_id' => $order->id, 'reference' => $order->order_number, 'submitted_at' => $order->created_at?->toIso8601String(), 'status' => str_replace('_', ' ', $order->operational_status), 'owner' => $state['owner'], 'label' => $order->order_number.': '.$state['message'], 'url' => $this->orderUrl($user, $order), 'target' => $target, 'count' => 1];
             }
             if ($user->role === 'sorting_center') {
                 $transfers = DB::table('parcel_transfers')->where(fn ($q) => $q

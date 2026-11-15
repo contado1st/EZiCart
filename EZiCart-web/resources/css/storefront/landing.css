@@ -328,15 +328,17 @@ body.landing-page {
     z-index: -2;
     object-fit: cover;
     object-position: 62% 50%;
+    transform-origin: 74% 55%;
+    mask-image: linear-gradient(to bottom, #000 92%, transparent 100%);
     mix-blend-mode: multiply;
     transform: translate3d(0, var(--hero-image-y, 0%), 0)
-        scale(var(--hero-image-scale, 1.04));
+        scale(var(--hero-image-scale, 1.12));
     will-change: transform;
 }
 
 .hero-paper-wash {
     z-index: -1;
-    background: rgb(247 247 244 / 15%);
+    background: linear-gradient(to bottom, rgb(247 247 244 / 15%) 86%, var(--landing-plaster) 100%);
     pointer-events: none;
 }
 
@@ -1275,7 +1277,7 @@ body.landing-page {
     }
 
     .hero-paper-wash {
-        background: rgb(247 247 244 / 29%);
+        background: linear-gradient(to bottom, rgb(247 247 244 / 29%) 86%, var(--landing-plaster) 100%);
     }
 
     .hero-copy {

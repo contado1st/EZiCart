@@ -78,7 +78,7 @@ class ProductVariationEditorService
                     $data['variations'][$index]['sku'] = trim($extra['variations'][$index]['sku'] ?? '') ?: null;
                 }
                 if ($request->hasFile('variations.'.$index.'.image')) {
-                    $path = $request->file('variations.'.$index.'.image')->store('products/variations', 'public');
+                    $path = app(ProductUploadProcessor::class)->image($request->file('variations.'.$index.'.image'), 'products/variations', field: 'variations.'.$index.'.image');
                     if (! is_string($path)) {
                         throw new \RuntimeException('The variation photo could not be saved.');
                     }

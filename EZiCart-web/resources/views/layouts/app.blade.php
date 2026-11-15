@@ -128,7 +128,7 @@
                             <a href="{{ route('account.profile.edit') }}" class="nav-link">Account</a>
                         @endif
                         @if (in_array(auth()->user()->role, ['buyer', 'seller', 'courier', 'admin', 'ecommerce_admin', 'logistics_admin'], true))
-                            <a href="{{ route('finance.index') }}" class="nav-link">Financial records</a>
+                            <a href="{{ route('finance.wallet') }}" class="nav-link">Finance &amp; Wallet</a>
                         @endif
                         @if (auth()->user()->role === 'seller')
                             <a href="{{ route('seller.dashboard') }}" class="btn-primary nav-btn-compact">Dashboard</a>

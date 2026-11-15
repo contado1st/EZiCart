@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\Area;
 use App\Models\AreaMunicipality;
+use App\Models\DispatchCycle;
 use App\Models\DispatchLocation;
 use App\Models\Order;
 use App\Models\User;
@@ -25,6 +26,35 @@ class MissingAutomaticDispatchTest extends TestCase
     {
         parent::setUp();
         $this->withoutVite();
+    }
+
+    public function test_scheduler_initiates_eligible_stage_once_and_does_not_restart_unassigned(): void
+    {
+        Notification::fake();
+        [$hub, $area, $order] = $this->crew();
+        $this->rider($hub, $area, 14.1401);
+        $this->artisan('dispatch:process')->assertSuccessful();
+        $this->assertDatabaseCount('dispatch_cycles', 0);
+        $this->artisan('dispatch:process', ['--apply' => true])->assertSuccessful();
+        $cycle = DispatchCycle::sole();
+        $this->assertSame('OFFERING', $cycle->status);
+        $this->artisan('dispatch:process', ['--apply' => true])->assertSuccessful();
+        $this->assertDatabaseCount('dispatch_cycles', 1);
+        $offer = $cycle->offers()->sole();
+        app(DispatchOfferService::class)->respond($offer, $offer->rider, false);
+        $this->assertSame('UNASSIGNED', $cycle->fresh()->status);
+        $this->artisan('dispatch:process', ['--apply' => true])->assertSuccessful();
+        $this->assertDatabaseCount('dispatch_cycles', 1);
+        $this->assertDatabaseCount('dispatch_offers', 1);
+    }
+
+    public function test_scheduler_does_not_initiate_work_without_a_verified_origin_pin(): void
+    {
+        [$hub, $area, $order] = $this->crew();
+        $this->rider($hub, $area, 14.1401);
+        DispatchLocation::where('user_id', $order->seller_id)->delete();
+        $this->artisan('dispatch:process', ['--apply' => true])->assertSuccessful();
+        $this->assertDatabaseCount('dispatch_cycles', 0);
     }
 
     public function test_nearest_fresh_rider_and_stable_tie_receive_one_offer_and_acceptance_does_not_invent_pickup(): void

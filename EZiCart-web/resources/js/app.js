@@ -491,7 +491,7 @@ if (editorialLanding) {
             if (stageName === "hero") {
                 stage.style.setProperty(
                     "--hero-image-scale",
-                    (1.04 + progress * 0.07).toFixed(4),
+                    (1.12 + progress * 0.04).toFixed(4),
                 );
                 stage.style.setProperty(
                     "--hero-image-y",

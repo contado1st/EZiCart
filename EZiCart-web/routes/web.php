@@ -246,6 +246,7 @@ Route::middleware(['auth', 'account.active', 'auth.session'])->group(function ()
     Route::get('/shops/{seller}/follow', [SellerShopController::class, 'followIntent'])->middleware('role:buyer')->whereNumber('seller')->name('shops.follow-intent');
     Route::patch('/account', [AccountController::class, 'update'])->middleware('throttle:operational-action')->name('account.profile.update');
     Route::patch('/account/password', [AccountController::class, 'updatePassword'])->middleware('throttle:10,1')->name('account.password.update');
+    Route::post('/account/password/code', [AccountController::class, 'requestPasswordCode'])->middleware('throttle:5,1')->name('account.password.code');
     Route::post('/account/email-change', [EmailChangeController::class, 'store'])->middleware(['role:buyer', 'throttle:5,1'])->name('account.email-change.store');
     Route::patch('/account/email-change', [EmailChangeController::class, 'update'])->middleware(['role:buyer', 'throttle:10,1'])->name('account.email-change.update');
     Route::get('/delivery-attempts/{attempt}/proof', [SecureDocumentController::class, 'deliveryProof'])->name('delivery-attempts.proof');

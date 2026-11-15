@@ -10,7 +10,6 @@
                 ['buyer.stock.index', 'bell', 'Stock alerts', 'buyer.stock.*'],
                 ['chat.index', 'chat', 'Chat', 'chat.index'],
                 ['cart.index', 'cart2', 'My cart', 'cart.*'],
-                ['finance.index', 'invoice', 'Financial records', 'finance.*'],
             ],
         ],
         'seller' => [
@@ -24,7 +23,6 @@
                 ['seller.returns.index', 'checklist', 'Return requests', 'seller.returns.*'],
                 ['sales-reports.index', 'note', 'Sales exports', 'sales-reports.*'],
                 ['chat.index', 'chat', 'Chat', 'chat.index'],
-                ['finance.index', 'money', 'Financial records', 'finance.*'],
             ],
         ],
         'courier' => [
@@ -36,7 +34,6 @@
                 ['courier.tracking', 'delivery1', 'Active parcels', 'courier.tracking'],
                 ['courier.history', 'checklist', 'Delivery history', 'courier.history'],
                 ['courier.earnings', 'money', 'Earnings', 'courier.earnings'],
-                ['finance.index', 'invoice', 'Cash remittances', 'finance.*'],
             ],
         ],
         'sorting_center' => [
@@ -69,7 +66,6 @@
                 ['logistics-admin.dashboard#managed-accounts', 'account', 'Centers & riders', ''],
                 ['logistics-admin.dashboard#parcels', 'package1', 'Parcel oversight', ''],
                 ['parcel-transfers.index', 'delivery1', 'Hub transfers', 'parcel-transfers.*'],
-                ['finance.index', 'money', 'COD & remittances', 'finance.*'],
             ],
         ],
         default => [
@@ -82,7 +78,6 @@
                 ['admin.vouchers.index', 'voucher', 'Platform vouchers', 'admin.vouchers.*'],
                 ['sales-reports.index', 'note', 'Sales exports', 'sales-reports.*'],
                 ['activity-logs.index', 'note', 'Activity logs', 'activity-logs.*'],
-                ['finance.index', 'money', 'Refunds & payouts', 'finance.*'],
             ],
             'Administration' => [
                 ['admin.reports.index', 'diagram', 'Reports', 'admin.reports.*'],
@@ -143,7 +138,7 @@
             @if($sidebarUser->role === 'seller' && $sidebarUser->status === 'approved')<a class="workspace-nav-link" href="{{ route('shops.show', $sidebarUser) }}" title="View my shop"><x-shop-icon name="package1" /><span class="workspace-nav-label">View my shop</span></a>@endif
             <a href="{{ route('notifications.index') }}" @class(['workspace-nav-link', 'is-active' => request()->routeIs('notifications.*')]) title="Notifications" data-communication-label="Notifications" aria-label="Notifications{{ $communicationCounts['notifications'] ? ', '.$communicationCounts['notifications'].' unread' : '' }}"><x-shop-icon name="bell" /><span class="workspace-nav-label">Notifications</span><x-communication-count kind="notifications" :count="$communicationCounts['notifications']" /></a>
             <a href="{{ route('account.profile.edit') }}" @class(['workspace-nav-link', 'is-active' => request()->routeIs('account.profile.*')]) title="Account & profile"><x-shop-icon name="settings" /><span class="workspace-nav-label">Account & profile</span></a>
-            <a href="{{ route('finance.wallet') }}" @class(['workspace-nav-link', 'is-active' => request()->routeIs('finance.wallet*')]) title="Wallet and financial balances"><x-shop-icon name="money" /><span class="workspace-nav-label">{{ $sidebarUser->isCommerceAdmin() ? 'Platform treasury' : 'Wallet & balances' }}</span></a>
+            <a href="{{ route('finance.wallet') }}" @class(['workspace-nav-link', 'is-active' => request()->routeIs('finance.*', 'wallet.*')]) @if(request()->routeIs('finance.*', 'wallet.*')) aria-current="page" @endif title="Finance & Wallet"><x-shop-icon name="money" /><span class="workspace-nav-label">Finance &amp; Wallet</span></a>
             @if ($sidebarUser->role === 'buyer')
                 <a href="{{ route('buyer.addresses.index') }}" @class(['workspace-nav-link', 'is-active' => request()->routeIs('buyer.addresses.*')]) title="Addresses" @if (request()->routeIs('buyer.addresses.*')) aria-current="page" @endif><x-shop-icon name="location" /><span class="workspace-nav-label">Addresses</span></a>
                 <a href="{{ route('account.profile.edit') }}#buyer-password" class="workspace-nav-link" title="Change password"><x-shop-icon name="lock" /><span class="workspace-nav-label">Change password</span></a>

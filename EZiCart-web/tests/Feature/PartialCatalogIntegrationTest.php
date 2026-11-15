@@ -65,7 +65,7 @@ class PartialCatalogIntegrationTest extends TestCase
         $seller = $this->user();
         $this->actingAs($seller)->post(route('seller.product-drafts.store'), [...$this->payload(),
             'image' => UploadedFile::fake()->image('cover.jpg'), 'gallery_images' => [UploadedFile::fake()->image('side.jpg')],
-            'product_video' => UploadedFile::fake()->createWithContent('clip.mp4', hex2bin('000000186674797069736f6d0000020069736f6d69736f32'))->mimeType('video/mp4'),
+            'product_video' => UploadedFile::fake()->createWithContent('clip.mp4', file_get_contents(base_path('tests/Fixtures/media/product-short.mp4')))->mimeType('video/mp4'),
             'variations_present' => 1, 'variations' => [['type' => 'Color', 'value' => 'Blue', 'sku' => 'BAG-BLUE', 'stock' => 3, 'price_adjustment' => 20, 'image' => UploadedFile::fake()->image('blue.jpg')]],
         ])->assertSessionHasNoErrors();
         $draft = ProductDraft::sole();

@@ -14,6 +14,11 @@ use LogicException;
 
 class Order extends Model
 {
+    public function dispatchCycles(): HasMany
+    {
+        return $this->hasMany(DispatchCycle::class);
+    }
+
     protected $with = ['activeIncident'];
 
     public function activeIncident(): HasOne

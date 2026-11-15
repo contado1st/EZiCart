@@ -42,7 +42,9 @@ class ProductDraftService
                 if ($field !== 'image' && $field !== 'product_video' && ! preg_match('/\A(?:gallery_images\.\d+|variations\.\d+\.image)\z/', $field)) {
                     continue;
                 }
-                $path = $file->store('product-drafts/'.$this->actor($request)->id, 'private');
+                $processor = app(ProductUploadProcessor::class);
+                $directory = 'product-drafts/'.$this->actor($request)->id;
+                $path = $field === 'product_video' ? $processor->video($file, $directory, 'private') : $processor->image($file, $directory, 'private', $field);
                 if (! is_string($path)) {
                     throw new \RuntimeException('Draft media could not be saved.');
                 }

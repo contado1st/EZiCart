@@ -11,6 +11,7 @@ use App\Services\ParcelLoadService;
 use App\Services\ProductCategoryService;
 use App\Services\ProductDraftService;
 use App\Services\ProductMediaService;
+use App\Services\ProductUploadProcessor;
 use App\Services\ProductVariationEditorService;
 use App\Services\SellerCatalogOperationService;
 use Illuminate\Database\UniqueConstraintViolationException;
@@ -99,7 +100,7 @@ class ProductController extends Controller
             $validated['variations_enabled'] = $request->has('variations_enabled') ? $request->boolean('variations_enabled') : null;
             $cover = $request->file('image') ?? collect($request->file('gallery_images', []))->first();
             if ($cover) {
-                $imagePath = $cover->store('products', 'public');
+                $imagePath = app(ProductUploadProcessor::class)->image($cover, 'products');
                 if (! is_string($imagePath)) {
                     throw new \RuntimeException('The product cover could not be stored.');
                 }
@@ -203,7 +204,7 @@ class ProductController extends Controller
                 $cover = collect($request->file('gallery_images', []))->first();
             }
             if ($cover) {
-                $uploadedImagePath = $cover->store('products', 'public');
+                $uploadedImagePath = app(ProductUploadProcessor::class)->image($cover, 'products');
                 if (! is_string($uploadedImagePath)) {
                     throw new \RuntimeException('The product cover could not be stored.');
                 }

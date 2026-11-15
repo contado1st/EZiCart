@@ -41,11 +41,12 @@ class ProductMediaService
                 $files[] = ['kind' => 'video', 'file' => $request->file('product_video')];
             }
             foreach ($files as $entry) {
-                $path = $entry['file']->store('products/media', 'public');
+                $processor = app(ProductUploadProcessor::class);
+                $path = $entry['kind'] === 'image' ? $processor->image($entry['file'], 'products/media', field: 'gallery_images') : $processor->video($entry['file'], 'products/media');
                 if (! is_string($path)) {
                     throw new RuntimeException('Product media could not be stored.');
                 }
-                $staged[] = ['kind' => $entry['kind'], 'path' => $path, 'mime_type' => $entry['file']->getMimeType()];
+                $staged[] = ['kind' => $entry['kind'], 'path' => $path, 'mime_type' => $entry['kind'] === 'video' ? 'video/mp4' : $entry['file']->getMimeType()];
             }
 
             return $staged;

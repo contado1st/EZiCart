@@ -2,7 +2,7 @@
 @push('styles') @vite('resources/css/shared/dashboard.css') @endpush
 @section('content')
 <main class="web-operations">
-    <header class="dash-header"><div><h1 class="dash-title">{{ $actor->isCommerceAdmin() ? 'Platform treasury' : 'Wallet and balances' }}</h1><p class="dash-subtitle">Sandbox accounting credits. This is not a live e-money or bank account; no real cash-in or cash-out is provided.</p></div><a href="{{ route('finance.statements', 'wallet') }}" class="dash-btn-sm">Export statement</a></header>
+    <header class="dash-header"><div><h1 class="dash-title">Finance &amp; Wallet</h1><p class="dash-subtitle">{{ $actor->isCommerceAdmin() ? 'Platform treasury, balances and financial records.' : 'Your balances, transactions and financial records.' }} Sandbox accounting credits. This is not a live e-money or bank account; no real cash-in or cash-out is provided.</p></div><a href="{{ route('finance.statements', 'wallet') }}" class="dash-btn-sm">Export statement</a></header>
     @include('components.feature-feedback')
     <x-finance-navigation />
     <section class="workspace-metrics" aria-label="Financial balances">

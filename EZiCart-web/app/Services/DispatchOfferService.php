@@ -4,12 +4,15 @@ namespace App\Services;
 
 use App\Enums\OrderStatus;
 use App\Models\DispatchCycle;
+use App\Models\DispatchLocation;
 use App\Models\DispatchOffer;
 use App\Models\Order;
 use App\Models\ParcelTrackingEvent;
 use App\Models\User;
 use App\Notifications\WebOperationsNotification;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
 
@@ -54,6 +57,32 @@ class DispatchOfferService
             $this->audits->record($hub, $cycle, 'automatic_dispatch_started', [], ['order_id' => $locked->id, 'status' => $cycle->status], 'Explicit dispatch cycle; at most three distinct 60-second offers. No physical custody changed.');
 
             return $cycle->refresh();
+        }, 3);
+    }
+
+    /** Initiate once per physical stage; exhausted cycles require deliberate manual recovery. */
+    public function initiateAutomatically(Order $order, User $hub): ?DispatchCycle
+    {
+        return DB::transaction(function () use ($order, $hub) {
+            $this->lockFleet($hub->id);
+            $order = Order::whereKey($order->id)->lockForUpdate()->firstOrFail();
+            $kind = $order->status === 'READY_FOR_PICKUP' ? 'pickup' : 'delivery';
+            if (! in_array($order->status, ['READY_FOR_PICKUP', 'SORTED'], true)
+                || DispatchCycle::where('order_id', $order->id)->where('kind', $kind)->lockForUpdate()->first()
+                || $order->pendingCancellation()->exists() || $order->activeIncident || $order->activeTransfer()->exists()
+                || ! $order->parcel_weight_grams || ! app(OrderWalletService::class)->paymentReady($order)) {
+                return null;
+            }
+            if (($kind === 'pickup' && (! $order->pickup_requested_at || $order->pickup_courier_id || $order->seller_handover_at))
+                || ($kind === 'delivery' && ($order->delivery_courier_id || $order->deliveryAttempts()->where('outcome', 'failed')->exists()))) {
+                return null;
+            }
+            $origin = $kind === 'pickup' ? $order->seller : $hub;
+            if (! DispatchLocation::where('user_id', $origin->id)->where('source', 'hub_verified')->where('address_hash', DispatchLocationService::addressHash($origin))->exists()) {
+                return null;
+            }
+
+            return $this->start($order, $hub, (string) Str::uuid());
         }, 3);
     }
 
@@ -151,7 +180,10 @@ class DispatchOfferService
         }, 3);
     }
 
-    private function lockFleet(int $hubId, array $extra = [])
+    /** @param array<int, int> $extra
+     * @return Collection<int, User>
+     */
+    private function lockFleet(int $hubId, array $extra = []): Collection
     {
         User::whereKey($hubId)->lockForUpdate()->firstOrFail();
 
@@ -203,7 +235,8 @@ class DispatchOfferService
         return (int) round(6371000 * 2 * asin(min(1, sqrt($a))));
     }
 
-    private function next(DispatchCycle $cycle, Order $order, $fleet): void
+    /** @param Collection<int, User> $fleet */
+    private function next(DispatchCycle $cycle, Order $order, Collection $fleet): void
     {
         try {
             $this->validJob($cycle, $order);

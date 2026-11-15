@@ -1,6 +1,31 @@
 (() => {
     'use strict';
 
+    const videos = [...document.querySelectorAll('video[data-product-autoplay]')];
+    const visibleVideos = new Set();
+    const reduced = window.matchMedia?.('(prefers-reduced-motion: reduce)');
+    const pauseVideos = except => videos.forEach(video => { if (video !== except) video.pause(); });
+    const refreshPlayback = () => {
+        const allowed = !document.hidden && !reduced?.matches && !window.navigator?.connection?.saveData;
+        const selected = allowed ? videos.find(video => visibleVideos.has(video) && !video.closest('[hidden]')) : null;
+        pauseVideos(selected);
+        if (selected && selected.paused) {
+            selected.muted = true;
+            selected.play()?.catch?.(() => {});
+        }
+    };
+    videos.forEach(video => video.addEventListener('play', () => pauseVideos(video)));
+    if (typeof IntersectionObserver !== 'undefined') {
+        const observer = new IntersectionObserver(entries => {
+            entries.forEach(entry => entry.isIntersecting && entry.intersectionRatio >= 0.5 ? visibleVideos.add(entry.target) : visibleVideos.delete(entry.target));
+            refreshPlayback();
+        }, {threshold: [0, 0.5]});
+        videos.forEach(video => observer.observe(video));
+    }
+    document.addEventListener?.('visibilitychange', refreshPlayback);
+    reduced?.addEventListener?.('change', refreshPlayback);
+    window.addEventListener('pagehide', () => pauseVideos());
+
     document.querySelectorAll('[data-product-gallery]').forEach((gallery) => {
         const slides = [...gallery.querySelectorAll('[data-gallery-slide]')];
         if (!slides.length) return;
@@ -16,6 +41,7 @@
             });
             thumbnails.forEach((button, position) => button.setAttribute('aria-pressed', String(position === index)));
             status.textContent = `${index + 1} / ${slides.length} · ${slides[index].dataset.kind === 'video' ? 'Video' : 'Photo'}`;
+            refreshPlayback();
             if (moveFocus) thumbnails[index]?.focus({ preventScroll: true });
         };
         gallery.classList.add('is-enhanced');

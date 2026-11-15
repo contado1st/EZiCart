@@ -17,10 +17,12 @@ use App\Notifications\AccountStatusNotification;
 use App\Notifications\DirectMessageNotification;
 use App\Notifications\OrderStatusNotification;
 use App\Notifications\OrderWorkflowNotification;
+use App\Notifications\PasswordChangeCodeNotification;
 use App\Notifications\PasswordRecoveryCodeNotification;
 use App\Notifications\ProductComplianceNotification;
 use App\Services\InventoryRestorationService;
 use App\Services\OrderTransitionService;
+use App\Services\PasswordChangeService;
 use App\Services\RiderBadgeService;
 use App\Services\TransactionAwareNotificationSender;
 use Illuminate\Database\QueryException;
@@ -2583,8 +2585,12 @@ class LogisticsWorkflowTest extends TestCase
             'password' => 'New-Account@2026',
             'password_confirmation' => 'New-Account@2026',
         ])->assertSessionHasErrors('current_password');
+        Notification::fake();
+        app(PasswordChangeService::class)->request($buyer, 'password');
+        $passwordCode = Notification::sent($buyer, PasswordChangeCodeNotification::class)->sole()->code;
         $this->patch(route('account.password.update'), [
             'current_password' => 'password',
+            'password_code' => $passwordCode,
             'password' => 'New-Account@2026',
             'password_confirmation' => 'New-Account@2026',
         ])->assertRedirect()->assertSessionHas('success');

@@ -67,9 +67,11 @@
 
                 <section class="buyer-account-panel buyer-password-panel" id="buyer-password" aria-labelledby="buyer-password-title">
                     <div class="buyer-account-panel-heading"><div><h2 id="buyer-password-title">Change password</h2><p>Use a unique password to protect your EZiCart account.</p></div></div>
-                    <form action="{{ route('account.password.update') }}" method="POST" class="buyer-account-password-form" data-decision="account.password.update" data-decision-title="Change your password?" data-decision-message="Use the new password the next time you sign in. Check that you have entered it correctly." data-decision-label="Change password" data-decision-tone="normal" onsubmit="return window.eziDecisionReady ? true : window.confirm(this.dataset.decisionMessage)">
+                    @include('account.password-code-request')
+<form action="{{ route('account.password.update') }}" method="POST" class="buyer-account-password-form" data-decision="account.password.update" data-decision-title="Change your password?" data-decision-message="Use the new password the next time you sign in. Check that you have entered it correctly." data-decision-label="Change password" data-decision-tone="normal" onsubmit="return window.eziDecisionReady ? true : window.confirm(this.dataset.decisionMessage)">
                         @csrf
                         @method('PATCH')
+@include('account.password-code-field')
                         <div class="buyer-password-fields">
                             <div class="form-group"><label class="form-label" for="current-password">Current password</label><div class="credential-password-wrap"><input id="current-password" type="password" class="form-control" name="current_password" required autocomplete="current-password"><button class="credential-password-toggle" type="button" data-password-toggle="current-password" aria-label="Show password" aria-pressed="false">Show</button></div>@error('current_password')<p class="buyer-account-field-error">{{ $message }}</p>@enderror</div>
                             <div class="form-group"><label class="form-label" for="new-password">New password</label><div class="credential-password-wrap"><input id="new-password" type="password" class="form-control" name="password" required autocomplete="new-password"><button class="credential-password-toggle" type="button" data-password-toggle="new-password" aria-label="Show password" aria-pressed="false">Show</button></div>@error('password')<p class="buyer-account-field-error">{{ $message }}</p>@enderror</div>
@@ -122,9 +124,11 @@
 
             <section class="dash-panel u-extracted-ebdbcd4a73">
                 <h2>Change password</h2>
-                <form action="{{ route('account.password.update') }}" method="POST" data-decision="account.password.update" data-decision-title="Change your password?" data-decision-message="Use the new password the next time you sign in. Check that you have entered it correctly." data-decision-label="Change password" data-decision-tone="normal" onsubmit="return window.eziDecisionReady ? true : window.confirm(this.dataset.decisionMessage)">
+                @include('account.password-code-request')
+<form action="{{ route('account.password.update') }}" method="POST" data-decision="account.password.update" data-decision-title="Change your password?" data-decision-message="Use the new password the next time you sign in. Check that you have entered it correctly." data-decision-label="Change password" data-decision-tone="normal" onsubmit="return window.eziDecisionReady ? true : window.confirm(this.dataset.decisionMessage)">
                     @csrf
                     @method('PATCH')
+@include('account.password-code-field')
                     @foreach ([['current-password', 'Current password', 'current_password', 'current-password'], ['new-password', 'New password', 'password', 'new-password'], ['new-password-confirmation', 'Confirm new password', 'password_confirmation', 'new-password']] as [$id, $label, $name, $autocomplete])
                         <div class="form-group"><label class="form-label" for="{{ $id }}">{{ $label }}</label><div class="credential-password-wrap"><input id="{{ $id }}" type="password" class="form-control" name="{{ $name }}" required autocomplete="{{ $autocomplete }}"><button class="credential-password-toggle" type="button" data-password-toggle="{{ $id }}" aria-label="Show password" aria-pressed="false">Show</button></div>@error($name)<p>{{ $message }}</p>@enderror</div>
                     @endforeach

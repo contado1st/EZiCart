@@ -13,6 +13,7 @@ use App\Services\CheckoutPricingService;
 use App\Services\InventoryRestorationService;
 use App\Services\StockSubscriptionService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -115,7 +116,7 @@ class ProductPricingModeTest extends TestCase
         $this->assertSame(2, $product->variations()->count());
         $this->assertSame(5, $product->fresh()->stock);
         $product->forceFill(['compliance_status' => 'approved'])->save();
-        $this->assertTrue(Product::availableForMarketplace()->whereKey($product->id)->exists());
+        $this->assertTrue(Product::availableForMarketplace()->whereKey((int) $product->getKey())->exists());
         $this->flushSession();
         $buyer = User::forceCreate(['email' => 'mode-buyer@example.test', 'password' => 'Password123!', 'role' => 'buyer', 'status' => 'approved', 'first_name' => 'Mode', 'last_name' => 'Buyer', 'contact_no' => '09123456789']);
         $this->actingAs($buyer)->get(route('product.show', $product))->assertOk();
@@ -123,7 +124,7 @@ class ProductPricingModeTest extends TestCase
         $cart = app(BuyerCartService::class)->display($buyer);
         $this->assertTrue(collect($cart)->sole()['available']);
         $this->assertSame(10000, collect($cart)->sole()['unit_cents']);
-        $quote = app(CheckoutPricingService::class)->quote([['product_id' => $product->id, 'variation_id' => null, 'quantity' => 1]], context: ['buyer' => $buyer]);
+        $quote = app(CheckoutPricingService::class)->quote([['product_id' => (int) $product->getKey(), 'variation_id' => null, 'quantity' => 1]], context: ['buyer' => $buyer]);
         $this->assertSame(10000, $quote['subtotal_cents']);
         $this->assertSame('low', app(StockSubscriptionService::class)->state($product->fresh()));
         $this->post(route('cart.add', $product), ['quantity' => 1, 'variation_id' => $product->variations()->first()->id])->assertUnprocessable();
@@ -131,14 +132,14 @@ class ProductPricingModeTest extends TestCase
 
     public function test_legacy_retired_only_products_remain_hidden_and_cannot_be_bought_as_base(): void
     {
-        $product = Product::forceCreate([...array_diff_key($this->base(), ['weight_kg' => true]), 'user_id' => auth()->id(), 'weight_grams' => 1000, 'compliance_status' => 'approved', 'is_archived' => false]);
+        $product = Product::forceCreate([...array_diff_key($this->base(), ['weight_kg' => true]), 'user_id' => Auth::id(), 'weight_grams' => 1000, 'compliance_status' => 'approved', 'is_archived' => false]);
         $product->variations()->forceCreate(['type' => 'Size', 'value' => 'Old', 'stock' => 5, 'is_active' => false]);
         $this->assertNull($product->fresh()->variations_enabled);
-        $this->assertFalse(Product::availableForMarketplace()->whereKey($product->id)->exists());
+        $this->assertFalse(Product::availableForMarketplace()->whereKey((int) $product->getKey())->exists());
         $this->get(route('product.show', $product))->assertNotFound();
         $this->assertSame('unavailable', app(StockSubscriptionService::class)->state($product->fresh()));
         $this->expectException(ValidationException::class);
-        app(CheckoutPricingService::class)->quote([['product_id' => $product->id, 'variation_id' => null, 'quantity' => 1]]);
+        app(CheckoutPricingService::class)->quote([['product_id' => (int) $product->getKey(), 'variation_id' => null, 'quantity' => 1]]);
     }
 
     public function test_retired_option_cancellation_restores_units_without_inflating_active_stock_and_is_once(): void
@@ -148,7 +149,7 @@ class ProductPricingModeTest extends TestCase
         $retired = $product->variations()->orderBy('id')->first();
         $retired->forceFill(['is_active' => false, 'stock' => 0])->save();
         $product->update(['stock' => 7]);
-        $order = $this->restorationOrder($product, $retired->id);
+        $order = $this->restorationOrder($product, (int) $retired->getKey());
         app(InventoryRestorationService::class)->restore($order);
         app(InventoryRestorationService::class)->restore($order);
         $this->assertSame(2, $retired->fresh()->stock);
@@ -164,7 +165,7 @@ class ProductPricingModeTest extends TestCase
         $this->post(route('seller.products.store'), $this->optionPayload())->assertSessionHasNoErrors();
         $product = Product::sole();
         $option = $product->variations()->first();
-        $order = $this->restorationOrder($product, $option->id);
+        $order = $this->restorationOrder($product, (int) $option->getKey());
         app(InventoryRestorationService::class)->restore($order);
         app(InventoryRestorationService::class)->restore($order);
         $this->assertSame(12, $product->fresh()->stock);
@@ -177,7 +178,7 @@ class ProductPricingModeTest extends TestCase
         $this->post(route('seller.products.store'), $this->optionPayload())->assertSessionHasNoErrors();
         $product = Product::sole();
         $option = $product->variations()->first();
-        $order = $this->restorationOrder($product, $option->id);
+        $order = $this->restorationOrder($product, (int) $option->getKey());
         $this->put(route('seller.products.update', $product), [...$this->base(), 'variations_enabled' => 0])->assertSessionHasNoErrors();
         app(InventoryRestorationService::class)->restore($order);
         $this->assertSame(5, $product->fresh()->stock);
@@ -200,12 +201,12 @@ class ProductPricingModeTest extends TestCase
 
     public function test_explicit_conversion_of_retired_legacy_listing_requires_compliance_review(): void
     {
-        $product = Product::forceCreate([...array_diff_key($this->base(), ['weight_kg' => true]), 'user_id' => auth()->id(), 'weight_grams' => 1000, 'compliance_status' => 'approved', 'is_archived' => false]);
+        $product = Product::forceCreate([...array_diff_key($this->base(), ['weight_kg' => true]), 'user_id' => Auth::id(), 'weight_grams' => 1000, 'compliance_status' => 'approved', 'is_archived' => false]);
         $product->variations()->forceCreate(['type' => 'Size', 'value' => 'Old', 'stock' => 5, 'is_active' => false]);
         $this->put(route('seller.products.update', $product), [...$this->base(), 'variations_enabled' => 0])->assertSessionHasNoErrors();
         $this->assertFalse($product->fresh()->variations_enabled);
         $this->assertSame('pending_review', $product->fresh()->compliance_status);
-        $this->assertFalse(Product::availableForMarketplace()->whereKey($product->id)->exists());
+        $this->assertFalse(Product::availableForMarketplace()->whereKey((int) $product->getKey())->exists());
     }
 
     public function test_inspected_partial_return_restores_only_approved_retired_units(): void
@@ -215,9 +216,9 @@ class ProductPricingModeTest extends TestCase
         $retired = $product->variations()->first();
         $retired->forceFill(['is_active' => false, 'stock' => 0])->save();
         $product->update(['stock' => 7]);
-        $order = $this->restorationOrder($product, $retired->id);
-        $order->forceFill(['status' => 'RETURNED_TO_SELLER', 'restock_inspected_at' => now(), 'restock_inspected_by' => auth()->id(), 'restock_approved' => true])->save();
-        ReturnInspectionItem::create(['order_id' => $order->id, 'order_item_id' => $order->items()->sole()->id, 'expected_quantity' => 2, 'restock_quantity' => 1, 'excluded_quantity' => 1, 'inspected_by' => auth()->id(), 'created_at' => now()]);
+        $order = $this->restorationOrder($product, (int) $retired->getKey());
+        $order->forceFill(['status' => 'RETURNED_TO_SELLER', 'restock_inspected_at' => now(), 'restock_inspected_by' => Auth::id(), 'restock_approved' => true])->save();
+        ReturnInspectionItem::create(['order_id' => (int) $order->getKey(), 'order_item_id' => $order->items()->sole()->id, 'expected_quantity' => 2, 'restock_quantity' => 1, 'excluded_quantity' => 1, 'inspected_by' => Auth::id(), 'created_at' => now()]);
         app(InventoryRestorationService::class)->restore($order);
         app(InventoryRestorationService::class)->restore($order);
         $this->assertSame(1, $retired->fresh()->stock);
@@ -228,8 +229,8 @@ class ProductPricingModeTest extends TestCase
 
     private function restorationOrder(Product $product, int $optionId): Order
     {
-        $order = Order::forceCreate(['order_number' => 'MODE-'.Str::uuid(), 'buyer_id' => auth()->id(), 'seller_id' => $product->user_id, 'recipient_name' => 'Test Buyer', 'recipient_contact' => '09123456789', 'province' => 'Laguna', 'municipality' => 'Majayjay', 'barangay' => 'Poblacion', 'street_address' => 'Test only', 'subtotal' => 200, 'shipping_fee' => 50, 'total_amount' => 250, 'payment_method' => 'COD', 'status' => 'CANCELLED']);
-        OrderItem::create(['order_id' => $order->id, 'product_id' => $product->id, 'variation_id' => $optionId, 'product_name' => $product->name, 'quantity' => 2, 'unit_price' => 100, 'item_total' => 200]);
+        $order = Order::forceCreate(['order_number' => 'MODE-'.Str::uuid(), 'buyer_id' => Auth::id(), 'seller_id' => $product->user_id, 'recipient_name' => 'Test Buyer', 'recipient_contact' => '09123456789', 'province' => 'Laguna', 'municipality' => 'Majayjay', 'barangay' => 'Poblacion', 'street_address' => 'Test only', 'subtotal' => 200, 'shipping_fee' => 50, 'total_amount' => 250, 'payment_method' => 'COD', 'status' => 'CANCELLED']);
+        OrderItem::create(['order_id' => (int) $order->getKey(), 'product_id' => (int) $product->getKey(), 'variation_id' => $optionId, 'product_name' => $product->name, 'quantity' => 2, 'unit_price' => 100, 'item_total' => 200]);
 
         return $order;
     }

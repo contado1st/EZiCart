@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\StaffProfileRevision;
 use App\Models\User;
 use App\Services\BuyerAddressService;
+use App\Services\PasswordChangeService;
 use App\Services\PsgcAddressService;
 use App\Services\StaffProfileService;
 use Illuminate\Contracts\View\View;
@@ -13,7 +14,6 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Password as PasswordRule;
 
@@ -102,6 +102,7 @@ class AccountController extends Controller
     {
         $validated = $request->validate([
             'current_password' => ['required', 'current_password'],
+            'password_code' => ['required', 'digits:6'],
             'password' => ['bail', 'required', 'string', 'confirmed', PasswordRule::min(8)->max(128)->mixedCase()->numbers()->symbols(), function (string $attribute, mixed $value, \Closure $fail): void {
                 if (is_string($value) && Hash::check($value, $this->authenticatedUser()->password)) {
                     $fail('Choose a password different from your current password.');
@@ -109,12 +110,17 @@ class AccountController extends Controller
             }],
         ]);
 
-        Auth::logoutOtherDevices($validated['current_password']);
-        $this->authenticatedUser()->forceFill([
-            'password' => $validated['password'],
-            'remember_token' => Str::random(60),
-        ])->save();
+        $updated = app(PasswordChangeService::class)->change($this->authenticatedUser(), $validated['password_code'], $validated['current_password'], $validated['password']);
+        Auth::setUser($updated);
 
         return back()->with('success', 'Your password has been changed.');
+    }
+
+    public function requestPasswordCode(Request $request): RedirectResponse
+    {
+        $data = $request->validate(['current_password' => ['required', 'string']]);
+        app(PasswordChangeService::class)->request($this->authenticatedUser(), $data['current_password']);
+
+        return back()->with('success', 'A password verification code was sent to your registered email address.');
     }
 }
