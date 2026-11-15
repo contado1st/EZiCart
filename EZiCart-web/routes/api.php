@@ -9,6 +9,7 @@ use App\Http\Controllers\Api\CourierApiController;
 use App\Http\Controllers\Api\DiscoveryApiController;
 use App\Http\Controllers\Api\NotificationApiController;
 use App\Http\Controllers\Api\OrderApiController;
+use App\Http\Controllers\Api\ParcelRecordApiController;
 use App\Http\Controllers\Api\ProductApiController;
 use App\Http\Controllers\Api\ProfileApiController;
 use App\Http\Controllers\Api\ShopApiController;
@@ -126,6 +127,17 @@ $defineApiRoutes = function () {
         Route::get('/disputes', [OrderApiController::class, 'disputesList']);
         Route::get('/orders/{id}/dispute', [OrderApiController::class, 'getDispute'])->whereNumber('id');
         Route::post('/orders/{id}/dispute', [OrderApiController::class, 'createDispute'])->whereNumber('id');
+
+        // Parcel Records - Synchronized with Web (Journey & Evidence, Incidents & Claims, Approved Return Pickups)
+        Route::get('/parcel-evidence', [ParcelRecordApiController::class, 'evidenceIndex']);
+        Route::get('/orders/{id}/evidence', [ParcelRecordApiController::class, 'evidenceShow'])->whereNumber('id');
+        Route::post('/orders/{id}/evidence', [ParcelRecordApiController::class, 'evidenceStore'])->whereNumber('id')->middleware('throttle:operational-action');
+        Route::get('/parcel-evidence/{id}/photo', [ParcelRecordApiController::class, 'evidencePhoto'])->whereNumber('id');
+        Route::get('/parcel-incidents', [ParcelRecordApiController::class, 'incidentsIndex']);
+        Route::get('/parcel-incidents/{id}', [ParcelRecordApiController::class, 'incidentShow'])->whereNumber('id');
+        Route::get('/parcel-incidents/{id}/evidence/{which}', [ParcelRecordApiController::class, 'incidentEvidence'])->whereNumber('id');
+        Route::get('/return-pickups', [ParcelRecordApiController::class, 'returnPickupsIndex']);
+        Route::post('/return-pickups/{id}/handover', [ParcelRecordApiController::class, 'returnPickupHandover'])->whereNumber('id')->middleware('throttle:operational-action');
 
         // Vouchers & Claims
         Route::get('/vouchers', [VoucherApiController::class, 'index']);

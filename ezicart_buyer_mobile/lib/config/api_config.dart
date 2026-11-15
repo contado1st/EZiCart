@@ -170,4 +170,14 @@ class ApiConfig {
   static String get financeRecordsEndpoint => '$baseUrl/finance/records';
   static String orderWalletPayEndpoint(int id) => '$baseUrl/orders/$id/wallet-pay';
   static String orderWalletCancelEndpoint(int id) => '$baseUrl/orders/$id/wallet-cancel';
+
+  // Parcel Records endpoints (Journey & Evidence, Incidents & Claims, Approved Return Pickups)
+  static String get parcelEvidenceEndpoint => '$baseUrl/parcel-evidence';
+  static String orderEvidenceEndpoint(int id) => '$baseUrl/orders/$id/evidence';
+  static String parcelEvidencePhotoEndpoint(int id) => '$baseUrl/parcel-evidence/$id/photo';
+  static String get parcelIncidentsEndpoint => '$baseUrl/parcel-incidents';
+  static String parcelIncidentDetailEndpoint(int id) => '$baseUrl/parcel-incidents/$id';
+  static String parcelIncidentEvidenceEndpoint(int id, String which) => '$baseUrl/parcel-incidents/$id/evidence/$which';
+  static String get returnPickupsEndpoint => '$baseUrl/return-pickups';
+  static String returnPickupHandoverEndpoint(int id) => '$baseUrl/return-pickups/$id/handover';
 }

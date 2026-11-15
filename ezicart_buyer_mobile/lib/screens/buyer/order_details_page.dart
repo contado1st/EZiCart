@@ -10,6 +10,9 @@ import '../../services/api_service.dart';
 import '../../utils/philippine_time.dart';
 import 'create_dispute_page.dart';
 import 'messages_page.dart';
+import 'parcel_evidence_page.dart';
+import 'parcel_incidents_page.dart';
+import 'return_pickups_page.dart';
 import 'shop_page.dart';
 import 'wallet_payment_dialog.dart';
 
@@ -479,6 +482,138 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
                 ),
               ),
               const SizedBox(height: 12),
+
+              // Journey & Evidence Quick Access Button (Synchronized with Web)
+              OutlinedButton.icon(
+                style: OutlinedButton.styleFrom(
+                  backgroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                  side: const BorderSide(color: AppTheme.primary),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                ),
+                icon: const Icon(Icons.timeline, color: AppTheme.primary, size: 18),
+                label: const Text(
+                  'View Parcel Journey and Event Photos',
+                  style: TextStyle(fontWeight: FontWeight.bold, color: AppTheme.primary, fontSize: 13),
+                ),
+                onPressed: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => ParcelEvidencePage(orderId: _order!.id),
+                    ),
+                  );
+                },
+              ),
+              const SizedBox(height: 12),
+
+              // Incident Hold Alert (Synchronized with Web components/order-progress)
+              if (_order!.fulfillmentOnHold || _order!.activeIncident != null) ...[
+                Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFEF2F2),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: const Color(0xFFFECACA)),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          const Icon(Icons.warning_amber_rounded, color: Color(0xFFDC2626), size: 20),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              '${_order!.incidentStatus ?? "Incident Recorded"} — Fulfillment on hold',
+                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF991B1B)),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        'Recorded custody stage: ${_order!.statusLabel}. The platform is reviewing this transport incident and any claim progress.',
+                        style: const TextStyle(fontSize: 12, color: Color(0xFF7F1D1D), height: 1.3),
+                      ),
+                      const SizedBox(height: 10),
+                      OutlinedButton.icon(
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: const Color(0xFFDC2626),
+                          side: const BorderSide(color: Color(0xFFFCA5A5)),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        ),
+                        icon: const Icon(Icons.shield_outlined, size: 14),
+                        label: const Text('Review Incident & Claim Progress', style: TextStyle(fontSize: 12)),
+                        onPressed: () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(builder: (_) => const ParcelIncidentsPage()),
+                          );
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 12),
+              ],
+
+              // Approved Return Pickup Alert (Synchronized with Web return-pickups)
+              if (_order!.returnPickup != null ||
+                  (_order!.dispute != null &&
+                      ['REFUND_APPROVED', 'REPLACEMENT_APPROVED'].contains(_order!.dispute!.status))) ...[
+                Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF0FDF4),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: const Color(0xFFBBF7D0)),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Row(
+                        children: [
+                          Icon(Icons.assignment_return_outlined, color: Color(0xFF16A34A), size: 20),
+                          SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'Return Approved — Rider Pickup Scheduled',
+                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF166534)),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      const Text(
+                        'A courier rider will collect the return parcel from your address. Confirm handover only after physically giving the parcel to the rider.',
+                        style: TextStyle(fontSize: 12, color: Color(0xFF14532D), height: 1.3),
+                      ),
+                      const SizedBox(height: 10),
+                      ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF16A34A),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        ),
+                        icon: const Icon(Icons.handshake_outlined, size: 14, color: Colors.white),
+                        label: const Text('View Approved Return Pickups', style: TextStyle(fontSize: 12, color: Colors.white)),
+                        onPressed: () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(builder: (_) => const ReturnPickupsPage()),
+                          );
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 12),
+              ],
+
+              // Order Progress Steps Tracker (Synchronized with Web)
+              if (_order!.orderProgress != null) ...[
+                _buildProgressTrackerWidget(_order!.orderProgress!),
+                const SizedBox(height: 12),
+              ],
 
               // Awaiting Wallet Payment Notice & Action
               if (_order!.isAwaitingWalletPayment) ...[
@@ -1184,11 +1319,33 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
                 const SizedBox(height: 10),
               ],
 
-              if ([
+              if (_order!.hasPendingCancellation) ...[
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFEF2F2),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: const Color(0xFFFECACA)),
+                  ),
+                  child: const Row(
+                    children: [
+                      Icon(Icons.hourglass_empty, color: Color(0xFFDC2626), size: 18),
+                      SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'Cancellation pending seller approval. Fulfillment is paused.',
+                          style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold, color: Color(0xFF991B1B)),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 10),
+              ] else if ([
                 'PLACED',
                 'CONFIRMED',
                 'PREPARING',
-              ].contains(_order!.status)) ...[
+              ].contains(_order!.status) && !_order!.isAwaitingWalletPayment) ...[
                 OutlinedButton(
                   style: OutlinedButton.styleFrom(
                     foregroundColor: Colors.red.shade700,
@@ -1217,6 +1374,115 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildProgressTrackerWidget(Map<String, dynamic> progress) {
+    final rawStage = progress['stage'];
+    final stage = rawStage is int ? rawStage : (int.tryParse(rawStage?.toString() ?? '') ?? 0);
+    final message = progress['message']?.toString() ?? '';
+    final ownerLabel = progress['owner_label']?.toString();
+    final requiresAction = progress['requires_action'] == true;
+    const steps = [
+      'Placed',
+      'Confirmed',
+      'Prepared',
+      'In Hub',
+      'Out for Delivery',
+      'Delivered',
+      'Completed',
+    ];
+
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFEAECEF)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  requiresAction
+                      ? 'Action required from you'
+                      : (ownerLabel != null ? 'Waiting for $ownerLabel' : 'Progress Timeline'),
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 13,
+                    color: requiresAction ? const Color(0xFFDC2626) : const Color(0xFF2563EB),
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: List.generate(steps.length, (idx) {
+                final isDone = idx < stage;
+                final isCurrent = idx == stage;
+                final stepName = steps[idx];
+
+                return Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        CircleAvatar(
+                          radius: 12,
+                          backgroundColor: isDone
+                              ? const Color(0xFF16A34A)
+                              : (isCurrent ? AppTheme.primary : const Color(0xFFE2E8F0)),
+                          child: isDone
+                              ? const Icon(Icons.check, size: 14, color: Colors.white)
+                              : Text(
+                                  '${idx + 1}',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.bold,
+                                    color: isCurrent ? Colors.white : const Color(0xFF64748B),
+                                  ),
+                                ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          stepName,
+                          style: TextStyle(
+                            fontSize: 10.5,
+                            fontWeight: isCurrent ? FontWeight.bold : FontWeight.normal,
+                            color: isCurrent ? AppTheme.ink : AppTheme.muted,
+                          ),
+                        ),
+                      ],
+                    ),
+                    if (idx < steps.length - 1)
+                      Container(
+                        width: 18,
+                        height: 2,
+                        color: isDone ? const Color(0xFF16A34A) : const Color(0xFFE2E8F0),
+                        margin: const EdgeInsets.only(bottom: 16, left: 4, right: 4),
+                      ),
+                  ],
+                );
+              }),
+            ),
+          ),
+          if (message.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            Text(
+              message,
+              style: const TextStyle(fontSize: 12, color: AppTheme.muted, height: 1.3),
+            ),
+          ],
+        ],
       ),
     );
   }

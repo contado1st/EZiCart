@@ -24,15 +24,15 @@ class OrderItemModel {
 
   factory OrderItemModel.fromJson(Map<String, dynamic> json) {
     final qty = parseInt(json['quantity'], 1);
-    final prc = parseDouble(json['price']);
+    final prc = parseDouble(json['price'] ?? json['unit_price']);
     return OrderItemModel(
       id: parseInt(json['id']),
       productId: parseNullableInt(json['product_id']),
-      name: json['name']?.toString() ?? json['product']?['name']?.toString() ?? 'Item',
-      imagePath: json['image_path'] as String? ?? json['product']?['image_path'] as String?,
+      name: json['name']?.toString() ?? json['product_name']?.toString() ?? json['product']?['name']?.toString() ?? 'Item',
+      imagePath: json['image_path'] as String? ?? json['purchased_image_path'] as String? ?? json['product']?['image_path'] as String?,
       quantity: qty,
       price: prc,
-      total: parseDouble(json['total'], prc * qty),
+      total: parseDouble(json['total'] ?? json['item_total'], prc * qty),
       variationInfo: json['variation_info'] as String?,
     );
   }
@@ -91,6 +91,12 @@ class OrderModel {
   final List<OrderItemModel> items;
   final List<OrderTrackingTimelineItem> trackingTimeline;
   final DisputeModel? dispute;
+  final String? incidentStatus;
+  final bool fulfillmentOnHold;
+  final Map<String, dynamic>? activeIncident;
+  final Map<String, dynamic>? orderProgress;
+  final Map<String, dynamic>? returnPickup;
+  final bool hasPendingCancellation;
 
   OrderModel({
     required this.id,
@@ -122,6 +128,12 @@ class OrderModel {
     required this.items,
     this.trackingTimeline = const [],
     this.dispute,
+    this.incidentStatus,
+    this.fulfillmentOnHold = false,
+    this.activeIncident,
+    this.orderProgress,
+    this.returnPickup,
+    this.hasPendingCancellation = false,
   });
 
   factory OrderModel.fromJson(Map<String, dynamic> json) {
@@ -181,6 +193,12 @@ class OrderModel {
       items: itemsList,
       trackingTimeline: timelineList,
       dispute: json['dispute'] is Map ? DisputeModel.fromJson(json['dispute'] as Map<String, dynamic>) : null,
+      incidentStatus: json['incident_status'] as String? ?? json['active_incident']?['kind'] as String?,
+      fulfillmentOnHold: json['fulfillment_on_hold'] == true || json['active_incident'] != null,
+      activeIncident: json['active_incident'] is Map ? json['active_incident'] as Map<String, dynamic> : null,
+      orderProgress: json['order_progress'] is Map ? json['order_progress'] as Map<String, dynamic> : null,
+      returnPickup: json['return_pickup'] is Map ? json['return_pickup'] as Map<String, dynamic> : null,
+      hasPendingCancellation: json['pending_cancellation'] != null || json['has_pending_cancellation'] == true,
     );
   }
 

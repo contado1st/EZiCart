@@ -112,6 +112,10 @@ class Product extends Model
 
     private function priceLabel(bool $sale, bool $flash = true): string
     {
+        if ($this->price === null) {
+            return '₱0.00';
+        }
+
         if ($this->relationLoaded('variations')) {
             $adjustments = $this->variations->where('is_active', true)->where('stock', '>', 0)->pluck('price_adjustment');
             $minimum = $adjustments->min() ?? 0;
