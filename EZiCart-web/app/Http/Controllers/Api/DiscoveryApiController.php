@@ -56,26 +56,36 @@ class DiscoveryApiController extends Controller
     {
         $buyer = $request->user();
 
+        // Check for availability transitions so notifications are sent and state is kept updated
+        $subscriptions->checkUserSubscriptions($buyer->id);
+
         $watched = DB::table('stock_subscriptions')
             ->where('user_id', $buyer->id)
             ->pluck('product_id');
 
-        $products = Product::with(['seller:id,business_name,municipality,province', 'variations'])
+        $products = Product::with(['seller:id,business_name,municipality,province,status,role', 'variations' => fn ($q) => $q->where('is_active', true)])
             ->whereIn('id', $watched)
             ->latest('id')
             ->get();
 
         $data = $products->map(function (Product $product) use ($subscriptions) {
             $state = $subscriptions->state($product);
+            $hasVariations = $product->usesVariations($product->variations->isNotEmpty()) && $product->variations->isNotEmpty();
+            $effectiveStock = $hasVariations
+                ? (int) $product->variations->where('is_active', true)->sum('stock')
+                : (int) $product->stock;
 
             return [
                 'id' => $product->id,
                 'name' => $product->name,
                 'price' => (float) $product->price,
+                'display_price_label' => $product->display_price_label,
                 'image_path' => $product->image_path,
-                'stock' => (int) $product->stock,
+                'stock' => $effectiveStock,
+                'available_stock' => $effectiveStock,
+                'variations' => $product->variations,
                 'category' => $product->category,
-                'seller_name' => $product->seller->business_name ?? 'Seller',
+                'seller_name' => $product->seller?->business_name ?? 'Seller',
                 'availability_state' => $state,
                 'is_watched' => true,
             ];

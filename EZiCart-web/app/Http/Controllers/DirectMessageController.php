@@ -121,4 +121,66 @@ class DirectMessageController extends Controller
             'attachment_ids' => $message->attachments->whereNotNull('unsent_at')->pluck('id')->values(),
         ])->values()])->header('Cache-Control', 'private, no-store');
     }
+
+    public function updates(Request $request, DirectConversation $conversation, DirectMessagingService $messaging)
+    {
+        abort_unless($conversation->hasParticipant($request->user()), 403);
+        $data = $request->validate([
+            'after_id' => ['nullable', 'integer', 'min:0'],
+        ]);
+        $afterId = (int) ($data['after_id'] ?? 0);
+        $partner = $conversation->otherUser($request->user());
+
+        // Mark incoming messages as read
+        $conversation->messages()
+            ->where('recipient_id', $request->user()->id)
+            ->whereNull('read_at')
+            ->update(['read_at' => now()]);
+
+        $newMessages = $conversation->messages()
+            ->with(['sender:id,first_name,last_name,business_name', 'attachments'])
+            ->where('id', '>', $afterId)
+            ->oldest('id')
+            ->take(50)
+            ->get();
+
+        return response()->json([
+            'can_send' => $messaging->canContact($request->user(), $partner),
+            'messages' => $newMessages->map(function ($message) use ($request, $partner) {
+                $ownMessage = $message->sender_id === $request->user()->id;
+                $isUnsent = $message->unsent_at !== null;
+
+                return [
+                    'id' => $message->id,
+                    'sender_id' => $message->sender_id,
+                    'is_own' => $ownMessage,
+                    'sender_name' => $ownMessage ? 'You' : trim($partner->first_name.' '.$partner->last_name),
+                    'body' => $isUnsent ? ($ownMessage ? 'You unsent this message.' : 'This message was unsent.') : $message->body,
+                    'created_at_iso' => $message->created_at->toIso8601String(),
+                    'created_at_formatted' => $message->created_at->format('M d, Y h:i A'),
+                    'is_unsent' => $isUnsent,
+                    'product_context' => (! $isUnsent && $message->product_context) ? [
+                        'product_id' => $message->product_context['product_id'] ?? null,
+                        'name' => $message->product_context['name'] ?? null,
+                        'price_label' => $message->product_context['price_label'] ?? null,
+                        'image_url' => route('chat.product-image', $message),
+                    ] : null,
+                    'attachments' => $isUnsent ? [] : $message->attachments->map(fn ($a) => [
+                        'id' => $a->id,
+                        'name' => $a->unsent_at ? 'Attachment unsent' : $a->original_name,
+                        'mime_type' => $a->mime_type,
+                        'size' => (int) $a->size,
+                        'size_formatted' => number_format($a->size / 1024, 1).' KB',
+                        'is_image' => in_array($a->mime_type, ['image/jpeg', 'image/png', 'image/webp'], true),
+                        'is_unsent' => $a->unsent_at !== null,
+                        'preview_url' => route('chat.attachments.show', [$a, 'preview' => 1]),
+                        'view_url' => route('chat.attachments.show', [$a, 'panel' => $request->boolean('panel') ? 1 : null]),
+                        'download_url' => route('chat.attachments.show', [$a, 'download' => 1]),
+                        'unsend_url' => route('chat.attachments.destroy', $a),
+                    ])->values()->all(),
+                    'unsend_url' => route('chat.destroy', $message),
+                ];
+            }),
+        ])->header('Cache-Control', 'private, no-store');
+    }
 }

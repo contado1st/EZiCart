@@ -173,7 +173,14 @@ class WalletActionsTest extends TestCase
         $other = $this->user('buyer');
         $this->fund($buyer, 10000);
         $token = ApiToken::createTokenForUser($buyer)['plainTextToken'];
-        $this->withToken($token)->getJson('/api/wallet')->assertOk()->assertJsonPath('data.available_cents', 10000)->assertJsonPath('data.mode', 'demo');
+        foreach (['/api/wallet', '/api/v1/wallet'] as $walletUrl) {
+            $this->withToken($token)->getJson($walletUrl)->assertOk()
+                ->assertJsonPath('data.available_cents', 10000)->assertJsonPath('data.mode', 'demo')
+                ->assertJsonPath('data.balances.available_cents', 10000)
+                ->assertJsonPath('data.receive_reference', app(WalletTransferService::class)->reference($buyer))
+                ->assertJsonStructure(['data' => ['balances', 'entries', 'funding_intents', 'withdrawals', 'pagination']])
+                ->assertHeader('Cache-Control', 'no-store, private');
+        }
         $data = ['recipient_reference' => app(WalletTransferService::class)->reference($seller), 'amount' => '25.00', 'request_key' => (string) Str::uuid()];
         $review = $this->postJson('/api/wallet/send/review', $data)->assertOk()->json('data');
         $result = $this->postJson('/api/wallet/send', $data + ['review_expires' => $review['review_expires'], 'review_hash' => $review['review_hash'], 'password' => 'Password123!'])->assertOk();

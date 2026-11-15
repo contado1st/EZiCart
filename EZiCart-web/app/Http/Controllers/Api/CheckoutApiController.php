@@ -28,6 +28,7 @@ class CheckoutApiController extends Controller
             'checkout_token' => ['required', 'uuid'],
             'quote_hash' => ['required', 'string', 'size:64'],
             'payment_method' => ['required', 'in:COD,WALLET'],
+            'wallet_payment_timing' => ['nullable', 'in:now,later'],
             'notes' => ['nullable', 'string', 'max:250'],
             'voucher_id' => ['nullable', 'integer', 'exists:vouchers,id'],
             'saved_address_id' => ['nullable', 'integer'],
@@ -102,12 +103,16 @@ class CheckoutApiController extends Controller
             'destination_area_id' => $destination?->id,
         ];
 
+        $deferWalletPayment = ($validated['wallet_payment_timing'] ?? 'now') === 'later';
+        abort_if($deferWalletPayment && $validated['payment_method'] !== 'WALLET', 422, 'Choose wallet payment to reserve a wallet order.');
+
         // Prepare request hash
         $hashPayload = [
             'checkout_token' => $validated['checkout_token'],
             'quote_hash' => $validated['quote_hash'],
             'saved_address_id' => $validated['saved_address_id'] ?? null,
             'payment_method' => $validated['payment_method'],
+            'wallet_payment_timing' => $validated['wallet_payment_timing'] ?? 'now',
             'notes' => $validated['notes'] ?? null,
         ];
         ksort($hashPayload);
@@ -122,7 +127,8 @@ class CheckoutApiController extends Controller
                 $validated['quote_hash'],
                 $validated['voucher_id'] ?? null,
                 $finalAddress,
-                $validated['payment_method']
+                $validated['payment_method'],
+                $deferWalletPayment
             );
         } catch (ValidationException $e) {
             return response()->json([
@@ -139,12 +145,27 @@ class CheckoutApiController extends Controller
             ], 500);
         }
 
+        // Remove purchased items from persistent cart so web and mobile stay in sync
+        try {
+            $buyerCarts = app(\App\Services\BuyerCartService::class);
+            foreach ($validated['cart'] as $item) {
+                $key = \App\Services\BuyerCartService::key((int) $item['product_id'], empty($item['variation_id']) ? null : (int) $item['variation_id']);
+                $buyerCarts->remove($buyer, $key);
+            }
+        } catch (\Throwable) {}
+
         $orders = $purchase->orders()->with('seller:id,business_name')->get();
 
         return response()->json([
             'success' => true,
-            'message' => 'Order placed successfully! Sellers have been notified to prepare your packages.',
+            'message' => $deferWalletPayment
+                ? 'Order reserved! Please complete your demo wallet payment before the deadline.'
+                : ($validated['payment_method'] === 'WALLET'
+                    ? 'Order placed and paid with EZiCart Wallet! Sellers have been notified to prepare your packages.'
+                    : 'Order placed successfully! Sellers have been notified to prepare your packages.'),
             'purchase_id' => $purchase->id,
+            'payment_method' => $validated['payment_method'],
+            'defer_wallet_payment' => $deferWalletPayment,
             'total_amount' => $purchase->total_cents / 100,
             'orders' => $orders->map(fn ($o) => [
                 'id' => $o->id,
@@ -152,6 +173,9 @@ class CheckoutApiController extends Controller
                 'status' => $o->status,
                 'seller_name' => $o->seller->business_name ?? 'Merchant',
                 'total_amount' => $o->total_cents / 100,
+                'payment_method' => $o->payment_method,
+                'is_awaiting_wallet_payment' => $o->isAwaitingWalletPayment(),
+                'wallet_payment_due_at' => $o->wallet_payment_due_at?->toIso8601String(),
             ]),
         ], 201);
     }

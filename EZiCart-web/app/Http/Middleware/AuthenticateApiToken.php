@@ -17,7 +17,7 @@ class AuthenticateApiToken
      */
     public function handle(Request $request, Closure $next, ?string $roleRequired = 'buyer'): Response
     {
-        $token = $request->bearerToken();
+        $token = $request->bearerToken() ?: $request->query('token') ?: $request->query('api_token');
 
         if (empty($token)) {
             return response()->json([
@@ -72,11 +72,14 @@ class AuthenticateApiToken
         }
 
         // Role verification
-        if ($roleRequired !== null && $user->role !== $roleRequired) {
-            return response()->json([
-                'success' => false,
-                'message' => "Access denied. This endpoint requires '{$roleRequired}' role permissions.",
-            ], 403);
+        if ($roleRequired !== null) {
+            $allowedRoles = array_map('trim', explode(',', $roleRequired));
+            if (! in_array($user->role, $allowedRoles, true)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => "Access denied. This endpoint requires '{$roleRequired}' role permissions.",
+                ], 403);
+            }
         }
 
         // Touch token usage

@@ -12,6 +12,13 @@ class LedgerEntry extends Model
 
     protected $guarded = ['id'];
 
+    protected function casts(): array
+    {
+        return [
+            'created_at' => 'datetime',
+        ];
+    }
+
     protected static function booted(): void
     {
         static::updating(fn () => throw new LogicException('Ledger entries are immutable.'));

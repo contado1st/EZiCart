@@ -200,6 +200,7 @@ Route::middleware(['auth', 'account.active', 'auth.session'])->group(function ()
         Route::delete('/chat/messages/{message}', [DirectMessageController::class, 'destroy'])->whereNumber('message')->middleware('throttle:operational-action')->name('chat.destroy');
         Route::get('/chat/conversations/{conversation}', [DirectMessageController::class, 'show'])->name('chat.show');
         Route::get('/chat/conversations/{conversation}/retractions', [DirectMessageController::class, 'retractions'])->name('chat.retractions');
+        Route::get('/chat/conversations/{conversation}/updates', [DirectMessageController::class, 'updates'])->name('chat.updates');
         Route::post('/chat/conversations/{conversation}/messages', [DirectMessageController::class, 'store'])->middleware('throttle:operational-action')->name('chat.store');
     });
     Route::get('/sales-reports', SalesReportController::class)->middleware('role:seller,admin,ecommerce_admin')->name('sales-reports.index');

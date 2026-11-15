@@ -45,9 +45,11 @@
 .web-status-dot.is-online { background: #21845e; }
 .web-availability-note { padding: 12px 16px; border: 1px solid #e9cad5; border-radius: 8px; background: #fff5f8; color: #71384f; line-height: 1.6; }
 .web-attachment-list { display: flex; flex-wrap: wrap; gap: 10px; padding-block: 8px; }
-.web-attachment { display: grid; gap: 5px; padding: 10px; max-width: 220px; border: 1px solid #dce0e8; border-radius: 8px; background: #fff; color: #202634; overflow-wrap: anywhere; }
+.web-attachment { position: relative; display: grid; gap: 5px; padding: 10px; max-width: 220px; border: 1px solid #dce0e8; border-radius: 8px; background: #fff; color: #202634; overflow-wrap: anywhere; }
 .web-attachment img { width: 150px; max-height: 150px; object-fit: contain; }
 .web-attachment small { color: #657084; }
+.web-attachment-remove { position: absolute; top: 4px; right: 4px; width: 22px; height: 22px; padding: 0; border: 1px solid #dce0e8; border-radius: 50%; background: #ffffff; color: #657084; font-size: 15px; line-height: 1; font-weight: bold; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; transition: background 0.15s, color 0.15s, border-color 0.15s; z-index: 2; }
+.web-attachment-remove:hover, .web-attachment-remove:focus-visible { background: #fee2e2; color: #dc2626; border-color: #fca5a5; outline: none; }
 .web-upload-feedback { margin-block: 8px; font-size: 11px; color: #657084; }
 .conversation-composer > label[for="message-files"] { margin-top: 8px; }
 .conversation-composer input[type="file"] { max-width: 100%; font-size: 11px; }

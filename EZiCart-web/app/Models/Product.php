@@ -26,6 +26,8 @@ class Product extends Model
 
     protected $hidden = ['weight_grams', 'is_seller_active'];
 
+    protected $appends = ['display_price_label'];
+
     public function currentSale(): HasOne
     {
         return $this->hasOne(ProductSale::class)->whereNull('ended_at')->where('starts_at', '<=', now())->where('ends_at', '>', now())->latest('id');
@@ -110,6 +112,10 @@ class Product extends Model
 
     private function priceLabel(bool $sale, bool $flash = true): string
     {
+        if ($this->price === null) {
+            return '₱0.00';
+        }
+
         if ($this->relationLoaded('variations')) {
             $adjustments = $this->variations->where('is_active', true)->where('stock', '>', 0)->pluck('price_adjustment');
             $minimum = $adjustments->min() ?? 0;
@@ -144,6 +150,11 @@ class Product extends Model
     public function reviews(): HasMany
     {
         return $this->hasMany(Review::class);
+    }
+
+    public function orderItems(): HasMany
+    {
+        return $this->hasMany(OrderItem::class);
     }
 
     public function complianceEvents(): HasMany

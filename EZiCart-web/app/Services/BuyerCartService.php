@@ -90,6 +90,7 @@ class BuyerCartService
                 'unit_cents' => $price, 'image_path' => $variation?->image_path ?: $product?->image_path,
                 'seller_id' => $product?->user_id ?? 0, 'seller_name' => $product?->seller?->business_name ?: 'Shop unavailable',
                 'variation_info' => $variation ? $variation->type.': '.$variation->value : null, 'variation_options' => $variationOptions,
+                                          'variations' => $options->where('is_active', true)->values()->all(),
                 'available' => $reason === null, 'unavailable_reason' => $reason, 'max_quantity' => $stock];
         }
         unset($line);
@@ -125,7 +126,7 @@ class BuyerCartService
         $this->mutate($buyer, function (array $items) use ($buyer, $productId, $variationId, $quantity): array {
             $key = self::key($productId, $variationId);
             $items[$key] = ['product_id' => $productId, 'variation_id' => $variationId, 'quantity' => ($items[$key]['quantity'] ?? 0) + $quantity];
-            $this->pricing->quote(array_filter($items, fn ($line) => $line['product_id'] === $productId), context: ['buyer' => $buyer]);
+            $this->pricing->quote(array_filter($items, fn ($line) => $line['product_id'] === $productId), context: ['buyer' => $buyer, 'allow_unselected_variation' => true]);
 
             return $items;
         });
@@ -137,7 +138,7 @@ class BuyerCartService
             abort_unless(isset($items[$key]), 404);
             $items[$key]['quantity'] = $quantity;
             $productId = $items[$key]['product_id'];
-            $this->pricing->quote(array_filter($items, fn ($line) => $line['product_id'] === $productId), context: ['buyer' => $buyer]);
+            $this->pricing->quote(array_filter($items, fn ($line) => $line['product_id'] === $productId), context: ['buyer' => $buyer, 'allow_unselected_variation' => true]);
 
             return $items;
         });

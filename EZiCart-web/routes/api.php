@@ -5,13 +5,17 @@ use App\Http\Controllers\Api\AuthApiController;
 use App\Http\Controllers\Api\CartApiController;
 use App\Http\Controllers\Api\ChatApiController;
 use App\Http\Controllers\Api\CheckoutApiController;
+use App\Http\Controllers\Api\CourierApiController;
 use App\Http\Controllers\Api\DiscoveryApiController;
 use App\Http\Controllers\Api\NotificationApiController;
 use App\Http\Controllers\Api\OrderApiController;
+use App\Http\Controllers\Api\ParcelRecordApiController;
 use App\Http\Controllers\Api\ProductApiController;
 use App\Http\Controllers\Api\ProfileApiController;
 use App\Http\Controllers\Api\ShopApiController;
 use App\Http\Controllers\Api\VoucherApiController;
+use App\Http\Controllers\Api\WalletApiController;
+use App\Http\Controllers\Api\WishlistApiController;
 use App\Http\Controllers\FinancialOperationsController;
 use App\Http\Controllers\PsgcAddressController;
 use Illuminate\Support\Facades\Route;
@@ -28,6 +32,8 @@ $defineApiRoutes = function () {
     // Public Auth
     Route::post('/login', [AuthApiController::class, 'login'])->middleware('throttle:auth-login');
     Route::post('/auth/login', [AuthApiController::class, 'login'])->middleware('throttle:auth-login');
+    Route::post('/courier/login', [AuthApiController::class, 'login'])->middleware('throttle:auth-login');
+    Route::post('/auth/courier/login', [AuthApiController::class, 'login'])->middleware('throttle:auth-login');
     Route::post('/register', [AuthApiController::class, 'register'])->middleware('throttle:registration');
     Route::post('/auth/register', [AuthApiController::class, 'register'])->middleware('throttle:registration');
     Route::post('/verify-email', [AuthApiController::class, 'verifyEmail'])->middleware('throttle:email-verification');
@@ -36,11 +42,16 @@ $defineApiRoutes = function () {
     Route::post('/auth/resend-verification', [AuthApiController::class, 'resendVerificationCode'])->middleware('throttle:email-verification-resend');
     Route::post('/forgot-password', [AuthApiController::class, 'forgotPassword'])->middleware('throttle:password-reset-link');
     Route::post('/auth/forgot-password', [AuthApiController::class, 'forgotPassword'])->middleware('throttle:password-reset-link');
+    Route::post('/courier/forgot-password', [AuthApiController::class, 'forgotPassword'])->middleware('throttle:password-reset-link');
+    Route::post('/auth/courier/forgot-password', [AuthApiController::class, 'forgotPassword'])->middleware('throttle:password-reset-link');
     Route::post('/reset-password', [AuthApiController::class, 'resetPassword'])->middleware('throttle:password-reset');
     Route::post('/auth/reset-password', [AuthApiController::class, 'resetPassword'])->middleware('throttle:password-reset');
+    Route::post('/courier/reset-password', [AuthApiController::class, 'resetPassword'])->middleware('throttle:password-reset');
+    Route::post('/auth/courier/reset-password', [AuthApiController::class, 'resetPassword'])->middleware('throttle:password-reset');
 
     // Catalog & Products (Public)
     Route::get('/products', [ProductApiController::class, 'index']);
+    Route::get('/products/suggestions', [ProductApiController::class, 'suggestions']);
     Route::get('/products/{id}', [ProductApiController::class, 'show'])->whereNumber('id');
     Route::get('/categories', [ProductApiController::class, 'categories']);
 
@@ -56,12 +67,27 @@ $defineApiRoutes = function () {
     // Authenticated Buyer Only Routes
     Route::middleware('auth.api:buyer')->group(function () {
         // Additive demo-wallet API. Existing mobile requests and response contracts are unchanged.
-        Route::get('/wallet', [\App\Http\Controllers\WalletActionsController::class, 'summary']);
         Route::post('/wallet/send/review', [\App\Http\Controllers\WalletActionsController::class, 'preview'])->middleware('throttle:operational-action');
         Route::post('/wallet/send', [\App\Http\Controllers\WalletActionsController::class, 'send'])->middleware('throttle:10,1');
         Route::post('/wallet/codes/redeem', [\App\Http\Controllers\WalletActionsController::class, 'redeem'])->middleware('throttle:10,1');
         Route::get('/wallet/codes/{reference}', [\App\Http\Controllers\WalletActionsController::class, 'codeReceipt'])->whereUuid('reference');
         Route::get('/wallet/transfers/{reference}', [\App\Http\Controllers\WalletActionsController::class, 'receipt'])->whereUuid('reference');
+
+        // Persistent Buyer Cart (synchronized with Web database)
+        Route::get('/cart', [CartApiController::class, 'index']);
+        Route::post('/cart/items', [CartApiController::class, 'addItem']);
+        Route::patch('/cart/items/{key}', [CartApiController::class, 'updateItem']);
+        Route::patch('/cart/items/{key}/variation', [CartApiController::class, 'changeVariation']);
+        Route::delete('/cart/items/{key}', [CartApiController::class, 'removeItem']);
+        Route::delete('/cart', [CartApiController::class, 'clearCart']);
+        Route::post('/cart/sync', [CartApiController::class, 'sync']);
+
+        // Buyer Wishlist (synchronized with Web database)
+        Route::get('/wishlist', [WishlistApiController::class, 'index']);
+        Route::post('/wishlist/toggle', [WishlistApiController::class, 'toggle'])->middleware('throttle:operational-action');
+        Route::post('/wishlist/{product}', [WishlistApiController::class, 'store'])->whereNumber('product')->middleware('throttle:operational-action');
+        Route::delete('/wishlist/{product}', [WishlistApiController::class, 'destroy'])->whereNumber('product')->middleware('throttle:operational-action');
+
         // Current User Profile & Logout
         Route::get('/me', [AuthApiController::class, 'me']);
         Route::get('/auth/me', [AuthApiController::class, 'me']);
@@ -71,6 +97,8 @@ $defineApiRoutes = function () {
         // Profile & Security Management
         Route::put('/account/profile', [ProfileApiController::class, 'updateProfile']);
         Route::put('/account/password', [ProfileApiController::class, 'updatePassword']);
+        Route::post('/account/appearance', [ProfileApiController::class, 'updateAppearance']);
+        Route::get('/account/profile/media/{type}', [ProfileApiController::class, 'media']);
 
         // Seller Shop Following
         Route::post('/shops/{id}/follow', [ShopApiController::class, 'follow'])->whereNumber('id')->middleware('throttle:operational-action');
@@ -92,11 +120,31 @@ $defineApiRoutes = function () {
         Route::post('/orders/{id}/cancel', [OrderApiController::class, 'cancel'])->whereNumber('id');
         Route::post('/orders/{id}/delivery-code/refresh', [OrderApiController::class, 'refreshDeliveryCode'])->whereNumber('id');
         Route::post('/orders/{id}/review', [OrderApiController::class, 'review'])->whereNumber('id');
+        Route::post('/orders/{id}/wallet-pay', [WalletApiController::class, 'payOrder'])->whereNumber('id')->middleware('throttle:operational-action');
+        Route::post('/orders/{id}/wallet-cancel', [WalletApiController::class, 'cancelOrder'])->whereNumber('id')->middleware('throttle:operational-action');
+
+        // Buyer Wallet & Financial Records (synchronized with Web)
+        Route::get('/wallet', [WalletApiController::class, 'wallet']);
+        Route::post('/wallet/demo-funding', [WalletApiController::class, 'demoFunding'])->middleware('throttle:operational-action');
+        Route::get('/wallet/demo-funding/{id}/evidence', [WalletApiController::class, 'evidence'])->whereNumber('id');
+        Route::post('/wallet/withdraw', [WalletApiController::class, 'withdraw'])->middleware('throttle:operational-action');
+        Route::get('/finance/records', [WalletApiController::class, 'records']);
 
         // Order Disputes & Returns
         Route::get('/disputes', [OrderApiController::class, 'disputesList']);
         Route::get('/orders/{id}/dispute', [OrderApiController::class, 'getDispute'])->whereNumber('id');
         Route::post('/orders/{id}/dispute', [OrderApiController::class, 'createDispute'])->whereNumber('id');
+
+        // Parcel Records - Synchronized with Web (Journey & Evidence, Incidents & Claims, Approved Return Pickups)
+        Route::get('/parcel-evidence', [ParcelRecordApiController::class, 'evidenceIndex']);
+        Route::get('/orders/{id}/evidence', [ParcelRecordApiController::class, 'evidenceShow'])->whereNumber('id');
+        Route::post('/orders/{id}/evidence', [ParcelRecordApiController::class, 'evidenceStore'])->whereNumber('id')->middleware('throttle:operational-action');
+        Route::get('/parcel-evidence/{id}/photo', [ParcelRecordApiController::class, 'evidencePhoto'])->whereNumber('id');
+        Route::get('/parcel-incidents', [ParcelRecordApiController::class, 'incidentsIndex']);
+        Route::get('/parcel-incidents/{id}', [ParcelRecordApiController::class, 'incidentShow'])->whereNumber('id');
+        Route::get('/parcel-incidents/{id}/evidence/{which}', [ParcelRecordApiController::class, 'incidentEvidence'])->whereNumber('id');
+        Route::get('/return-pickups', [ParcelRecordApiController::class, 'returnPickupsIndex']);
+        Route::post('/return-pickups/{id}/handover', [ParcelRecordApiController::class, 'returnPickupHandover'])->whereNumber('id')->middleware('throttle:operational-action');
 
         // Vouchers & Claims
         Route::get('/vouchers', [VoucherApiController::class, 'index']);
@@ -119,8 +167,43 @@ $defineApiRoutes = function () {
         // Chat & Messaging
         Route::get('/chat/threads', [ChatApiController::class, 'threads']);
         Route::get('/chat/{conversation}', [ChatApiController::class, 'show'])->whereNumber('conversation');
-        Route::post('/chat/{conversation}/messages', [ChatApiController::class, 'sendMessage'])->whereNumber('conversation');
-        Route::post('/chat/start/{sellerId}', [ChatApiController::class, 'start'])->whereNumber('sellerId');
+        Route::post('/chat/{conversation}/messages', [ChatApiController::class, 'sendMessage'])->whereNumber('conversation')->middleware('throttle:operational-action');
+        Route::delete('/chat/{conversation}/messages/{message}', [ChatApiController::class, 'unsendMessage'])->whereNumber(['conversation', 'message'])->middleware('throttle:operational-action');
+        Route::delete('/chat/{conversation}/attachments/{attachment}', [ChatApiController::class, 'unsendAttachment'])->whereNumber(['conversation', 'attachment'])->middleware('throttle:operational-action');
+        Route::post('/chat/start/{sellerId}', [ChatApiController::class, 'start'])->whereNumber('sellerId')->middleware('throttle:operational-action');
+        Route::get('/chat/attachments/{attachment}', [ChatApiController::class, 'attachment'])->whereNumber('attachment');
+    });
+
+    // Authenticated Driver & Courier Routes
+    Route::middleware('auth.api:courier')->prefix('courier')->group(function () {
+        Route::get('/me', [AuthApiController::class, 'me']);
+        Route::get('/auth/me', [AuthApiController::class, 'me']);
+        Route::post('/logout', [AuthApiController::class, 'logout']);
+        Route::post('/auth/logout', [AuthApiController::class, 'logout']);
+        Route::put('/password', [ProfileApiController::class, 'updatePassword']);
+        Route::put('/account/password', [ProfileApiController::class, 'updatePassword']);
+
+        Route::get('/dashboard', [CourierApiController::class, 'dashboard']);
+        Route::post('/badge/rotate', [CourierApiController::class, 'rotateBadge']);
+        Route::get('/orders/{id}', [CourierApiController::class, 'showOrder'])->whereNumber('id');
+        Route::post('/orders/{id}/claim', [CourierApiController::class, 'claimPickup'])->whereNumber('id');
+        Route::post('/orders/{id}/decline-pickup', [CourierApiController::class, 'declinePickup'])->whereNumber('id');
+        Route::post('/orders/{id}/arrive', [CourierApiController::class, 'arriveAtPickup'])->whereNumber('id');
+        Route::post('/orders/{id}/confirm-pickup', [CourierApiController::class, 'confirmPickup'])->whereNumber('id');
+        Route::post('/orders/{id}/accept-assignment', [CourierApiController::class, 'acceptDeliveryAssignment'])->whereNumber('id');
+        Route::post('/orders/{id}/start-delivery', [CourierApiController::class, 'startDelivery'])->whereNumber('id');
+        Route::post('/orders/{id}/decline-delivery-assignment', [CourierApiController::class, 'declineDeliveryAssignment'])->whereNumber('id');
+        Route::post('/orders/{id}/complete-delivery', [CourierApiController::class, 'completeDelivery'])->whereNumber('id');
+        Route::patch('/orders/{id}/complete-delivery', [CourierApiController::class, 'completeDelivery'])->whereNumber('id');
+        Route::post('/orders/{id}/fail-delivery', [CourierApiController::class, 'failDelivery'])->whereNumber('id');
+        Route::patch('/orders/{id}/fail-delivery', [CourierApiController::class, 'failDelivery'])->whereNumber('id');
+        Route::post('/orders/{id}/confirm-return-delivery', [CourierApiController::class, 'confirmReturnDelivery'])->whereNumber('id');
+        Route::get('/history', [CourierApiController::class, 'history']);
+        Route::get('/tracking', [CourierApiController::class, 'tracking']);
+        Route::get('/earnings', [CourierApiController::class, 'earnings']);
+        Route::post('/orders/{id}/remittance', [CourierApiController::class, 'submitRemittance'])->whereNumber('id');
+        Route::get('/orders/{id}/messages', [CourierApiController::class, 'orderMessages'])->whereNumber('id');
+        Route::post('/orders/{id}/messages', [CourierApiController::class, 'sendOrderMessage'])->whereNumber('id');
     });
 };
 
