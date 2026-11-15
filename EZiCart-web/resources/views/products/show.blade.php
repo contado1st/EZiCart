@@ -11,7 +11,10 @@
     $location = implode(', ', array_filter([$seller->municipality, $seller->province]));
 @endphp
 <main class="pdp">
-    <nav class="pdp-breadcrumb" aria-label="Breadcrumb"><a href="{{ route('home') }}">EZiCart</a><span aria-hidden="true">/</span><a href="{{ route('search.index', ['category' => $product->category]) }}">{{ $product->category_label }}</a><span aria-hidden="true">/</span><span>{{ $product->name }}</span></nav>
+    <div class="pdp-nav-line" style="display: flex; align-items: center; gap: 14px; margin-bottom: 20px; flex-wrap: wrap;">
+        <x-back-button :fallback="'search.index'" label="Back" class="pdp-back-btn" />
+        <nav class="pdp-breadcrumb" aria-label="Breadcrumb" style="margin-bottom: 0;"><a href="{{ route('home') }}">EZiCart</a><span aria-hidden="true">/</span><a href="{{ route('search.index', ['category' => $product->category]) }}">{{ $product->category_label }}</a><span aria-hidden="true">/</span><span>{{ $product->name }}</span></nav>
+    </div>
     @if(session('success'))<p class="pdp-feedback" role="status">{{ session('success') }}</p>@endif
     @if(session('error') || $errors->any())<div class="pdp-feedback pdp-error" role="alert">{{ session('error') }}@foreach($errors->all() as $error)<p>{{ $error }}</p>@endforeach</div>@endif
     <section class="pdp-overview" aria-labelledby="product-title">

@@ -48,11 +48,40 @@ class RoadmapFeaturesTest extends TestCase
         $other = $this->product(['name' => 'New phone', 'category' => 'Electronics', 'created_at' => now()->addMinute()]);
         $hidden = $this->product(['name' => 'Hidden book', 'category' => 'Books', 'compliance_status' => 'pending_review']);
         $this->actingAsUser($buyer)->get(route('product.show', $product))->assertOk();
-        $this->get(route('buyer.for-you'))->assertOk()->assertViewHas('products', fn ($products) => $products->first()->id === $product->id && ! $products->contains('id', $hidden->id));
+        $this->get(route('buyer.for-you'))->assertRedirect(route('home').'#marketplace-for-you');
+        $this->get(route('home'))->assertSee('id="marketplace-for-you"', false)
+            ->assertViewHas('forYouProducts', fn ($products) => $products->first()->id === $product->id && ! $products->contains('id', $hidden->id));
         $this->assertDatabaseHas('product_interactions', ['user_id' => $buyer->id, 'product_id' => $product->id]);
-        $this->delete(route('buyer.for-you.reset'))->assertRedirect();
+        $this->delete(route('buyer.for-you.reset'))->assertRedirect(route('home').'#marketplace-for-you')
+            ->assertSessionHas('success');
         $this->assertDatabaseMissing('product_interactions', ['user_id' => $buyer->id]);
+        $this->get(route('home'))->assertViewHas('forYouProducts', fn ($products) => $products->first()->id === $other->id);
         $this->actingAsUser($this->user('seller'))->get(route('buyer.for-you'))->assertForbidden();
+    }
+
+    public function test_marketplace_shows_only_five_ranked_recommendations_without_changing_catalog_pagination(): void
+    {
+        $buyer = $this->user('buyer');
+        $seller = $this->user('seller');
+        $catalogIds = [];
+        for ($index = 0; $index < 14; $index++) {
+            $catalogIds[] = Product::forceCreate([
+                'user_id' => $seller->id, 'name' => 'Discovery item '.$index, 'category' => 'Pet Supplies',
+                'price' => 100, 'stock' => 10, 'compliance_status' => 'approved', 'is_archived' => false,
+            ])->id;
+        }
+        $preferred = $this->product(['category' => 'Books', 'created_at' => now()->subDay()]);
+        $expectedIds = [$preferred->id, ...array_slice(array_reverse($catalogIds), 0, 4)];
+
+        $this->actingAsUser($buyer)->get(route('product.show', $preferred))->assertOk();
+
+        $this->get(route('home', ['for_you_page' => 2]))
+            ->assertViewHas('forYouProducts', fn ($products) => $products->pluck('id')->all() === $expectedIds)
+            ->assertViewHas('products', fn ($products) => $products->currentPage() === 1 && $products->count() === 12)
+            ->assertDontSee('aria-label="For you product pages"', false);
+        $this->get(route('buyer.for-you', ['page' => 2]))
+            ->assertRedirect(route('home').'#marketplace-for-you');
+        $this->get(route('buyer.dashboard'))->assertDontSee('href="'.route('buyer.for-you').'"', false);
     }
 
     public function test_stock_alerts_follow_changes_once_and_are_scoped_to_buyer(): void

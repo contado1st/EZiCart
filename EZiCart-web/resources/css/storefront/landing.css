@@ -44,7 +44,7 @@ body.landing-page {
     top: 0;
     z-index: 50;
     color: #4c2236;
-    background: linear-gradient(110deg, #fff1f5, #fbd1e0 55%, #f5a9c3);
+    background: #7BDFF2;
     border-top: 0;
     border-bottom: 1px solid #e6b6c9;
 }

@@ -19,19 +19,23 @@ use App\Services\AnalyticsExportService;
 use App\Services\CheckoutPricingService;
 use App\Services\DeliveryPricingService;
 use App\Services\DeliveryRateManagementService;
+use App\Services\DemoFundingCodeService;
 use App\Services\DemoWalletFundingService;
 use App\Services\FinancialLedgerService;
 use App\Services\LogisticsSettlementService;
 use App\Services\OrderFinancialService;
 use App\Services\OrderWalletService;
+use App\Services\QrCodeService;
 use App\Services\RemittanceBatchService;
 use App\Services\RemittanceReportService;
 use App\Services\ShipmentAdjustmentService;
 use App\Services\TabularExportService;
 use App\Services\WalletFundingService;
+use App\Services\WalletTransferService;
 use App\Services\WalletWithdrawalService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
@@ -58,7 +62,14 @@ class FinancialOperationsController extends Controller
             ? FinancialAccount::whereIn('key', ['platform:logistics-operations', 'platform:logistics-margin', 'platform:unallocated-logistics'])->get()
             : collect();
 
-        return view('finance.wallet', compact('actor', 'available', 'pending', 'held', 'payoutReserved', 'reserved', 'entries', 'intents', 'withdrawals', 'logisticsPools', 'demoFunding', 'demoEnabled'));
+        $walletTransfers = app(WalletTransferService::class);
+        $canReceive = in_array($actor->role, WalletTransferService::USER_ROLES, true);
+        $receiveReference = $canReceive ? $walletTransfers->reference($actor) : null;
+        $receiveQr = $receiveReference ? app(QrCodeService::class)->svg($receiveReference) : null;
+        $fundingCodesReady = Schema::hasTable('demo_funding_codes');
+        $fundingCodes = $fundingCodesReady ? app(DemoFundingCodeService::class)->visible($actor)->with(['issuer', 'recipient'])->latest('id')->paginate(25, ['*'], 'codes_page')->withQueryString() : null;
+
+        return view('finance.wallet', compact('actor', 'available', 'pending', 'held', 'payoutReserved', 'reserved', 'entries', 'intents', 'withdrawals', 'logisticsPools', 'demoFunding', 'demoEnabled', 'walletTransfers', 'canReceive', 'receiveReference', 'receiveQr', 'fundingCodesReady', 'fundingCodes'));
     }
 
     public function topup(Request $request, WalletFundingService $funding)

@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\StaffProfileRevision;
 use App\Models\User;
+use App\Services\QrCodeService;
 use App\Services\StaffProfileService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -27,7 +28,10 @@ class StaffProfileController extends Controller
         $canViewHistory = $profiles->canViewHistory($request->user(), $staff);
         $revisions = $canViewHistory ? StaffProfileRevision::where('user_id', $staff->id)->with('reviewer')->latest()->paginate(25) : null;
 
-        return view('staff.show', compact('staff', 'revisions', 'canViewHistory'));
+        // A profile link identifies the record; it carries no session or handover credential.
+        $qrSvg = app(QrCodeService::class)->svg(url('/staff/'.$staff->id));
+
+        return view('staff.show', compact('staff', 'revisions', 'canViewHistory', 'qrSvg'));
     }
 
     public function reviews(Request $request)

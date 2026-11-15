@@ -4,6 +4,7 @@
 
 @section('content')
     <main class="container legal-page">
+        <div style="margin-bottom: 20px;"><x-back-button :fallback="'home'" label="Back" class="legal-back-btn" /></div>
         <h1>Terms of Service</h1>
         <p>Version {{ config('registration.policy_version') }}. These terms explain the basic rules for using EZiCart while the marketplace is being operated and reviewed.</p>
 

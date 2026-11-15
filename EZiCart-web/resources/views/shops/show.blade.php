@@ -2,7 +2,10 @@
 @section('title', ($seller->profile_display_name ?: $seller->business_name ?: 'Seller shop').' | EZiCart Shop')
 @section('content')
 <div class="shop-page profile-theme-{{ $seller->profile_theme ?: 'rose' }}">
-    <nav class="shop-breadcrumb" aria-label="Breadcrumb"><a href="{{ route('home') }}">Marketplace</a><span aria-hidden="true">/</span><span>{{ $seller->business_name }}</span></nav>
+    <div style="display: flex; align-items: center; gap: 14px; margin-bottom: 20px; flex-wrap: wrap;">
+        <x-back-button :fallback="'home'" label="Back to Marketplace" class="shop-back-btn" />
+        <nav class="shop-breadcrumb" aria-label="Breadcrumb" style="margin-bottom: 0;"><a href="{{ route('home') }}">Marketplace</a><span aria-hidden="true">/</span><span>{{ $seller->business_name }}</span></nav>
+    </div>
     <header class="shop-header">
         <div class="profile-cover">@if($seller->profile_banner_path)<img src="{{ route('profiles.media', [$seller, 'banner', 'v' => $seller->updated_at?->timestamp]) }}" alt="{{ $seller->business_name }} banner" width="1600" height="500">@endif<span class="profile-cover-wordmark">EZiCart</span></div>
         <div class="profile-identity"><x-profile-avatar :user="$seller" class="profile-avatar-large" /><div class="profile-identity-copy"><h1>{{ $seller->profile_display_name ?: $seller->business_name ?: 'Seller shop' }}</h1><p>{{ $seller->business_name }} @if($seller->municipality || $seller->province)<span aria-hidden="true"> · </span>{{ implode(', ', array_filter([$seller->municipality, $seller->province])) }}@endif</p><span class="shop-account-state">Approved seller</span></div>

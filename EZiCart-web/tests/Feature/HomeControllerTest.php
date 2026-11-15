@@ -44,17 +44,26 @@ class HomeControllerTest extends TestCase
 
     public function test_shoppers_can_still_open_the_marketplace_home(): void
     {
-        $this->get(route('home'))->assertOk();
+        $this->get(route('home'))->assertOk()
+            ->assertSee('videos/hero/luxury-shop.mp4', false)
+            ->assertSee('videos/hero/luxury-podium.mp4', false)
+            ->assertDontSee('id="marketplace-for-you"', false)
+            ->assertViewHas('forYouProducts', null);
 
         $this->actingAs($this->user('buyer'))
             ->get(route('home'))
             ->assertOk()
-            ->assertSee('Search for products, shops and more');
+            ->assertSee('Search for products, shops and more')
+            ->assertSee('videos/hero/luxury-shop.mp4', false)
+            ->assertSee('videos/hero/luxury-podium.mp4', false)
+            ->assertSee('id="marketplace-for-you"', false);
 
         $this->actingAs($this->user('seller'))
             ->get(route('home'))
             ->assertOk()
-            ->assertSee('Search for products, shops and more');
+            ->assertSee('Search for products, shops and more')
+            ->assertDontSee('id="marketplace-for-you"', false)
+            ->assertViewHas('forYouProducts', null);
     }
 
     private function user(string $role): User

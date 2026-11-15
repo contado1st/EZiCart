@@ -123,6 +123,28 @@ class SearchPageTest extends TestCase
             ->assertViewHas('products', fn ($products) => $products->total() === 25 && $products->count() === 1 && str_contains($products->url(1), 'category=Fashion') && str_contains($products->url(1), 'search=Canvas') && str_contains($products->url(1), 'sort=price_asc'));
     }
 
+    public function test_landing_buyer_marketplace_and_search_cards_show_consistent_product_details(): void
+    {
+        $product = $this->product();
+        $this->review($product, 4);
+
+        $guest = $this->get(route('home'));
+        $buyer = $this->actingAs($this->user('buyer'))->get(route('home'));
+        $search = $this->get(route('search.index'));
+
+        foreach ([$guest, $buyer, $search] as $response) {
+            $response->assertSee('Product image unavailable')
+                ->assertSee('Canvas bag')
+                ->assertSee('100.00')
+                ->assertSee('10 in stock')
+                ->assertSee('<span>4.0</span>', false)
+                ->assertSee('Rose Studio')
+                ->assertSee('Laguna')
+                ->assertSee('href="'.route('shops.show', $product->seller).'"', false)
+                ->assertSee('Visit shop');
+        }
+    }
+
     private function user(string $role, string $businessName = 'Rose Studio'): User
     {
         return User::forceCreate(['email' => fake()->unique()->safeEmail(), 'password' => 'password', 'role' => $role, 'status' => 'approved', 'first_name' => 'Test', 'last_name' => 'User', 'business_name' => $businessName, 'contact_no' => '09123456789', 'province' => 'Laguna', 'municipality' => 'Majayjay']);

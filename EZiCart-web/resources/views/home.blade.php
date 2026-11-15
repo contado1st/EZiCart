@@ -6,6 +6,9 @@
 @push('styles')
     @vite('resources/css/storefront/landing.css')
     <link rel="stylesheet" href="{{ asset('css/buyer-storefront.css') }}?v={{ filemtime(public_path('css/buyer-storefront.css')) }}">
+    <link rel="stylesheet" href="{{ asset('css/category-carousel.css') }}?v={{ filemtime(public_path('css/category-carousel.css')) }}">
+    <link rel="stylesheet" href="{{ asset('css/buyer-recommendations.css') }}?v={{ filemtime(public_path('css/buyer-recommendations.css')) }}">
+    <script src="{{ asset('js/category-carousel.js') }}?v={{ filemtime(public_path('js/category-carousel.js')) }}" defer></script>
 @endpush
 
 @php
@@ -22,6 +25,7 @@
             <a href="#browse-products">Discover products</a>
             @auth
                 @if (auth()->user()->role === 'buyer')
+                    <a href="#marketplace-for-you">For you</a>
                     <a href="{{ route('buyer.dashboard') }}">My orders</a>
                     <a href="{{ route('account.profile.edit') }}">My account</a>
                 @endif
@@ -32,7 +36,7 @@
 
         <main class="buyer-store-main">
             <section class="buyer-promo" id="discover" aria-labelledby="buyer-promo-title">
-                <img class="buyer-promo-image" src="{{ asset('images/hero_asset.jpg') }}" alt="" fetchpriority="high" width="1600" height="900">
+                <x-hero-videos />
                 <div class="buyer-promo-copy">
                     <p class="buyer-promo-kicker">The EZiCart marketplace</p>
                     @auth
@@ -48,12 +52,9 @@
                     <a class="buyer-promo-action" href="#browse-products">Explore products <span aria-hidden="true">↘</span></a>
                 </div>
                 @if ($featuredProduct)
-                    <a class="buyer-promo-feature" href="{{ route('product.show', $featuredProduct->id) }}">
-                        @if ($featuredProduct->image_path)
-                            <img src="{{ asset('storage/' . $featuredProduct->image_path) }}" alt="{{ $featuredProduct->name }}" loading="lazy">
-                        @endif
-                        <span><small>Recently listed</small><strong>{{ \Illuminate\Support\Str::limit($featuredProduct->name, 48) }}</strong><b>₱{{ number_format($featuredProduct->effective_price, 2) }}</b></span>
-                    </a>
+                    <div class="storefront-featured-card">
+                        <x-catalog-product-card :product="$featuredProduct" />
+                    </div>
                 @endif
             </section>
 
@@ -71,12 +72,17 @@
                 @endauth
             </nav>
 
-            <section class="buyer-shelf buyer-category-shelf" id="buyer-categories" aria-labelledby="buyer-category-title">
+            <section class="buyer-shelf buyer-category-shelf" id="buyer-categories" aria-labelledby="buyer-category-title" data-category-carousel aria-roledescription="carousel">
                 <header class="buyer-shelf-heading">
                     <div><p class="buyer-section-label">Browse the marketplace</p><h2 id="buyer-category-title">Shop by category</h2></div>
                     <a class="buyer-see-all" href="#browse-products">See all products <span aria-hidden="true">↘</span></a>
                 </header>
-                <div class="buyer-category-grid">
+                <div class="category-carousel-controls" data-carousel-controls hidden>
+                    <button type="button" data-carousel-toggle>Pause rotation</button>
+                    <button type="button" data-carousel-previous aria-label="Previous categories" aria-controls="category-carousel-track"><x-shop-icon name="arrowback" /></button>
+                    <button type="button" data-carousel-next aria-label="Next categories" aria-controls="category-carousel-track"><x-shop-icon name="arrowback" class="category-carousel-next-icon" /></button>
+                </div>
+                <div class="buyer-category-grid" id="category-carousel-track" data-carousel-track tabindex="0" role="group" aria-label="Shop categories; scroll horizontally to browse">
                     @foreach ($categories as $category)
                         <a class="buyer-category-tile" href="{{ route('home', ['category' => $category['name']]) }}#browse-products">
                             @if ($category['image'])
@@ -99,26 +105,16 @@
                         <div><p class="buyer-section-label">Fresh from EZiCart sellers</p><h2 id="buyer-arrival-title">Recently added</h2></div>
                         <a class="buyer-see-all" href="#browse-products">Browse the full collection <span aria-hidden="true">↘</span></a>
                     </header>
-                    <div class="buyer-arrival-grid">
+                    <div class="storefront-product-grid">
                         @foreach ($featuredProducts as $product)
-                            <a class="buyer-arrival-card" href="{{ route('product.show', $product->id) }}">
-                                <span class="buyer-arrival-image">
-                                    @if ($product->image_path)
-                                        <img src="{{ asset('storage/' . $product->image_path) }}" alt="{{ $product->name }}" loading="lazy">
-                                    @else
-                                        <span class="buyer-image-placeholder" aria-hidden="true">EZ</span>
-                                    @endif
-                                    <span class="buyer-arrival-category">{{ $product->category_label }}</span>
-                                </span>
-                                <span class="buyer-arrival-meta">
-                                    <strong>{{ $product->name }}</strong>
-                                    <small>{{ $product->seller->business_name ?? 'EZiCart seller' }}</small>
-                                    <b><x-product-price :product="$product" /></b>
-                                </span>
-                            </a>
+                            <x-catalog-product-card :product="$product" />
                         @endforeach
                     </div>
                 </section>
+            @endif
+
+            @if (auth()->user()?->role === 'buyer')
+                @include('buyer.partials.marketplace-for-you', ['products' => $forYouProducts])
             @endif
 
             <section class="buyer-shelf buyer-discover-shelf" id="browse-products" aria-labelledby="market-title">
@@ -151,23 +147,9 @@
                         @endif
                     </div>
                 @else
-                    <div class="buyer-product-grid">
+                    <div class="storefront-product-grid">
                         @foreach ($products as $product)
-                            <a href="{{ route('product.show', $product->id) }}" class="buyer-product-card">
-                                <span class="buyer-product-image">
-                                    @if ($product->image_path)
-                                        <img src="{{ asset('storage/' . $product->image_path) }}" alt="{{ $product->name }}" loading="lazy">
-                                    @else
-                                        <span class="buyer-image-placeholder" aria-hidden="true">EZ</span>
-                                    @endif
-                                    <span class="buyer-product-category">{{ $product->category_label }}</span>
-                                </span>
-                                <span class="buyer-product-details">
-                                    <strong>{{ $product->name }}</strong>
-                                    <small>{{ $product->seller->business_name ?? 'EZiCart seller' }}</small>
-                                    <span class="buyer-product-price-row"><b><x-product-price :product="$product" /></b><span>{{ $product->average_rating > 0 ? number_format($product->average_rating, 1) . ' / 5' : 'New listing' }}</span></span>
-                                </span>
-                            </a>
+                            <x-catalog-product-card :product="$product" />
                         @endforeach
                     </div>
                     <nav class="buyer-pagination" aria-label="Product pages">

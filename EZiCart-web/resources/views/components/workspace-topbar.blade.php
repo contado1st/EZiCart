@@ -32,6 +32,20 @@
         </button>
     </div>
     <div class="workspace-toolbar">
+        @php
+            $isRootDashboard = request()->routeIs([
+                'buyer.dashboard', 
+                'seller.dashboard', 
+                'admin.dashboard', 
+                'courier.dashboard', 
+                'logistics.dashboard', 
+                'logistics-admin.dashboard',
+                'home'
+            ]);
+        @endphp
+        @unless ($isRootDashboard)
+            <x-back-button :fallback="$roleDashboardRoute ?? 'home'" />
+        @endunless
         <div class="workspace-breadcrumb"><span>Workspace</span><span aria-hidden="true">/</span><strong>{{ $workspaceName }}</strong></div>
         <div class="workspace-toolbar-actions">
             <time class="workspace-date" datetime="{{ now()->toDateString() }}">{{ now()->format('D, d M Y') }}</time>
@@ -39,7 +53,6 @@
                 <a class="workspace-primary-action" href="{{ route($workspaceActionRoute) }}">{{ $workspaceAction }}<x-shop-icon name="arrowback" /></a>
             @endunless
             <span class="workspace-toolbar-divider" aria-hidden="true"></span>
-            <a class="workspace-icon-button" href="{{ route('chat.index') }}" data-message-drawer-toggle data-communication-label="Messages" aria-label="Messages{{ $communicationCounts['messages'] ? ', '.$communicationCounts['messages'].' unread' : '' }}" title="Messages"><x-shop-icon name="chat" /><x-communication-count kind="messages" :count="$communicationCounts['messages']" /></a>
             <a class="workspace-icon-button" href="{{ route('notifications.index') }}" data-communication-label="Notifications" aria-label="Notifications{{ $workspaceUnread ? ', '.$workspaceUnread.' unread' : '' }}" title="Notifications">
                 <x-shop-icon name="bell" />
                 <x-communication-count kind="notifications" :count="$workspaceUnread" />

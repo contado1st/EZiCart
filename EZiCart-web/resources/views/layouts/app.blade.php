@@ -10,8 +10,8 @@
     $workspaceLabel = auth()->user()?->role === 'courier' ? 'Courier workspace' : 'Logistics workspace';
     $isDashboardWorkspace = auth()->check() && request()->routeIs(
         'admin.*', 'seller.*', 'courier.*', 'logistics.*', 'logistics-admin.*',
-        'buyer.dashboard', 'buyer.orders.*', 'buyer.reviews.*', 'buyer.addresses.*', 'finance.*', 'parcel-transfers.*', 'return-pickups.*', 'returns.*', 'logistics-corrections.*', 'logistics-zone-readiness',
-        'account.profile.*', 'notifications.*', 'buyer.for-you*', 'buyer.wishlist.*', 'buyer.stock.*', 'chat.*', 'sales-reports.*', 'activity-logs.*', 'coverage.*', 'analytics.*', 'staff.*', 'parcel-evidence.*', 'buyer.vouchers.*', 'load-planning.*', 'dispatch.*', 'parcel-incidents.*'
+        'buyer.dashboard', 'buyer.orders.*', 'buyer.reviews.*', 'buyer.addresses.*', 'finance.*', 'wallet.*', 'parcel-transfers.*', 'return-pickups.*', 'returns.*', 'logistics-corrections.*', 'logistics-zone-readiness',
+        'account.profile.*', 'notifications.*', 'buyer.wishlist.*', 'buyer.stock.*', 'chat.*', 'sales-reports.*', 'activity-logs.*', 'coverage.*', 'analytics.*', 'staff.*', 'parcel-evidence.*', 'buyer.vouchers.*', 'load-planning.*', 'dispatch.*', 'parcel-incidents.*'
     );
 @endphp
 
@@ -64,6 +64,7 @@
     <script src="{{ asset('js/email-input-constraint.js') }}?v={{ filemtime(public_path('js/email-input-constraint.js')) }}" defer></script>
     <script src="{{ asset('js/psgc-address.js') }}?v={{ filemtime(public_path('js/psgc-address.js')) }}" defer></script>
     <script src="{{ asset('js/registration-wizard.js') }}?v={{ filemtime(public_path('js/registration-wizard.js')) }}" defer></script>
+    <link rel="stylesheet" href="{{ asset('css/top-navigation.css') }}?v={{ filemtime(public_path('css/top-navigation.css')) }}">
 </head>
 
 <body @class([
@@ -210,11 +211,6 @@
     @endif
 
     <!-- Footer -->
-    @if (auth()->user()?->role === 'buyer' && !$isDashboardWorkspace)
-        <nav class="marketplace-chat-dock" aria-label="Shopping shortcuts">
-            @if (auth()->user()->role === 'buyer')<a href="{{ route('buyer.for-you') }}">For you</a>@endif
-        </nav>
-    @endif
     @unless ($isRoleWorkspaceRoute || $isDashboardWorkspace)
         <footer class="footer">
             <div class="container footer-text">
@@ -227,6 +223,7 @@
         @include('components.message-drawer')
     @endif
 
+    <x-action-feedback />
     <x-page-loading />
 </body>
 

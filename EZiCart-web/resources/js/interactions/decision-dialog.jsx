@@ -69,7 +69,7 @@ function DecisionDialog() {
                 title: form.dataset.decisionTitle || 'Confirm this action?',
                 message: form.dataset.decisionMessage,
                 label: form.dataset.decisionLabel || 'Confirm',
-                tone: form.dataset.decisionTone || 'normal',
+                tone: submitter?.dataset.actionTone ? (submitter.dataset.actionTone === 'danger' ? 'danger' : 'normal') : (form.dataset.decisionTone || 'normal'),
                 selected,
             });
         };

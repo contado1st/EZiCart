@@ -1,0 +1,4 @@
+.qr-camera-picker:not([hidden]) { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 8px; max-width: 100%; margin: 8px; color: var(--workspace-ink, #202634); font-size: 13px; }
+.qr-camera-picker select { width: auto; max-width: 100%; min-height: 44px; padding: 8px 12px; border: 1px solid var(--workspace-line, #cbd5e1); border-radius: 7px; background: #fff; color: inherit; font: inherit; }
+.qr-camera-picker select:focus-visible { outline: 2px solid var(--workspace-accent, #be2854); outline-offset: 2px; }
+video.qr-camera-video:not([hidden]) { display: block; width: min(100%, 640px); max-height: 60dvh; margin-block: 12px; object-fit: contain; background: #182332; border-radius: 9px; }

@@ -20,6 +20,7 @@
             </aside>
 
             <div class="auth-content">
+                <div class="auth-top-nav"><x-back-button :fallback="'home'" label="Back to Marketplace" class="auth-back-btn" /></div>
                 <div class="auth-mobile-brand"><a class="auth-brand" href="{{ route('home') }}">EZiCart<span>.</span></a></div>
                 <h2 id="auth-title">Sign in to EZiCart</h2>
                 <p class="auth-intro">Use the email address and password for your account.</p>

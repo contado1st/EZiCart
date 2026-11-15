@@ -1,0 +1,10 @@
+.buyer-for-you { scroll-margin-top: 160px; }
+.buyer-for-you .buyer-shelf-heading { gap: 16px; }
+.buyer-for-you-summary { max-width: 65ch; margin: 12px 0 0; color: #575753; font: 400 14px/1.6 "Instrument Sans", ui-sans-serif, system-ui, sans-serif; }
+.buyer-for-you form { flex-shrink: 0; margin: 0; }
+.buyer-for-you-reset { min-height: 44px; padding: 10px 14px; border: 1px solid #d9d9d4; border-radius: 8px; background: #fff; color: #8c3845; font: 600 13px/1.4 "Instrument Sans", ui-sans-serif, system-ui, sans-serif; cursor: pointer; }
+.buyer-for-you-reset:hover { background: #fff1f5; border-color: #8c3845; }
+.buyer-for-you-reset:focus-visible { outline: 2px solid #8c3845; outline-offset: 3px; }
+.buyer-for-you .buyer-product-price-row { flex-wrap: wrap; }
+.buyer-for-you .buyer-product-price-row b { min-width: 0; overflow-wrap: anywhere; }
+.buyer-for-you .buyer-for-you-placeholder { width: 48px; height: 48px; color: #8c3845; }

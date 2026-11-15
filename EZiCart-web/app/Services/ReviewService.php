@@ -39,7 +39,7 @@ class ReviewService
         $staged = [];
         try {
             foreach ($files as $file) {
-                $path = $file->store('reviews/photos', 'private');
+                $path = app(ImageUploadProcessor::class)->image($file, 'reviews/photos', 'private', 'photos', 1600, 1600, 16777216);
                 if (! is_string($path)) {
                     throw new \RuntimeException('Review photo could not be saved.');
                 }

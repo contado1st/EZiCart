@@ -10,7 +10,11 @@
     <main class="auth-page">
         <section class="auth-shell auth-shell--verify" aria-labelledby="auth-title">
             <aside class="auth-aside"><a class="auth-brand" href="{{ route('home') }}">EZiCart<span>.</span></a><div class="auth-aside-copy"><h1>Set up your rider access.</h1><p>Choose a password to activate the account added by your logistics company.</p></div></aside>
-            <div class="auth-content"><div class="auth-mobile-brand"><a class="auth-brand" href="{{ route('home') }}">EZiCart<span>.</span></a></div>
+            <div class="auth-content">
+                <div class="auth-top-nav">
+                    <x-back-button :fallback="'login'" label="Back to sign in" class="auth-back-btn" />
+                </div>
+                <div class="auth-mobile-brand"><a class="auth-brand" href="{{ route('home') }}">EZiCart<span>.</span></a></div>
                 <h2 id="auth-title">Activate your rider account</h2><p class="auth-intro">This link can be used once and expires 24 hours after it was sent.</p>
                 @if ($activationError)
                     <div class="auth-message auth-message--error" role="alert">{{ $activationError }}</div>

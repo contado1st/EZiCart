@@ -4,25 +4,23 @@ namespace App\Http\Controllers\Buyer;
 
 use App\Http\Controllers\Controller;
 use App\Models\Product;
-use App\Services\ProductRecommendationService;
 use App\Services\StockSubscriptionService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 class DiscoveryController extends Controller
 {
-    public function index(Request $request, ProductRecommendationService $recommendations)
+    public function index()
     {
-        $products = $recommendations->query($request->user())->paginate(24);
-
-        return view('buyer.for-you', compact('products'));
+        return redirect()->to(route('home').'#marketplace-for-you');
     }
 
     public function reset(Request $request)
     {
         DB::table('product_interactions')->where('user_id', $request->user()->id)->delete();
 
-        return back()->with('success', 'Browsing history cleared. Recommendations can still use your completed purchases.');
+        return redirect()->to(route('home').'#marketplace-for-you')
+            ->with('success', 'Browsing history cleared. Recommendations can still use your completed purchases.');
     }
 
     public function stock(Request $request, StockSubscriptionService $subscriptions)

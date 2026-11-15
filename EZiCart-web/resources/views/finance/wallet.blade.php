@@ -1,12 +1,15 @@
 @extends('layouts.app')
 @push('styles') @vite('resources/css/shared/dashboard.css') @endpush
+@push('styles')
+@include('finance.partials.wallet-assets')
+@endpush
 @section('content')
 <main class="web-operations wallet-page">
-    <header class="dash-header"><div><h1 class="dash-title">Finance &amp; Wallet</h1><p class="dash-subtitle">{{ $actor->isCommerceAdmin() ? 'Platform treasury, balances and financial records.' : 'Your balances, transactions and financial records.' }} Sandbox accounting credits. This is not a live e-money or bank account; no real cash-in or cash-out is provided.</p></div><div class="workspace-page-actions"><a href="{{ route('finance.statements', 'wallet') }}" class="dash-btn-sm dash-btn-outline"><x-shop-icon name="invoice" /> Export statement</a></div></header>
+    <header class="dash-header"><div><h1 class="dash-title">Finance &amp; Wallet</h1><p class="dash-subtitle">{{ $actor->isCommerceAdmin() ? 'Platform treasury, balances and financial records.' : ($actor->isLogisticsAdmin() ? 'Administration balance, logistics control accounts and financial records.' : 'Your balances, transactions and financial records.') }} Sandbox accounting credits. This is not a live e-money or bank account; no real cash-in or cash-out is provided.</p></div><div class="workspace-page-actions"><a href="{{ route('finance.statements', 'wallet') }}" class="dash-btn-sm dash-btn-outline"><x-shop-icon name="invoice" /> Export statement</a></div></header>
     @include('components.feature-feedback')
     <x-finance-navigation />
+    @include('finance.partials.wallet-actions')
     <section class="workspace-metrics" aria-label="Financial balances">
-        <x-workspace-metric label="Available PHP" :value="number_format($available->balance_cents / 100, 2)" icon="money" :detail="$actor->isCommerceAdmin() ? 'Shared platform treasury; eligible for spending' : 'Your available sandbox funds'" />
         <x-workspace-metric label="Pending PHP" :value="number_format($pending / 100, 2)" icon="lock" detail="Delivery, funding and dispute holds still apply" />
         <x-workspace-metric label="Reserved promotions PHP" :value="number_format($reserved / 100, 2)" icon="voucher" detail="Committed campaign budget; not yet fully consumed" />
         <x-workspace-metric label="Withdrawal holds PHP" :value="number_format($held / 100, 2)" icon="invoice" detail="Awaiting review or sandbox execution" />
@@ -19,6 +22,7 @@
     <x-workspace-tabs :tabs="[
         ['id' => 'wallet-history', 'label' => 'Transactions', 'count' => $entries->total()],
         ['id' => 'wallet-funding', 'label' => 'Add demo funds', 'count' => $intents->total()],
+        ['id' => 'wallet-codes', 'label' => 'Code receipts', 'count' => $fundingCodes?->total() ?? 0],
         ['id' => 'wallet-withdrawals', 'label' => 'Withdrawals', 'count' => $withdrawals->total()],
     ]" />
     <section class="dash-panel" id="wallet-history"><h2>Posted transactions</h2><p>Positive entries credit this account; negative entries debit it. Original entries remain unchanged when reversed.</p>
@@ -29,6 +33,7 @@
         </tbody></table></div>{{ $entries->links() }}
     </section>
     @include('finance.partials.demo-funding')
+    @include('finance.partials.funding-codes')
     <section class="dash-panel" id="wallet-withdrawals"><h2>Withdrawal requests</h2><p>Requests reserve available funds immediately. Seller order payout requests reserve eligible proceeds in a separate hold. Execution is a sandbox ledger operation, not a bank transfer.</p>
         @if(in_array($actor->role, ['buyer', 'seller', 'courier', 'sorting_center'], true))
         @php

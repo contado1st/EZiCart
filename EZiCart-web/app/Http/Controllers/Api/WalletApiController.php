@@ -16,7 +16,10 @@ use App\Services\DemoWalletFundingService;
 use App\Services\FinancialLedgerService;
 use App\Services\WalletFundingService;
 use App\Services\WalletOrderPaymentService;
+use App\Services\WalletTransferService;
 use App\Services\WalletWithdrawalService;
+use Carbon\Carbon;
+use Carbon\CarbonInterface;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -31,7 +34,7 @@ class WalletApiController extends Controller
     /**
      * Get buyer wallet details: balances, transactions, funding requests, and withdrawals.
      */
-    public function wallet(Request $request, FinancialLedgerService $ledger): JsonResponse
+    public function wallet(Request $request, FinancialLedgerService $ledger, WalletTransferService $transfers): JsonResponse
     {
         /** @var User $actor */
         $actor = $request->user();
@@ -119,6 +122,13 @@ class WalletApiController extends Controller
         return response()->json([
             'success' => true,
             'data' => [
+                // Keep the transfer-summary fields alongside the mobile wallet history contract.
+                'mode' => 'demo',
+                'enabled' => $demoEnabled,
+                'available_cents' => (int) $available->balance_cents,
+                'currency' => 'PHP',
+                'frozen' => (bool) $available->frozen,
+                'receive_reference' => $transfers->reference($actor),
                 'balances' => [
                     'available' => (float) ($available->balance_cents / 100),
                     'available_cents' => (int) $available->balance_cents,
@@ -143,7 +153,7 @@ class WalletApiController extends Controller
                     'withdrawals_total' => $withdrawalsPage->total(),
                 ],
             ],
-        ]);
+        ])->header('Cache-Control', 'private, no-store');
     }
 
     /**
@@ -191,6 +201,7 @@ class WalletApiController extends Controller
                     'message' => 'This funding request or demo receipt was already recorded. Review your original history.',
                 ], 422);
             }
+
             return response()->json([
                 'success' => false,
                 'message' => $exception->getMessage() ?: 'Unable to submit demo funding request.',
@@ -435,7 +446,7 @@ class WalletApiController extends Controller
 
     private function formatIsoDate(mixed $date): ?string
     {
-        if ($date instanceof \Carbon\CarbonInterface) {
+        if ($date instanceof CarbonInterface) {
             return $date->toIso8601String();
         }
         if ($date instanceof \DateTimeInterface) {
@@ -443,11 +454,12 @@ class WalletApiController extends Controller
         }
         if (is_string($date) && filled($date)) {
             try {
-                return \Carbon\Carbon::parse($date)->toIso8601String();
-            } catch (\Throwable) {
+                return Carbon::parse($date)->toIso8601String();
+            } catch (Throwable) {
                 return $date;
             }
         }
+
         return null;
     }
 }

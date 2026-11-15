@@ -11,6 +11,9 @@
         <section class="auth-shell auth-shell--verify" aria-labelledby="auth-title">
             <aside class="auth-aside"><a class="auth-brand" href="{{ route('home') }}">EZiCart<span>.</span></a><div class="auth-aside-copy"><h1>Choose a fresh password.</h1><p>Use a password you have not used on EZiCart before.</p></div></aside>
             <div class="auth-content">
+                <div class="auth-top-nav">
+                    <x-back-button :fallback="'login'" label="Back to sign in" class="auth-back-btn" />
+                </div>
                 <div class="auth-mobile-brand"><a class="auth-brand" href="{{ route('home') }}">EZiCart<span>.</span></a></div>
                 <h2 id="auth-title">Choose a new password</h2>
 

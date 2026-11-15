@@ -11,6 +11,7 @@
         <section class="auth-shell auth-shell--verify" aria-labelledby="auth-title">
             <aside class="auth-aside"><a class="auth-brand" href="{{ route('home') }}">EZiCart<span>.</span></a><div class="auth-aside-copy"><h1>Get back in safely.</h1><p>We’ll email a recovery code if an active account matches the address you provide.</p></div></aside>
             <div class="auth-content">
+                <div class="auth-top-nav"><x-back-button :fallback="'login'" label="Back to sign in" class="auth-back-btn" /></div>
                 <div class="auth-mobile-brand"><a class="auth-brand" href="{{ route('home') }}">EZiCart<span>.</span></a></div>
                 <h2 id="auth-title">Reset your password</h2>
                 <p class="auth-intro">Enter the email address associated with your EZiCart account. We’ll send a one-time code to verify your identity before you choose a new password.</p>

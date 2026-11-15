@@ -21,10 +21,12 @@
             catch (_) { throw new Error('Unable to confirm the save. Refresh your session and check your cart before trying again.'); }
             if (!response.ok) throw new Error(Object.values(result.errors || {}).flat()[0] || result.message || 'Could not save this item. Refresh and try again.');
             feedback.textContent = result.message;
+            if (typeof CustomEvent === 'function') document.dispatchEvent?.(new CustomEvent('ezicart:feedback', {detail: {message: result.message, tone: 'success'}}));
             document.querySelectorAll('[data-cart-count]').forEach(badge => { badge.textContent = String(result.count); badge.hidden = result.count === 0; });
         } catch (error) {
             feedback.textContent = error.message || 'Unable to confirm the save. Check your cart before trying again.';
             feedback.classList.add('is-error');
+            if (typeof CustomEvent === 'function') document.dispatchEvent?.(new CustomEvent('ezicart:feedback', {detail: {message: feedback.textContent, tone: 'error'}}));
         } finally {
             buttons.forEach((button, index) => { button.disabled = disabled[index]; });
             delete form.dataset.cartSaving;
