@@ -66,6 +66,43 @@ class ReviewItemModel {
   }
 }
 
+class ProductMediaItem {
+  final String path;
+  final String kind; // 'image' or 'video'
+  final String? mimeType;
+
+  ProductMediaItem({
+    required this.path,
+    this.kind = 'image',
+    this.mimeType,
+  });
+
+  bool get isVideo =>
+      kind == 'video' ||
+      path.toLowerCase().endsWith('.mp4') ||
+      path.toLowerCase().endsWith('.webm') ||
+      path.toLowerCase().endsWith('.mov') ||
+      (mimeType != null && mimeType!.toLowerCase().startsWith('video/'));
+
+  bool get isImage => !isVideo;
+
+  factory ProductMediaItem.fromJson(Map<String, dynamic> json) {
+    final path = json['path']?.toString() ?? '';
+    final kind = json['kind']?.toString() ??
+        (path.toLowerCase().endsWith('.mp4') ||
+                path.toLowerCase().endsWith('.webm') ||
+                path.toLowerCase().endsWith('.mov')
+            ? 'video'
+            : 'image');
+
+    return ProductMediaItem(
+      path: path,
+      kind: kind,
+      mimeType: json['mime_type']?.toString(),
+    );
+  }
+}
+
 class ProductModel {
   final int id;
   final String name;
@@ -82,6 +119,7 @@ class ProductModel {
   final List<ProductVariation> variations;
   final List<ReviewItemModel> reviews;
   final List<String> galleryImages;
+  final List<ProductMediaItem> mediaItems;
 
   int get reviewCount => reviewsCount;
 
@@ -95,6 +133,19 @@ class ProductModel {
     }
     if (imagePath != null && imagePath!.trim().isNotEmpty && !list.contains(imagePath!.trim())) {
       list.insert(0, imagePath!.trim());
+    }
+    return list;
+  }
+
+  List<ProductMediaItem> get allMedia {
+    final list = <ProductMediaItem>[];
+    if (imagePath != null && imagePath!.trim().isNotEmpty) {
+      list.add(ProductMediaItem(path: imagePath!.trim(), kind: 'image'));
+    }
+    for (final m in mediaItems) {
+      if (m.path.trim().isNotEmpty && !list.any((x) => x.path.trim() == m.path.trim())) {
+        list.add(m);
+      }
     }
     return list;
   }
@@ -115,6 +166,7 @@ class ProductModel {
     required this.variations,
     this.reviews = const [],
     this.galleryImages = const [],
+    this.mediaItems = const [],
   });
 
   factory ProductModel.fromJson(Map<String, dynamic> json) {
@@ -128,11 +180,13 @@ class ProductModel {
         .map((e) => ReviewItemModel.fromJson(e as Map<String, dynamic>))
         .toList();
 
-    // Parse gallery media images
+    // Parse gallery media items (both images and videos)
+    List<ProductMediaItem> parsedMedia = [];
     List<String> allImages = [];
     final baseImg = json['image_path'] as String?;
     if (baseImg != null && baseImg.trim().isNotEmpty) {
       allImages.add(baseImg.trim());
+      parsedMedia.add(ProductMediaItem(path: baseImg.trim(), kind: 'image'));
     }
 
     var rawMedia = json['media'] as List<dynamic>? ?? [];
@@ -140,8 +194,16 @@ class ProductModel {
       if (m is Map) {
         final path = m['path']?.toString();
         final kind = m['kind']?.toString() ?? 'image';
-        if (path != null && path.trim().isNotEmpty && kind != 'video') {
-          if (!allImages.contains(path.trim())) {
+        if (path != null && path.trim().isNotEmpty) {
+          final item = ProductMediaItem(
+            path: path.trim(),
+            kind: kind,
+            mimeType: m['mime_type']?.toString(),
+          );
+          if (!parsedMedia.any((x) => x.path.trim() == path.trim())) {
+            parsedMedia.add(item);
+          }
+          if (item.isImage && !allImages.contains(path.trim())) {
             allImages.add(path.trim());
           }
         }
@@ -152,8 +214,13 @@ class ProductModel {
     if (json['gallery_images'] is List) {
       for (var img in json['gallery_images']) {
         final str = img?.toString();
-        if (str != null && str.trim().isNotEmpty && !allImages.contains(str.trim())) {
-          allImages.add(str.trim());
+        if (str != null && str.trim().isNotEmpty) {
+          if (!allImages.contains(str.trim())) {
+            allImages.add(str.trim());
+          }
+          if (!parsedMedia.any((x) => x.path.trim() == str.trim())) {
+            parsedMedia.add(ProductMediaItem(path: str.trim(), kind: 'image'));
+          }
         }
       }
     }
@@ -182,6 +249,7 @@ class ProductModel {
       variations: parsedVariations,
       reviews: parsedReviews,
       galleryImages: allImages,
+      mediaItems: parsedMedia,
     );
   }
 }

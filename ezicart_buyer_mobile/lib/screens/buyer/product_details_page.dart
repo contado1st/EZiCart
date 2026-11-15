@@ -12,6 +12,7 @@ import 'cart_page.dart';
 import 'checkout_page.dart';
 import 'messages_page.dart';
 import 'shop_page.dart';
+import 'widgets/product_video_player.dart';
 
 class ProductDetailsPage extends StatefulWidget {
   final ProductModel product;
@@ -46,17 +47,18 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
     super.dispose();
   }
 
-  List<String> get _displayedImages {
-    final images = _product.allImages
-        .where((img) => img.trim().isNotEmpty)
+  List<ProductMediaItem> get _displayedMedia {
+    final mediaList = _product.allMedia
+        .where((m) => m.path.trim().isNotEmpty)
         .toList();
-    if (_selectedVariation?.imagePath != null && _selectedVariation!.imagePath!.trim().isNotEmpty) {
+    if (_selectedVariation?.imagePath != null &&
+        _selectedVariation!.imagePath!.trim().isNotEmpty) {
       final varImg = _selectedVariation!.imagePath!.trim();
-      if (!images.contains(varImg)) {
-        images.insert(0, varImg);
+      if (!mediaList.any((m) => m.path == varImg)) {
+        mediaList.insert(0, ProductMediaItem(path: varImg, kind: 'image'));
       }
     }
-    return images;
+    return mediaList;
   }
 
   int get _currentStock {
@@ -138,8 +140,8 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
 
     // Animate preview to variation image if present
     if (variation.imagePath != null && variation.imagePath!.isNotEmpty) {
-      final images = _displayedImages;
-      final idx = images.indexOf(variation.imagePath!);
+      final media = _displayedMedia;
+      final idx = media.indexWhere((m) => m.path == variation.imagePath!);
       if (idx != -1 && _pageController.hasClients) {
         _pageController.animateToPage(
           idx,
@@ -150,14 +152,14 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
     }
   }
 
-  void _openFullScreenImageViewer(int initialIndex) {
-    final images = _displayedImages;
-    if (images.isEmpty) return;
+  void _openFullScreenMediaViewer(int initialIndex) {
+    final media = _displayedMedia;
+    if (media.isEmpty) return;
 
     Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (_) => FullScreenImageViewer(
-          images: images,
+        builder: (_) => FullScreenMediaViewer(
+          mediaItems: media,
           initialIndex: initialIndex,
           productTitle: _product.name,
         ),
@@ -247,7 +249,7 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
   @override
   Widget build(BuildContext context) {
     final currencyFormat = NumberFormat.currency(locale: 'en_PH', symbol: '₱');
-    final images = _displayedImages;
+    final mediaList = _displayedMedia;
 
     return Scaffold(
       appBar: AppBar(
@@ -298,42 +300,53 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // Product Image Carousel with Navigation Buttons
+              // Product Image & Video Carousel with Navigation Buttons
               Stack(
                 children: [
                   AspectRatio(
                     aspectRatio: 1.22,
                     child: Container(
                       color: Colors.grey.shade100,
-                      child: images.isNotEmpty
+                      child: mediaList.isNotEmpty
                           ? PageView.builder(
                               controller: _pageController,
-                              itemCount: images.length,
+                              itemCount: mediaList.length,
                               onPageChanged: (idx) {
                                 setState(() => _currentImageIndex = idx);
                               },
                               itemBuilder: (context, idx) {
-                                final resolved = ApiConfig.resolveImageUrl(images[idx]);
+                                final item = mediaList[idx];
+                                final resolved = ApiConfig.resolveImageUrl(item.path);
+
+                                if (resolved == null) {
+                                  return const Center(
+                                    child: Icon(Icons.inventory_2_outlined, size: 64, color: AppTheme.muted),
+                                  );
+                                }
+
+                                if (item.isVideo) {
+                                  return ProductVideoPlayerWidget(
+                                    videoUrl: resolved,
+                                    autoPlay: false,
+                                  );
+                                }
+
                                 return GestureDetector(
-                                  onTap: () => _openFullScreenImageViewer(idx),
-                                  child: resolved != null
-                                      ? CachedNetworkImage(
-                                          imageUrl: resolved,
-                                          fit: BoxFit.cover,
-                                          placeholder: (_, __) => const Center(
-                                            child: SizedBox(
-                                              width: 32,
-                                              height: 32,
-                                              child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.primary),
-                                            ),
-                                          ),
-                                          errorWidget: (_, __, ___) => const Center(
-                                            child: Icon(Icons.inventory_2_outlined, size: 64, color: AppTheme.muted),
-                                          ),
-                                        )
-                                      : const Center(
-                                          child: Icon(Icons.inventory_2_outlined, size: 64, color: AppTheme.muted),
-                                        ),
+                                  onTap: () => _openFullScreenMediaViewer(idx),
+                                  child: CachedNetworkImage(
+                                    imageUrl: resolved,
+                                    fit: BoxFit.cover,
+                                    placeholder: (_, __) => const Center(
+                                      child: SizedBox(
+                                        width: 32,
+                                        height: 32,
+                                        child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.primary),
+                                      ),
+                                    ),
+                                    errorWidget: (_, __, ___) => const Center(
+                                      child: Icon(Icons.inventory_2_outlined, size: 64, color: AppTheme.muted),
+                                    ),
+                                  ),
                                 );
                               },
                             )
@@ -344,7 +357,7 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
                   ),
 
                   // Left navigation button
-                  if (images.length > 1 && _currentImageIndex > 0)
+                  if (mediaList.length > 1 && _currentImageIndex > 0)
                     Positioned(
                       left: 10,
                       top: 0,
@@ -371,7 +384,7 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
                     ),
 
                   // Right navigation button
-                  if (images.length > 1 && _currentImageIndex < images.length - 1)
+                  if (mediaList.length > 1 && _currentImageIndex < mediaList.length - 1)
                     Positioned(
                       right: 10,
                       top: 0,
@@ -397,24 +410,32 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
                       ),
                     ),
 
-                  // Image counter pill badge (e.g. 1 / 4) & Tap to zoom icon
-                  if (images.isNotEmpty)
+                  // Media counter pill badge (e.g. 1 / 4 or Video badge)
+                  if (mediaList.isNotEmpty)
                     Positioned(
                       bottom: 12,
                       right: 12,
                       child: Container(
                         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                         decoration: BoxDecoration(
-                          color: Colors.black.withValues(alpha: 0.6),
+                          color: Colors.black.withValues(alpha: 0.65),
                           borderRadius: BorderRadius.circular(16),
                         ),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            const Icon(Icons.fullscreen, color: Colors.white70, size: 14),
+                            Icon(
+                              mediaList[_currentImageIndex].isVideo
+                                  ? Icons.videocam
+                                  : Icons.fullscreen,
+                              color: Colors.white,
+                              size: 14,
+                            ),
                             const SizedBox(width: 4),
                             Text(
-                              '${_currentImageIndex + 1} / ${images.length}',
+                              mediaList[_currentImageIndex].isVideo
+                                  ? 'Video • ${_currentImageIndex + 1} / ${mediaList.length}'
+                                  : '${_currentImageIndex + 1} / ${mediaList.length}',
                               style: const TextStyle(
                                 color: Colors.white,
                                 fontSize: 12,
@@ -428,19 +449,21 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
                 ],
               ),
 
-              // Thumbnail Bar (if multiple images)
-              if (images.length > 1)
+              // Thumbnail Bar (if multiple media items)
+              if (mediaList.length > 1)
                 Container(
                   height: 68,
                   padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
                   color: AppTheme.surface,
                   child: ListView.separated(
                     scrollDirection: Axis.horizontal,
-                    itemCount: images.length,
+                    itemCount: mediaList.length,
                     separatorBuilder: (_, __) => const SizedBox(width: 10),
                     itemBuilder: (context, idx) {
                       final isSelected = _currentImageIndex == idx;
-                      final resolved = ApiConfig.resolveImageUrl(images[idx]);
+                      final item = mediaList[idx];
+                      final resolved = ApiConfig.resolveImageUrl(item.path);
+
                       return GestureDetector(
                         onTap: () {
                           _pageController.animateToPage(
@@ -462,13 +485,39 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
                           ),
                           child: ClipRRect(
                             borderRadius: BorderRadius.circular(6),
-                            child: resolved != null
-                                ? CachedNetworkImage(
-                                    imageUrl: resolved,
-                                    fit: BoxFit.cover,
-                                    errorWidget: (_, __, ___) => const Icon(Icons.broken_image, size: 18),
+                            child: item.isVideo
+                                ? Container(
+                                    color: const Color(0xFF1F2937),
+                                    child: const Center(
+                                      child: Column(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Icon(
+                                            Icons.play_circle_fill,
+                                            color: Colors.white,
+                                            size: 22,
+                                          ),
+                                          SizedBox(height: 1),
+                                          Text(
+                                            'VIDEO',
+                                            style: TextStyle(
+                                              color: Colors.white,
+                                              fontSize: 7.5,
+                                              fontWeight: FontWeight.bold,
+                                              letterSpacing: 0.5,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
                                   )
-                                : const Icon(Icons.image, size: 18),
+                                : (resolved != null
+                                    ? CachedNetworkImage(
+                                        imageUrl: resolved,
+                                        fit: BoxFit.cover,
+                                        errorWidget: (_, __, ___) => const Icon(Icons.broken_image, size: 18),
+                                      )
+                                    : const Icon(Icons.image, size: 18)),
                           ),
                         ),
                       );
@@ -963,23 +1012,23 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
   }
 }
 
-class FullScreenImageViewer extends StatefulWidget {
-  final List<String> images;
+class FullScreenMediaViewer extends StatefulWidget {
+  final List<ProductMediaItem> mediaItems;
   final int initialIndex;
   final String productTitle;
 
-  const FullScreenImageViewer({
+  const FullScreenMediaViewer({
     super.key,
-    required this.images,
+    required this.mediaItems,
     required this.initialIndex,
     required this.productTitle,
   });
 
   @override
-  State<FullScreenImageViewer> createState() => _FullScreenImageViewerState();
+  State<FullScreenMediaViewer> createState() => _FullScreenMediaViewerState();
 }
 
-class _FullScreenImageViewerState extends State<FullScreenImageViewer> {
+class _FullScreenMediaViewerState extends State<FullScreenMediaViewer> {
   late PageController _pageController;
   late int _currentIndex;
 
@@ -1013,7 +1062,9 @@ class _FullScreenImageViewerState extends State<FullScreenImageViewer> {
               style: const TextStyle(color: Colors.white, fontSize: 15),
             ),
             Text(
-              '${_currentIndex + 1} of ${widget.images.length}',
+              widget.mediaItems.isNotEmpty && widget.mediaItems[_currentIndex].isVideo
+                  ? 'Video • ${_currentIndex + 1} of ${widget.mediaItems.length}'
+                  : '${_currentIndex + 1} of ${widget.mediaItems.length}',
               style: const TextStyle(color: Colors.white70, fontSize: 12),
             ),
           ],
@@ -1023,37 +1074,50 @@ class _FullScreenImageViewerState extends State<FullScreenImageViewer> {
         children: [
           PageView.builder(
             controller: _pageController,
-            itemCount: widget.images.length,
+            itemCount: widget.mediaItems.length,
             onPageChanged: (idx) {
               setState(() => _currentIndex = idx);
             },
             itemBuilder: (context, idx) {
-              final resolved = ApiConfig.resolveImageUrl(widget.images[idx]);
+              final item = widget.mediaItems[idx];
+              final resolved = ApiConfig.resolveImageUrl(item.path);
+
+              if (resolved == null) {
+                return const Center(
+                  child: Icon(Icons.broken_image, size: 64, color: Colors.white38),
+                );
+              }
+
+              if (item.isVideo) {
+                return Center(
+                  child: ProductVideoPlayerWidget(
+                    videoUrl: resolved,
+                    autoPlay: true,
+                  ),
+                );
+              }
+
               return Center(
                 child: InteractiveViewer(
                   minScale: 1.0,
                   maxScale: 4.0,
-                  child: resolved != null
-                      ? CachedNetworkImage(
-                          imageUrl: resolved,
-                          fit: BoxFit.contain,
-                          placeholder: (_, __) => const Center(
-                            child: CircularProgressIndicator(color: AppTheme.primary),
-                          ),
-                          errorWidget: (_, __, ___) => const Center(
-                            child: Icon(Icons.broken_image, size: 64, color: Colors.white38),
-                          ),
-                        )
-                      : const Center(
-                          child: Icon(Icons.broken_image, size: 64, color: Colors.white38),
-                        ),
+                  child: CachedNetworkImage(
+                    imageUrl: resolved,
+                    fit: BoxFit.contain,
+                    placeholder: (_, __) => const Center(
+                      child: CircularProgressIndicator(color: AppTheme.primary),
+                    ),
+                    errorWidget: (_, __, ___) => const Center(
+                      child: Icon(Icons.broken_image, size: 64, color: Colors.white38),
+                    ),
+                  ),
                 ),
               );
             },
           ),
 
           // Left button
-          if (widget.images.length > 1 && _currentIndex > 0)
+          if (widget.mediaItems.length > 1 && _currentIndex > 0)
             Positioned(
               left: 16,
               top: 0,
@@ -1075,7 +1139,7 @@ class _FullScreenImageViewerState extends State<FullScreenImageViewer> {
             ),
 
           // Right button
-          if (widget.images.length > 1 && _currentIndex < widget.images.length - 1)
+          if (widget.mediaItems.length > 1 && _currentIndex < widget.mediaItems.length - 1)
             Positioned(
               right: 16,
               top: 0,
@@ -1097,6 +1161,28 @@ class _FullScreenImageViewerState extends State<FullScreenImageViewer> {
             ),
         ],
       ),
+    );
+  }
+}
+
+class FullScreenImageViewer extends StatelessWidget {
+  final List<String> images;
+  final int initialIndex;
+  final String productTitle;
+
+  const FullScreenImageViewer({
+    super.key,
+    required this.images,
+    required this.initialIndex,
+    required this.productTitle,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return FullScreenMediaViewer(
+      mediaItems: images.map((i) => ProductMediaItem(path: i, kind: 'image')).toList(),
+      initialIndex: initialIndex,
+      productTitle: productTitle,
     );
   }
 }

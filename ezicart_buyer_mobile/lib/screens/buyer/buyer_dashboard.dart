@@ -710,7 +710,18 @@ class _BuyerDashboardState extends State<BuyerDashboard> {
                         ),
                       ),
                       InkWell(
-                        onTap: () => setState(() => _currentIndex = 1),
+                        onTap: () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => CategoriesPage(
+                                onSelectCategory: (cat) {
+                                  Navigator.of(context).pop();
+                                  _onCategorySelected(cat);
+                                },
+                              ),
+                            ),
+                          );
+                        },
                         borderRadius: BorderRadius.circular(4),
                         child: const Padding(
                           padding: EdgeInsets.symmetric(
@@ -1131,7 +1142,6 @@ class _BuyerDashboardState extends State<BuyerDashboard> {
 
     final pages = [
       _buildStorefront(),
-      CategoriesPage(onSelectCategory: _onCategorySelected),
       const OrdersPage(),
       MessagesPage(key: _messagesKey),
       const ProfilePage(),
@@ -1312,7 +1322,7 @@ class _BuyerDashboardState extends State<BuyerDashboard> {
           currentIndex: _currentIndex,
           onTap: (index) {
             setState(() => _currentIndex = index);
-            if (index == 3) {
+            if (index == 2) {
               _messagesKey.currentState?.fetchThreads();
             }
           },
@@ -1330,11 +1340,6 @@ class _BuyerDashboardState extends State<BuyerDashboard> {
               icon: Icon(Icons.storefront_outlined),
               activeIcon: Icon(Icons.storefront),
               label: 'Home',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.category_outlined),
-              activeIcon: Icon(Icons.category),
-              label: 'Categories',
             ),
             BottomNavigationBarItem(
               icon: Icon(Icons.receipt_long_outlined),
