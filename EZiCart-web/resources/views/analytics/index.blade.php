@@ -51,7 +51,10 @@
         <section class="analytics-section analytics-detail-section" id="analytics-{{ $section['key'] }}"><header><h2>{{ $section['title'] }}</h2><p>{{ number_format(count($section['rows'])) }} {{ $section['key'] === 'orders' ? 'orders in this report' : 'rows' }}. @if($section['key'] !== 'orders' && count($section['rows']) > 20)Showing the first 20; exports include every row.@endif</p></header>
             <div class="analytics-table-scroll">@if(count($section['rows']))
             <table><thead><tr>@foreach(array_keys($section['rows'][0]) as $heading)<th scope="col">{{ $heading }}</th>@endforeach</tr></thead><tbody>
-            @foreach($section['key'] === 'orders' ? $orders : array_slice($section['rows'], 0, 20) as $row)<tr>@foreach($row as $heading => $value)<td>{{ is_float($value) ? number_format($value, 2) : $value }}</td>@endforeach</tr>@endforeach
+            @foreach($section['key'] === 'orders' ? $orders : array_slice($section['rows'], 0, 20) as $row)
+                @php($rowImage = $report['table_images'][$section['key']][$loop->index] ?? null)
+                <tr>@foreach($row as $heading => $value)<td>@if($heading === 'Product')<x-product-table-item :name="$value" :image="$rowImage" />@else{{ is_float($value) ? number_format($value, 2) : $value }}@endif</td>@endforeach</tr>
+            @endforeach
             </tbody></table>@else<p class="analytics-empty">No matching records for this section.</p>@endif</div>
             @if($section['key'] === 'orders'){{ $orders->links() }}@endif
         </section>

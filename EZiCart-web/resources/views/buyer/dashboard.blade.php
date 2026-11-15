@@ -60,7 +60,7 @@
 
                 <p class="web-muted">Use a purchase tab or filter by order status. Up to 25 orders per page. Returns/refunds include open disputes and recorded refund activity.</p>
                 @forelse($orders as $order)
-                    <div class="order-card u-extracted-dab43fb936">
+                    <div class="order-card" style="margin-top: 1rem; border-radius: var(--dash-radius-inner);">
                         <div class="order-card-header">
                             <div>
                                 <a href="{{ route('buyer.orders.show', $order->id) }}"
@@ -73,18 +73,18 @@
                             </span>
                         </div>
 
-                        <div class="u-extracted-0e37a331af">
+                        <div class="order-item-listing">
                             @foreach ($order->items as $item)
-                                <div class="u-extracted-8ad17e2bf5">
+                                <div class="order-item-row" style="font-variant-numeric: tabular-nums;">
                                     <div>
                                         <strong>{{ $item->product_name }}</strong>
                                         @if ($item->variation_info)
-                                            <span class="u-extracted-36eaa30988">({{ $item->variation_info }})</span>
+                                            <span style="color: var(--dash-text-muted); font-size: 0.8125rem;">({{ $item->variation_info }})</span>
                                         @endif
-                                        <span class="u-extracted-71b8babba9">&times;
+                                        <span style="color: var(--dash-text-muted); font-size: 0.8125rem;">&times;
                                             {{ $item->quantity }}</span>
                                     </div>
-                                    <div>₱{{ number_format($item->item_total, 2) }}</div>
+                                    <div style="font-weight: 600;">₱{{ number_format($item->item_total, 2) }}</div>
                                 </div>
 
                                 <!-- Review Form for Completed Orders -->
@@ -94,7 +94,7 @@
                                     @endphp
 
                                     @if ($alreadyReviewed)
-                                        <div class="u-extracted-930b6add1c">
+                                        <div style="margin-top: 0.5rem; font-size: 0.8125rem; color: #b45309;">
                                             <x-shop-icon name="star" /> Rated {{ $alreadyReviewed->rating }}/5:
                                             "{{ $alreadyReviewed->comment ?? 'No comment' }}"
                                             <a href="{{ route('buyer.reviews.edit', $alreadyReviewed) }}">Edit review / private history</a>
@@ -109,14 +109,14 @@
                         </div>
 
                         <div class="order-card-footer">
-                            <div>
+                            <div style="font-variant-numeric: tabular-nums;">
                                 Total Amount: <strong>₱{{ number_format($order->total_amount, 2) }}</strong>
-                                <span class="u-extracted-cf0c302441">({{ $order->payment_method }})</span>
+                                <span style="font-size: 0.75rem; color: var(--dash-text-muted);">({{ $order->payment_method }})</span>
                             </div>
 
-                            <div class="u-extracted-487b2c5804">
+                            <div class="order-seller-action-row">
                                 @if($order->isAwaitingWalletPayment())
-                                    <a class="dash-btn-sm" href="{{ route('buyer.orders.wallet-payment', $order) }}">Pay or cancel reservation</a>
+                                    <a class="dash-btn-sm dash-btn-outline" href="{{ route('buyer.orders.wallet-payment', $order) }}">Pay or cancel reservation</a>
                                 @endif
                                 @if ($order->dispute)
                                     <span
@@ -125,7 +125,7 @@
                                     </span>
                                 @elseif(in_array($order->status, ['DELIVERED', 'COMPLETED']))
                                     <a href="{{ route('buyer.orders.dispute.create', $order->id) }}"
-                                        class="dash-btn-sm u-extracted-8dddb4a915">
+                                        class="dash-btn-sm dash-btn-outline" style="color: var(--dash-danger); border-color: #fecaca;">
                                         <x-shop-icon name="warning" /> File Dispute
                                     </a>
                                 @endif
@@ -133,19 +133,19 @@
                                 @if ($order->status === 'DELIVERED')
                                     <form action="{{ route('buyer.orders.confirm', $order->id) }}" method="POST" data-decision="buyer.orders.confirm" data-decision-title="Confirm receipt?" data-decision-message="Confirm only after you have received the parcel and checked your items. This records your receipt of the order." data-decision-label="Confirm receipt" data-decision-tone="normal" onsubmit="return window.eziDecisionReady ? true : window.confirm(this.dataset.decisionMessage)">
                                         @csrf
-                                        <button type="submit" class="dash-btn-sm dash-btn-success">
+                                        <button type="submit" class="dash-btn-sm dash-btn-primary">
                                             Confirm Order Received
                                         </button>
                                     </form>
                                 @endif
 
                                 @if ($order->pendingCancellation)
-                                    <a class="dash-btn-sm" href="{{ route('buyer.orders.show', $order) }}">Cancellation pending</a>
+                                    <a class="dash-btn-sm dash-btn-outline" href="{{ route('buyer.orders.show', $order) }}">Cancellation pending</a>
                                 @elseif (! $order->isAwaitingWalletPayment() && in_array($order->status, ['PLACED', 'CONFIRMED', 'PREPARING'], true))
                                     <form action="{{ route('buyer.orders.cancel', $order) }}" method="POST" data-decision="buyer.orders.cancel" data-decision-title="Request cancellation?" data-decision-message="The seller has 24 hours to respond before automatic approval. Cancellation is unavailable after physical pickup." data-decision-label="Request cancellation" data-decision-tone="danger" onsubmit="return window.eziDecisionReady ? true : window.confirm(this.dataset.decisionMessage)">
                                         @csrf
-                                        <button type="submit" class="dash-btn-sm">Request
-                                            cancellation</button>
+                                        <button type="submit" class="dash-btn-sm dash-btn-outline">Request
+                                             cancellation</button>
                                     </form>
                                 @endif
                             </div>

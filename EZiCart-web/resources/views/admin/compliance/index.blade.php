@@ -48,7 +48,7 @@
                     <tbody>
                         @forelse ($products as $product)
                             <tr>
-                                <td><strong>{{ $product->name }}</strong>
+                                <td><x-product-table-item :name="$product->name" :image="$product->image_path" />
                                     <div>{{ $product->category_label }}</div>
                                     <div class="text-muted-small">{{ $product->description }}</div><span
                                         class="dash-badge dash-badge-archived">{{ str_replace('_', ' ', ucfirst($product->compliance_status)) }}</span>

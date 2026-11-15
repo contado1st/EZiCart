@@ -35,7 +35,7 @@
             <!-- Financial & Logistics KPI Cards -->
             <section class="feature-panel"><h2>Platform activity</h2><div class="feature-grid">
                 @foreach (['buyers' => 'Buyer accounts', 'sellers' => 'Approved sellers', 'products' => 'Approved listings', 'orders' => 'Orders placed', 'delivered' => 'Parcels delivered', 'failed_attempts' => 'Failed delivery attempts'] as $key => $label)
-                    <p><strong>{{ number_format($stats[$key]) }}</strong><br>{{ $label }}</p>
+                    <p><strong class="tabular-nums">{{ number_format($stats[$key]) }}</strong><br>{{ $label }}</p>
                 @endforeach
             </div></section>
             <div class="dash-stats-grid">
@@ -101,14 +101,16 @@
                             <tbody>
                                 @forelse($recentOrders as $order)
                                     <tr>
-                                        <td class="dash-text-bold">{{ $order->order_number }}<div><a
-                                                    href="{{ route('admin.orders.messages.show', $order) }}">Open order
-                                                    conversation</a></div>
+                                        <td>
+                                            <span class="order-number">{{ $order->order_number }}</span>
+                                            <div>
+                                                <a href="{{ route('admin.orders.messages.show', $order) }}" class="dash-action-link">Open order conversation</a>
+                                            </div>
                                         </td>
                                         <td>{{ $order->seller->business_name ?? 'Store' }}</td>
                                         <td>{{ $order->recipient_name }}</td>
-                                        <td class="dash-text-bold">₱{{ number_format($order->total_amount, 2) }}</td>
-                                        <td class="dash-text-success-bold">₱{{ number_format($order->commission_fee, 2) }}
+                                        <td class="dash-text-bold tabular-nums">₱{{ number_format($order->total_amount, 2) }}</td>
+                                        <td class="dash-text-success-bold tabular-nums">₱{{ number_format($order->commission_fee, 2) }}
                                         </td>
                                         <td>
                                             <span

@@ -200,14 +200,15 @@ html.decision-open { overflow: hidden; }
     overflow-y: auto;
 }
 .decision-dialog[open] { animation: decision-arrival 180ms cubic-bezier(.16, 1, .3, 1); }
-.decision-dialog::backdrop { background: rgb(25 30 44 / 48%); animation: decision-backdrop 150ms ease-out; }
+.decision-dialog::backdrop { background: rgb(25 30 44 / 48%); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); animation: decision-backdrop 150ms ease-out; }
 .decision-content { padding: 28px; }
 .decision-symbol { display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; background: var(--decision-soft); color: var(--decision-accent); border-radius: 12px; }
-.decision-dialog h2 { margin: 16px 0 0; font-size: 21px; font-weight: 650; letter-spacing: -.02em; line-height: 1.3; overflow-wrap: anywhere; }
-.decision-dialog p { margin: 12px 0 0; font-size: 14px; line-height: 1.6; color: #535f72; overflow-wrap: anywhere; }
-.decision-dialog .decision-selection { margin-top: 16px; padding: 8px 12px; border-radius: 8px; background: var(--decision-soft); color: var(--decision-accent); }
+.decision-dialog h2 { margin: 16px 0 0; font-size: 20px; font-weight: 650; letter-spacing: -.02em; line-height: 1.3; overflow-wrap: anywhere; text-wrap: balance; }
+.decision-dialog p { margin: 12px 0 0; font-size: 14px; line-height: 1.6; color: #535f72; overflow-wrap: anywhere; text-wrap: pretty; }
+.decision-dialog .decision-selection { margin-top: 16px; padding: 8px 12px; border-radius: 8px; background: var(--decision-soft); color: var(--decision-accent); font-variant-numeric: tabular-nums; }
 .decision-actions { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 12px; padding: 16px 28px; border-top: 1px solid #e7e9ef; }
-.decision-actions button { min-height: 40px; padding: 9px 16px; border: 1px solid #dce0e8; border-radius: 8px; font: 600 13px/1.4 "Instrument Sans", ui-sans-serif, sans-serif; cursor: pointer; transition: background-color 150ms ease, border-color 150ms ease; }
+.decision-actions button { min-height: 40px; padding: 9px 16px; border: 1px solid #dce0e8; border-radius: 8px; font: 600 13px/1.4 "Instrument Sans", ui-sans-serif, sans-serif; cursor: pointer; transition: background-color 150ms ease, border-color 150ms ease, transform 100ms ease; }
+.decision-actions button:active:not(:disabled) { transform: scale(0.97); }
 .decision-cancel { background: #fff; color: #394456; }
 .decision-cancel:hover { background: #f8f9fc; }
 .decision-actions .decision-confirm { background: var(--decision-accent); border-color: var(--decision-accent); color: #fff; }
@@ -216,10 +217,10 @@ html.decision-open { overflow: hidden; }
 .decision-actions .is-danger:hover { background: #941c37; border-color: #941c37; }
 .decision-dialog :is(button, a):focus-visible { outline: 2px solid var(--decision-accent); outline-offset: 3px; }
 
-@keyframes decision-arrival { from { opacity: .5; transform: scale(.98); } to { opacity: 1; transform: scale(1); } }
+@keyframes decision-arrival { from { opacity: 0; transform: scale(.95); } to { opacity: 1; transform: scale(1); } }
 @keyframes decision-backdrop { from { background: rgb(25 30 44 / 0%); } to { background: rgb(25 30 44 / 48%); } }
 @keyframes decision-pending { to { transform: rotate(360deg); } }
-@keyframes feedback-recorded { from { background-color: var(--workspace-soft, #fff0f4); } }
+@keyframes feedback-recorded { 0% { background-color: var(--workspace-soft, #fff0f4); transform: scale(0.98); } 50% { transform: scale(1.005); } 100% { transform: scale(1); } }
 
 @media (max-width: 480px) {
     .decision-content { padding: 22px; }

@@ -124,7 +124,7 @@
                                 @endif
                             </td>
                             <td class="ops-mono">
-                                <strong>{{ $order->order_number }}</strong><x-parcel-weight :order="$order" compact />
+                                <strong>{{ $order->order_number }}</strong><x-parcel-weight :order="$order" compact /><x-order-table-products :items="$order->items" />
                                 <div>
                                     <span class="ops-status">{{ str_replace('_', ' ', $order->operational_status) }}</span>
                                 </div>

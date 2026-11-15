@@ -133,6 +133,8 @@ class AnalyticsService
         }
         $records = [];
         $productRows = [];
+        $productImages = [];
+        $tableImages = [];
         $categoryRows = [];
         $sellerRows = [];
         $voucherRows = [];
@@ -163,6 +165,7 @@ class AnalyticsService
                 foreach ($order->items as $item) {
                     $id = $item->product_id ?? 'deleted-'.$item->product_name;
                     $productRows[$id] ??= ['Product' => $item->product_name, 'Units fulfilled' => 0, 'Gross PHP' => 0];
+                    $productImages[$id] ??= $item->purchased_image_path;
                     $productRows[$id]['Units fulfilled'] += $item->quantity;
                     $productRows[$id]['Gross PHP'] += CheckoutPricingService::cents($item->item_total) / 100;
                     $category = $item->product?->category_label ?: 'Uncategorized / deleted';
@@ -214,7 +217,8 @@ class AnalyticsService
         $add('statuses', 'Order status distribution', $orders->countBy('operational_status')->map(fn ($count, $status) => ['Status' => $status, 'Orders' => $count])->all());
         $add('locations', 'Orders by municipality', $orders->countBy(fn ($o) => $o->municipality ?: 'Not recorded')->sortDesc()->map(fn ($count, $place) => ['Municipality' => $place, 'Orders' => $count])->all());
         if ($commercial) {
-            usort($productRows, fn ($a, $b) => $b['Gross PHP'] <=> $a['Gross PHP']);
+            uasort($productRows, fn ($a, $b) => $b['Gross PHP'] <=> $a['Gross PHP']);
+            $tableImages['products'] = array_map(fn ($id) => $productImages[$id] ?? null, array_keys($productRows));
             usort($categoryRows, fn ($a, $b) => $b['Gross PHP'] <=> $a['Gross PHP']);
             usort($sellerRows, fn ($a, $b) => $b['Net seller sales PHP'] <=> $a['Net seller sales PHP']);
             $add('products', 'Products ranked by gross merchandise value', $productRows);
@@ -245,7 +249,8 @@ class AnalyticsService
             if ((clone $inventory)->count() > config('analytics.maximum_orders', 10000)) {
                 throw ValidationException::withMessages(['category' => 'Narrow the product or category filters to export the complete low-stock inventory snapshot.']);
             }
-            $inventory = $inventory->get(['id', 'name', 'stock', 'compliance_status']);
+            $inventory = $inventory->get(['id', 'name', 'stock', 'compliance_status', 'image_path']);
+            $tableImages['inventory'] = $inventory->pluck('image_path')->all();
             $add('inventory', 'Current low/out-of-stock products (not date-filtered)', $inventory->map(fn ($p) => ['Product ID' => $p->id, 'Product' => $p->name, 'Parent stock' => $p->stock, 'Compliance' => $p->compliance_status])->all());
         }
         $operational = [];
@@ -300,6 +305,7 @@ class AnalyticsService
         return ['title' => $title, 'role' => $actor->role, 'commercial' => $commercial, 'filters' => $filters, 'comparison' => $comparison,
             'generated_at' => now()->toIso8601String(), 'timezone' => config('app.timezone'), 'currency' => 'PHP',
             'metrics' => $metrics, 'trend' => array_values($trend), 'statuses' => $statuses, 'sections' => $sections, 'insights' => $insights,
+            'table_images' => $tableImages,
             'notes' => [
                 'Date basis: orders placed during the selected dates, using application timezone '.config('app.timezone').'. Current lifecycle state is shown; comparisons are not historical state snapshots.',
                 'All charts and exports use this same authorized order cohort. Product/category filters select whole orders, including their other items. Empty periods contain genuine zero counts.',

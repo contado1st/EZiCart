@@ -278,14 +278,15 @@ details.buyer-account-nav-dropdown:not([open]) .workspace-dropdown-chevron { tra
 .dashboard-workspace .dash-table .financial-amount { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .dashboard-workspace .dash-title .shop-icon { color: var(--workspace-accent); width: 23px; height: 23px; vertical-align: middle; }
 .dashboard-workspace :is(.dash-stats-grid, .ops-stats) { display: grid; grid-template-columns: repeat(auto-fit, minmax(165px, 1fr)); gap: 16px; margin: 0 0 24px; padding: 0; background: transparent; border: 0; }
-.dashboard-workspace :is(.dash-stat-card, .ops-stats .ops-stat, .workspace-metric) { position: relative; display: flex; flex-direction: column; gap: 0; min-height: 138px; margin: 0; padding: 20px; border: 1px solid var(--workspace-line); border-radius: 14px; background: #fff; box-shadow: none; text-decoration: none; overflow: hidden; }
+.dashboard-workspace :is(.dash-stat-card, .ops-stats .ops-stat, .workspace-metric) { position: relative; display: flex; flex-direction: column; gap: 0; min-height: 138px; margin: 0; padding: 20px; border: 1px solid var(--workspace-line); border-radius: 14px; background: #fff; box-shadow: 0 1px 3px rgba(32, 38, 52, 0.03); text-decoration: none; overflow: hidden; transition: transform 180ms cubic-bezier(.16, 1, .3, 1), box-shadow 180ms cubic-bezier(.16, 1, .3, 1), border-color 180ms ease; }
+.dashboard-workspace :is(.dash-stat-card, .ops-stats .ops-stat, .workspace-metric):hover { transform: translateY(-2px); border-color: #e6b6c9; box-shadow: 0 6px 18px rgba(190, 40, 84, 0.08); }
 .dashboard-workspace :is(.dash-stat-card, .ops-stat)::before { display: none; }
 .dashboard-workspace :is(.dash-stat-label, .ops-stat > span) { color: var(--workspace-muted); font-size: 12px; font-weight: 500; line-height: 1.4; text-transform: none; letter-spacing: 0; max-width: calc(100% - 26px); }
 .dashboard-workspace :is(.dash-stat-value, .ops-stat > strong) { color: var(--workspace-ink); font-family: inherit; font-size: 28px; font-weight: 650; letter-spacing: -.025em; line-height: 1.25; margin-top: 13px; font-variant-numeric: tabular-nums; }
 .dashboard-workspace .dash-stat-value { overflow-wrap: anywhere; }
 .dashboard-workspace :is(.dash-stat-value.primary, .dash-stat-value.warning) { color: var(--workspace-ink); }
 .dashboard-workspace .dash-stat-value.danger { color: #bc364b; }
-.dashboard-workspace .dash-stat-subtext { color: var(--workspace-muted); font-size: 11px; margin-top: 9px; line-height: 1.5; }
+.dashboard-workspace .dash-stat-subtext { color: var(--workspace-muted); font-size: 11px; margin-top: 9px; line-height: 1.5; font-style: normal; }
 .dashboard-workspace .dash-stat-subtext.success { color: #287858; }
 .dashboard-workspace .dash-stat-subtext.danger { color: #b82a43; }
 .workspace-metrics { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; margin-bottom: 24px; }
@@ -301,20 +302,21 @@ details.buyer-account-nav-dropdown:not([open]) .workspace-dropdown-chevron { tra
 .workspace-stat-icon { position: absolute; top: 18px; right: 18px; display: inline-flex; color: var(--workspace-accent); }
 .workspace-stat-icon .shop-icon { width: 19px; height: 19px; }
 .dashboard-workspace .ops-stat > .workspace-stat-icon { color: var(--workspace-accent); max-width: none; }
-.dashboard-workspace :is(.dash-panel, .ops-panel) { min-width: 0; padding: 22px; border: 1px solid var(--workspace-line); border-radius: 14px; background: #fff; box-shadow: none; }
-.dashboard-workspace :is(.dash-panel-title, .ops-panel > h2, .ops-panel > summary) { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; margin: 0 0 18px; padding: 0; border: 0; color: var(--workspace-ink); font-family: inherit; font-size: 14px; font-weight: 650; line-height: 1.5; letter-spacing: -.01em; }
+.dashboard-workspace :is(.dash-panel, .ops-panel) { min-width: 0; padding: 24px; border: 1px solid var(--workspace-line); border-radius: 14px; background: #fff; box-shadow: 0 1px 3px rgba(32, 38, 52, 0.02); }
+.dashboard-workspace :is(.dash-panel-title, .ops-panel > h2, .ops-panel > summary) { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; margin: 0 0 18px; padding: 0; border: 0; color: var(--workspace-ink); font-family: inherit; font-size: 15px; font-weight: 650; line-height: 1.4; letter-spacing: -.015em; text-wrap: balance; }
 .dashboard-workspace :is(.dash-workflow-grid, .ops-grid) { display: grid; grid-template-columns: minmax(0, 2fr) minmax(260px, 1fr); gap: 20px; align-items: start; }
 .dashboard-workspace .ops-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .dashboard-workspace :is(.dash-table-wrapper, .ops-table-wrap) { overflow-x: auto; max-width: 100%; scrollbar-width: thin; }
 .dashboard-workspace :is(.dash-table, .ops-table) { width: 100%; border-collapse: collapse; font-size: 12px; font-variant-numeric: tabular-nums; }
 .dashboard-workspace :is(.dash-table, .ops-table) :is(th, td) { border-bottom: 1px solid var(--workspace-line); padding: 14px 12px; text-align: left; vertical-align: top; line-height: 1.6; }
-.dashboard-workspace :is(.dash-table, .ops-table) th { color: var(--workspace-muted); font-size: 10px; font-weight: 600; letter-spacing: .03em; background: #fafbfe; text-transform: uppercase; white-space: nowrap; }
+.dashboard-workspace :is(.dash-table, .ops-table) th { color: var(--workspace-muted); font-size: 10px; font-weight: 600; letter-spacing: .03em; background: #fafbfe; text-transform: uppercase; white-space: nowrap; font-style: normal; }
 .dashboard-workspace :is(.dash-table, .ops-table) tr:last-child td { border-bottom: 0; }
 .dashboard-workspace :is(.dash-table, .ops-table) tbody tr:hover { background: #fcfcfe; }
 .dashboard-workspace :is(.dash-table, .ops-table) a:not([class*="btn"]) { color: var(--workspace-accent); }
-.dashboard-workspace :is(.dash-btn-primary, .ops-btn--primary) { background: var(--workspace-accent); border: 1px solid var(--workspace-accent); color: #fff; border-radius: 7px; box-shadow: none; }
-.dashboard-workspace :is(.dash-btn-primary, .ops-btn--primary):hover { background: var(--workspace-accent-hover); border-color: var(--workspace-accent-hover); }
-.dashboard-workspace :is(.dash-btn-primary, .dash-btn-sm, .ops-btn) { display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-height: 36px; padding: 8px 12px; border-radius: 7px; font-size: 11px; font-weight: 600; line-height: 1.4; text-decoration: none; cursor: pointer; }
+.dashboard-workspace :is(.dash-btn-primary, .ops-btn--primary) { background: var(--workspace-accent, #be2854); border: 1px solid var(--workspace-accent, #be2854); color: #fff; border-radius: 8px; min-height: 40px; padding: 9px 16px; font-size: 12px; font-weight: 600; box-shadow: 0 2px 8px rgba(190, 40, 84, 0.22); transition: all 160ms cubic-bezier(.4, 0, .2, 1); }
+.dashboard-workspace :is(.dash-btn-primary, .ops-btn--primary):hover { background: var(--workspace-accent-hover, #9f2046); border-color: var(--workspace-accent-hover, #9f2046); box-shadow: 0 4px 14px rgba(190, 40, 84, 0.28); transform: translateY(-1px); }
+.dashboard-workspace :is(.dash-btn-primary, .dash-btn-sm, .ops-btn) { display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-height: 36px; padding: 8px 12px; border-radius: 7px; font-size: 11px; font-weight: 600; line-height: 1.4; text-decoration: none; cursor: pointer; transition: all 160ms cubic-bezier(.4, 0, .2, 1); }
+.dashboard-workspace :is(.dash-btn-primary, .dash-btn-sm, .ops-btn, .feature-button):active:not(:disabled) { transform: scale(0.97); }
 .dashboard-workspace :is(.dash-btn-outline, .ops-btn:not(.ops-btn--primary):not(.ops-btn--danger)) { border: 1px solid #dfe2e9; background: #fff; color: var(--workspace-ink); }
 .dashboard-workspace button:disabled { opacity: .5; cursor: not-allowed; }
 .dashboard-workspace :is(.status-pill, .ops-status, .dash-badge) { display: inline-flex; align-items: center; width: fit-content; padding: 4px 8px; border: 0; border-radius: 5px; font-size: 10px; line-height: 1.4; font-weight: 600; letter-spacing: .02em; }
@@ -326,22 +328,22 @@ details.buyer-account-nav-dropdown:not([open]) .workspace-dropdown-chevron { tra
 .dashboard-workspace .dash-action-btn:last-child { border-bottom: 0; }
 .dashboard-workspace .dash-action-btn:hover { color: var(--workspace-accent); }
 .dashboard-workspace .dash-action-btn .shop-icon { color: var(--workspace-accent); width: 18px; height: 18px; }
-.dashboard-workspace :is(.order-card, .dash-approval-card, .courier-failed-alert-card) { border: 1px solid var(--workspace-line); border-radius: 9px; background: #fff; box-shadow: none; }
-.dashboard-workspace .order-card-header { background: #fafbfe; padding: 16px; gap: 12px; }
-.dashboard-workspace .order-card-footer { background: transparent; border-top: 1px solid var(--workspace-line); gap: 12px; flex-wrap: wrap; padding: 16px; }
-.dashboard-workspace .order-number { color: var(--workspace-ink); font-size: 13px; font-weight: 600; }
-.dashboard-workspace .courier-hero-card { border-radius: 14px; padding: 24px; background: var(--workspace-soft); border: 1px solid #e4dae9; color: var(--workspace-ink); }
+.dashboard-workspace :is(.order-card, .dash-approval-card, .courier-failed-alert-card) { border: 1px solid #f0cdd8; border-radius: 10px; background: #fff; box-shadow: 0 1px 3px rgba(32, 38, 52, 0.03); }
+.dashboard-workspace .order-card-header { background: #fafbfe; padding: 16px; gap: 12px; border-top-left-radius: 9px; border-top-right-radius: 9px; }
+.dashboard-workspace .order-card-footer { background: transparent; border-top: 1px solid var(--workspace-line); gap: 12px; flex-wrap: wrap; padding: 16px; border-bottom-left-radius: 9px; border-bottom-right-radius: 9px; }
+.dashboard-workspace .order-number { color: var(--workspace-ink); font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace; font-variant-numeric: tabular-nums; font-size: 13px; font-weight: 600; letter-spacing: -0.01em; }
+.dashboard-workspace .courier-hero-card { border-radius: 14px; padding: 24px; background: linear-gradient(135deg, var(--workspace-soft) 0%, #fffbfd 100%); border: 1px solid #f0cdd8; color: var(--workspace-ink); box-shadow: 0 4px 16px rgba(190, 40, 84, 0.06); }
 .dashboard-workspace .courier-hero-card::before { display: none; }
-.dashboard-workspace .courier-hero-card h2 { color: var(--workspace-ink); font-family: inherit; font-size: 20px; font-weight: 600; letter-spacing: -.02em; }
-.dashboard-workspace .courier-hero-card p { color: #65536a; font-size: 12px; }
+.dashboard-workspace .courier-hero-card h2 { color: var(--workspace-ink); font-family: inherit; font-size: 20px; font-weight: 650; letter-spacing: -.02em; text-wrap: balance; }
+.dashboard-workspace .courier-hero-card p { color: #65536a; font-size: 12px; line-height: 1.6; }
 .dashboard-workspace .courier-hero-card__badge { display: none; }
 .dashboard-workspace .courier-jump-nav { padding-bottom: 18px; gap: 8px; }
 .dashboard-workspace .courier-jump-pill { background: #fff; border-radius: 7px; font-size: 11px; border-color: var(--workspace-line); }
-.dashboard-workspace .courier-jump-pill span { background: var(--workspace-soft); color: var(--workspace-accent); border-radius: 4px; }
+.dashboard-workspace .courier-jump-pill span { background: var(--workspace-soft); color: var(--workspace-accent); border-radius: 4px; font-variant-numeric: tabular-nums; }
 .dashboard-workspace :is(.ops-main, .dash-panel, .workflow-admin-page) :is(input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]), select, textarea) { max-width: 100%; border: 1px solid #dce0e8; border-radius: 7px; background: #fff; color: var(--workspace-ink); padding: 9px 11px; font-size: 12px; line-height: 1.5; }
 .dashboard-workspace :is(input, textarea)::placeholder { color: #727c8c; }
 .dashboard-workspace .ops-field label, .dashboard-workspace .workflow-admin-page label { color: #525e70; font-size: 11px; font-weight: 500; }
-.dashboard-workspace .ops-mono { font-family: ui-monospace, "Cascadia Code", monospace; }
+.dashboard-workspace .ops-mono { font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace; font-variant-numeric: tabular-nums; }
 .dashboard-workspace .workflow-admin-page { padding: 0; }
 .dashboard-workspace .workflow-admin-page .dash-panel { margin: 0 0 20px; }
 .dashboard-workspace .workflow-admin-page h2 { color: var(--workspace-ink); font-size: 14px; font-weight: 650; margin: 0 0 16px; }

@@ -12,7 +12,7 @@
         <div class="feature-table-scroll"><table class="feature-table"><thead><tr><th>Product</th><th>Shop</th><th>Current price</th><th>Availability</th><th>Action</th></tr></thead><tbody>
             @forelse ($cards as $card)
                 @php($product = $card['product'])
-                <tr><td>@if($card['available'])<a href="{{ route('product.show', $product) }}">{{ $product->name }}</a>@else Saved product currently unavailable @endif</td>
+                <tr><td>@if($card['available'])<a href="{{ route('product.show', $product) }}"><x-product-table-item :name="$product->name" :image="$product->image_path" /></a>@else<x-product-table-item name="Saved product currently unavailable" /> @endif</td>
                     <td>{{ $card['available'] ? ($product->seller->business_name ?: 'Seller shop') : 'Unavailable' }}</td>
                     <td>{{ $card['available'] ? $product->display_price_label : '—' }}</td><td>{{ $card['available'] ? 'Available · select options on product page' : 'Not available for purchase' }}</td>
                     <td><form method="POST" action="{{ route('buyer.wishlist.destroy', $product) }}">@csrf @method('DELETE')<button type="submit" class="feature-button">Remove from wishlist</button></form></td>

@@ -155,7 +155,7 @@
                             <tbody>
                                 @foreach ($queues[$key] as $order)
                                     <tr>
-                                        <td class="ops-mono" data-label="Order">{{ $order->order_number }}</td>
+                                        <td class="ops-mono" data-label="Order">{{ $order->order_number }}<x-order-table-products :items="$order->items" /></td>
                                         <td data-label="Destination">{{ $order->municipality }}, {{ $order->province }}</td>
                                         <td data-label="Current stage">
                                             <span

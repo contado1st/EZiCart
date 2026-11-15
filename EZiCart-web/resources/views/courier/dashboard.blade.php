@@ -152,7 +152,7 @@
                 <tbody>
                     @forelse($availablePickups as $order)
                         <tr>
-                            <td class="ops-mono" data-label="Order">{{ $order->order_number }}<x-parcel-weight :order="$order" compact /></td>
+                            <td class="ops-mono" data-label="Order">{{ $order->order_number }}<x-parcel-weight :order="$order" compact /><x-order-table-products :items="$order->items" /></td>
                             <td data-label="Seller">
                                 <strong>{{ $order->seller?->business_name ?? $order->seller?->first_name }}</strong>
                                 <div class="ops-muted">{{ trim(($order->seller?->house_number ? $order->seller->house_number.' ' : '').($order->seller?->street_address ?? '')) }}, {{ $order->seller?->municipality }}</div>
@@ -213,7 +213,7 @@
                 <tbody>
                     @forelse($claimedPickups as $order)
                         <tr>
-                            <td class="ops-mono" data-label="Order">{{ $order->order_number }}<x-parcel-weight :order="$order" compact /></td>
+                            <td class="ops-mono" data-label="Order">{{ $order->order_number }}<x-parcel-weight :order="$order" compact /><x-order-table-products :items="$order->items" /></td>
                             <td data-label="Seller">
                                 <strong>{{ $order->seller?->business_name ?? $order->seller?->first_name }}</strong>
                                 <div class="ops-muted">{{ trim(($order->seller?->house_number ? $order->seller->house_number.' ' : '').($order->seller?->street_address ?? '')) }}, {{ $order->seller?->municipality }}</div>
@@ -278,7 +278,7 @@
                 <tbody>
                     @forelse($myActivePickups as $order)
                         <tr>
-                            <td class="ops-mono" data-label="Order">{{ $order->order_number }}<x-parcel-weight :order="$order" compact /></td>
+                            <td class="ops-mono" data-label="Order">{{ $order->order_number }}<x-parcel-weight :order="$order" compact /><x-order-table-products :items="$order->items" /></td>
                             <td data-label="Seller">{{ $order->seller?->business_name ?? $order->seller?->first_name }}</td>
                             <td data-label="Collected">{{ $order->picked_up_at?->format('d M H:i') }}</td>
                             <td data-label="Status">
@@ -314,7 +314,7 @@
                 <tbody>
                     @forelse ($myReturns as $order)
                         <tr>
-                            <td class="ops-mono" data-label="Order">{{ $order->order_number }}<x-parcel-weight :order="$order" compact /></td>
+                            <td class="ops-mono" data-label="Order">{{ $order->order_number }}<x-parcel-weight :order="$order" compact /><x-order-table-products :items="$order->items" /></td>
                             <td data-label="Return address">
                                 <strong>{{ $order->seller?->business_name ?? $order->seller?->first_name }}</strong>
                                 <div class="ops-muted">{{ trim(($order->seller?->house_number ? $order->seller->house_number.' ' : '').($order->seller?->street_address ?? '')) }}, {{ $order->seller?->barangay }}, {{ $order->seller?->municipality }}</div>
@@ -370,7 +370,7 @@
                 <div class="courier-failed-header">
                     <div>
                         <div class="ops-mono">
-                            <a href="{{ route('courier.orders.show', $order) }}"><strong>Order {{ $order->order_number }}</strong><x-parcel-weight :order="$order" compact /></a>
+                            <a href="{{ route('courier.orders.show', $order) }}"><strong>Order {{ $order->order_number }}</strong><x-parcel-weight :order="$order" compact /></a><x-order-table-products :items="$order->items" />
                         </div>
                         <div class="ops-muted">Recipient: {{ $order->recipient_name }} · {{ $order->delivery_area ?? $order->municipality }}</div>
                     </div>
@@ -411,7 +411,7 @@
                     @forelse($myDeliveryAssignments as $order)
                         <tr>
                             <td class="ops-mono" data-label="Order">
-                                <a href="{{ route('courier.orders.show', $order) }}"><strong>{{ $order->order_number }}</strong><x-parcel-weight :order="$order" compact /></a>
+                                <a href="{{ route('courier.orders.show', $order) }}"><strong>{{ $order->order_number }}</strong><x-parcel-weight :order="$order" compact /></a><x-order-table-products :items="$order->items" />
                                 <div><span class="ops-status {{ $order->status === 'OUT_FOR_DELIVERY' ? 'ops-status--pink' : 'ops-status--amber' }}">{{ str_replace('_', ' ', $order->operational_status) }}</span></div>
                                 <div class="ops-muted">Assigned {{ $order->assigned_at?->diffForHumans() }}</div>
                             </td>

@@ -62,7 +62,7 @@
                                 @foreach ($dispute->order->items as $item)
                                     <tr>
                                         <td>
-                                            {{ $item->product_name }}
+                                            <x-product-table-item :name="$item->product_name" :image="$item->purchased_image_path" missing-label="Purchase image not recorded" />
                                             @if ($item->variation_info)
                                                 <span class="u-extracted-696134c27b">({{ $item->variation_info }})</span>
                                             @endif

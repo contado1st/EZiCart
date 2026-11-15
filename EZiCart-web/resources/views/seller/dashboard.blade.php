@@ -19,7 +19,7 @@
                 </div>
                 <div class="workspace-page-actions">
                     <a href="{{ route('seller.products.create') }}" class="dash-btn-primary">
-                        Add product
+                        <x-shop-icon name="checklist" /> Add product
                     </a>
                 </div>
             </div>
@@ -62,26 +62,25 @@
             ]" />
             <div class="dash-workflow-grid">
                 <div class="dash-panel" id="seller-orders">
-                    <div class="u-extracted-7bdbd5a954">
-                        <h3 class="dash-panel-title u-extracted-648149cea2">Recent Orders & Dispatch</h3>
-                        <a href="{{ route('seller.orders.index') }}" class="u-extracted-b0fe66c15d">View
-                            All →</a>
+                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.25rem;">
+                        <h3 class="dash-panel-title" style="margin-bottom: 0;">Recent Orders & Dispatch</h3>
+                        <a href="{{ route('seller.orders.index') }}" class="dash-btn-sm dash-btn-outline">View All &rarr;</a>
                     </div>
 
                     @forelse($recentOrders as $order)
-                        <div class="order-card u-extracted-a3d1500119">
-                            <div class="u-extracted-c2bcea0858">
+                        <div class="order-card" style="margin-bottom: 1rem; border-radius: var(--dash-radius-inner); padding: 1.1rem 1.25rem;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; gap: 12px;">
                                 <div>
-                                    <span class="u-extracted-a0a031578b">{{ $order->order_number }}</span>
-                                    <div class="u-extracted-cf0c302441">
+                                    <a href="{{ route('seller.orders.show', $order) }}" class="order-number">{{ $order->order_number }}</a>
+                                    <div class="order-date" style="font-size: 0.75rem; color: var(--dash-text-muted); margin-top: 2px;">
                                         {{ $order->recipient_name }} &bull; {{ $order->items->count() }} item(s)</div>
                                 </div>
-                                <div class="u-extracted-13cbe03b9a">
+                                <div style="text-align: right; display: flex; flex-direction: column; align-items: flex-end; gap: 4px;">
                                     <span
                                         class="status-pill status-{{ strtolower(str_replace('_', '-', $order->status)) }}">
                                         {{ str_replace('_', ' ', $order->operational_status) }}
                                     </span>
-                                    <div class="u-extracted-102e7d3885">
+                                    <div style="font-weight: 700; font-variant-numeric: tabular-nums; font-size: 0.9375rem; color: var(--dash-text-main);">
                                         ₱{{ number_format($order->total_amount, 2) }}</div>
                                 </div>
                             </div>
