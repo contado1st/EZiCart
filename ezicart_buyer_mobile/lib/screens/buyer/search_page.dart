@@ -1051,15 +1051,18 @@ class _SearchPageState extends State<SearchPage> {
                   ],
                 ),
                 const SizedBox(height: 3),
-                Row(
+                Wrap(
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  spacing: 4,
+                  runSpacing: 2,
                   children: [
                     if (rating > 0.0) ...[
-                      const Icon(Icons.star, color: Colors.amber, size: 14),
+                      const Icon(Icons.star, color: Colors.amber, size: 13),
                       const SizedBox(width: 2),
                       Text(
                         rating.toStringAsFixed(1),
                         style: const TextStyle(
-                          fontSize: 11,
+                          fontSize: 10.5,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
@@ -1075,19 +1078,22 @@ class _SearchPageState extends State<SearchPage> {
                       const Icon(
                         Icons.star_border,
                         color: AppTheme.muted,
-                        size: 14,
+                        size: 13,
                       ),
                       const SizedBox(width: 2),
                       const Text(
-                        '0.0 (No ratings yet)',
-                        style: TextStyle(fontSize: 11, color: AppTheme.muted),
+                        '0.0 (No ratings)',
+                        style: TextStyle(fontSize: 10.5, color: AppTheme.muted),
                       ),
                     ],
-                    const SizedBox(width: 6),
+                    const Text(
+                      '•',
+                      style: TextStyle(fontSize: 10, color: AppTheme.muted),
+                    ),
                     Text(
-                      '• $productCount Products',
+                      '$productCount Products',
                       style: const TextStyle(
-                        fontSize: 11,
+                        fontSize: 10.5,
                         color: AppTheme.muted,
                       ),
                     ),
@@ -1102,15 +1108,15 @@ class _SearchPageState extends State<SearchPage> {
               ],
             ),
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: 6),
           OutlinedButton(
             style: OutlinedButton.styleFrom(
               foregroundColor: AppTheme.primary,
               side: const BorderSide(color: AppTheme.primary),
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(18),
+                borderRadius: BorderRadius.circular(16),
               ),
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
               minimumSize: Size.zero,
               tapTargetSize: MaterialTapTargetSize.shrinkWrap,
             ),
@@ -1126,7 +1132,7 @@ class _SearchPageState extends State<SearchPage> {
             },
             child: const Text(
               'Visit Shop',
-              style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold),
+              style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
             ),
           ),
         ],
@@ -1163,7 +1169,7 @@ class _SearchPageState extends State<SearchPage> {
             children: [
               // Product Image
               Expanded(
-                flex: 11,
+                flex: 9,
                 child: ClipRRect(
                   borderRadius: const BorderRadius.vertical(
                     top: Radius.circular(10),
@@ -1221,9 +1227,9 @@ class _SearchPageState extends State<SearchPage> {
 
               // Details
               Expanded(
-                flex: 9,
+                flex: 11,
                 child: Padding(
-                  padding: const EdgeInsets.all(8),
+                  padding: const EdgeInsets.fromLTRB(8, 6, 8, 8),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -1264,8 +1270,10 @@ class _SearchPageState extends State<SearchPage> {
                               Expanded(
                                 child: Text(
                                   product.formattedPrice,
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
                                   style: const TextStyle(
-                                    fontSize: 14,
+                                    fontSize: 13,
                                     fontWeight: FontWeight.bold,
                                     color: AppTheme.primary,
                                   ),
@@ -1570,7 +1578,7 @@ class _SearchPageState extends State<SearchPage> {
                             gridDelegate:
                                 const SliverGridDelegateWithFixedCrossAxisCount(
                                   crossAxisCount: 2,
-                                  childAspectRatio: 0.62,
+                                  childAspectRatio: 0.53,
                                   crossAxisSpacing: 10,
                                   mainAxisSpacing: 10,
                                 ),

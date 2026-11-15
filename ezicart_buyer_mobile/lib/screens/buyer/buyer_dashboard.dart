@@ -242,186 +242,193 @@ class _BuyerDashboardState extends State<BuyerDashboard> {
             ),
           ),
 
-          // Content overlay on the left
+          // Content overlay with responsive action row
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 18, 16, 18),
-            child: FractionallySizedBox(
-              widthFactor: 0.60,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Text(
-                    'THE EZICART MARKETPLACE',
-                    style: TextStyle(
-                      fontFamily: 'Instrument Sans',
-                      fontSize: 9.0,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 1.2,
-                      color: Color(0xFF8C3845),
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    greeting,
-                    style: AppTheme.displayFont(
-                      fontSize: 23,
-                      fontWeight: FontWeight.w700,
-                      color: const Color(0xFF1D2129),
-                      height: 1.1,
-                      letterSpacing: -0.4,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  const Text(
-                    'Browse approved, in-stock products from EZiCart sellers. Compare details and prices before you choose.',
-                    style: TextStyle(
-                      fontFamily: 'Instrument Sans',
-                      fontSize: 10.5,
-                      color: Color(0xFF393437),
-                      height: 1.35,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  InkWell(
-                    onTap: () => _navigateToSearch(),
-                    borderRadius: BorderRadius.circular(4),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 14,
-                        vertical: 7.5,
-                      ),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFBE2854),
-                        borderRadius: BorderRadius.circular(4),
-                        boxShadow: [
-                          BoxShadow(
-                            color: const Color(
-                              0xFFBE2854,
-                            ).withValues(alpha: 0.3),
-                            blurRadius: 6,
-                            offset: const Offset(0, 2),
-                          ),
-                        ],
-                      ),
-                      child: const Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            'EXPLORE PRODUCTS',
-                            style: TextStyle(
-                              fontFamily: 'Instrument Sans',
-                              color: Colors.white,
-                              fontSize: 9.5,
-                              fontWeight: FontWeight.w700,
-                              letterSpacing: 0.8,
-                            ),
-                          ),
-                          SizedBox(width: 4),
-                          Icon(Icons.south_east, color: Colors.white, size: 11),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-
-          // Floating "Recently listed" pill at bottom-right
-          if (featuredProduct != null)
-            Positioned(
-              right: 12,
-              bottom: 10,
-              child: InkWell(
-                onTap: () {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (_) =>
-                          ProductDetailsPage(product: featuredProduct),
-                    ),
-                  );
-                },
-                borderRadius: BorderRadius.circular(6),
-                child: Container(
-                  constraints: const BoxConstraints(maxWidth: 165),
-                  padding: const EdgeInsets.all(5),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.95),
-                    borderRadius: BorderRadius.circular(6),
-                    border: Border.all(color: Colors.pink.shade100),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.08),
-                        blurRadius: 6,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
-                  ),
-                  child: Row(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 220),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      if (featuredProduct.imagePath != null &&
-                          ApiConfig.resolveImageUrl(
-                                featuredProduct.imagePath,
-                              ) !=
-                              null)
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(4),
-                          child: CachedNetworkImage(
-                            imageUrl: ApiConfig.resolveImageUrl(
-                              featuredProduct.imagePath,
-                            )!,
-                            width: 28,
-                            height: 28,
-                            fit: BoxFit.cover,
-                            errorWidget: (_, __, ___) => const Icon(
-                              Icons.inventory_2,
-                              size: 16,
-                              color: AppTheme.muted,
-                            ),
-                          ),
+                      const Text(
+                        'THE EZICART MARKETPLACE',
+                        style: TextStyle(
+                          fontFamily: 'Instrument Sans',
+                          fontSize: 9.0,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 1.2,
+                          color: Color(0xFF8C3845),
                         ),
-                      const SizedBox(width: 6),
-                      Flexible(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Text(
-                              'Recently listed',
-                              style: TextStyle(
-                                fontSize: 8.5,
-                                color: AppTheme.muted,
-                                height: 1.1,
-                              ),
-                            ),
-                            Text(
-                              featuredProduct.name,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                fontSize: 9.5,
-                                fontWeight: FontWeight.bold,
-                                color: AppTheme.ink,
-                              ),
-                            ),
-                            Text(
-                              featuredProduct.formattedPrice,
-                              style: const TextStyle(
-                                fontSize: 9.5,
-                                fontWeight: FontWeight.bold,
-                                color: Color(0xFFBE2854),
-                              ),
-                            ),
-                          ],
+                      ),
+                      const SizedBox(height: 5),
+                      Text(
+                        greeting,
+                        style: AppTheme.displayFont(
+                          fontSize: 22,
+                          fontWeight: FontWeight.w700,
+                          color: const Color(0xFF1D2129),
+                          height: 1.1,
+                          letterSpacing: -0.4,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      const Text(
+                        'Browse approved, in-stock products from EZiCart sellers. Compare details and prices before you choose.',
+                        style: TextStyle(
+                          fontFamily: 'Instrument Sans',
+                          fontSize: 10.5,
+                          color: Color(0xFF393437),
+                          height: 1.35,
                         ),
                       ),
                     ],
                   ),
                 ),
-              ),
+                const SizedBox(height: 12),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    InkWell(
+                      onTap: () => _navigateToSearch(),
+                      borderRadius: BorderRadius.circular(4),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 7.5,
+                        ),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFBE2854),
+                          borderRadius: BorderRadius.circular(4),
+                          boxShadow: [
+                            BoxShadow(
+                              color: const Color(
+                                0xFFBE2854,
+                              ).withValues(alpha: 0.3),
+                              blurRadius: 6,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        child: const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              'EXPLORE PRODUCTS',
+                              style: TextStyle(
+                                fontFamily: 'Instrument Sans',
+                                color: Colors.white,
+                                fontSize: 9.5,
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: 0.8,
+                              ),
+                            ),
+                            SizedBox(width: 4),
+                            Icon(Icons.south_east, color: Colors.white, size: 11),
+                          ],
+                        ),
+                      ),
+                    ),
+                    if (featuredProduct != null)
+                      InkWell(
+                        onTap: () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) =>
+                                  ProductDetailsPage(product: featuredProduct),
+                            ),
+                          );
+                        },
+                        borderRadius: BorderRadius.circular(6),
+                        child: Container(
+                          constraints: const BoxConstraints(maxWidth: 165),
+                          padding: const EdgeInsets.all(5),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.95),
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(color: Colors.pink.shade100),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.08),
+                                blurRadius: 6,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              if (featuredProduct.imagePath != null &&
+                                  ApiConfig.resolveImageUrl(
+                                        featuredProduct.imagePath,
+                                      ) !=
+                                      null)
+                                ClipRRect(
+                                  borderRadius: BorderRadius.circular(4),
+                                  child: CachedNetworkImage(
+                                    imageUrl: ApiConfig.resolveImageUrl(
+                                      featuredProduct.imagePath,
+                                    )!,
+                                    width: 28,
+                                    height: 28,
+                                    fit: BoxFit.cover,
+                                    errorWidget: (_, __, ___) => const Icon(
+                                      Icons.inventory_2,
+                                      size: 16,
+                                      color: AppTheme.muted,
+                                    ),
+                                  ),
+                                ),
+                              const SizedBox(width: 6),
+                              Flexible(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    const Text(
+                                      'Recently listed',
+                                      style: TextStyle(
+                                        fontSize: 8.5,
+                                        color: AppTheme.muted,
+                                        height: 1.1,
+                                      ),
+                                    ),
+                                    Text(
+                                      featuredProduct.name,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(
+                                        fontSize: 9.5,
+                                        fontWeight: FontWeight.bold,
+                                        color: AppTheme.ink,
+                                      ),
+                                    ),
+                                    Text(
+                                      featuredProduct.formattedPrice,
+                                      style: const TextStyle(
+                                        fontSize: 9.5,
+                                        fontWeight: FontWeight.bold,
+                                        color: Color(0xFFBE2854),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ],
             ),
+          ),
         ],
       ),
     );
@@ -488,163 +495,193 @@ class _BuyerDashboardState extends State<BuyerDashboard> {
           SliverToBoxAdapter(
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: InkWell(
-                      onTap: () {
-                        Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (_) => const VouchersPage(),
+              child: IntrinsicHeight(
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Expanded(
+                      child: InkWell(
+                        onTap: () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => const VouchersPage(),
+                            ),
+                          );
+                        },
+                        borderRadius: BorderRadius.circular(10),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            vertical: 10,
+                            horizontal: 4,
                           ),
-                        );
-                      },
-                      borderRadius: BorderRadius.circular(10),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(vertical: 10),
-                        decoration: BoxDecoration(
-                          color: Colors.indigo.shade50,
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(color: Colors.indigo.shade100),
-                        ),
-                        child: Column(
-                          children: [
-                            Icon(
-                              Icons.confirmation_number_outlined,
-                              color: Colors.indigo.shade800,
-                              size: 22,
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              'Vouchers',
-                              style: TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.indigo.shade900,
+                          decoration: BoxDecoration(
+                            color: Colors.indigo.shade50,
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: Colors.indigo.shade100),
+                          ),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.confirmation_number_outlined,
+                                color: Colors.indigo.shade800,
+                                size: 22,
                               ),
-                            ),
-                          ],
+                              const SizedBox(height: 4),
+                              Text(
+                                'Vouchers',
+                                textAlign: TextAlign.center,
+                                maxLines: 2,
+                                style: TextStyle(
+                                  fontSize: 10.5,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.indigo.shade900,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                     ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: InkWell(
-                      onTap: () {
-                        Navigator.of(context).push(
-                          MaterialPageRoute(builder: (_) => const ForYouPage()),
-                        );
-                      },
-                      borderRadius: BorderRadius.circular(10),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(vertical: 10),
-                        decoration: BoxDecoration(
-                          color: Colors.teal.shade50,
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(color: Colors.teal.shade100),
-                        ),
-                        child: Column(
-                          children: [
-                            Icon(
-                              Icons.auto_awesome_outlined,
-                              color: Colors.teal.shade800,
-                              size: 22,
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: InkWell(
+                        onTap: () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => const ForYouPage(),
                             ),
-                            const SizedBox(height: 4),
-                            Text(
-                              'Deals For You',
-                              style: TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.teal.shade900,
+                          );
+                        },
+                        borderRadius: BorderRadius.circular(10),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            vertical: 10,
+                            horizontal: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.teal.shade50,
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: Colors.teal.shade100),
+                          ),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.auto_awesome_outlined,
+                                color: Colors.teal.shade800,
+                                size: 22,
                               ),
-                            ),
-                          ],
+                              const SizedBox(height: 4),
+                              Text(
+                                'Deals For You',
+                                textAlign: TextAlign.center,
+                                maxLines: 2,
+                                style: TextStyle(
+                                  fontSize: 10.5,
+                                  height: 1.15,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.teal.shade900,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                     ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: InkWell(
-                      onTap: () async {
-                        await Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (_) => const NotificationsPage(),
-                          ),
-                        );
-                        _fetchNotificationCount();
-                      },
-                      borderRadius: BorderRadius.circular(10),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(vertical: 10),
-                        decoration: BoxDecoration(
-                          color: Colors.amber.shade50,
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(color: Colors.amber.shade200),
-                        ),
-                        child: Column(
-                          children: [
-                            Icon(
-                              Icons.notifications_active_outlined,
-                              color: Colors.amber.shade900,
-                              size: 22,
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: InkWell(
+                        onTap: () async {
+                          await Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => const NotificationsPage(),
                             ),
-                            const SizedBox(height: 4),
-                            Text(
-                              'Alerts',
-                              style: TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.bold,
+                          );
+                          _fetchNotificationCount();
+                        },
+                        borderRadius: BorderRadius.circular(10),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            vertical: 10,
+                            horizontal: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.amber.shade50,
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: Colors.amber.shade200),
+                          ),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.notifications_active_outlined,
                                 color: Colors.amber.shade900,
+                                size: 22,
                               ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: InkWell(
-                      onTap: () {
-                        Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (_) => const AddressesPage(),
+                              const SizedBox(height: 4),
+                              Text(
+                                'Alerts',
+                                textAlign: TextAlign.center,
+                                maxLines: 2,
+                                style: TextStyle(
+                                  fontSize: 10.5,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.amber.shade900,
+                                ),
+                              ),
+                            ],
                           ),
-                        );
-                      },
-                      borderRadius: BorderRadius.circular(10),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(vertical: 10),
-                        decoration: BoxDecoration(
-                          color: Colors.orange.shade50,
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(color: Colors.orange.shade200),
-                        ),
-                        child: Column(
-                          children: [
-                            Icon(
-                              Icons.pin_drop_outlined,
-                              color: Colors.orange.shade900,
-                              size: 22,
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              'Addresses',
-                              style: TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.orange.shade900,
-                              ),
-                            ),
-                          ],
                         ),
                       ),
                     ),
-                  ),
-                ],
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: InkWell(
+                        onTap: () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => const AddressesPage(),
+                            ),
+                          );
+                        },
+                        borderRadius: BorderRadius.circular(10),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            vertical: 10,
+                            horizontal: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.orange.shade50,
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: Colors.orange.shade200),
+                          ),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.pin_drop_outlined,
+                                color: Colors.orange.shade900,
+                                size: 22,
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                'Addresses',
+                                textAlign: TextAlign.center,
+                                maxLines: 2,
+                                style: TextStyle(
+                                  fontSize: 10.5,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.orange.shade900,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
@@ -854,7 +891,7 @@ class _BuyerDashboardState extends State<BuyerDashboard> {
               sliver: SliverGrid(
                 gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                   crossAxisCount: 2,
-                  childAspectRatio: 0.61,
+                  childAspectRatio: 0.53,
                   crossAxisSpacing: 12,
                   mainAxisSpacing: 12,
                 ),
@@ -883,7 +920,7 @@ class _BuyerDashboardState extends State<BuyerDashboard> {
                         children: [
                           // Product Image
                           Expanded(
-                            flex: 11,
+                            flex: 9,
                             child: ClipRRect(
                               borderRadius: const BorderRadius.vertical(
                                 top: Radius.circular(12),
@@ -952,9 +989,9 @@ class _BuyerDashboardState extends State<BuyerDashboard> {
 
                           // Product details
                           Expanded(
-                            flex: 10,
+                            flex: 11,
                             child: Padding(
-                              padding: const EdgeInsets.all(10),
+                              padding: const EdgeInsets.fromLTRB(8, 6, 8, 8),
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 mainAxisAlignment:
@@ -981,7 +1018,7 @@ class _BuyerDashboardState extends State<BuyerDashboard> {
                                         overflow: TextOverflow.ellipsis,
                                         style: const TextStyle(
                                           fontWeight: FontWeight.bold,
-                                          fontSize: 13,
+                                          fontSize: 12.5,
                                           height: 1.2,
                                         ),
                                       ),
@@ -1003,7 +1040,7 @@ class _BuyerDashboardState extends State<BuyerDashboard> {
                                               maxLines: 1,
                                               overflow: TextOverflow.ellipsis,
                                               style: const TextStyle(
-                                                fontSize: 14,
+                                                fontSize: 13.5,
                                                 fontWeight: FontWeight.bold,
                                                 color: AppTheme.primary,
                                               ),
