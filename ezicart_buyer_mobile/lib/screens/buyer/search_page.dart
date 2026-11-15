@@ -1225,6 +1225,13 @@ class _SearchPageState extends State<SearchPage> {
                 ),
               ),
 
+              // Divider line between Product image and Title
+              const Divider(
+                height: 1,
+                thickness: 1,
+                color: AppTheme.line,
+              ),
+
               // Details
               Expanded(
                 flex: 11,

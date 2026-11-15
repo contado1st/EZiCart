@@ -395,7 +395,8 @@ class _CartPageState extends State<CartPage> {
                                                   borderRadius:
                                                       BorderRadius.circular(4),
                                                   border: Border.all(
-                                                    color: Colors.amber.shade400,
+                                                    color:
+                                                        Colors.amber.shade400,
                                                   ),
                                                 ),
                                                 child: Row(
@@ -403,32 +404,45 @@ class _CartPageState extends State<CartPage> {
                                                       MainAxisSize.min,
                                                   children: [
                                                     Icon(
-                                                      Icons.warning_amber_rounded,
+                                                      Icons
+                                                          .warning_amber_rounded,
                                                       size: 13,
-                                                      color: Colors.amber.shade900,
+                                                      color:
+                                                          Colors.amber.shade900,
                                                     ),
                                                     const SizedBox(width: 4),
-                                                    Text(
-                                                      'Select Variation Required',
-                                                      style: TextStyle(
-                                                        fontSize: 10,
-                                                        fontWeight:
-                                                            FontWeight.bold,
-                                                        color: Colors.amber.shade900,
+                                                    Flexible(
+                                                      child: Text(
+                                                        'Select Variation',
+                                                        maxLines: 1,
+                                                        overflow: TextOverflow
+                                                            .ellipsis,
+                                                        style: TextStyle(
+                                                          fontSize: 10,
+                                                          fontWeight:
+                                                              FontWeight.bold,
+                                                          color: Colors
+                                                              .amber
+                                                              .shade900,
+                                                        ),
                                                       ),
                                                     ),
                                                     const SizedBox(width: 2),
                                                     Icon(
                                                       Icons.keyboard_arrow_down,
                                                       size: 13,
-                                                      color: Colors.amber.shade900,
+                                                      color:
+                                                          Colors.amber.shade900,
                                                     ),
                                                   ],
                                                 ),
                                               ),
                                             ),
                                           ] else if (item.variation != null ||
-                                              item.product.variations.isNotEmpty) ...[
+                                              item
+                                                  .product
+                                                  .variations
+                                                  .isNotEmpty) ...[
                                             const SizedBox(height: 3),
                                             InkWell(
                                               onTap: () => _showVariationPicker(
@@ -467,8 +481,8 @@ class _CartPageState extends State<CartPage> {
                                                               FontWeight.w500,
                                                         ),
                                                         maxLines: 1,
-                                                        overflow:
-                                                            TextOverflow.ellipsis,
+                                                        overflow: TextOverflow
+                                                            .ellipsis,
                                                       ),
                                                     ),
                                                     const SizedBox(width: 3),
@@ -524,17 +538,17 @@ class _CartPageState extends State<CartPage> {
                                             children: [
                                               InkWell(
                                                 onTap: canDecrement
-                                                    ? () =>
-                                                        cart.updateQuantity(
-                                                          key,
-                                                          item.quantity - 1,
-                                                        )
+                                                    ? () => cart.updateQuantity(
+                                                        key,
+                                                        item.quantity - 1,
+                                                      )
                                                     : null,
                                                 child: Padding(
-                                                  padding: const EdgeInsets.symmetric(
-                                                    horizontal: 6,
-                                                    vertical: 2,
-                                                  ),
+                                                  padding:
+                                                      const EdgeInsets.symmetric(
+                                                        horizontal: 6,
+                                                        vertical: 2,
+                                                      ),
                                                   child: Icon(
                                                     Icons.remove,
                                                     size: 14,
@@ -675,7 +689,8 @@ class _CartPageState extends State<CartPage> {
                         ? null
                         : () {
                             if (cart.hasUnselectedVariations) {
-                              final missing = cart.itemsRequiringVariation.first;
+                              final missing =
+                                  cart.itemsRequiringVariation.first;
                               ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(
                                   content: Text(
@@ -713,18 +728,19 @@ class _CartPageState extends State<CartPage> {
     );
   }
 
-  Future<void> _showVariationPicker(
-    CartItemModel item,
-    String key,
-  ) async {
+  Future<void> _showVariationPicker(CartItemModel item, String key) async {
     final currency = NumberFormat.currency(symbol: '₱', decimalDigits: 2);
     final cart = context.read<CartProvider>();
 
     // If item.product.variations has only 1 or 0 variations, attempt to fetch the complete variations from product API
-    List<ProductVariation> availableVariations = List.from(item.product.variations);
+    List<ProductVariation> availableVariations = List.from(
+      item.product.variations,
+    );
     if (availableVariations.length <= 1) {
       try {
-        final res = await ApiService.get('${ApiConfig.productsEndpoint}/${item.product.id}');
+        final res = await ApiService.get(
+          '${ApiConfig.productsEndpoint}/${item.product.id}',
+        );
         if (res.statusCode == 200) {
           final body = jsonDecode(res.body);
           final pData = body['data'] ?? body['product'];
@@ -752,7 +768,9 @@ class _CartPageState extends State<CartPage> {
 
     ProductVariation? currentSelected = item.variation;
     if (currentSelected != null) {
-      final match = availableVariations.where((v) => v.id == currentSelected!.id);
+      final match = availableVariations.where(
+        (v) => v.id == currentSelected!.id,
+      );
       if (match.isNotEmpty) {
         currentSelected = match.first;
       }
@@ -765,10 +783,12 @@ class _CartPageState extends State<CartPage> {
       builder: (ctx) {
         return StatefulBuilder(
           builder: (modalCtx, setModalState) {
-            final currentPrice = item.product.price + (currentSelected?.priceAdjustment ?? 0.0);
+            final currentPrice =
+                item.product.price + (currentSelected?.priceAdjustment ?? 0.0);
             final currentStock = currentSelected?.stock ?? item.product.stock;
             final isSameVariation = currentSelected?.id == item.variation?.id;
-            final selectedImg = (currentSelected?.imagePath != null &&
+            final selectedImg =
+                (currentSelected?.imagePath != null &&
                     currentSelected!.imagePath!.trim().isNotEmpty)
                 ? currentSelected!.imagePath
                 : item.displayImage;
@@ -844,8 +864,12 @@ class _CartPageState extends State<CartPage> {
                                   : 'Out of stock',
                               style: TextStyle(
                                 fontSize: 12,
-                                color: currentStock > 0 ? AppTheme.muted : Colors.red,
-                                fontWeight: currentStock > 0 ? FontWeight.normal : FontWeight.bold,
+                                color: currentStock > 0
+                                    ? AppTheme.muted
+                                    : Colors.red,
+                                fontWeight: currentStock > 0
+                                    ? FontWeight.normal
+                                    : FontWeight.bold,
                               ),
                             ),
                           ],
@@ -882,10 +906,16 @@ class _CartPageState extends State<CartPage> {
                           style: TextStyle(
                             color: isSelected
                                 ? Colors.white
-                                : (isOutOfStock ? AppTheme.muted : AppTheme.ink),
+                                : (isOutOfStock
+                                      ? AppTheme.muted
+                                      : AppTheme.ink),
                             fontSize: 12,
-                            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                            decoration: isOutOfStock ? TextDecoration.lineThrough : null,
+                            fontWeight: isSelected
+                                ? FontWeight.bold
+                                : FontWeight.normal,
+                            decoration: isOutOfStock
+                                ? TextDecoration.lineThrough
+                                : null,
                           ),
                         ),
                         selected: isSelected,
@@ -894,7 +924,9 @@ class _CartPageState extends State<CartPage> {
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(7),
                           side: BorderSide(
-                            color: isSelected ? AppTheme.primary : AppTheme.line,
+                            color: isSelected
+                                ? AppTheme.primary
+                                : AppTheme.line,
                           ),
                         ),
                         onSelected: isOutOfStock
@@ -920,7 +952,10 @@ class _CartPageState extends State<CartPage> {
                           borderRadius: BorderRadius.circular(8),
                         ),
                       ),
-                      onPressed: (currentSelected != null && !isSameVariation && currentSelected!.stock > 0)
+                      onPressed:
+                          (currentSelected != null &&
+                              !isSameVariation &&
+                              currentSelected!.stock > 0)
                           ? () async {
                               final chosen = currentSelected!;
                               Navigator.pop(ctx);
@@ -928,7 +963,9 @@ class _CartPageState extends State<CartPage> {
                               if (mounted) {
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   SnackBar(
-                                    content: Text('Variation updated to ${chosen.value}'),
+                                    content: Text(
+                                      'Variation updated to ${chosen.value}',
+                                    ),
                                     backgroundColor: AppTheme.primary,
                                     duration: const Duration(seconds: 2),
                                   ),
@@ -939,9 +976,10 @@ class _CartPageState extends State<CartPage> {
                       child: Text(
                         isSameVariation
                             ? 'Currently Selected'
-                            : (currentSelected != null && currentSelected!.stock <= 0
-                                ? 'Selected Variation Out of Stock'
-                                : 'Confirm Variation'),
+                            : (currentSelected != null &&
+                                      currentSelected!.stock <= 0
+                                  ? 'Selected Variation Out of Stock'
+                                  : 'Confirm Variation'),
                         style: const TextStyle(
                           color: Colors.white,
                           fontWeight: FontWeight.bold,

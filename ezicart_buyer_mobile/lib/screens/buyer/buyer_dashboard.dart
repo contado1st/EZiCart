@@ -987,6 +987,13 @@ class _BuyerDashboardState extends State<BuyerDashboard> {
                             ),
                           ),
 
+                          // Divider line between Product image and Title
+                          const Divider(
+                            height: 1,
+                            thickness: 1,
+                            color: AppTheme.line,
+                          ),
+
                           // Product details
                           Expanded(
                             flex: 11,

@@ -1073,6 +1073,9 @@ class _ShopPageState extends State<ShopPage> {
               ),
             ),
 
+            // Divider line between Product image and Title
+            const Divider(height: 1, thickness: 1, color: AppTheme.line),
+
             // Product Details
             Expanded(
               flex: 11,
