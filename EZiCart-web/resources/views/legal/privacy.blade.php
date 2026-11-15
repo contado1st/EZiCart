@@ -4,6 +4,7 @@
 
 @section('content')
     <main class="container legal-page">
+        <div style="margin-bottom: 20px;"><x-back-button :fallback="'home'" label="Back" class="legal-back-btn" /></div>
         <h1>Privacy Policy</h1>
         <p>Version {{ config('registration.policy_version') }}. This notice describes the personal information EZiCart uses to operate accounts and marketplace services.</p>
 

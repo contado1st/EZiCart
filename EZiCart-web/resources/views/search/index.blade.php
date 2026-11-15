@@ -7,7 +7,10 @@
 @endpush
 @section('content')
 <div class="catalog-search">
-    <nav class="catalog-breadcrumb" aria-label="Breadcrumb"><a href="{{ route('home') }}">Home</a><span aria-hidden="true">/</span><span>Search results</span></nav>
+    <div style="display: flex; align-items: center; gap: 14px; margin-bottom: 22px; flex-wrap: wrap;">
+        <x-back-button :fallback="'home'" label="Back to Home" />
+        <nav class="catalog-breadcrumb" aria-label="Breadcrumb" style="margin-bottom: 0;"><a href="{{ route('home') }}">Home</a><span aria-hidden="true">/</span><span>Search results</span></nav>
+    </div>
     <header class="catalog-heading">
         <div><h1>@if ($searchTerm !== '')Results for <span>“{{ $searchTerm }}”</span>@else Discover products @endif</h1><p>{{ number_format($products->total()) }} {{ $products->total() === 1 ? 'product' : 'products' }} found{{ $searchTerm !== '' ? ' across the marketplace' : ' from EZiCart sellers' }}.</p></div>
         @if (!auth()->check() || auth()->user()->role === 'buyer')

@@ -84,6 +84,7 @@
         </main>
     @else
         <main class="container u-extracted-d7ea292b2e">
+            <div style="margin-bottom: 16px;"><x-back-button :fallback="auth()->user()?->role === 'seller' ? 'seller.dashboard' : (auth()->user()?->role === 'courier' ? 'courier.dashboard' : (auth()->user()?->role === 'sorting_center' ? 'logistics.dashboard' : (auth()->user()?->isCommerceAdmin() ? 'admin.dashboard' : 'home')))" label="Back to dashboard" class="btn-back" /></div>
             <h1>Account settings</h1>
             <p>Update your contact and profile details. Your role, approval status, and uploaded documents can’t be changed here.</p>
 

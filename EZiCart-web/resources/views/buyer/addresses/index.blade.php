@@ -9,7 +9,11 @@
     <header class="dash-header">
         <div><h1 class="dash-title">Saved addresses</h1><p class="dash-subtitle">Keep home, work and other delivery locations ready for checkout.</p></div>
         <div class="buyer-address-actions">
-            @if (session('cart'))<a href="{{ route('checkout.index') }}" class="dash-btn-sm dash-btn-outline">Back to checkout</a>@endif
+            @if (session('cart'))
+                <a href="{{ route('checkout.index') }}" class="dash-btn-sm dash-btn-outline">Back to checkout</a>
+            @else
+                <x-back-button :fallback="'buyer.dashboard'" label="Back to purchases" class="dash-btn-sm dash-btn-outline" />
+            @endif
             <a href="{{ route('buyer.addresses.create') }}" class="dash-btn-primary"><x-shop-icon name="location" /> Add an address</a>
         </div>
     </header>

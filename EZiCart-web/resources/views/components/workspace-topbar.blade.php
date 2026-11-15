@@ -32,6 +32,20 @@
         </button>
     </div>
     <div class="workspace-toolbar">
+        @php
+            $isRootDashboard = request()->routeIs([
+                'buyer.dashboard', 
+                'seller.dashboard', 
+                'admin.dashboard', 
+                'courier.dashboard', 
+                'logistics.dashboard', 
+                'logistics-admin.dashboard',
+                'home'
+            ]);
+        @endphp
+        @unless ($isRootDashboard)
+            <x-back-button :fallback="$roleDashboardRoute ?? 'home'" />
+        @endunless
         <div class="workspace-breadcrumb"><span>Workspace</span><span aria-hidden="true">/</span><strong>{{ $workspaceName }}</strong></div>
         <div class="workspace-toolbar-actions">
             <time class="workspace-date" datetime="{{ now()->toDateString() }}">{{ now()->format('D, d M Y') }}</time>

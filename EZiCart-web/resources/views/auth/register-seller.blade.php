@@ -13,6 +13,7 @@
         <section class="auth-shell auth-shell--form" aria-labelledby="auth-title">
             <aside class="auth-aside"><a class="auth-brand" href="{{ route('home') }}">EZiCart<span>.</span></a><div class="auth-aside-copy"><p class="auth-kicker">For independent shops and growing teams</p><h1>Bring your store to EZiCart.</h1><p>Submit your shop details for review. Access starts after approval.</p></div><p class="auth-aside-foot">Documents: JPG, PNG, or PDF, up to 5 MB each.</p></aside>
             <div class="auth-content">
+                <div class="auth-top-nav"><x-back-button :fallback="'home'" label="Back to Marketplace" class="auth-back-btn" /></div>
                 <div class="auth-mobile-brand"><a class="auth-brand" href="{{ route('home') }}">EZiCart<span>.</span></a></div>
                 <h2 id="auth-title">Apply as a seller</h2><p class="auth-intro">Complete the form, verify your email, then await review.</p>
                 <nav class="auth-role-nav" aria-label="Choose account type"><a href="{{ route('register') }}">Buyer</a><a class="is-active" aria-current="page" href="{{ route('register.seller') }}">Seller</a><a href="{{ route('register.sorting') }}">Logistic co. / Sorting center</a></nav>

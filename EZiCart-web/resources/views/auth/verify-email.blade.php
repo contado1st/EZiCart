@@ -21,6 +21,9 @@
             </aside>
 
             <div class="auth-content">
+                <div class="auth-top-nav">
+                    <x-back-button :fallback="'login'" label="Back to sign in" class="auth-back-btn" />
+                </div>
                 <div class="auth-mobile-brand"><a class="auth-brand" href="{{ route('home') }}">EZiCart<span>.</span></a></div>
                 <h2 id="auth-title">{{ $isPasswordReset ? 'Verify Password Recovery' : 'Verify Your Email' }}</h2>
                 <p class="auth-intro">

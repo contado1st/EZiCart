@@ -19,6 +19,7 @@
                 <p class="auth-aside-foot">Add your delivery address now, and update it later in account settings.</p>
             </aside>
             <div class="auth-content">
+                <div class="auth-top-nav"><x-back-button :fallback="'home'" label="Back to Marketplace" class="auth-back-btn" /></div>
                 <div class="auth-mobile-brand"><a class="auth-brand" href="{{ route('home') }}">EZiCart<span>.</span></a></div>
                 <h2 id="auth-title">Create your buyer account</h2>
                 <p class="auth-intro">Create an account to shop and track orders.</p>

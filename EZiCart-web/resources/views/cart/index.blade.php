@@ -5,7 +5,7 @@
 @endpush
 @section('content')
 <main class="cart-container cart-page" data-cart-selection data-buyer="{{ auth()->id() }}" data-quote-url="{{ route('cart.selection-quote') }}" @if(session('cart_variation_change')) data-variation-previous-key="{{ session('cart_variation_change.previous_key') }}" data-variation-new-key="{{ session('cart_variation_change.new_key') }}" @endif>
-    <header class="cart-heading"><div><h1>Shopping cart</h1><p>Buy several products from one shop per checkout. Everything else stays saved for later.</p></div><a href="{{ route('home') }}">Continue shopping</a></header>
+    <header class="cart-heading"><div><h1>Shopping cart</h1><p>Buy several products from one shop per checkout. Everything else stays saved for later.</p></div><x-back-button :fallback="'home'" label="Continue shopping" /></header>
     @include('components.feature-feedback')
     @if(session('error'))<p class="cart-feedback" role="alert">{{ session('error') }}</p>@endif
     @if(empty($cart))
