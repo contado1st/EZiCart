@@ -2,8 +2,10 @@
 
 namespace App\Models;
 
+use App\Services\RiderWorkAvailabilityService;
 use Database\Factories\UserFactory;
 use Illuminate\Contracts\Auth\Authenticatable as AuthenticatableContract;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
@@ -14,6 +16,11 @@ use Illuminate\Notifications\Notifiable;
 
 class User extends Authenticatable implements AuthenticatableContract
 {
+    public function scopeAvailableForNewWork(Builder $query): Builder
+    {
+        return app(RiderWorkAvailabilityService::class)->availableRiders($query);
+    }
+
     public function isCommerceAdmin(): bool
     {
         return in_array($this->role, ['admin', 'ecommerce_admin'], true);
@@ -85,6 +92,8 @@ class User extends Authenticatable implements AuthenticatableContract
      * @var array<int, string>
      */
     protected $hidden = [
+        'work_availability', 'work_availability_changed_at', 'work_availability_version', 'suspending_hub_id',
+        'web_auth_version',
         'hub_transfer_only',
         'vehicle_capacity_grams', 'vehicle_capacity_verified_by', 'vehicle_capacity_verified_at',
         'password',
@@ -103,6 +112,7 @@ class User extends Authenticatable implements AuthenticatableContract
     protected function casts(): array
     {
         return [
+            'work_availability_changed_at' => 'datetime', 'work_availability_version' => 'integer',
             'hub_transfer_only' => 'boolean',
             'vehicle_capacity_verified_at' => 'datetime',
             'email_verified_at' => 'datetime',
@@ -137,6 +147,11 @@ class User extends Authenticatable implements AuthenticatableContract
     public function followedShops(): BelongsToMany
     {
         return $this->belongsToMany(self::class, 'shop_follows', 'buyer_id', 'seller_id')->withTimestamps();
+    }
+
+    public function wishlistedProducts(): BelongsToMany
+    {
+        return $this->belongsToMany(Product::class, 'product_wishlists', 'buyer_id', 'product_id')->withTimestamps();
     }
 
     /**

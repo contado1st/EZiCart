@@ -60,10 +60,18 @@ test('valid image preview clears removal and revokes superseded blobs', () => {
 });
 
 test('unsafe or oversized files are rejected before creating a preview', () => {
-    for(const [type, file] of [['avatar', {size: 1000, type: 'image/svg+xml'}], ['avatar', {size: 3*1024*1024, type: 'image/png'}], ['banner', {size: 3*1024*1024, type: 'image/jpeg'}]]) {
+    for(const [type, file] of [['avatar', {size: 1000, type: 'image/svg+xml'}], ['avatar', {size: 5*1024*1024+1, type: 'image/png'}], ['banner', {size: 3*1024*1024, type: 'image/jpeg'}]]) {
         const h = setup(); h.uploads[type].files = [file]; h.uploads[type].events.change();
         assert.equal(h.uploads[type].validityReported, true); assert.equal(h.images[type].getAttribute('src'), '/existing-'+type);
     }
+});
+
+test('a profile photo between two and five megabytes can be previewed', () => {
+    const h = setup();
+    h.uploads.avatar.files = [{size: 3*1024*1024, type: 'image/png'}];
+    h.uploads.avatar.events.change();
+    assert.equal(h.images.avatar.getAttribute('src'), 'blob:preview-1');
+    assert.notEqual(h.uploads.avatar.validityReported, true);
 });
 
 test('removal preview can be cancelled without deleting the saved image', () => {

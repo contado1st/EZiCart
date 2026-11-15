@@ -8,6 +8,7 @@ use App\Models\Order;
 use App\Services\OrderFinancialService;
 use App\Services\OrderTransitionService;
 use App\Services\ReturnPickupService;
+use App\Services\SellerReturnService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Symfony\Component\HttpKernel\Exception\HttpException;
@@ -18,7 +19,7 @@ class AdminDisputeController extends Controller
     {
         $status = $request->query('status');
 
-        $disputes = Dispute::with(['order', 'buyer', 'seller'])
+        $disputes = Dispute::with(['order', 'buyer', 'seller', 'sellerResponse'])
             ->when($status, fn ($q) => $q->where('status', $status))
             ->latest()
             ->paginate(25);
@@ -28,7 +29,7 @@ class AdminDisputeController extends Controller
 
     public function show(Dispute $dispute)
     {
-        $dispute->load(['order.items', 'buyer', 'seller']);
+        $dispute->load(['order.items', 'buyer', 'seller', 'sellerResponse']);
 
         return view('admin.disputes.show', compact('dispute'));
     }
@@ -67,6 +68,7 @@ class AdminDisputeController extends Controller
                 'resolved_at' => $final ? now() : null,
                 'resolved_by' => $final ? $request->user()->id : null,
             ])->save();
+            app(SellerReturnService::class)->adminUpdated($lockedDispute, $request->user());
             if ($status === 'REFUND_APPROVED') {
                 $finances->authorizeRefund($lockedDispute, $request->user());
             }

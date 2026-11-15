@@ -15,8 +15,14 @@ class WalletFundingService
 
     public function assertSandbox(): void
     {
+        abort_unless($this->enabled(), 503, 'Demo wallet operations are disabled. Enable the financial sandbox only in local/testing; no real-money operation is available.');
+    }
+
+    public function enabled(): bool
+    {
         $enabled = config('financial.sandbox_enabled') || (int) DB::table('commerce_settings')->where('key', 'financial_sandbox_enabled')->value('value') === 1;
-        abort_unless(config('financial.mode') === 'sandbox' && $enabled && app()->environment(['local', 'testing']), 503, 'Mock wallet funding is disabled. No live-money provider is configured.');
+
+        return config('financial.mode') === 'sandbox' && $enabled && app()->environment(['local', 'testing']);
     }
 
     public function secret(): string

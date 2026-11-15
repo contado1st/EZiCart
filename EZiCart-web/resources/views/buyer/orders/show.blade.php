@@ -18,10 +18,22 @@
                 <a href="{{ route('buyer.dashboard') }}" class="dash-btn-sm dash-btn-outline">Back to orders</a>
             </div>
 
+            @include('components.feature-feedback')
+            <x-return-request-stage :case="$order->dispute" :viewer="auth()->user()" />
+            @if($order->status === 'DELIVERED')
+                <section class="dash-panel"><h2>Receipt window</h2><p>{{ $order->auto_completion_due_at ? 'Automatic completion is scheduled from '.$order->auto_completion_due_at->timezone('Asia/Manila')->format('d M Y H:i:s').' Philippine time, subject to delivery evidence and open-case checks.' : 'This historical delivery is not enrolled in automatic completion.' }}</p><p>Check the items and confirm receipt when ready. Open returns, disputes and unresolved evidence or settlement exceptions pause completion. Completion does not itself release earnings.</p></section>
+            @endif
             @if($order->purchase)
+                @if($order->isAwaitingWalletPayment())
+                    <section class="dash-panel"><h2>Awaiting demo wallet payment</h2><p>Pay by {{ $order->wallet_payment_due_at->format('M d, Y h:i A') }}. The seller cannot prepare this unpaid reservation.</p><a class="dash-btn-sm" href="{{ route('buyer.orders.wallet-payment', $order) }}">Pay or cancel unpaid reservation</a></section>
+                @endif
                 <section class="dash-panel"><h2>Purchase #{{ $order->purchase->id }}</h2><p>Purchase total: ₱{{ number_format($order->purchase->total_cents / 100, 2) }}</p>
                     @foreach($order->purchase->orders as $sibling)<p><a href="{{ route('buyer.orders.show', $sibling) }}">{{ $sibling->order_number }}</a> — {{ $sibling->seller->business_name ?? 'Merchant' }}{{ $sibling->replacement_for_order_id ? ' (replacement shipment)' : '' }}</p>@endforeach
                 </section>
+            @endif
+
+            @if(in_array($order->status, ['RETURN_IN_TRANSIT', 'RETURNED_TO_SELLER'], true))
+                <section class="dash-panel"><h2>Return progress</h2><p>Review seller receipt, inspection and the recorded refund stage.</p><a class="dash-btn-sm" href="{{ route('returns.workflow', $order) }}">View return progress</a></section>
             @endif
 
             <section class="dash-panel">
@@ -31,7 +43,7 @@
                         <div class="order-date">{{ $order->payment_method }}</div>
                     </div>
                     <span
-                        class="status-pill status-{{ strtolower(str_replace('_', '-', $order->status)) }}">{{ str_replace('_', ' ', $order->status) }}</span>
+                        class="status-pill status-{{ strtolower(str_replace('_', '-', $order->status)) }}">{{ str_replace('_', ' ', $order->operational_status) }}</span>
                 </div>
 
                 @if (! app(\App\Services\OrderWalletService::class)->paymentReady($order) && ! in_array($order->status, ['CANCELLED', 'COMPLETED', 'RETURN_IN_TRANSIT', 'RETURNED_TO_SELLER'], true))
@@ -61,17 +73,29 @@
                 <h2 class="courier-section-title">Items</h2>
                 @foreach ($order->items as $item)
                     <div class="order-item-row">
+                        <x-purchased-item-image :item="$item" />
                         <div>
                             <strong>{{ $item->product_name }}</strong>
                             @if ($item->variation_info)
                                 <span>({{ $item->variation_info }})</span>
                             @endif
                             <span>&times; {{ $item->quantity }}</span>
+                            <x-item-price-note :item="$item" />
                         </div>
                         <div>{{ number_format($item->item_total, 2) }}</div>
                     </div>
                 @endforeach
 
+                @if($order->status === 'COMPLETED' || $order->reviews->isNotEmpty())
+                    <section class="feature-panel"><h2>Your product reviews</h2>
+                        @foreach($order->items->unique('product_id') as $reviewItem)
+                            <h3>{{ $reviewItem->product_name }}</h3>
+                            @php($existingReview = $order->reviews->firstWhere('product_id', $reviewItem->product_id))
+                            @if($existingReview)<p>{{ $existingReview->rating }}/5 · <a href="{{ route('buyer.reviews.edit', $existingReview) }}">Edit review / private history</a></p>
+                            @elseif($order->status === 'COMPLETED')<x-review-form :order="$order" :product-id="$reviewItem->product_id" />@endif
+                        @endforeach
+                    </section>
+                @endif
                 <h2 class="courier-section-title">Delivery</h2>
                 <p><strong>{{ $order->recipient_name }}</strong> · {{ $order->recipient_contact }}</p>
                 <p>{{ trim(($order->house_number ? $order->house_number.' ' : '').$order->street_address) }}, {{ $order->barangay }}, {{ $order->municipality }},
@@ -121,11 +145,13 @@
                             dispute</a>
                     @endif
 
-                    @if ($order->status === 'DELIVERED')
+                    @if ($order->status === 'DELIVERED' && !$completionHold)
                         <form action="{{ route('buyer.orders.confirm', $order->id) }}" method="POST" data-decision="buyer.orders.confirm" data-decision-title="Confirm receipt?" data-decision-message="Confirm only after you have received the parcel and checked your items. This records your receipt of the order." data-decision-label="Confirm receipt" data-decision-tone="normal" onsubmit="return window.eziDecisionReady ? true : window.confirm(this.dataset.decisionMessage)">
                             @csrf
                             <button type="submit" class="dash-btn-sm dash-btn-success">Confirm receipt</button>
                         </form>
+                    @elseif($order->status === 'DELIVERED')
+                        <p role="status">Receipt confirmation is paused: {{ $completionHold }}</p>
                     @endif
                 </div>
             </section>

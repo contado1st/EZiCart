@@ -2,6 +2,7 @@
 .dashboard-workspace {
     --interaction-ease: cubic-bezier(.16, 1, .3, 1);
     --interaction-focus: var(--workspace-accent, #be2854);
+    --workspace-field-border: #8792a2;
     --workspace-frame-pink: #dc557f;
     --workspace-frame-inner: #f2d5df;
     --workspace-frame-secondary: #efb6c8;
@@ -108,7 +109,7 @@
 
 .dashboard-workspace :is(input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="file"]), select, textarea) {
     min-height: 40px;
-    border: 1px solid #dce0e8;
+    border: 1px solid var(--workspace-field-border);
     border-radius: 8px;
     background-color: #fff;
     color: var(--workspace-ink);
@@ -118,6 +119,20 @@
 .dashboard-workspace :is(input, select, textarea):focus-visible {
     border-color: var(--interaction-focus);
     box-shadow: 0 0 0 3px var(--workspace-soft);
+}
+
+.dashboard-workspace :is(input, textarea)::placeholder {
+    color: var(--workspace-muted);
+    opacity: 1;
+}
+
+.dashboard-workspace :is(.admin-table, .dash-table, .ops-table, .feature-table, .cart-table),
+.dashboard-workspace :is(input[type="number"], input[inputmode="decimal"], input[autocomplete="one-time-code"]) {
+    font-variant-numeric: tabular-nums;
+}
+
+.dashboard-workspace :is(button, input, select, textarea):disabled {
+    cursor: not-allowed;
 }
 
 .dashboard-workspace :is(.form-group, .ops-field, .auth-field, .checkout-form-group):focus-within > label {
@@ -158,6 +173,15 @@
     animation: feedback-recorded 500ms ease-out both;
 }
 
+/* Feedback is grouped for reading; the established frame hierarchy is retained. */
+.feature-feedback { font-size: 14px; line-height: 1.6; overflow-wrap: anywhere; }
+.feature-feedback--success { display: flex; align-items: flex-start; gap: 10px; }
+.feature-feedback--success > .shop-icon { flex: 0 0 20px; width: 20px; height: 20px; margin-top: 2px; color: #287858; }
+.feature-feedback p { margin: 0; }
+.feature-feedback--error h2 { margin: 0 0 6px; font-size: 16px; line-height: 1.4; color: #b42343; }
+.feature-feedback--error ul { margin: 10px 0 0; padding-left: 20px; }
+.feature-feedback--error li + li { margin-top: 4px; }
+
 [data-decision-trigger-busy] {
     cursor: progress;
     opacity: .8;
@@ -181,7 +205,7 @@ html.decision-open { overflow: hidden; }
     --decision-accent: var(--workspace-accent, #be2854);
     --decision-soft: var(--workspace-soft, #fff0f4);
     width: min(28rem, calc(100vw - 32px));
-    max-height: calc(100dvh - 32px);
+    max-height: calc(100dvh - 32px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
     margin: auto;
     padding: 0;
     border: 0;
@@ -217,7 +241,12 @@ html.decision-open { overflow: hidden; }
 @media (max-width: 480px) {
     .decision-content { padding: 22px; }
     .decision-actions { padding: 16px 22px; }
-    .decision-actions button { flex: 1 1 120px; }
+    .decision-actions button { flex: 1 1 120px; min-height: 44px; }
+}
+@media (any-pointer: coarse) {
+    .dashboard-workspace :is(.workspace-icon-button, .workspace-primary-action, .workspace-nav-link, .workspace-review-link, .dash-btn-primary, .dash-btn-sm, .ops-btn, .feature-button, .btn-approve, .btn-reject) { min-height: 44px; }
+    .dashboard-workspace .workspace-icon-button { min-width: 44px; }
+    .dashboard-workspace :is(input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="file"]), select, textarea) { min-height: 44px; font-size: 16px; }
 }
 @media (prefers-reduced-motion: reduce) {
     .decision-dialog[open], .decision-dialog::backdrop, [data-decision-trigger-busy]::after,

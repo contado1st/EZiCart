@@ -84,7 +84,7 @@ class ProfileShopTest extends TestCase
             'banner' => UploadedFile::fake()->image('small-banner.png', 100, 100),
         ])->assertJsonValidationErrors(['profile_theme', 'avatar', 'banner']);
         $this->patchJson(route('account.appearance.update'), [...$this->appearance(), 'avatar' => UploadedFile::fake()->createWithContent('unsafe.svg', '<svg xmlns="http://www.w3.org/2000/svg"><script>alert(1)</script></svg>')])->assertJsonValidationErrors('avatar');
-        $this->patchJson(route('account.appearance.update'), [...$this->appearance(), 'avatar' => UploadedFile::fake()->image('huge.png', 100, 100)->size(3000)])->assertJsonValidationErrors('avatar');
+        $this->patchJson(route('account.appearance.update'), [...$this->appearance(), 'avatar' => UploadedFile::fake()->image('huge.png', 100, 100)->size(5121)])->assertJsonValidationErrors('avatar');
         $this->patchJson(route('account.appearance.update'), [...$this->appearance(), 'banner' => UploadedFile::fake()->image('huge-banner.png', 1200, 400)->size(3000)])->assertJsonValidationErrors('banner');
         $this->patchJson(route('account.appearance.update'), [...$this->appearance(), 'remove_avatar' => 1, 'avatar' => UploadedFile::fake()->image('avatar.png', 100, 100)])->assertJsonValidationErrors('avatar');
         $this->assertNull($buyer->fresh()->profile_avatar_path);

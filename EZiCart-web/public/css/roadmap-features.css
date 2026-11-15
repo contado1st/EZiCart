@@ -5,12 +5,16 @@
 .feature-page p { font-size: 13px; line-height: 1.7; }
 .feature-panel { background: #fff; border: 1px solid #e7e9ef; border-radius: 12px; padding: 20px; margin-bottom: 20px; }
 .feature-form { display: flex; align-items: flex-end; flex-wrap: wrap; gap: 14px; }
-.feature-form label { display: flex; flex-direction: column; gap: 6px; font-size: 12px; flex: 1 1 160px; }
-.feature-form :is(input, select, textarea) { width: 100%; min-height: 40px; padding: 9px 12px; border: 1px solid #cdd2dc; border-radius: 7px; color: #202634; background: #fff; font: inherit; }
+.feature-form label { display: flex; flex-direction: column; gap: 6px; font-size: 12px; flex: 1 1 160px; min-width: 0; max-width: 100%; overflow-wrap: anywhere; }
+.feature-form :is(input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]), select, textarea) { width: 100%; min-height: 40px; padding: 9px 12px; border: 1px solid #cdd2dc; border-radius: 7px; color: #202634; background: #fff; font: inherit; }
+.feature-form input:is([type="checkbox"], [type="radio"]) { width: 17px; height: 17px; min-height: 0; padding: 0; flex: 0 0 17px; accent-color: var(--workspace-accent, #be2854); }
+.feature-form label:has(> input:is([type="checkbox"], [type="radio"])) { flex-direction: row; align-items: center; flex: 0 1 auto; }
+.feature-form fieldset { min-width: 0; max-width: 100%; }
 .feature-button { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 38px; padding: 9px 14px; border: 0; border-radius: 7px; background: var(--workspace-accent, #be2854); color: #fff; font-size: 12px; font-weight: 600; text-decoration: none; cursor: pointer; }
 .feature-button:hover { background: var(--workspace-accent-hover, #9f2046); color: #fff; }
 .feature-page :is(a, button, input, select, textarea):focus-visible { outline: 2px solid var(--workspace-accent, #be2854); outline-offset: 3px; }
-.feature-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 18px; margin-block: 20px; }
+.feature-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 210px), 1fr)); gap: 18px; margin-block: 20px; }
+.feature-grid > * { min-width: 0; overflow-wrap: anywhere; }
 .feature-product { display: flex; flex-direction: column; gap: 10px; border: 1px solid #e7e9ef; border-radius: 10px; padding: 16px; background: #fff; text-decoration: none; color: #202634; min-width: 0; }
 .feature-product img { width: 100%; aspect-ratio: 1; object-fit: contain; }
 .feature-product strong { overflow-wrap: anywhere; font-size: 14px; }

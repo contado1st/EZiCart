@@ -6,25 +6,33 @@ use App\Enums\OrderStatus;
 use App\Http\Controllers\Controller;
 use App\Models\DeliveryAssignment;
 use App\Models\DeliveryAttempt;
+use App\Models\FinancialAccount;
 use App\Models\Order;
 use App\Models\ParcelTrackingEvent;
+use App\Models\StaffProfileRevision;
 use App\Models\User;
 use App\Notifications\OrderWorkflowNotification;
+use App\Services\CourierCompensationService;
 use App\Services\DeliveryCodeService;
-use App\Services\FinancialLedgerService;
+use App\Services\DeliveryProgressService;
+use App\Services\DeliveryRetryService;
 use App\Services\LogisticsHubNotificationService;
 use App\Services\OrderTransitionService;
 use App\Services\OrderWalletService;
+use App\Services\ParcelIncidentService;
 use App\Services\ParcelLoadService;
 use App\Services\QrCodeService;
 use App\Services\RiderBadgeService;
 use App\Services\TransactionAwareNotificationSender;
+use App\Services\UserDocumentService;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 use RuntimeException;
@@ -32,6 +40,17 @@ use Throwable;
 
 class CourierController extends Controller
 {
+    private const HISTORY_STATUSES = ['READY_FOR_PICKUP', 'PICKED_UP', 'SORTED', 'ASSIGNED_TO_RIDER', 'OUT_FOR_DELIVERY', 'DELIVERED', 'COMPLETED', 'DELIVERY_FAILED', 'RETURN_IN_TRANSIT', 'RETURNED_TO_SELLER'];
+
+    public function profile(UserDocumentService $documents): View
+    {
+        $courier = $this->authenticatedUser()->load('serviceAreas', 'logisticsOwner');
+        $submittedDocuments = $documents->submittedForReview($courier);
+        $pendingProfile = StaffProfileRevision::where('pending_user_id', $courier->id)->where('status', 'pending')->latest()->first();
+
+        return view('courier.profile', compact('courier', 'submittedDocuments', 'pendingProfile'));
+    }
+
     public function dashboard(RiderBadgeService $badges, QrCodeService $qrCodes): View|RedirectResponse
     {
         $courier = $this->authenticatedUser();
@@ -72,7 +91,9 @@ class CourierController extends Controller
                 ->count(),
         ];
 
-        return view('courier.dashboard', compact('courier', 'badgeCode', 'badgeQr', 'availablePickups', 'claimedPickups', 'myActivePickups', 'myReturns', 'myDeliveryAssignments', 'myFailedDeliveries', 'stats'));
+        $paymentReadiness = $myDeliveryAssignments->getCollection()->mapWithKeys(fn (Order $order) => [$order->id => app(OrderWalletService::class)->paymentReady($order)])->all();
+
+        return view('courier.dashboard', compact('courier', 'badgeCode', 'badgeQr', 'availablePickups', 'claimedPickups', 'myActivePickups', 'myReturns', 'myDeliveryAssignments', 'myFailedDeliveries', 'stats', 'paymentReadiness'));
     }
 
     public function rotateBadge(RiderBadgeService $badges): RedirectResponse
@@ -82,7 +103,7 @@ class CourierController extends Controller
         return back()->with('success', 'Your rider badge was rotated. Previous printed codes are no longer valid.');
     }
 
-    public function showOrder(Order $order): View
+    public function showOrder(Order $order, CourierCompensationService $compensation): View
     {
         $courier = $this->authenticatedUser();
         $hasPickupAccess = $order->pickup_courier_id === $courier->id
@@ -91,8 +112,10 @@ class CourierController extends Controller
             && in_array($order->status, ['ASSIGNED_TO_RIDER', 'OUT_FOR_DELIVERY', 'DELIVERY_FAILED'], true);
         abort_unless($hasPickupAccess || $hasDeliveryAccess, 403);
         $order->load(['seller', 'buyer', 'items', 'trackingEvents.actor', 'deliveryAttempts']);
+        $workSummary = $compensation->summaries(new Collection([$order]), $courier)[$order->id];
+        $deliveryProgress = app(DeliveryProgressService::class)->describe($order);
 
-        return view('courier.orders.show', compact('order'));
+        return view('courier.orders.show', compact('order', 'workSummary', 'deliveryProgress'));
     }
 
     public function claimPickup(Order $order, TransactionAwareNotificationSender $notifications): RedirectResponse
@@ -102,6 +125,7 @@ class CourierController extends Controller
         return DB::transaction(function () use ($order, $courier, $notifications): RedirectResponse {
             app(ParcelLoadService::class)->lockVehicle($courier->id);
             $lockedOrder = Order::whereKey($order->id)->lockForUpdate()->firstOrFail();
+            ParcelIncidentService::assertClear($lockedOrder);
             abort_unless($courier->status === 'approved', 403, 'Your rider account is not approved for pickups.');
             abort_unless($lockedOrder->pickup_courier_id === $courier->id, 403);
             abort_unless(
@@ -111,7 +135,7 @@ class CourierController extends Controller
                 422,
                 'This pickup has already been accepted, is on payment verification hold, or is no longer available.',
             );
-            app(ParcelLoadService::class)->assertFits($lockedOrder, $courier);
+            app(ParcelLoadService::class)->assertFits($lockedOrder, $courier, newWork: true);
             $lockedOrder->forceFill(['pickup_claimed_at' => now()])->save();
             $this->recordEvent($lockedOrder, 'pickup_accepted', $courier, $lockedOrder->seller?->municipality, 'Rider accepted the Logistics pickup assignment.');
             $notifications->send([$lockedOrder->seller, $lockedOrder->buyer], new OrderWorkflowNotification($lockedOrder, 'pickup_accepted', 'The assigned rider accepted the pickup request.'));
@@ -127,6 +151,7 @@ class CourierController extends Controller
 
         return DB::transaction(function () use ($order, $courier, $validated, $notifications, $hubNotifications): RedirectResponse {
             $lockedOrder = Order::query()->whereKey($order->id)->lockForUpdate()->firstOrFail();
+            ParcelIncidentService::assertClear($lockedOrder);
             abort_unless($courier->status === 'approved' && $lockedOrder->status === 'READY_FOR_PICKUP', 422, 'This pickup cannot be declined.');
             abort_unless($lockedOrder->pickup_courier_id === $courier->id && $lockedOrder->pickup_claimed_at === null, 403);
 
@@ -179,6 +204,7 @@ class CourierController extends Controller
             return DB::transaction(function () use ($request, $order, $courier, $transitions, $notifications, $validated, $scannedReference): RedirectResponse {
                 app(ParcelLoadService::class)->lockVehicle($courier->id);
                 $lockedOrder = Order::whereKey($order->id)->lockForUpdate()->firstOrFail();
+                ParcelIncidentService::assertClear($lockedOrder);
                 abort_unless($lockedOrder->pickup_courier_id === $courier->id, 403);
                 abort_unless(
                     $courier->status === 'approved'
@@ -210,7 +236,7 @@ class CourierController extends Controller
                     'created_at' => now(),
                 ]);
 
-                return back()->with('success', "Parcel {$lockedOrder->order_number} collected. Bring it to the sorting center for handoff.");
+                return back()->with('success', "Parcel {$lockedOrder->order_number} collected. Bring it to the sorting center for handoff. Possession and tracking are recorded; review the timestamp and compensation status in job details or work history. Pickup confirmation does not credit wallet earnings.");
             });
         } catch (Throwable $exception) {
             if (filled($scannedReference)) {
@@ -263,6 +289,7 @@ class CourierController extends Controller
             return DB::transaction(function () use ($request, $order, $courier, $transitions, $deliveryCodes, $validated, $scannedReference): RedirectResponse {
                 app(ParcelLoadService::class)->lockVehicle($courier->id);
                 $lockedOrder = Order::whereKey($order->id)->lockForUpdate()->firstOrFail();
+                ParcelIncidentService::assertClear($lockedOrder);
                 abort_unless($lockedOrder->delivery_courier_id === $courier->id, 403);
                 abort_unless($courier->status === 'approved' && $lockedOrder->status === 'ASSIGNED_TO_RIDER', 422, 'This parcel cannot be started for delivery.');
                 abort_unless(app(OrderWalletService::class)->paymentReady($lockedOrder), 422, 'Delivery is on hold until payment verification for this method is configured.');
@@ -345,6 +372,7 @@ class CourierController extends Controller
         try {
             DB::transaction(function () use ($request, $order, $courier, $notifications, $validated, $scannedReference): void {
                 $lockedOrder = Order::query()->whereKey($order->id)->lockForUpdate()->firstOrFail();
+                ParcelIncidentService::assertClear($lockedOrder);
                 abort_unless($lockedOrder->delivery_courier_id === $courier->id, 403);
                 abort_unless($courier->status === 'approved' && $lockedOrder->status === OrderStatus::ReturnInTransit->value, 422, 'This parcel is not on an active return to seller.');
                 abort_unless($lockedOrder->return_handed_to_seller_at === null, 422, 'The seller handoff has already been recorded.');
@@ -407,6 +435,7 @@ class CourierController extends Controller
 
         $codeResult = DB::transaction(function () use ($order, $courier, $deliveryCode, $deliveryCodes): array {
             $lockedOrder = Order::query()->whereKey($order->id)->lockForUpdate()->firstOrFail();
+            ParcelIncidentService::assertClear($lockedOrder);
             abort_unless($lockedOrder->delivery_courier_id === $courier->id, 403);
             abort_unless($courier->status === 'approved' && $lockedOrder->status === 'OUT_FOR_DELIVERY', 422, 'This parcel is not out for delivery.');
             abort_unless(app(OrderWalletService::class)->paymentReady($lockedOrder), 422, 'Delivery is on hold until payment verification for this method is configured.');
@@ -436,6 +465,7 @@ class CourierController extends Controller
         try {
             return DB::transaction(function () use ($request, $order, $courier, $validated, $transitions, $deliveryCodes, $deliveryCode, &$proofPath): RedirectResponse {
                 $lockedOrder = Order::whereKey($order->id)->lockForUpdate()->firstOrFail();
+                ParcelIncidentService::assertClear($lockedOrder);
                 abort_unless($lockedOrder->delivery_courier_id === $courier->id, 403);
                 abort_unless($courier->status === 'approved' && $lockedOrder->status === 'OUT_FOR_DELIVERY', 422, 'This parcel is not out for delivery.');
                 abort_unless(app(OrderWalletService::class)->paymentReady($lockedOrder), 422, 'Delivery is on hold until payment verification for this method is configured.');
@@ -480,6 +510,7 @@ class CourierController extends Controller
 
         return DB::transaction(function () use ($order, $courier, $validated, $transitions): RedirectResponse {
             $lockedOrder = Order::whereKey($order->id)->lockForUpdate()->firstOrFail();
+            ParcelIncidentService::assertClear($lockedOrder);
             abort_unless($lockedOrder->delivery_courier_id === $courier->id, 403);
             abort_unless($courier->status === 'approved' && $lockedOrder->status === 'OUT_FOR_DELIVERY', 422, 'Only a delivery in progress can be marked failed.');
             $notes = $validated['failure_reason'].(filled($validated['delivery_notes'] ?? null) ? ': '.$validated['delivery_notes'] : '');
@@ -501,32 +532,41 @@ class CourierController extends Controller
         });
     }
 
-    public function history(Request $request): View
+    public function history(Request $request, CourierCompensationService $compensation): View
     {
         $courier = $this->authenticatedUser();
         $validated = $request->validate([
             'search' => ['nullable', 'string', 'max:100'],
-            'status' => ['nullable', 'in:DELIVERED,COMPLETED,DELIVERY_FAILED,RETURN_IN_TRANSIT,RETURNED_TO_SELLER,PICKED_UP'],
+            'status' => ['nullable', Rule::in(self::HISTORY_STATUSES)],
         ]);
         $orders = Order::query()
             ->select([
                 'id', 'order_number', 'status', 'delivery_courier_id', 'pickup_courier_id',
                 'delivery_area', 'municipality', 'delivered_at', 'failed_at', 'picked_up_at',
                 'delivery_failure_reason', 'delivery_notes', 'updated_at',
+                'parcel_weight_grams', 'return_handed_to_seller_at',
+                'sorting_center_id', 'delivery_recovered_at',
             ])
             ->where(function (Builder $query) use ($courier): void {
                 $query->where('delivery_courier_id', $courier->id)
                     ->orWhere('pickup_courier_id', $courier->id)
-                    ->orWhereHas('deliveryAssignments', fn (Builder $assignments) => $assignments->where('rider_id', $courier->id));
+                    ->orWhereHas('deliveryAssignments', fn (Builder $assignments) => $assignments->where('rider_id', $courier->id))
+                    ->orWhereHas('deliveryAttempts', fn (Builder $attempts) => $attempts->where('rider_id', $courier->id))
+                    ->orWhereHas('transfers', fn (Builder $transfers) => $transfers->where('carrier_rider_id', $courier->id))
+                    ->orWhereIn('id', DB::table('logistics_allocations')->select('order_id')->where('beneficiary_id', $courier->id));
             })
             ->when(filled($validated['search'] ?? null), fn (Builder $query) => $query->whereRaw(
                 "order_number LIKE ? ESCAPE '!'",
                 [$this->orderNumberSearchPattern($validated['search'])],
             ))
             ->when(filled($validated['status'] ?? null), fn (Builder $query) => $query->where('status', $validated['status']))
-            ->latest('updated_at')->paginate(20)->withQueryString();
+            ->latest('updated_at')->orderByDesc('id')->paginate(20)->withQueryString();
+        $workSummaries = $compensation->summaries($orders->getCollection(), $courier);
+        $pageSettledCents = array_sum(array_column($workSummaries, 'settled_cents'));
+        $retryContexts = app(DeliveryRetryService::class)->contexts($orders->getCollection(), $courier);
+        $historyStatuses = self::HISTORY_STATUSES;
 
-        return view('courier.history', compact('orders'));
+        return view('courier.history', compact('orders', 'workSummaries', 'pageSettledCents', 'retryContexts', 'historyStatuses'));
     }
 
     public function tracking(): View
@@ -539,15 +579,16 @@ class CourierController extends Controller
         return view('courier.tracking', compact('orders'));
     }
 
-    public function earnings(): View
+    public function earnings(CourierCompensationService $compensation): View
     {
         $courier = $this->authenticatedUser();
-        $ledger = app(FinancialLedgerService::class);
-        $available = $ledger->wallet($courier)->balance_cents;
+        $available = (int) FinancialAccount::where('key', 'user:'.$courier->id.':available')->value('balance_cents');
         $allocations = DB::table('logistics_allocations')->join('orders', 'orders.id', '=', 'logistics_allocations.order_id')
             ->where('beneficiary_id', $courier->id)->select('logistics_allocations.*', 'orders.order_number')->orderByDesc('logistics_allocations.id')->paginate(25);
 
-        return view('courier.earnings', compact('available', 'allocations'));
+        $postings = $compensation->postings(collect($allocations->items()), $courier);
+
+        return view('courier.earnings', compact('available', 'allocations', 'postings'));
     }
 
     private function recordEvent(Order $order, string $eventType, User $actor, ?string $location = null, ?string $notes = null): void

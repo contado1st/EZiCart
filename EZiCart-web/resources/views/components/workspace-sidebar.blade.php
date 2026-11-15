@@ -6,10 +6,10 @@
                 ['buyer.dashboard', 'diagram', 'My purchases', 'buyer.dashboard'],
                 ['home', 'package1', 'Marketplace', 'home'],
                 ['buyer.for-you', 'star', 'For you', 'buyer.for-you'],
+                ['buyer.wishlist.index', 'heart', 'My wishlist', 'buyer.wishlist.*'],
                 ['buyer.stock.index', 'bell', 'Stock alerts', 'buyer.stock.*'],
                 ['chat.index', 'chat', 'Chat', 'chat.index'],
                 ['cart.index', 'cart2', 'My cart', 'cart.*'],
-                ['finance.index', 'invoice', 'Financial records', 'finance.*'],
             ],
         ],
         'seller' => [
@@ -19,9 +19,10 @@
                 ['seller.products.index', 'package1', 'Products & inventory', 'seller.products.*'],
                 ['seller.vouchers.index', 'voucher', 'Vouchers', 'seller.vouchers.*'],
                 ['seller.reports.index', 'note', 'Reports', 'seller.reports.*'],
+                ['seller.reviews.index', 'star', 'Customer reviews', 'seller.reviews.*'],
+                ['seller.returns.index', 'checklist', 'Return requests', 'seller.returns.*'],
                 ['sales-reports.index', 'note', 'Sales exports', 'sales-reports.*'],
                 ['chat.index', 'chat', 'Chat', 'chat.index'],
-                ['finance.index', 'money', 'Financial records', 'finance.*'],
             ],
         ],
         'courier' => [
@@ -33,7 +34,6 @@
                 ['courier.tracking', 'delivery1', 'Active parcels', 'courier.tracking'],
                 ['courier.history', 'checklist', 'Delivery history', 'courier.history'],
                 ['courier.earnings', 'money', 'Earnings', 'courier.earnings'],
-                ['finance.index', 'invoice', 'Cash remittances', 'finance.*'],
             ],
         ],
         'sorting_center' => [
@@ -66,7 +66,6 @@
                 ['logistics-admin.dashboard#managed-accounts', 'account', 'Centers & riders', ''],
                 ['logistics-admin.dashboard#parcels', 'package1', 'Parcel oversight', ''],
                 ['parcel-transfers.index', 'delivery1', 'Hub transfers', 'parcel-transfers.*'],
-                ['finance.index', 'money', 'COD & remittances', 'finance.*'],
             ],
         ],
         default => [
@@ -79,7 +78,6 @@
                 ['admin.vouchers.index', 'voucher', 'Platform vouchers', 'admin.vouchers.*'],
                 ['sales-reports.index', 'note', 'Sales exports', 'sales-reports.*'],
                 ['activity-logs.index', 'note', 'Activity logs', 'activity-logs.*'],
-                ['finance.index', 'money', 'Refunds & payouts', 'finance.*'],
             ],
             'Administration' => [
                 ['admin.reports.index', 'diagram', 'Reports', 'admin.reports.*'],
@@ -90,10 +88,22 @@
     };
     $navigation['Insights'] = [['analytics.index', 'diagram', 'Analytics', 'analytics.*']];
     $navigation['Parcel records'] = [['parcel-evidence.index', 'package1', 'Journey & evidence', 'parcel-evidence.*']];
+    $navigation['Parcel records'][] = ['parcel-incidents.index', 'shield', 'Parcel incidents & claims', 'parcel-incidents.*'];
+    if (in_array($sidebarUser->role, ['courier', 'sorting_center', 'logistics_admin'], true)) $navigation['Parcel records'][] = ['dispatch.index', 'location', 'Automatic dispatch', 'dispatch.*'];
     $navigation['Parcel records'][] = ['return-pickups.index', 'delivery1', 'Approved return pickups', 'return-pickups.*'];
+    if (in_array($sidebarUser->role, ['sorting_center', 'logistics_admin'], true)) $navigation['Parcel records'][] = ['logistics-corrections.index', 'note', 'Correction reviews', 'logistics-corrections.*'];
+    if (in_array($sidebarUser->role, ['sorting_center', 'logistics_admin'], true)) $navigation['Parcel records'][] = ['logistics-zone-readiness', 'location', 'Zone readiness', 'logistics-zone-readiness'];
     if (in_array($sidebarUser->role, ['seller', 'courier', 'sorting_center', 'logistics_admin'], true)) $navigation['Planning'] = [['load-planning.index', 'delivery1', 'Weight & load planning', 'load-planning.*']];
     if ($sidebarUser->role === 'courier' && $sidebarUser->hub_transfer_only) {
         $navigation['Delivery operations'] = [['parcel-transfers.index', 'delivery1', 'Assigned hub transfers', 'parcel-transfers.*']];
+    }
+    if ($sidebarUser->role === 'courier') {
+        $navigation['Delivery operations'][] = ['courier.profile', 'account', 'My rider profile', 'courier.profile'];
+        $navigation['Delivery operations'][] = ['courier.work-availability.index', 'checklist', 'Work availability', 'courier.work-availability.*'];
+        if ($sidebarUser->hub_transfer_only) {
+            $navigation['Delivery operations'][] = ['courier.history', 'checklist', 'Work history', 'courier.history'];
+            $navigation['Delivery operations'][] = ['courier.earnings', 'money', 'Earnings', 'courier.earnings'];
+        }
     }
     if ($sidebarUser->isCommerceAdmin() || $sidebarUser->isLogisticsAdmin()) {
         $navigation['Staff'] = [['staff.index', 'account', 'Staff profiles', 'staff.index']];
@@ -128,7 +138,7 @@
             @if($sidebarUser->role === 'seller' && $sidebarUser->status === 'approved')<a class="workspace-nav-link" href="{{ route('shops.show', $sidebarUser) }}" title="View my shop"><x-shop-icon name="package1" /><span class="workspace-nav-label">View my shop</span></a>@endif
             <a href="{{ route('notifications.index') }}" @class(['workspace-nav-link', 'is-active' => request()->routeIs('notifications.*')]) title="Notifications" data-communication-label="Notifications" aria-label="Notifications{{ $communicationCounts['notifications'] ? ', '.$communicationCounts['notifications'].' unread' : '' }}"><x-shop-icon name="bell" /><span class="workspace-nav-label">Notifications</span><x-communication-count kind="notifications" :count="$communicationCounts['notifications']" /></a>
             <a href="{{ route('account.profile.edit') }}" @class(['workspace-nav-link', 'is-active' => request()->routeIs('account.profile.*')]) title="Account & profile"><x-shop-icon name="settings" /><span class="workspace-nav-label">Account & profile</span></a>
-            <a href="{{ route('finance.wallet') }}" @class(['workspace-nav-link', 'is-active' => request()->routeIs('finance.wallet*')]) title="Wallet and financial balances"><x-shop-icon name="money" /><span class="workspace-nav-label">{{ $sidebarUser->isCommerceAdmin() ? 'Platform treasury' : 'Wallet & balances' }}</span></a>
+            <a href="{{ route('finance.wallet') }}" @class(['workspace-nav-link', 'is-active' => request()->routeIs('finance.*', 'wallet.*')]) @if(request()->routeIs('finance.*', 'wallet.*')) aria-current="page" @endif title="Finance & Wallet"><x-shop-icon name="money" /><span class="workspace-nav-label">Finance &amp; Wallet</span></a>
             @if ($sidebarUser->role === 'buyer')
                 <a href="{{ route('buyer.addresses.index') }}" @class(['workspace-nav-link', 'is-active' => request()->routeIs('buyer.addresses.*')]) title="Addresses" @if (request()->routeIs('buyer.addresses.*')) aria-current="page" @endif><x-shop-icon name="location" /><span class="workspace-nav-label">Addresses</span></a>
                 <a href="{{ route('account.profile.edit') }}#buyer-password" class="workspace-nav-link" title="Change password"><x-shop-icon name="lock" /><span class="workspace-nav-label">Change password</span></a>

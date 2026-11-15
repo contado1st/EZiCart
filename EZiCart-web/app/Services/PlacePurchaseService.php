@@ -21,10 +21,14 @@ class PlacePurchaseService
 {
     public function __construct(private CheckoutPricingService $pricing, private TransactionAwareNotificationSender $notifications, private OrderFinancialService $finances) {}
 
-    public function place(User $buyer, string $token, string $requestHash, array $cart, string $reviewedHash, ?int $voucherId, array $address, string $paymentMethod = 'COD'): Purchase
+    public function place(User $buyer, string $token, string $requestHash, array $cart, string $reviewedHash, ?int $voucherId, array $address, string $paymentMethod = 'COD', bool $deferWalletPayment = false): Purchase
     {
-        return DB::transaction(function () use ($buyer, $token, $requestHash, $cart, $reviewedHash, $voucherId, $address, $paymentMethod): Purchase {
+        return DB::transaction(function () use ($buyer, $token, $requestHash, $cart, $reviewedHash, $voucherId, $address, $paymentMethod, $deferWalletPayment): Purchase {
             abort_unless(in_array($paymentMethod, ['COD', 'WALLET'], true) && $buyer->role === 'buyer' && $buyer->status === 'approved', 422, 'Unsupported checkout payment method or buyer.');
+            abort_if($deferWalletPayment && $paymentMethod !== 'WALLET', 422, 'Only wallet orders support deferred wallet payment.');
+            if ($deferWalletPayment) {
+                app(WalletFundingService::class)->assertSandbox();
+            }
             // SQLite has no row-level FOR UPDATE. Acquire its writer lock before reads.
             if (DB::getDriverName() === 'sqlite') {
                 DB::table('users')->where('id', $buyer->id)->update(['updated_at' => DB::raw('updated_at')]);
@@ -52,7 +56,10 @@ class PlacePurchaseService
                 app(VoucherClaimService::class)->assertUsable($buyer, $voucher);
             }
             app(ShopAvailabilityService::class)->assertOpen($cart);
-            $quote = $this->pricing->quote($cart, $voucher, true, ['address' => $address, 'payment_method' => $paymentMethod]);
+            $quote = $this->pricing->quote($cart, $voucher, true, ['address' => $address, 'payment_method' => $paymentMethod, 'buyer' => $buyer]);
+            if ($deferWalletPayment && $quote['total_cents'] <= 0) {
+                throw ValidationException::withMessages(['payment_method' => 'Use COD for a zero-total order. No wallet payment is required.']);
+            }
             if ($quote['total_cents'] > config('financial.maximum_transaction_cents')) {
                 throw ValidationException::withMessages(['cart' => 'This order exceeds the supported financial transaction limit. Reduce its quantity.']);
             }
@@ -82,9 +89,11 @@ class PlacePurchaseService
                     'total_amount' => $group['total_cents'] / 100,
                     'status' => 'PLACED', 'payment_method' => $paymentMethod, 'financial_version' => 1,
                     'seller_promo_funded_cents' => $itemSponsor, 'platform_shipping_funded_cents' => $platformShipping, 'shipping_discount_cents' => $group['shipping_discount_cents'],
-                    'seller_response_due_at' => now()->addHours((int) config('commerce.seller_response_hours')),
+                    'seller_response_due_at' => $deferWalletPayment ? null : now()->addHours((int) config('commerce.seller_response_hours')),
+                    'wallet_payment_due_at' => $deferWalletPayment ? now()->addMinutes((int) config('financial.wallet_reservation_minutes')) : null,
                 ]);
                 ShipmentFinancial::create(['order_id' => $order->id, 'rate_version_id' => $group['shipping_snapshot']['rate_version_id'], 'quote_snapshot' => $group['shipping_snapshot'], 'buyer_shipping_cents' => $group['shipping_cents'], 'seller_shipping_cents' => $budgeted && $voucher->seller_id !== null ? $group['shipping_discount_cents'] : 0, 'platform_shipping_cents' => $platformShipping]);
+                app(FlashSaleService::class)->reserve($order, $group['lines']);
                 if ($voucher) {
                     app(VoucherFundingService::class)->consume($voucher, $order, $group['discount_cents'] + $group['shipping_discount_cents'], $buyer);
                 }
@@ -92,7 +101,7 @@ class PlacePurchaseService
                 if ($budgeted && $voucher->seller_id === null) {
                     $finance->update(['funded_cents' => $finance->platform_subsidy_cents, 'funded_at' => now()]);
                 }
-                if ($paymentMethod === 'WALLET') {
+                if ($paymentMethod === 'WALLET' && ! $deferWalletPayment) {
                     app(OrderWalletService::class)->pay($order, $buyer);
                 }
                 foreach ($group['lines'] as $line) {
@@ -111,13 +120,19 @@ class PlacePurchaseService
                         'variation_info' => $line['variation_info'], 'product_name' => $line['name'],
                         'unit_price' => $line['unit_cents'] / 100, 'quantity' => $line['quantity'], 'item_total' => $line['item_cents'] / 100,
                         'unit_weight_grams' => $line['product']->weight_grams,
+                        'pricing_snapshot' => $line['pricing_snapshot'],
+                        'purchased_image_path' => $line['variation']?->image_path ?: $line['product']->image_path,
                     ]);
                 }
                 ParcelTrackingEvent::query()->create([
                     'order_id' => $order->id, 'actor_id' => $buyer->id, 'event_type' => 'order_placed',
                     'status' => 'PLACED', 'location' => $order->municipality, 'notes' => 'Order placed by buyer.',
                 ]);
-                $this->notifications->send($order->seller, new OrderWorkflowNotification($order, 'order_placed', 'A buyer placed an order. Confirm within '.config('commerce.seller_response_hours').' hours.'));
+                if ($deferWalletPayment) {
+                    $this->notifications->send($buyer, new OrderWorkflowNotification($order, 'wallet_payment_pending', 'Order reserved for '.config('financial.wallet_reservation_minutes').' minutes. Pay from your demo wallet in To Pay. The seller will prepare only after payment.'));
+                } else {
+                    $this->notifications->send($order->seller, new OrderWorkflowNotification($order, 'order_placed', 'A buyer placed an order. Confirm within '.config('commerce.seller_response_hours').' hours.'));
+                }
             }
             if ($voucher) {
                 $voucher->increment('used_count');

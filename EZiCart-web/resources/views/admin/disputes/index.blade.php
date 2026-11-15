@@ -58,6 +58,7 @@
                                             class="status-pill status-badge-{{ strtolower(str_replace('_', '-', $dispute->status)) }}">
                                             {{ str_replace('_', ' ', $dispute->status) }}
                                         </span>
+                                        @if($dispute->sellerResponse)<p>{{ $dispute->sellerResponse->label() }}</p>@endif
                                     </td>
                                     <td>
                                         <a href="{{ route('admin.disputes.show', $dispute->id) }}"

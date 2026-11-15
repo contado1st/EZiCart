@@ -10,7 +10,7 @@ class Check {
     change(checked) { this.checked = checked; this.events.change(); }
     closest() { return this.shop; }
 }
-function setup({saved = null, storageBlocked = false} = {}) {
+function setup({saved = null, storageBlocked = false, remap = {}} = {}) {
     const a = new Check('1', 10000, 3), b = new Check('2_7', 20000, 1), unavailable = new Check('3', 99900, 1, true);
     const other = new Check('4', 5000, 1);
     [a,b,unavailable].forEach(item => {item.dataset.shopId = 'shop-1';});
@@ -25,7 +25,7 @@ function setup({saved = null, storageBlocked = false} = {}) {
     const input = {value:'1'}; let submissions = 0;
     const quantityForm = {querySelector: () => input, requestSubmit: () => submissions++};
     const quantityButtons = [-1,1].map(step => ({dataset:{qtyStep:String(step)}, closest: () => quantityForm, addEventListener(event, callback) {this.click = callback;}}));
-    const page = {dataset:{buyer:'buyer-1'}, querySelector: selector => output[selector], querySelectorAll: selector => ({'[data-cart-item]':[a,b,unavailable,other], '[data-shop]':shops.map(entry => entry.shop), '[data-select-shop]':shops.map(entry => entry.check), '[data-qty-step]':quantityButtons})[selector]};
+    const page = {dataset:{buyer:'buyer-1', ...remap}, querySelector: selector => output[selector], querySelectorAll: selector => ({'[data-cart-item]':[a,b,unavailable,other], '[data-shop]':shops.map(entry => entry.shop), '[data-select-shop]':shops.map(entry => entry.check), '[data-qty-step]':quantityButtons})[selector]};
     const storage = {value: saved === null ? null : JSON.stringify(saved), getItem(key) {this.key=key; if(storageBlocked) throw new Error('Blocked'); return this.value;}, setItem(key,value) {if(storageBlocked) throw new Error('Blocked'); this.key=key; this.value=value;}};
     vm.runInNewContext(source, {document:{querySelector: () => page}, sessionStorage:storage, Intl});
     return {a,b,other,unavailable,shops,output,storage,input,quantityButtons,submissions:()=>submissions};
@@ -80,4 +80,22 @@ test('quantity steppers submit valid updates and do not exceed checkout quantity
     assert.equal(h.submissions(),1);
     h.input.value='20'; h.quantityButtons[1].click();
     assert.equal(h.submissions(),1);
+});
+
+test('a changed variation retains its selected checkbox and merges duplicate selection keys', () => {
+    const remap = {variationPreviousKey:'2_6', variationNewKey:'2_7'};
+    const switched = setup({saved:['2_6'], remap});
+    assert.equal(switched.b.checked, true);
+    assert.equal(switched.a.checked, false);
+    assert.deepEqual(JSON.parse(switched.storage.value), ['2_7']);
+    const merged = setup({saved:['2_6','2_7'], remap});
+    assert.deepEqual(JSON.parse(merged.storage.value), ['2_7']);
+    assert.equal(merged.output['[data-selected-count]'].textContent, '1');
+});
+
+test('changing an unchecked variation does not select it or change the selected shop', () => {
+    const h = setup({saved:['4'], remap:{variationPreviousKey:'2_6', variationNewKey:'2_7'}});
+    assert.equal(h.b.checked, false);
+    assert.equal(h.other.checked, true);
+    assert.deepEqual(JSON.parse(h.storage.value), ['4']);
 });

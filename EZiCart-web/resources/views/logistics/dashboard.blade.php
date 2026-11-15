@@ -1,12 +1,14 @@
 @extends('layouts.logistics')
 
+@section('workspace-primary-route', 'logistics.intake')
+
 @section('workspace')
     <header class="ops-heading">
         <div>
             <h1>Operations overview</h1>
-            <p>Sorting hub · {{ now()->format('D, d M Y') }} · Real-time operational queues and hub throughput.</p>
+            <p>Sorting hub · Updated {{ $updatedAt->format('d M Y H:i:s T') }} · Refresh to retrieve current hub records.</p>
         </div>
-        <div class="courier-actions">
+        <div class="courier-actions workspace-page-actions">
             <a class="ops-btn ops-btn--primary" href="{{ route('logistics.intake') }}">Receive parcel</a>
         </div>
     </header>
@@ -22,30 +24,30 @@
     @endif
 
     <section class="ops-stats ops-stats--priority" aria-label="Priority parcel queues">
-        <div class="ops-stat ops-stat--action ops-stat--warning">
+        <a href="{{ route('logistics.tracking', ['queue' => 'inbound']) }}" class="ops-stat ops-stat--action ops-stat--warning">
             <span class="workspace-stat-icon" aria-hidden="true"><x-shop-icon name="delivery1" /></span>
             <span>Pickup arrivals</span>
             <strong>{{ $stats['inbound'] }}</strong>
             <small class="workspace-stat-detail">Inbound to your sorting center</small>
-        </div>
-        <div class="ops-stat ops-stat--action">
+        </a>
+        <a href="{{ route('logistics.tracking', ['queue' => 'at_center']) }}" class="ops-stat ops-stat--action">
             <span class="workspace-stat-icon" aria-hidden="true"><x-shop-icon name="package1" /></span>
             <span>Awaiting sort</span>
             <strong>{{ $stats['at_center'] }}</strong>
             <small class="workspace-stat-detail">Received and waiting to sort</small>
-        </div>
-        <div class="ops-stat ops-stat--action">
+        </a>
+        <a href="{{ route('logistics.tracking', ['queue' => 'sorted']) }}" class="ops-stat ops-stat--action">
             <span class="workspace-stat-icon" aria-hidden="true"><x-shop-icon name="checklist" /></span>
             <span>Ready for dispatch</span>
             <strong>{{ $stats['sorted'] }}</strong>
             <small class="workspace-stat-detail">Parcels ready for a rider</small>
-        </div>
-        <div class="ops-stat ops-stat--action ops-stat--danger">
+        </a>
+        <a href="{{ route('logistics.tracking', ['queue' => 'failed']) }}" class="ops-stat ops-stat--action ops-stat--danger">
             <span class="workspace-stat-icon" aria-hidden="true"><x-shop-icon name="warning" /></span>
             <span>Failed deliveries</span>
             <strong>{{ $stats['failed'] }}</strong>
             <small class="workspace-stat-detail">Attempts requiring review</small>
-        </div>
+        </a>
     </section>
 
     <x-workspace-tabs :default-tab="$exceptions->total() ? 'hub-exceptions' : ($queues['inbound']->total() ? 'hub-inbound' : ($queues['sorting']->total() ? 'hub-sorting' : ($queues['dispatch']->total() ? 'hub-dispatch' : ($queues['failed']->total() ? 'hub-failed' : 'hub-lifecycle'))))" :tabs="[
@@ -86,15 +88,15 @@
                     <tbody>
                         @foreach ($exceptions as $exception)
                             <tr>
-                                <td class="ops-mono">{{ $exception->order_number }}</td>
-                                <td>{{ $exception->rider_first_name }} {{ $exception->rider_last_name }}</td>
-                                <td>
+                                <td class="ops-mono" data-label="Parcel">{{ $exception->order_number }}</td>
+                                <td data-label="Former rider">{{ $exception->rider_first_name }} {{ $exception->rider_last_name }}</td>
+                                <td data-label="Current stage">
                                     <span class="ops-status ops-status--danger">
                                         {{ str_replace('_', ' ', $exception->order_status) }}
                                     </span>
                                 </td>
-                                <td>{{ $exception->reason }}</td>
-                                <td>
+                                <td data-label="Reason">{{ $exception->reason }}</td>
+                                <td data-label="Action">
                                     @if ($exception->type === 'SUSPENDED_RIDER_PICKUP_ACCEPTED')
                                         <a class="ops-btn ops-btn--primary" href="{{ route('logistics.pickupRequests') }}">Reassign pickup</a>
                                     @elseif ($exception->order_status === 'OUT_FOR_DELIVERY')
@@ -128,11 +130,16 @@
             <section class="ops-panel" id="hub-{{ $key }}">
                 <h2>
                     <span>{{ $title }}</span>
-                    <a class="ops-btn" href="{{ route($route) }}">{{ $actionLabel }}</a>
+                    <a class="ops-btn" href="{{ route($route, $key === 'failed' ? ['queue' => 'failed'] : []) }}">{{ $actionLabel }}</a>
                 </h2>
                 @if ($queues[$key]->isEmpty())
                     <div class="ops-empty">
-                        <p>No parcels currently waiting in this queue.</p>
+                        @if ($queues[$key]->total() > 0)
+                            <p>No parcels on this page. This queue has {{ number_format($queues[$key]->total()) }} {{ \Illuminate\Support\Str::plural('parcel', $queues[$key]->total()) }}.</p>
+                            <a class="ops-btn" href="{{ $queues[$key]->url(1) }}">Return to first page</a>
+                        @else
+                            <p>No parcels currently waiting in this queue.</p>
+                        @endif
                     </div>
                 @else
                     <div class="ops-table-wrap">
@@ -148,15 +155,15 @@
                             <tbody>
                                 @foreach ($queues[$key] as $order)
                                     <tr>
-                                        <td class="ops-mono">{{ $order->order_number }}</td>
-                                        <td>{{ $order->municipality }}, {{ $order->province }}</td>
-                                        <td>
+                                        <td class="ops-mono" data-label="Order">{{ $order->order_number }}</td>
+                                        <td data-label="Destination">{{ $order->municipality }}, {{ $order->province }}</td>
+                                        <td data-label="Current stage">
                                             <span
                                                 class="ops-status {{ $order->status === 'DELIVERY_FAILED' ? 'ops-status--danger' : 'ops-status--pink' }}">
-                                                {{ str_replace('_', ' ', $order->status) }}
+                                                {{ str_replace('_', ' ', $order->operational_status) }}
                                             </span>
                                         </td>
-                                        <td class="ops-muted">{{ $order->updated_at->diffForHumans() }}</td>
+                                        <td class="ops-muted" data-label="Last updated">{{ $order->updated_at->diffForHumans() }}</td>
                                     </tr>
                                 @endforeach
                             </tbody>
@@ -185,21 +192,22 @@
             </div>
             <div class="ops-flow-step">
                 <strong>4. Dispatch</strong>
-                <span>{{ $stats['assigned'] }} assigned</span>
+                <a href="{{ route('logistics.tracking', ['queue' => 'assigned']) }}">{{ $stats['assigned'] }} assigned</a>
             </div>
             <div class="ops-flow-step">
                 <strong>5. In transit</strong>
-                <span>{{ $stats['out'] }} active</span>
+                <a href="{{ route('logistics.tracking', ['queue' => 'out']) }}">{{ $stats['out'] }} active</a>
             </div>
             <div class="ops-flow-step">
                 <strong>6. Delivered today</strong>
-                <span>{{ $stats['delivered_today'] }} completed</span>
+                <a href="{{ route('logistics.tracking', ['queue' => 'delivered_today']) }}">{{ $stats['delivered_today'] }} delivered/completed today</a>
             </div>
         </div>
         <ul class="ops-summary" aria-label="Additional hub totals">
             <li>Approved riders <strong>{{ $stats['active_riders'] }}</strong></li>
-            <li>Available riders <strong>{{ $stats['available_riders'] }}</strong></li>
-            <li>Returns in transit <strong>{{ $stats['returned'] }}</strong></li>
+            <li>Available candidates without active final deliveries <strong>{{ $stats['available_riders'] }}</strong></li>
+            <li><a href="{{ route('logistics.tracking', ['queue' => 'returned']) }}">Seller returns (in transit or received) <strong>{{ $stats['returned'] }}</strong></a></li>
         </ul>
+        <p class="ops-muted">Rider counts describe coverage/account candidates. Dispatch still checks capacity, licence, work limits, availability mode and physical custody.</p>
     </section>
 @endsection

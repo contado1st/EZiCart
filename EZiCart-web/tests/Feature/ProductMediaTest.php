@@ -29,7 +29,7 @@ class ProductMediaTest extends TestCase
         $this->actingAs($seller)->post(route('seller.products.store'), [...$this->payload(),
             'image' => UploadedFile::fake()->image('cover.jpg'),
             'gallery_images' => [UploadedFile::fake()->image('side.png'), UploadedFile::fake()->image('detail.jpg')],
-            'product_video' => UploadedFile::fake()->create('product.mp4', 100, 'video/mp4'),
+            'product_video' => UploadedFile::fake()->createWithContent('product.mp4', file_get_contents(base_path('tests/Fixtures/media/product-short.mp4')))->mimeType('video/mp4'),
             'user_id' => $this->user('seller')->id, 'compliance_status' => 'approved',
         ])->assertRedirectToRoute('seller.products.index')->assertSessionHasNoErrors();
 
@@ -68,7 +68,7 @@ class ProductMediaTest extends TestCase
         $photo = $this->savedMedia($product, 'image', 'products/media/saved.jpg');
         $oldVideo = $this->savedMedia($product, 'video', 'products/media/old.mp4');
         $this->actingAs($product->seller)->put(route('seller.products.update', $product), [...$this->payload(),
-            'product_video' => UploadedFile::fake()->create('new.webm', 100, 'video/webm'),
+            'product_video' => UploadedFile::fake()->createWithContent('new.webm', file_get_contents(base_path('tests/Fixtures/media/product-short.webm')))->mimeType('video/webm'),
         ])->assertRedirectToRoute('seller.products.index')->assertSessionHasNoErrors();
 
         $this->assertSame('pending_review', $product->fresh()->compliance_status);

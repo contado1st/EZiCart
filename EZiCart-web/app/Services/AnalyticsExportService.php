@@ -91,7 +91,7 @@ class AnalyticsExportService
     }
 
     /** Genuine OOXML workbook: typed numeric cells, safe inline strings, frozen headers. */
-    public function xlsx(array $report): string
+    public function xlsx(array $report, ?array $preparedSheets = null): string
     {
         $path = tempnam(sys_get_temp_dir(), 'ezicart-analytics-');
         if ($path === false) {
@@ -109,7 +109,7 @@ class AnalyticsExportService
             $relations = '';
             $xml = static fn ($value) => htmlspecialchars(preg_replace('/[^\P{C}\t\r\n]/u', '', (string) $value) ?? '', ENT_XML1 | ENT_QUOTES, 'UTF-8');
             $printTitles = '';
-            foreach ($this->sheets($report) as $name => $rows) {
+            foreach ($preparedSheets ?? $this->sheets($report) as $name => $rows) {
                 $id = count(explode('<sheet ', $workbook));
                 $types .= '<Override PartName="/xl/worksheets/sheet'.$id.'.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>';
                 $workbook .= '<sheet name="'.$xml($name).'" sheetId="'.$id.'" r:id="rId'.$id.'"/>';

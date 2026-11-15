@@ -15,15 +15,19 @@ use App\Models\ShipmentPriceAdjustment;
 use App\Models\User;
 use App\Models\WalletFundingIntent;
 use App\Models\WalletWithdrawal;
+use App\Services\AnalyticsExportService;
 use App\Services\CheckoutPricingService;
 use App\Services\DeliveryPricingService;
 use App\Services\DeliveryRateManagementService;
+use App\Services\DemoWalletFundingService;
 use App\Services\FinancialLedgerService;
 use App\Services\LogisticsSettlementService;
 use App\Services\OrderFinancialService;
 use App\Services\OrderWalletService;
 use App\Services\RemittanceBatchService;
+use App\Services\RemittanceReportService;
 use App\Services\ShipmentAdjustmentService;
+use App\Services\TabularExportService;
 use App\Services\WalletFundingService;
 use App\Services\WalletWithdrawalService;
 use Illuminate\Http\Request;
@@ -42,16 +46,19 @@ class FinancialOperationsController extends Controller
             $accounts->push($available->id);
         }
         $entries = LedgerEntry::whereIn('account_id', $accounts)->with(['account', 'transaction'])->latest('id')->paginate(25, ['*'], 'entries_page')->withQueryString();
-        $intents = WalletFundingIntent::query()->when(! $actor->isCommerceAdmin(), fn ($q) => $q->where('user_id', $actor->id))->latest('id')->paginate(25, ['*'], 'intents_page')->withQueryString();
+        $demoFunding = app(DemoWalletFundingService::class);
+        $demoEnabled = app(WalletFundingService::class)->enabled();
+        $intents = $demoFunding->visible($actor)->with('user')->latest('id')->paginate(25, ['*'], 'intents_page')->withQueryString();
         $withdrawals = $this->withdrawalQuery($actor)->latest('id')->paginate(25, ['*'], 'withdrawals_page')->withQueryString();
         $pending = $actor->isCommerceAdmin() ? 0 : $ledger->wallet($actor, 'pending')->balance_cents;
         $held = $actor->isCommerceAdmin() ? 0 : $ledger->wallet($actor, 'held')->balance_cents;
+        $payoutReserved = (int) FinancialAccount::where('user_id', $actor->id)->where('bucket', 'payout_hold')->value('balance_cents');
         $reserved = FinancialAccount::where('bucket', 'reserved')->where(fn ($q) => $actor->isCommerceAdmin() ? $q->where('type', 'platform_promotion') : $q->where('user_id', $actor->id))->sum('balance_cents');
         $logisticsPools = $actor->isLogisticsAdmin()
             ? FinancialAccount::whereIn('key', ['platform:logistics-operations', 'platform:logistics-margin', 'platform:unallocated-logistics'])->get()
             : collect();
 
-        return view('finance.wallet', compact('actor', 'available', 'pending', 'held', 'reserved', 'entries', 'intents', 'withdrawals', 'logisticsPools'));
+        return view('finance.wallet', compact('actor', 'available', 'pending', 'held', 'payoutReserved', 'reserved', 'entries', 'intents', 'withdrawals', 'logisticsPools', 'demoFunding', 'demoEnabled'));
     }
 
     public function topup(Request $request, WalletFundingService $funding)
@@ -101,14 +108,17 @@ class FinancialOperationsController extends Controller
     {
         $actor = $request->user();
         abort_unless(in_array($actor->role, ['courier', 'sorting_center', 'logistics_admin'], true), 403);
-        $batches = $this->batchQuery($actor)->latest('id')->paginate(25)->withQueryString();
+        $reports = app(RemittanceReportService::class);
+        $filters = $reports->filters($request->only(['from', 'to', 'status', 'rider_id', 'hub_id']));
+        $batchQuery = $reports->query($actor, $filters);
+        $batches = (clone $batchQuery)->latest('id')->paginate(25)->withQueryString();
         $collections = OrderFinance::where('remittance_status', 'COLLECTED')->when($actor->role === 'courier', fn ($q) => $q->where('collector_id', $actor->id))->when($actor->role === 'sorting_center', fn ($q) => $q->whereHas('order', fn ($o) => $o->where('sorting_center_id', $actor->id)))->with('order')->oldest('id')->paginate(25, ['*'], 'collections_page')->withQueryString();
         $hubs = User::where('role', 'sorting_center')->where('status', 'approved')->orderBy('business_name')->get();
-        $totals = $this->batchQuery($actor)->selectRaw('SUM(expected_cents) as expected, SUM(submitted_cents) as submitted, SUM(received_cents) as received, SUM(discrepancy_cents) as discrepancy')->first();
+        $totals = (clone $batchQuery)->selectRaw('SUM(expected_cents) as expected, SUM(submitted_cents) as submitted, SUM(received_cents) as received, SUM(discrepancy_cents) as discrepancy')->first();
         $items = DB::table('remittance_batch_items')->join('order_finances', 'order_finances.id', '=', 'remittance_batch_items.order_finance_id')->join('orders', 'orders.id', '=', 'order_finances.order_id')->whereIn('batch_id', $batches->pluck('id'))->select('remittance_batch_items.*', 'orders.order_number')->get()->groupBy('batch_id');
         $events = DB::table('remittance_batch_events')->whereIn('batch_id', $batches->pluck('id'))->orderBy('id')->get()->groupBy('batch_id');
 
-        return view('finance.remittances', compact('actor', 'batches', 'collections', 'hubs', 'totals', 'items', 'events'));
+        return view('finance.remittances', compact('actor', 'batches', 'collections', 'hubs', 'totals', 'items', 'events', 'filters'));
     }
 
     public function submitBatch(Request $request, RemittanceBatchService $service)
@@ -245,18 +255,15 @@ class FinancialOperationsController extends Controller
         abort_unless(in_array($type, ['wallet', 'remittances', 'shipping'], true), 404);
         if ($type === 'remittances') {
             abort_unless(in_array($actor->role, ['courier', 'sorting_center', 'logistics_admin'], true), 403);
+
+            return $this->exportRemittances($request);
         }
         $request->validate(['from' => ['nullable', 'date'], 'to' => ['nullable', 'date', 'after_or_equal:from']]);
 
         return response()->streamDownload(function () use ($actor, $type, $request): void {
             $handle = fopen('php://output', 'w');
             fputcsv($handle, ['EZiCart Financial Statement', 'PHP', 'Generated '.now()->toIso8601String(), 'Sandbox wallet values are not live e-money'], escape: '');
-            if ($type === 'remittances') {
-                fputcsv($handle, ['Reference', 'Rider ID', 'Hub ID', 'Expected PHP', 'Submitted PHP', 'Received PHP', 'Discrepancy PHP', 'Status', 'Submitted at'], escape: '');
-                foreach ($this->batchQuery($actor)->when($request->filled('from'), fn ($q) => $q->whereDate('submitted_at', '>=', $request->input('from')))->when($request->filled('to'), fn ($q) => $q->whereDate('submitted_at', '<=', $request->input('to')))->orderBy('id')->cursor() as $batch) {
-                    fputcsv($handle, [$batch->reference, $batch->rider_id, $batch->hub_id, $batch->expected_cents / 100, $batch->submitted_cents / 100, $batch->received_cents === null ? '' : $batch->received_cents / 100, $batch->discrepancy_cents === null ? '' : $batch->discrepancy_cents / 100, $batch->status, $batch->submitted_at], escape: '');
-                }
-            } elseif ($type === 'wallet') {
+            if ($type === 'wallet') {
                 $accountIds = FinancialAccount::where('user_id', $actor->id)->pluck('id');
                 if ($actor->isCommerceAdmin()) {
                     $accountIds = $accountIds->merge(FinancialAccount::where('key', 'platform:treasury')->pluck('id'));
@@ -279,11 +286,24 @@ class FinancialOperationsController extends Controller
         }, 'ezicart-'.$type.'-'.now()->format('Ymd-His').'.csv', ['Content-Type' => 'text/csv; charset=UTF-8']);
     }
 
-    private function batchQuery(User $actor)
+    private function exportRemittances(Request $request): StreamedResponse
     {
-        abort_unless(in_array($actor->role, ['courier', 'sorting_center', 'logistics_admin'], true), 403);
+        $data = $request->validate(['format' => ['nullable', 'in:csv,xlsx']]);
+        $format = $data['format'] ?? 'csv';
+        $reports = app(RemittanceReportService::class);
+        $report = $reports->report($request->user(), $reports->filters($request->only(['from', 'to', 'status', 'rider_id', 'hub_id'])));
+        $content = null;
+        if ($format === 'xlsx') {
+            $content = app(AnalyticsExportService::class)->xlsx(['filters' => ['from' => $report['filters']['from'] ?? 'All dates', 'to' => $report['filters']['to'] ?? 'All dates'], 'timezone' => $report['timezone']], $reports->sheets($report));
+        }
 
-        return RemittanceBatch::query()->when($actor->role === 'courier', fn ($q) => $q->where('rider_id', $actor->id))->when($actor->role === 'sorting_center', fn ($q) => $q->where('hub_id', $actor->id));
+        return response()->streamDownload(function () use ($format, $report, $reports, $content): void {
+            if ($format === 'xlsx') {
+                echo $content;
+            } else {
+                app(TabularExportService::class)->csv($reports->csvRows($report), true);
+            }
+        }, 'ezicart-remittances-'.now()->format('Ymd-His').'.'.$format, ['Content-Type' => $format === 'xlsx' ? 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' : 'text/csv; charset=UTF-8', 'Cache-Control' => 'private, no-store']);
     }
 
     private function withdrawalQuery(User $actor)

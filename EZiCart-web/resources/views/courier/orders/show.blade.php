@@ -9,16 +9,32 @@
         </div>
         <div class="courier-actions">
             <span class="ops-status {{ $order->status === 'DELIVERY_FAILED' ? 'ops-status--danger' : ($order->status === 'OUT_FOR_DELIVERY' ? 'ops-status--pink' : 'ops-status--amber') }}">
-                {{ str_replace('_', ' ', $order->status) }}
+                {{ str_replace('_', ' ', $order->operational_status) }}
             </span>
             <a class="ops-btn" href="{{ route('courier.orders.messages.show', $order) }}">Order messages</a>
             <a class="ops-btn" href="{{ route('courier.dashboard') }}">Back to board</a>
         </div>
     </header>
 
-    @if (! app(\App\Services\OrderWalletService::class)->paymentReady($order) && !in_array($order->status, ['CANCELLED', 'COMPLETED', 'RETURN_IN_TRANSIT', 'RETURNED_TO_SELLER'], true))
+    @if($order->pickup_courier_id === auth()->id() && in_array($order->status, ['READY_FOR_PICKUP', 'PICKED_UP'], true))
+        <section class="ops-panel" aria-labelledby="pickup-next-step">
+            <h2 id="pickup-next-step">Pickup progress and next step</h2>
+            <p>{{ $order->status === 'PICKED_UP' ? 'Possession confirmed. Bring this parcel to the hub for its intake scan.' : ($order->pickup_claimed_at ? ($order->pickup_arrived_at ? ($order->seller_handover_at ? 'Seller handover confirmed. Scan the parcel label to confirm possession.' : 'Wait for the seller to confirm physical handover; do not confirm possession yet.') : 'Travel to the seller and record arrival.') : 'Accept the assigned pickup before recording arrival.') }}</p>
+            <dl class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                @foreach(['pickup_claimed_at' => 'Accepted', 'pickup_arrived_at' => 'Arrival recorded', 'seller_handover_at' => 'Seller handover', 'picked_up_at' => 'Possession confirmed'] as $field => $label)
+                    <div><dt class="ops-muted">{{ $label }}</dt><dd>{{ $order->{$field}?->format('d M Y H:i') ?? 'Not recorded' }}</dd></div>
+                @endforeach
+            </dl>
+            <p class="ops-muted">Camera, handheld and manual entry use the same parcel identifier: EZP: followed by the label code, or the label code alone. The order number is not the parcel label code. Both seller handover and a matching label are required.</p>
+            <a class="ops-btn" href="{{ route('courier.dashboard') }}#{{ $order->status === 'PICKED_UP' ? 'hub-custody' : ($order->pickup_claimed_at ? 'accepted-pickups' : 'pickup-requests') }}">Continue on work board</a>
+        </section>
+    @endif
+
+    <section class="ops-panel"><h2>My work compensation</h2><x-courier-compensation :summary="$workSummary" /><a class="ops-btn" href="{{ route('courier.history', ['search' => $order->order_number]) }}">View work history</a></section>
+
+    @if (! $deliveryProgress['payment_ready'] && !in_array($order->status, ['CANCELLED', 'COMPLETED', 'RETURN_IN_TRANSIT', 'RETURNED_TO_SELLER'], true))
         <section class="ops-panel ops-alert--error" role="status">
-            Fulfillment is on hold because payment verification for {{ $order->payment_method }} is not configured yet.
+            Fulfillment is on hold. Payment for {{ $order->payment_method }} cannot currently be verified, is unsupported or requires account review. Do not dispatch or collect cash.
         </section>
     @endif
 
@@ -34,12 +50,26 @@
             <div class="courier-failed-guidance">
                 <strong>Logistics Hub Review Pending</strong>
                 <p class="courier-status-copy">
-                    Logistics will review the recorded attempt and decide whether to assign another delivery or arrange a return. No retry or return action is available on the courier screen yet. The parcel must be physically checked into the hub before retry or return.
+                    {{ $deliveryProgress['next_step'] }} A retry proposal is a request for logistics review; it cannot bypass physical hub intake or the configured attempt limit.
                 </p>
             </div>
             <div class="courier-actions">
                 <a class="ops-btn" href="{{ route('courier.dashboard') }}">Return to work board</a>
                 <a class="ops-btn" href="{{ route('courier.orders.messages.show', $order) }}">Message Logistics</a>
+            </div>
+        </section>
+    @endif
+
+    @if($order->delivery_courier_id === auth()->id())
+        <section class="ops-panel" aria-labelledby="delivery-next-step"><h2 id="delivery-next-step">Delivery progress and next step</h2>
+            <p><strong>Attempt {{ $deliveryProgress['attempt_no'] }}</strong> · {{ $deliveryProgress['failures'] }} failed / {{ $deliveryProgress['attempt_limit'] }} permitted.</p>
+            <p>{{ $deliveryProgress['next_step'] }}</p>
+            @if($deliveryProgress['scheduled_at'])<p>Scheduled start: {{ $deliveryProgress['scheduled_at']->format('d M Y H:i') }} ({{ config('app.timezone') }}).</p>@endif
+            @if($deliveryProgress['acceptance_due_at'] && !$deliveryProgress['accepted_at'])<p>Acceptance deadline: {{ $deliveryProgress['acceptance_due_at']->format('d M Y H:i') }}.</p>@endif
+            @if($order->status === 'OUT_FOR_DELIVERY' && !$deliveryProgress['code_usable'])<p class="ops-muted">The buyer delivery code needs refresh or review. Ask the buyer to use their order page; never bypass the code or proof.</p>@endif
+            <div class="courier-actions">
+            @if($deliveryProgress['can_accept'])<form method="POST" action="{{ route('courier.orders.accept-assignment', $order) }}" data-decision="accept-delivery" data-decision-title="Accept delivery assignment?" data-decision-message="Accepted parcels remain your responsibility until a verified handover or recovery." data-decision-label="Accept assignment">@csrf<button class="ops-btn ops-btn--primary" type="submit">Accept assignment</button></form>@endif
+            <a class="ops-btn" href="{{ route('courier.history', ['search' => $order->order_number]) }}">Review failed attempts and retry proposals</a>
             </div>
         </section>
     @endif
@@ -55,14 +85,7 @@
                 </a>
             </div>
             <div class="ops-field">
-                @if ($order->payment_method === 'COD')
-                    <div class="courier-cod-badge">
-                        <x-shop-icon name="money" /> Cash on Delivery: ₱{{ number_format($order->total_amount, 2) }}
-                    </div>
-                @else
-                    <span class="ops-status ops-status--green">{{ $order->payment_method }}</span>
-                    <span class="ops-muted">₱{{ number_format($order->total_amount, 2) }}</span>
-                @endif
+                <x-courier-payment-status :order="$order" :ready="$deliveryProgress['payment_ready']" />
             </div>
             <p class="ops-muted">Order notes: {{ $order->notes ?? 'None provided' }}</p>
         </div>
@@ -84,7 +107,7 @@
     @if ($order->delivery_courier_id === auth()->id() && $order->status === 'ASSIGNED_TO_RIDER')
         <section class="ops-panel courier-delivery">
             <h2>Start delivery</h2>
-            @if (! app(\App\Services\OrderWalletService::class)->paymentReady($order))
+            @if (! $deliveryProgress['payment_ready'])
                 <p class="ops-muted">Delivery is on hold until payment verification for this method is configured.</p>
             @elseif ($order->hub_released_at)
                 <div class="ops-banner ops-banner--success">
@@ -97,7 +120,7 @@
                         <input id="start-parcel-reference" name="parcel_reference" maxlength="100" placeholder="EZP:…" autocomplete="off">
                     </div>
                     <input type="hidden" name="method" value="manual">
-                    <button class="ops-btn ops-btn--primary ops-btn--lg">Start delivery</button>
+                    <button class="ops-btn ops-btn--primary ops-btn--lg" @disabled($deliveryProgress['scheduled_at']?->isFuture() || $deliveryProgress['return_required'])>Start delivery</button>
                 </form>
             @else
                 <div class="ops-banner ops-banner--urgent">
@@ -117,7 +140,7 @@
         <section class="ops-panel courier-delivery">
             <h2>Delivery result</h2>
             <div class="ops-grid">
-                @if (app(\App\Services\OrderWalletService::class)->paymentReady($order))
+                @if ($deliveryProgress['payment_ready'])
                     <div class="ops-panel">
                         <h3>Complete delivery</h3>
                         <form class="ops-form" method="POST" action="{{ route('courier.orders.completeDelivery', $order) }}" enctype="multipart/form-data" data-decision="courier.orders.completeDelivery" data-decision-title="Confirm successful delivery?" data-decision-message="Continue only after handing the parcel to the recipient and recording the required delivery evidence and COD details." data-decision-label="Confirm delivery" data-decision-tone="normal" onsubmit="return window.eziDecisionReady ? true : window.confirm(this.dataset.decisionMessage)">

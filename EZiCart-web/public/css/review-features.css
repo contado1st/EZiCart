@@ -1,0 +1,7 @@
+.review-photo-grid { display: flex; flex-wrap: wrap; gap: .75rem; margin-block: .75rem; }
+.review-photo-grid img { display: block; max-width: 100%; width: 96px; height: 96px; object-fit: cover; border: 1px solid var(--slate-200, #e2e8f0); border-radius: .5rem; }
+.review-editor { align-items: start; gap: 1rem; }
+.review-editor textarea { max-width: 100%; min-width: 0; }
+.review-editor-note { color: var(--slate-600, #475569); font-size: .875rem; }
+.review-history-entry { padding-block: 1rem; border-bottom: 1px solid var(--slate-200, #e2e8f0); }
+.review-history-entry p { white-space: pre-wrap; overflow-wrap: anywhere; }

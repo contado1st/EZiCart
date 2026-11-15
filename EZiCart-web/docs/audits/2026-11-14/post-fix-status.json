@@ -1,0 +1,52 @@
+{
+  "date": "2026-11-14",
+  "scope": "Laravel web only",
+  "status": "Post-fix implementation rechecked with focused Laravel suites; literal teacher cases not replayed",
+  "original_54_partial_cases": {
+    "Aligned": 37,
+    "Different": 17,
+    "Partial": 0
+  },
+  "all_319_workbook_cases": {
+    "Aligned": 164,
+    "Partial": 4,
+    "Different": 95,
+    "Missing": 56
+  },
+  "checklist_127_items": {
+    "Aligned": 70,
+    "Partial": 32,
+    "Different": 15,
+    "Missing": 6,
+    "Unverified": 2,
+    "Optional": 2
+  },
+  "resolved": [
+    {
+      "id": "LOG-DISP-003",
+      "change": "Availability enforcement now defaults on; riders without an explicit Available choice are excluded from new work."
+    },
+    {
+      "id": "SEL-EARN-007",
+      "change": "Payout requests reserve eligible proceeds once in a dedicated ledger account; duplicate requests do not reduce them twice."
+    }
+  ],
+  "post_fix_checks": {
+    "php_syntax": "passed",
+    "runtime_availability_config": "enabled",
+    "blade_compile": "passed",
+    "focused_application_tests": {
+      "result": "passed",
+      "tests": 146,
+      "assertions": 1180,
+      "suites": {
+        "RiderWorkAvailabilityTest": {"tests": 18, "assertions": 132},
+        "FinancialLedgerWorkflowTest": {"tests": 20, "assertions": 260},
+        "PartialSellerReportingTest": {"tests": 11, "assertions": 79},
+        "ReturnWorkflowRevisionTest": {"tests": 35, "assertions": 267},
+        "WorkflowRevisionTest": {"tests": 62, "assertions": 442}
+      }
+    },
+    "full_application_suite_after_followup": "not completed; stopped after it exceeded the interactive check window"
+  }
+}

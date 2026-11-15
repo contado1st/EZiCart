@@ -1,5 +1,5 @@
 .workflow-attention { margin-bottom: 18px; border: 1px solid #e4d6df; border-radius: 9px; background: #fff; color: var(--workspace-ink, #202634); }
-.workflow-attention summary { display: flex; align-items: center; gap: 9px; flex-wrap: wrap; padding: 12px 16px; cursor: pointer; font-size: 12px; list-style: none; }
+.workflow-attention summary { display: flex; align-items: center; gap: 9px; flex-wrap: wrap; min-height: 44px; padding: 12px 16px; cursor: pointer; font-size: 12px; list-style: none; }
 .workflow-attention summary::after { content: '+'; margin-left: auto; font-size: 18px; color: var(--workspace-accent, #be2854); }
 .workflow-attention[open] summary::after { content: '\2212'; }
 .workflow-attention summary::-webkit-details-marker { display: none; }
@@ -23,4 +23,4 @@
 .notification-next-step { color: #71384f; font-size: 12px; }
 .workflow-attention :is(a, button, summary):focus-visible { outline: 2px solid #be2854; outline-offset: 3px; }
 @media (max-width: 850px) { .order-process-steps { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px 8px; } }
-@media (max-width: 440px) { .order-process-steps { grid-template-columns: repeat(2, minmax(0, 1fr)); } .workflow-attention-status { flex-basis: 100%; } }
+@media (max-width: 440px) { .order-process-steps { grid-template-columns: repeat(2, minmax(0, 1fr)); } .workflow-attention-status { flex-basis: 100%; order: 1; } }

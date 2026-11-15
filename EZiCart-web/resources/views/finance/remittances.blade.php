@@ -1,8 +1,16 @@
 @extends('layouts.app')
 @push('styles') @vite('resources/css/shared/dashboard.css') @endpush
 @section('content')
-<main class="web-operations"><header class="dash-header"><div><h1 class="dash-title">Cash remittance batches</h1><p class="dash-subtitle">Physical cash accountability, independent receipt verification and discrepancy investigation.</p></div><a class="dash-btn-sm" href="{{ route('finance.statements', 'remittances') }}">Export reconciliation CSV</a></header>
+<main class="web-operations"><header class="dash-header"><div><h1 class="dash-title">Cash remittance batches</h1><p class="dash-subtitle">Physical cash accountability, independent receipt verification and discrepancy investigation.</p></div><a class="dash-btn-sm" href="{{ route('finance.statements', ['type' => 'remittances', ...$filters, 'format' => 'csv']) }}">Export reconciliation CSV</a></header>
     @include('components.feature-feedback')<x-finance-navigation />
+    <section class="dash-panel"><h2>Reconciliation report filters</h2><p>These filters apply to batch history, its totals and both exports. The outstanding-collections queue remains a separate operational list.</p>
+        <form class="web-form" method="GET" action="{{ route('finance.batches') }}">
+            <label>Submitted from<input name="from" type="date" value="{{ $filters['from'] ?? '' }}"></label><label>Submitted to<input name="to" type="date" value="{{ $filters['to'] ?? '' }}"></label>
+            <label>Batch status<select name="status"><option value="">All permitted statuses</option>@foreach(\App\Services\RemittanceReportService::STATUSES as $status)<option value="{{ $status }}" @selected(($filters['status'] ?? '') === $status)>{{ str_replace('_', ' ', $status) }}</option>@endforeach</select></label>
+            <label>Rider ID<input name="rider_id" type="number" min="1" value="{{ $filters['rider_id'] ?? '' }}"></label><label>Receiving hub ID<input name="hub_id" type="number" min="1" value="{{ $filters['hub_id'] ?? '' }}"></label>
+            <div class="web-actions"><button class="dash-btn-sm" type="submit">Apply filters</button><a class="dash-btn-sm" href="{{ route('finance.batches') }}">Clear</a><a class="dash-btn-sm" href="{{ route('finance.statements', ['type' => 'remittances', ...$filters, 'format' => 'csv']) }}">Download CSV</a><a class="dash-btn-sm" href="{{ route('finance.statements', ['type' => 'remittances', ...$filters, 'format' => 'xlsx']) }}">Download Excel</a></div>
+        </form><p class="web-muted">{{ $batches->total() }} matching batches across all pages. Submitted dates use {{ config('app.timezone') }}. Missing physical counts remain unavailable in exports; download includes filters, definitions and full matching totals.</p>
+    </section>
     <section class="workspace-metrics">
         <x-workspace-metric label="Expected PHP" :value="number_format(($totals->expected ?? 0) / 100, 2)" icon="money" detail="Total cash expected in your batches" />
         <x-workspace-metric label="Submitted PHP" :value="number_format(($totals->submitted ?? 0) / 100, 2)" icon="invoice" detail="Rider declarations, before receipt verification" />

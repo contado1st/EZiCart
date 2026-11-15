@@ -145,6 +145,35 @@ class ProfileChangeApprovalTest extends TestCase
         $this->assertNull($seller->fresh()->profile_avatar_path);
     }
 
+    public function test_rejected_review_retry_restores_reason_only_to_its_own_request(): void
+    {
+        $admin = $this->user('ecommerce_admin');
+        $revisions = [];
+        foreach (['First requested name', 'Second requested name'] as $name) {
+            $seller = $this->user('seller');
+            $revisions[] = StaffProfileRevision::create(['user_id' => $seller->id, 'submitted_by' => $seller->id,
+                'pending_user_id' => $seller->id, 'previous_values' => ['first_name' => $seller->first_name],
+                'proposed_values' => ['first_name' => $name], 'status' => 'pending']);
+        }
+        $this->signIn($admin)->from(route('admin.profile-reviews.index'))
+            ->patch(route('admin.profile-reviews.review', $revisions[0]), ['decision' => 'reject', 'reason' => 'bad', 'profile_revision_id' => (string) $revisions[0]->id])
+            ->assertRedirect()->assertSessionHasErrors('reason');
+        $response = $this->withCookie((string) config('session.cookie'), $this->app['session']->getId())
+            ->get(route('admin.profile-reviews.index'))->assertOk();
+        $document = new \DOMDocument;
+        $document->loadHTML($response->getContent(), LIBXML_NOERROR | LIBXML_NOWARNING);
+        $xpath = new \DOMXPath($document);
+        foreach ($revisions as $index => $revision) {
+            $reason = $xpath->query('//textarea[@id="profile-review-reason-'.$revision->id.'"]')->item(0);
+            $this->assertInstanceOf(\DOMElement::class, $reason);
+            $this->assertSame($index === 0 ? 'bad' : '', $reason->textContent);
+            $this->assertSame('pending', $revision->fresh()->status);
+        }
+        $this->get(route('admin.profile-reviews.index', ['page' => 99, 'status' => 'pending']))
+            ->assertOk()->assertSee('No profile change requests on this page.')->assertSee('Return to first page')
+            ->assertSee('status=pending')->assertSee('page=1');
+    }
+
     private function signIn(User $user): static
     {
         $this->flushSession();

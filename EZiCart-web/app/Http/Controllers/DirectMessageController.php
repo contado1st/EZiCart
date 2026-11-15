@@ -3,13 +3,17 @@
 namespace App\Http\Controllers;
 
 use App\Models\DirectConversation;
+use App\Models\DirectMessage;
 use App\Models\Order;
+use App\Models\Product;
 use App\Models\User;
 use App\Notifications\DirectMessageNotification;
 use App\Services\ChatAttachmentService;
 use App\Services\DirectMessagingService;
+use App\Services\MessageRetractionService;
 use App\Services\MessagingInboxService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 
 class DirectMessageController extends Controller
 {
@@ -27,7 +31,11 @@ class DirectMessageController extends Controller
 
     public function start(Request $request, User $recipient, DirectMessagingService $messaging)
     {
-        $data = $request->validate(['order_id' => ['nullable', 'integer', 'exists:orders,id'], 'panel' => ['nullable', 'boolean']]);
+        $data = $request->validate(['order_id' => ['nullable', 'integer', 'exists:orders,id'], 'product_id' => ['nullable', 'integer', 'exists:products,id'], 'panel' => ['nullable', 'boolean']]);
+        if (isset($data['product_id'])) {
+            $messaging->authorizeProduct(Product::findOrFail($data['product_id']), $request->user(), $recipient);
+            abort_unless($request->user()->role === 'buyer', 403);
+        }
         if (isset($data['order_id'])) {
             $order = Order::findOrFail($data['order_id']);
             $messaging->authorizeOrder($order, $request->user());
@@ -35,15 +43,19 @@ class DirectMessageController extends Controller
         }
         $conversation = $messaging->start($request->user(), $recipient);
 
-        return redirect()->route('chat.show', [$conversation, 'panel' => $request->boolean('panel') ? 1 : null, 'order_id' => $data['order_id'] ?? null]);
+        return redirect()->route('chat.show', [$conversation, 'panel' => $request->boolean('panel') ? 1 : null, 'order_id' => $data['order_id'] ?? null, 'product_id' => $data['product_id'] ?? null]);
     }
 
     public function show(Request $request, DirectConversation $conversation, MessagingInboxService $inbox, DirectMessagingService $messaging)
     {
         $actor = $request->user();
         abort_unless($conversation->hasParticipant($actor), 403);
-        $data = $request->validate(['order_id' => ['nullable', 'integer', 'exists:orders,id']]);
+        $data = $request->validate(['order_id' => ['nullable', 'integer', 'exists:orders,id'], 'product_id' => ['nullable', 'integer', 'exists:products,id']]);
         $partner = $conversation->otherUser($actor);
+        $productContext = isset($data['product_id']) ? Product::withVariantPrices()->findOrFail($data['product_id']) : null;
+        if ($productContext) {
+            $messaging->authorizeProduct($productContext, $actor, $partner);
+        }
         $order = isset($data['order_id']) ? Order::findOrFail($data['order_id']) : null;
         if ($order) {
             $messaging->authorizeOrder($order, $actor);
@@ -56,7 +68,7 @@ class DirectMessageController extends Controller
 
         return view('orders.messages', ['conversation' => $conversation, 'partner' => $partner, 'messages' => $messages,
             'threads' => $inbox->threads($request), 'order' => $order, 'orderUrl' => $order ? $inbox->orderUrl($actor, $order) : null,
-            'canSend' => $messaging->canContact($actor, $partner)]);
+            'canSend' => $messaging->canContact($actor, $partner), 'productContext' => $productContext]);
     }
 
     public function store(Request $request, DirectConversation $conversation, DirectMessagingService $messaging)
@@ -66,10 +78,47 @@ class DirectMessageController extends Controller
             'body' => ['nullable', 'required_without:attachments', 'string', 'max:2000'],
             'attachments' => ['nullable', 'array', 'max:3'],
             'attachments.*' => ['required', 'file', 'extensions:jpg,jpeg,png,webp,pdf,doc,docx,xls,xlsx,txt', 'mimes:jpg,jpeg,png,webp,pdf,doc,docx,xls,xlsx,txt', 'max:'.ChatAttachmentService::maxKilobytes()],
-            'order_id' => ['nullable', 'integer', 'exists:orders,id'], 'panel' => ['nullable', 'boolean'],
+            'order_id' => ['nullable', 'integer', 'exists:orders,id'], 'product_id' => ['nullable', 'integer', 'exists:products,id'], 'panel' => ['nullable', 'boolean'],
         ]);
-        app(ChatAttachmentService::class)->send($conversation, $request->user(), $data['body'] ?? null, $request->file('attachments', []), isset($data['order_id']) ? Order::findOrFail($data['order_id']) : null);
+        app(ChatAttachmentService::class)->send($conversation, $request->user(), $data['body'] ?? null, $request->file('attachments', []), isset($data['order_id']) ? Order::findOrFail($data['order_id']) : null,
+            isset($data['product_id']) ? Product::findOrFail($data['product_id']) : null);
 
         return redirect()->route('chat.show', [$conversation, 'panel' => $request->boolean('panel') ? 1 : null, 'order_id' => $data['order_id'] ?? null])->with('success', 'Message sent.');
+    }
+
+    public function productImage(Request $request, DirectMessage $message)
+    {
+        abort_unless($message->conversation->hasParticipant($request->user()), 403);
+        abort_if($message->unsent_at, 410);
+        $path = $message->product_context['image_path'] ?? null;
+        abort_unless(is_string($path) && Storage::disk('public')->exists($path), 404);
+        $mime = Storage::disk('public')->mimeType($path);
+        abort_unless(in_array($mime, ['image/jpeg', 'image/png', 'image/webp'], true), 404);
+
+        return Storage::disk('public')->response($path, 'product-enquiry', ['Content-Type' => $mime,
+            'X-Content-Type-Options' => 'nosniff', 'Cache-Control' => 'private, no-store', 'Content-Security-Policy' => "default-src 'none'; sandbox"], 'inline');
+    }
+
+    public function destroy(Request $request, DirectMessage $message, MessageRetractionService $retractions)
+    {
+        $request->validate(['panel' => ['nullable', 'boolean']]);
+        $message = $retractions->message($message, $request->user());
+
+        return redirect()->route('chat.show', [$message->conversation_id, 'panel' => $request->boolean('panel') ? 1 : null])
+            ->with('success', 'Message unsent for everyone.');
+    }
+
+    public function retractions(Request $request, DirectConversation $conversation)
+    {
+        abort_unless($conversation->hasParticipant($request->user()), 403);
+        $data = $request->validate(['message_ids' => ['required', 'array', 'min:1', 'max:40'], 'message_ids.*' => ['required', 'integer', 'min:1', 'distinct']]);
+        $messages = $conversation->messages()->whereIn('id', $data['message_ids'])
+            ->with('attachments:id,direct_message_id,unsent_at')->get(['id', 'conversation_id', 'body', 'unsent_at']);
+
+        return response()->json(['messages' => $messages->map(fn ($message) => [
+            'id' => $message->id, 'unsent' => $message->unsent_at !== null,
+            'attachments_only_unsent' => $message->body === 'Attachments unsent.',
+            'attachment_ids' => $message->attachments->whereNotNull('unsent_at')->pluck('id')->values(),
+        ])->values()])->header('Cache-Control', 'private, no-store');
     }
 }

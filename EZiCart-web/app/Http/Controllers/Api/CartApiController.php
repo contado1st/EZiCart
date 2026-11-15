@@ -41,7 +41,7 @@ class CartApiController extends Controller
         }
 
         try {
-            $quote = $pricing->quote($validated['items'], $voucher, false, ['address' => $validated['destination'] ?? $request->user()?->only(['province', 'municipality', 'barangay']) ?? [], 'payment_method' => $validated['payment_method'] ?? 'COD']);
+            $quote = $pricing->quote($validated['items'], $voucher, false, ['address' => $validated['destination'] ?? $request->user()?->only(['province', 'municipality', 'barangay']) ?? [], 'payment_method' => $validated['payment_method'] ?? 'COD', 'buyer' => $request->user()]);
             if (count(array_unique(array_column($quote['lines'], 'seller_id'))) > 1) {
                 throw ValidationException::withMessages(['items' => 'Choose products from one shop per checkout. Items from other shops stay saved in your cart.']);
             }

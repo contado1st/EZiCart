@@ -6,12 +6,12 @@
         'sorting_center' => 'logistics.dashboard',
         default => null,
     };
-    $isRoleWorkspaceRoute = request()->routeIs('courier.*', 'logistics.*');
+    $isRoleWorkspaceRoute = request()->routeIs('courier.*', 'logistics.*', 'dispatch.*') || (request()->routeIs('parcel-incidents.*') && in_array(auth()->user()?->role, ['courier', 'sorting_center'], true));
     $workspaceLabel = auth()->user()?->role === 'courier' ? 'Courier workspace' : 'Logistics workspace';
     $isDashboardWorkspace = auth()->check() && request()->routeIs(
         'admin.*', 'seller.*', 'courier.*', 'logistics.*', 'logistics-admin.*',
-        'buyer.dashboard', 'buyer.orders.*', 'buyer.addresses.*', 'finance.*', 'parcel-transfers.*', 'return-pickups.*',
-        'account.profile.*', 'notifications.*', 'buyer.for-you*', 'buyer.stock.*', 'chat.*', 'sales-reports.*', 'activity-logs.*', 'coverage.*', 'analytics.*', 'staff.*', 'parcel-evidence.*', 'buyer.vouchers.*', 'load-planning.*'
+        'buyer.dashboard', 'buyer.orders.*', 'buyer.reviews.*', 'buyer.addresses.*', 'finance.*', 'parcel-transfers.*', 'return-pickups.*', 'returns.*', 'logistics-corrections.*', 'logistics-zone-readiness',
+        'account.profile.*', 'notifications.*', 'buyer.for-you*', 'buyer.wishlist.*', 'buyer.stock.*', 'chat.*', 'sales-reports.*', 'activity-logs.*', 'coverage.*', 'analytics.*', 'staff.*', 'parcel-evidence.*', 'buyer.vouchers.*', 'load-planning.*', 'dispatch.*', 'parcel-incidents.*'
     );
 @endphp
 
@@ -128,7 +128,7 @@
                             <a href="{{ route('account.profile.edit') }}" class="nav-link">Account</a>
                         @endif
                         @if (in_array(auth()->user()->role, ['buyer', 'seller', 'courier', 'admin', 'ecommerce_admin', 'logistics_admin'], true))
-                            <a href="{{ route('finance.index') }}" class="nav-link">Financial records</a>
+                            <a href="{{ route('finance.wallet') }}" class="nav-link">Finance &amp; Wallet</a>
                         @endif
                         @if (auth()->user()->role === 'seller')
                             <a href="{{ route('seller.dashboard') }}" class="btn-primary nav-btn-compact">Dashboard</a>
@@ -223,7 +223,7 @@
         </footer>
     @endunless
 
-    @if(auth()->check() && in_array(auth()->user()->role, ['buyer', 'seller', 'courier', 'sorting_center', 'admin', 'ecommerce_admin', 'logistics_admin'], true))
+    @if(auth()->check() && !request()->routeIs('chat.*', '*.orders.messages.*') && in_array(auth()->user()->role, ['buyer', 'seller', 'courier', 'sorting_center', 'admin', 'ecommerce_admin', 'logistics_admin'], true))
         @include('components.message-drawer')
     @endif
 

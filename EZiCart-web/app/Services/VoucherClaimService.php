@@ -16,8 +16,9 @@ class VoucherClaimService
         return DB::transaction(function () use ($buyer, $voucher) {
             $voucher = Voucher::whereKey($voucher->id)->lockForUpdate()->firstOrFail();
             $this->synchronizeHistory($voucher);
-            if (! $voucher->is_active || ($voucher->expires_at && $voucher->expires_at->isPast()) || ($voucher->seller_id && $voucher->seller?->status !== 'approved')) {
-                throw ValidationException::withMessages(['voucher_code' => 'This voucher is inactive or expired.']);
+            $reason = app(VoucherEligibilityService::class)->reason($voucher);
+            if ($reason) {
+                throw ValidationException::withMessages(['voucher_code' => $reason['message']]);
             }
             $claim = DB::table('voucher_claims')->where('voucher_id', $voucher->id)->where('buyer_id', $buyer->id)->first();
             if ($claim) {
@@ -38,6 +39,11 @@ class VoucherClaimService
 
     public function assertUsable(User $buyer, Voucher $voucher): void
     {
+        abort_unless($buyer->role === 'buyer' && $buyer->status === 'approved', 403);
+        $reason = app(VoucherEligibilityService::class)->reason($voucher);
+        if ($reason) {
+            throw ValidationException::withMessages(['voucher_code' => $reason['message']]);
+        }
         $claim = DB::table('voucher_claims')->where('voucher_id', $voucher->id)->where('buyer_id', $buyer->id)->first();
         if (($voucher->recipient_limit !== null && ! $claim)
             || ($claim && $voucher->per_buyer_limit !== null && $claim->redemption_count >= $voucher->per_buyer_limit)) {

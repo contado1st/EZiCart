@@ -2,11 +2,15 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\BundleDeal;
+use App\Models\FlashSale;
 use App\Models\Product;
 use App\Models\Voucher;
 use App\Services\ProductCategoryService;
+use App\Services\ProductPriceService;
 use App\Services\ProductRecommendationService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class HomeController extends Controller
 {
@@ -27,7 +31,7 @@ class HomeController extends Controller
         $categories = array_map(fn ($name) => ['name' => $name, 'icon' => 'package1'], app(ProductCategoryService::class)->browseOptions(Product::availableForMarketplace()->distinct()->pluck('category')));
 
         $query = Product::query()->availableForMarketplace()
-            ->with('seller');
+            ->with('seller')->withVariantPrices();
 
         // Filter by category
         if ($request->filled('category')) {
@@ -51,11 +55,11 @@ class HomeController extends Controller
 
     public function showProduct(Request $request, Product $product, ProductRecommendationService $recommendations)
     {
-        $filters = $request->validate(['rating' => ['nullable', 'integer', 'between:1,5'], 'comments' => ['nullable', 'boolean'], 'recommendations_page' => ['nullable', 'integer', 'min:1']]);
-        abort_if($product->compliance_status !== 'approved' || $product->is_archived || $product->stock <= 0, 404);
+        $filters = $request->validate(['rating' => ['nullable', 'integer', 'between:1,5'], 'comments' => ['nullable', 'boolean'], 'with_media' => ['nullable', 'boolean'], 'recommendations_page' => ['nullable', 'integer', 'min:1']]);
+        abort_if(! $product->isListingVisible() || $product->stock <= 0, 404);
 
-        $product->load(['seller', 'media', 'variations' => fn ($query) => $query->where('is_active', true)]);
-        abort_if($product->variations()->exists() && $product->variations->isEmpty(), 404);
+        $product->load(['seller', 'media', 'currentSale', 'currentFlashSale', 'variations' => fn ($query) => $query->where('is_active', true)]);
+        abort_if($product->usesVariations() && $product->variations->isEmpty(), 404);
 
         if ($request->user()?->role === 'buyer') {
             $recommendations->recordView($request->user(), $product);
@@ -64,25 +68,35 @@ class HomeController extends Controller
         $ratingCounts = $product->reviews()->selectRaw('rating, COUNT(*) as total')->groupBy('rating')->pluck('total', 'rating');
         $reviewCount = (int) $ratingCounts->sum();
         $averageRating = $reviewCount ? round($ratingCounts->sum(fn ($count, $rating) => $count * $rating) / $reviewCount, 1) : 0;
-        $reviews = $product->reviews()->with('buyer')
+        $reviews = $product->reviews()->with(['buyer:id,first_name,last_name', 'photos', 'order.items', 'reply'])
             ->when($filters['rating'] ?? null, fn ($query, $rating) => $query->where('rating', $rating))
             ->when($request->boolean('comments'), fn ($query) => $query->whereNotNull('comment')->where('comment', '<>', ''))
+            ->when($request->boolean('with_media'), fn ($query) => $query->whereHas('photos'))
             ->latest()->paginate(5, ['*'], 'reviews_page')->withQueryString();
         $sameShop = Product::availableForMarketplace()->where('user_id', $product->user_id)->whereKeyNot($product->id)
-            ->withAvg('reviews as display_rating', 'rating')->withCount('reviews')->latest()->limit(6)->get();
+            ->withVariantPrices()->withAvg('reviews as display_rating', 'rating')->withCount('reviews')->latest()->limit(6)->get();
         $suggestions = Product::availableForMarketplace()->where('user_id', '<>', $product->user_id)
             ->whereHas('seller', fn ($query) => $query->where('role', 'seller')->where('status', 'approved'))
-            ->with('seller')->withAvg('reviews as display_rating', 'rating')->withCount('reviews')
+            ->with('seller')->withVariantPrices()->withAvg('reviews as display_rating', 'rating')->withCount('reviews')
             ->orderByRaw('CASE WHEN category = ? THEN 0 ELSE 1 END', [$product->category])->latest()->orderByDesc('id')
             ->paginate(24, ['*'], 'recommendations_page')->withQueryString()->fragment('you-may-also-like');
         $shopProductCount = $product->seller->products()->availableForMarketplace()->count();
         $followerCount = $product->seller->shopFollowers()->count();
-        $vouchers = Voucher::query()->where('seller_id', $product->user_id)->where('is_active', true)
+        $vouchers = Voucher::query()->where('seller_id', $product->user_id)->publiclyListed()->availableNow()
+            ->where(fn ($q) => $q->where('product_scoped', false)->orWhereHas('products', fn ($p) => $p->whereKey($product->id)))
             ->where(fn ($query) => $query->whereNull('expires_at')->orWhere('expires_at', '>', now()))
             ->where(fn ($query) => $query->whereNull('usage_limit')->orWhereColumn('used_count', '<', 'usage_limit'))
             ->where(fn ($query) => $query->whereNull('recipient_limit')->orWhereColumn('claimed_count', '<', 'recipient_limit'))
             ->latest()->limit(3)->get();
 
-        return view('products.show', compact('product', 'reviews', 'ratingCounts', 'reviewCount', 'averageRating', 'sameShop', 'suggestions', 'shopProductCount', 'followerCount', 'vouchers'));
+        $wishlisted = $request->user()?->role === 'buyer' && $request->user()->wishlistedProducts()->whereKey($product->id)->exists();
+        $flashSlot = FlashSale::where('product_id', $product->id)->whereNull('ended_at')->where('ends_at', '>', now())->whereColumn('allocated_quantity', '<', 'quantity_limit')
+            ->whereHas('product', fn ($q) => $q->whereRaw('flash_sales.unit_cents / 100.0 < ('.ProductPriceService::regularMinimumSql().')'))->orderBy('starts_at')->first();
+        $flashReminder = $flashSlot && $request->user()?->role === 'buyer' ? DB::table('flash_reminders')->where('flash_sale_id', $flashSlot->id)->where('buyer_id', $request->user()->id)->whereNull('cancelled_at')->exists() : false;
+        $bundleOffers = BundleDeal::where('seller_id', $product->user_id)->whereNull('ended_at')->where('starts_at', '<=', now())->where('ends_at', '>', now())
+            ->where(fn ($q) => $q->where('gift_product_id', $product->id)->orWhereHas('products', fn ($p) => $p->whereKey($product->id)))
+            ->with(['products' => fn ($q) => $q->availableForMarketplace(), 'gift' => fn ($q) => $q->availableForMarketplace()])->limit(10)->get();
+
+        return view('products.show', compact('product', 'reviews', 'ratingCounts', 'reviewCount', 'averageRating', 'sameShop', 'suggestions', 'shopProductCount', 'followerCount', 'vouchers', 'wishlisted', 'flashSlot', 'flashReminder', 'bundleOffers'));
     }
 }

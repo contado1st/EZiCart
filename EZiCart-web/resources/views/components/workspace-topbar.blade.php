@@ -17,9 +17,10 @@
         default => ['Review applications', 'admin.registrations.index'],
     };
     $workspaceUnread = $communicationCounts['notifications'];
+    $workspaceHasLocalAction = trim($__env->yieldContent('workspace-primary-route')) === $workspaceActionRoute;
 @endphp
 <a class="workspace-skip" href="#workspace-content">Skip to content</a>
-<header class="workspace-topbar">
+<header @class(['workspace-topbar', 'workspace-topbar--local-action' => $workspaceHasLocalAction])>
     <div class="workspace-brand">
         <a href="{{ $roleDashboardRoute ? route($roleDashboardRoute) : route($workspaceUser->role === 'seller' ? 'seller.dashboard' : 'buyer.dashboard') }}" aria-label="EZiCart dashboard">
             <img src="{{ asset('images/ezicart-logo.png') }}" alt="EZiCart">
@@ -34,7 +35,9 @@
         <div class="workspace-breadcrumb"><span>Workspace</span><span aria-hidden="true">/</span><strong>{{ $workspaceName }}</strong></div>
         <div class="workspace-toolbar-actions">
             <time class="workspace-date" datetime="{{ now()->toDateString() }}">{{ now()->format('D, d M Y') }}</time>
-            <a class="workspace-primary-action" href="{{ route($workspaceActionRoute) }}">{{ $workspaceAction }}<x-shop-icon name="arrowback" /></a>
+            @unless ($workspaceHasLocalAction)
+                <a class="workspace-primary-action" href="{{ route($workspaceActionRoute) }}">{{ $workspaceAction }}<x-shop-icon name="arrowback" /></a>
+            @endunless
             <span class="workspace-toolbar-divider" aria-hidden="true"></span>
             <a class="workspace-icon-button" href="{{ route('chat.index') }}" data-message-drawer-toggle data-communication-label="Messages" aria-label="Messages{{ $communicationCounts['messages'] ? ', '.$communicationCounts['messages'].' unread' : '' }}" title="Messages"><x-shop-icon name="chat" /><x-communication-count kind="messages" :count="$communicationCounts['messages']" /></a>
             <a class="workspace-icon-button" href="{{ route('notifications.index') }}" data-communication-label="Notifications" aria-label="Notifications{{ $workspaceUnread ? ', '.$workspaceUnread.' unread' : '' }}" title="Notifications">

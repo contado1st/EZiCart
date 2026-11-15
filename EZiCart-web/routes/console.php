@@ -1,5 +1,6 @@
 <?php
 
+use App\Services\FlashReminderService;
 use App\Services\SellerPromotionService;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
@@ -13,7 +14,17 @@ Schedule::command('accounts:prune-unverified')->daily()->withoutOverlapping();
 Schedule::command('orders:expire-seller-deadlines')->everyFifteenMinutes()->withoutOverlapping();
 Schedule::command('logistics:alert-aging-parcels')->hourly()->withoutOverlapping();
 Schedule::command('commerce:process-automation')->everyMinute()->withoutOverlapping();
+Schedule::command('riders:reconcile-availability --apply')->everyMinute()->withoutOverlapping()->when(fn () => (bool) config('rider-work.enforce_availability'));
 Schedule::command('finance:release-expired-vouchers')->hourly()->withoutOverlapping();
+Schedule::command('wallet:expire-orders')->everyMinute()->withoutOverlapping();
+Schedule::command('returns:process-deadlines --apply')->everyMinute()->withoutOverlapping();
+Schedule::command('orders:complete-delivered --apply')->everyFifteenMinutes()->withoutOverlapping();
+Schedule::command('dispatch:process --apply')->everyMinute()->withoutOverlapping();
+
+Artisan::command('commerce:deliver-flash-reminders', function (FlashReminderService $reminders) {
+    $this->info($reminders->deliver().' flash reminders delivered.');
+})->purpose('Deliver opted-in in-app reminders before flash slots start');
+Schedule::command('commerce:deliver-flash-reminders')->everyMinute()->withoutOverlapping();
 
 Artisan::command('commerce:deliver-promotions', function (SellerPromotionService $promotions) {
     $this->info($promotions->deliver().' in-app promotional notifications delivered.');

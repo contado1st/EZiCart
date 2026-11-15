@@ -4,5 +4,6 @@
     <x-parcel-weight :order="$order" />
     <ol class="order-process-steps">@foreach(\App\Services\OrderProgressService::STEPS as $step)<li data-process-step="{{ $loop->index }}" @class(['is-current' => $process['stage'] === $loop->index, 'is-complete' => $process['stage'] !== null && $process['stage'] > $loop->index]) @if($process['stage'] === $loop->index) aria-current="step" @endif>{{ $step }}</li>@endforeach</ol>
     <p data-process-message role="status" aria-live="polite">{{ $process['message'] }}</p>
+    @if($order->activeIncident)<p><strong>{{ $order->activeIncident->kind }} — fulfillment on hold</strong>. Recorded custody stage: {{ str_replace('_', ' ', $order->status) }}. <a href="{{ route('parcel-incidents.show', $order->activeIncident) }}">Review incident and claim progress</a></p>@endif
     <button class="dash-btn-sm dash-btn-outline" type="button" data-process-reload hidden>Workflow updated: refresh to load current controls</button>
 </section>

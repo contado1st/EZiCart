@@ -22,7 +22,7 @@
 .profile-identity > .profile-avatar-large { margin-top: -34px; position: relative; }
 .profile-identity-copy { flex: 1 1 220px; min-width: 0; padding-top: 16px; }
 .profile-identity :is(h1, h2) { margin: 0; font-size: clamp(22px, 2.5vw, 30px); font-weight: 650; line-height: 1.25; letter-spacing: -.025em; overflow-wrap: anywhere; }
-.profile-identity-copy > p { margin: 7px 0 0; color: var(--profile-muted); font-size: 12px; line-height: 1.6; }
+.profile-identity-copy > p { margin: 7px 0 0; color: var(--profile-muted); font-size: 12px; line-height: 1.6; overflow-wrap: anywhere; }
 .profile-button { display: inline-flex; gap: 8px; align-items: center; justify-content: center; min-height: 40px; padding: 9px 16px; border: 1px solid var(--profile-accent, #be2854); border-radius: 8px; background: #fff; color: var(--profile-accent, #be2854); font: inherit; font-size: 12px; font-weight: 600; text-decoration: none; cursor: pointer; transition: background-color 150ms ease, color 150ms ease; }
 .profile-button-primary { color: #fff; background: var(--profile-accent, #be2854); }
 .profile-button:hover { background: var(--profile-soft, #fff0f4); }

@@ -18,32 +18,34 @@
                 </div>
             </div>
 
-            <section class="workspace-metrics" aria-label="Purchase summary">
+            <section class="workspace-metrics buyer-purchases-summary" aria-label="Purchase summary">
                 <x-workspace-metric label="All orders" :value="$counts['all']" icon="cart1" detail="Your purchase history" />
                 <x-workspace-metric label="Preparing to ship" :value="$counts['to_ship']" icon="package1" detail="Placed, confirmed or being prepared" tone="warning" />
                 <x-workspace-metric label="To receive" :value="$counts['to_receive']" icon="delivery1" detail="Track your parcel and delivery" />
-                <x-workspace-metric label="Closed orders" :value="$counts['completed']" icon="checklist" detail="Completed, cancelled or returned" tone="success" />
+                <x-workspace-metric label="Completed" :value="$counts['completed']" icon="checklist" detail="Completed purchases outside an active return/refund" tone="success" />
             </section>
 
-            @if (session('success'))
-                <div class="dash-alert-success"><x-shop-icon name="checklist" /> {{ session('success') }}</div>
-            @endif
+            <x-feature-feedback />
 
             @if (session('error'))
-                <div class="dash-alert-success u-extracted-ee8231be38">
-                    <x-shop-icon name="warning" /> {{ session('error') }}
+                <div class="feature-panel feature-feedback feature-feedback--error" role="alert">
+                    <h2>Action not completed</h2>
+                    <p>{{ session('error') }}</p>
                 </div>
             @endif
 
             <nav class="workspace-order-tabs" aria-label="Purchase status">
-                @foreach (['all' => 'All orders', 'to_ship' => 'Preparing to ship', 'to_receive' => 'To receive', 'completed' => 'Closed orders'] as $group => $label)
-                    <a href="{{ request()->fullUrlWithQuery(['order_group' => $group, 'status' => null, 'page' => null]) }}" @if ($orderGroup === $group) aria-current="page" @endif>{{ $label }} <span class="workspace-tab-count">{{ number_format($counts[$group]) }}</span></a>
+                @foreach ($groupLabels as $group => $label)
+                    @if($group !== 'other' || $counts['other'] > 0 || $orderGroup === 'other')
+                    <a href="{{ request()->fullUrlWithQuery(['order_group' => $group, 'page' => null]) }}" @if ($orderGroup === $group) aria-current="page" @endif>{{ $label }} <span class="workspace-tab-count">{{ number_format($counts[$group]) }}</span></a>
+                    @endif
                 @endforeach
             </nav>
             <div class="dash-panel">
                 <div class="workspace-orders-heading">
                     <h2 class="dash-panel-title">Order history</h2>
                     <form method="GET" action="{{ route('buyer.dashboard') }}" class="workspace-order-filter">
+                        <input type="hidden" name="order_group" value="{{ $orderGroup }}">
                         <label for="dashboard-order-status">Status</label>
                         <select name="status" id="dashboard-order-status">
                             <option value="">All statuses</option>
@@ -52,9 +54,11 @@
                             @endforeach
                         </select>
                         <button type="submit" class="dash-btn-sm dash-btn-outline">Filter</button>
+                        <a class="dash-btn-sm dash-btn-outline" href="{{ route('buyer.dashboard') }}">Reset</a>
                     </form>
                 </div>
 
+                <p class="web-muted">Use a purchase tab or filter by order status. Up to 25 orders per page. Returns/refunds include open disputes and recorded refund activity.</p>
                 @forelse($orders as $order)
                     <div class="order-card u-extracted-dab43fb936">
                         <div class="order-card-header">
@@ -65,7 +69,7 @@
                                     Store: <strong>{{ $order->seller->business_name ?? 'Merchant' }}</strong></div>
                             </div>
                             <span class="status-pill status-{{ strtolower(str_replace('_', '-', $order->status)) }}">
-                                {{ str_replace('_', ' ', $order->status) }}
+                                {{ str_replace('_', ' ', $order->operational_status) }}
                             </span>
                         </div>
 
@@ -84,41 +88,20 @@
                                 </div>
 
                                 <!-- Review Form for Completed Orders -->
-                                @if ($order->status === 'COMPLETED')
+                                @if (($order->status === 'COMPLETED' || $order->reviews->contains('product_id', $item->product_id)) && $order->items->firstWhere('product_id', $item->product_id)->id === $item->id)
                                     @php
-                                        $alreadyReviewed = \App\Models\Review::where('order_id', $order->id)
-                                            ->where('product_id', $item->product_id)
-                                            ->first();
+                                        $alreadyReviewed = $order->reviews->firstWhere('product_id', $item->product_id);
                                     @endphp
 
                                     @if ($alreadyReviewed)
                                         <div class="u-extracted-930b6add1c">
-                                            ★ Rated {{ $alreadyReviewed->rating }}/5:
+                                            <x-shop-icon name="star" /> Rated {{ $alreadyReviewed->rating }}/5:
                                             "{{ $alreadyReviewed->comment ?? 'No comment' }}"
+                                            <a href="{{ route('buyer.reviews.edit', $alreadyReviewed) }}">Edit review / private history</a>
                                         </div>
                                     @else
                                         <div class="review-modal-box">
-                                            <form action="{{ route('buyer.orders.review', $order->id) }}" method="POST">
-                                                @csrf
-                                                <input type="hidden" name="product_id" value="{{ $item->product_id }}">
-                                                <div class="u-extracted-487b2c5804">
-                                                    <select name="rating" class="review-form-select u-extracted-6f50c17793"
-                                                        required>
-                                                        <option value="5">★★★★★ (5)</option>
-                                                        <option value="4">★★★★☆ (4)</option>
-                                                        <option value="3">★★★☆☆ (3)</option>
-                                                        <option value="2">★★☆☆☆ (2)</option>
-                                                        <option value="1">★☆☆☆☆ (1)</option>
-                                                    </select>
-                                                    <input type="text" name="comment"
-                                                        placeholder="Write feedback (optional)..."
-                                                        class="review-form-select u-extracted-1c09f0c006">
-                                                    <button type="submit"
-                                                        class="dash-btn-sm dash-btn-primary u-extracted-1c09f0c006">
-                                                        Rate
-                                                    </button>
-                                                </div>
-                                            </form>
+                                            <x-review-form :order="$order" :product-id="$item->product_id" />
                                         </div>
                                     @endif
                                 @endif
@@ -132,6 +115,9 @@
                             </div>
 
                             <div class="u-extracted-487b2c5804">
+                                @if($order->isAwaitingWalletPayment())
+                                    <a class="dash-btn-sm" href="{{ route('buyer.orders.wallet-payment', $order) }}">Pay or cancel reservation</a>
+                                @endif
                                 @if ($order->dispute)
                                     <span
                                         class="status-pill status-badge-{{ strtolower(str_replace('_', '-', $order->dispute->status)) }}">
@@ -155,7 +141,7 @@
 
                                 @if ($order->pendingCancellation)
                                     <a class="dash-btn-sm" href="{{ route('buyer.orders.show', $order) }}">Cancellation pending</a>
-                                @elseif (in_array($order->status, ['PLACED', 'CONFIRMED', 'PREPARING'], true))
+                                @elseif (! $order->isAwaitingWalletPayment() && in_array($order->status, ['PLACED', 'CONFIRMED', 'PREPARING'], true))
                                     <form action="{{ route('buyer.orders.cancel', $order) }}" method="POST" data-decision="buyer.orders.cancel" data-decision-title="Request cancellation?" data-decision-message="The seller has 24 hours to respond before automatic approval. Cancellation is unavailable after physical pickup." data-decision-label="Request cancellation" data-decision-tone="danger" onsubmit="return window.eziDecisionReady ? true : window.confirm(this.dataset.decisionMessage)">
                                         @csrf
                                         <button type="submit" class="dash-btn-sm">Request

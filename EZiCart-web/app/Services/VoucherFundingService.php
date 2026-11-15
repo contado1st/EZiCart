@@ -37,19 +37,20 @@ class VoucherFundingService
                 $this->ledger->transfer('voucher:'.$locked->id.':reserve:'.$budget->released_cents, 'voucher_funding', $source, $reserve, $needed, $actor, ['voucher_id' => $locked->id]);
             }
             $budget->update(['status' => 'RESERVED']);
+            $locked->forceFill(['disabled_reason' => null])->save();
 
             return $budget;
         }, 3);
     }
 
-    public function release(Voucher $voucher, ?User $actor): void
+    public function release(Voucher $voucher, ?User $actor, ?string $reason = null): void
     {
-        DB::transaction(function () use ($voucher, $actor): void {
+        DB::transaction(function () use ($voucher, $actor, $reason): void {
             $locked = Voucher::whereKey($voucher->id)->lockForUpdate()->firstOrFail();
             if ($actor) {
                 abort_unless($actor->status === 'approved' && ($locked->seller_id === null ? $actor->isCommerceAdmin() : $locked->seller_id === $actor->id && $actor->role === 'seller'), 403);
             } else {
-                abort_unless($locked->expires_at?->isPast() || ! $locked->is_active || ($locked->usage_limit && $locked->used_count >= $locked->usage_limit), 422);
+                abort_unless($locked->expires_at?->lte(now()) || ! $locked->is_active || ($locked->usage_limit && $locked->used_count >= $locked->usage_limit), 422);
             }
             $budget = VoucherBudget::where('voucher_id', $locked->id)->lockForUpdate()->first();
             if (! $budget) {
@@ -62,7 +63,9 @@ class VoucherFundingService
                 $budget->increment('released_cents', $amount);
             }
             $budget->update(['status' => 'RELEASED']);
-            $locked->update(['is_active' => false]);
+            $reason ??= $locked->expires_at?->lte(now()) ? 'expired' : (($locked->usage_limit && $locked->used_count >= $locked->usage_limit && $actor === null) ? 'exhausted' : 'paused');
+            abort_unless(in_array($reason, ['expired', 'exhausted', 'paused', 'removed', 'funding'], true), 422);
+            $locked->forceFill(['is_active' => false, 'disabled_reason' => $reason])->save();
             $this->audits->record($actor, $locked, 'unused_voucher_budget_released', [], ['budget_id' => $budget->id], 'Unused promotion funds returned to their original owner. Consumed redemptions remain recorded.');
         });
     }
@@ -93,7 +96,13 @@ class VoucherFundingService
         }
         $voucher = Voucher::whereKey($redemption->voucher_id)->lockForUpdate()->firstOrFail();
         $budget = VoucherBudget::where('voucher_id', $voucher->id)->lockForUpdate()->firstOrFail();
-        $reactivate = $budget->status === 'RESERVED' && $voucher->is_active && ($voucher->expires_at === null || $voucher->expires_at->isFuture());
+        $reserve = FinancialAccount::findOrFail($budget->reserve_account_id);
+        $remainingUses = max(0, (int) $voucher->usage_limit - (int) $voucher->used_count + (int) $restoreUsage);
+        $eligible = ($voucher->expires_at === null || $voucher->expires_at->isFuture()) && ($voucher->seller_id === null || $voucher->seller?->status === 'approved');
+        $wasActive = $voucher->is_active && $budget->status === 'RESERVED';
+        $autoEnded = ! $voucher->is_active && $voucher->disabled_reason === 'exhausted';
+        $reactivate = $eligible && ($wasActive || ($autoEnded && $restoreUsage))
+            && $reserve->balance_cents + $redemption->amount_cents >= $remainingUses * $budget->cap_cents;
         $destination = FinancialAccount::findOrFail($reactivate ? $budget->reserve_account_id : $budget->source_account_id);
         $this->ledger->transfer('voucher:'.$voucher->id.':restore:'.$order->id, 'voucher_reversal', $this->ledger->escrow($order->id), $destination, $redemption->amount_cents, $actor, ['order_id' => $order->id]);
         $budget->decrement('consumed_cents', $redemption->amount_cents);
@@ -104,6 +113,13 @@ class VoucherFundingService
         if ($restoreUsage) {
             $voucher->decrement('used_count');
             DB::table('voucher_claims')->where('voucher_id', $voucher->id)->where('buyer_id', $order->buyer_id)->where('redemption_count', '>', 0)->decrement('redemption_count');
+        }
+        if ($reactivate) {
+            $voucher->forceFill(['is_active' => true, 'disabled_reason' => null])->save();
+            $budget->update(['status' => 'RESERVED']);
+        } elseif ($wasActive) {
+            $voucher->forceFill(['is_active' => false])->save();
+            $this->release($voucher, null, $eligible ? 'funding' : ($voucher->expires_at?->lte(now()) ? 'expired' : 'paused'));
         }
     }
 }

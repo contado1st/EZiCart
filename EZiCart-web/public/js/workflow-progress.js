@@ -35,7 +35,7 @@
             if (root) {
                 root.querySelector('[data-workflow-total]').textContent = data.count > 99 ? '99+' : String(data.count);
                 root.querySelector('[data-workflow-total]').hidden = data.count === 0;
-                root.querySelector('[data-workflow-summary]').textContent = data.count === 1 ? '1 action requires attention' : data.count ? `${data.count} actions require attention` : 'You are up to date';
+                root.querySelector('[data-workflow-summary]').textContent = data.count ? 'Tasks are ready for your review' : 'You are up to date';
                 root.querySelector('[data-workflow-empty]').hidden = data.count > 0;
                 const signature = JSON.stringify(data.items);
                 if (signature !== previousItems) {
@@ -43,7 +43,14 @@
                     for (const item of data.items) {
                         if (!path(item.url)) continue;
                         const row = document.createElement('li'); const link = document.createElement('a');
+                        row.setAttribute('role', 'row'); link.setAttribute('role', 'cell');
                         link.href = item.url; link.textContent = item.label; row.append(link);
+                        const details = document.createElement('span');
+                        details.className = 'workflow-task-context';
+                        details.setAttribute('role', 'cell');
+                        const date = item.submitted_at ? new Date(item.submitted_at) : null;
+                        details.textContent = [item.status || 'Awaiting action', item.owner ? `Responsible: ${item.owner.replaceAll('_', ' ')}` : 'Your assigned queue', date && !Number.isNaN(date.getTime()) ? date.toLocaleString() : null].filter(Boolean).join(' · ');
+                        row.append(details);
                         if (item.count > 1) badge(link, item.count);
                         list.append(row);
                     }

@@ -48,7 +48,7 @@ class CheckoutController extends Controller
             if ($voucher) {
                 app(VoucherClaimService::class)->assertUsable($request->user(), $voucher);
             }
-            $quote = $pricing->quote($cart, $voucher, false, ['address' => $selectedAddress?->toArray() ?? $request->session()->get('checkout_shipping_context') ?? $user->only(['province', 'municipality', 'barangay']), 'payment_method' => $paymentMethod]);
+            $quote = $pricing->quote($cart, $voucher, false, ['address' => $selectedAddress?->toArray() ?? $request->session()->get('checkout_shipping_context') ?? $user->only(['province', 'municipality', 'barangay']), 'payment_method' => $paymentMethod, 'buyer' => $request->user()]);
         } catch (ValidationException $exception) {
             if (isset($exception->errors()['voucher_code'])) {
                 $request->session()->forget('applied_voucher');
@@ -66,9 +66,10 @@ class CheckoutController extends Controller
             $appliedVoucher = ['id' => $voucher->id, 'code' => $voucher->code];
             $request->session()->put('applied_voucher', $appliedVoucher);
         }
+        $sourceItems = $cart;
         $cart = array_map(fn ($line) => array_diff_key($line, array_flip(['product', 'variation'])), $quote['lines']);
         $checkoutMode = $request->session()->get('checkout_context.mode', 'cart');
-        $request->session()->put('checkout_context', ['mode' => $checkoutMode, 'items' => array_map(fn ($line) => Arr::only($line, ['product_id', 'variation_id', 'quantity']), $cart)]);
+        $request->session()->put('checkout_context', ['mode' => $checkoutMode, 'items' => array_map(fn ($line) => Arr::only($line, ['product_id', 'variation_id', 'quantity']), $sourceItems)]);
         $token = $request->session()->get('checkout_token', (string) Str::uuid());
         $request->session()->put(['checkout_token' => $token, 'checkout_quote_hash' => $quote['hash']]);
         $subtotal = $quote['subtotal_cents'] / 100;
@@ -88,7 +89,7 @@ class CheckoutController extends Controller
         }
         $items = $this->checkoutItems($request);
         app(WebCheckoutService::class)->assertShopsOpen($items);
-        $pricing->quote($items, $voucher);
+        $pricing->quote($items, $voucher, context: ['buyer' => $request->user()]);
         app(VoucherClaimService::class)->claim($request->user(), $voucher);
         app(VoucherClaimService::class)->assertUsable($request->user(), $voucher);
         $request->session()->put('applied_voucher', ['id' => $voucher->id, 'code' => $voucher->code]);
@@ -109,6 +110,7 @@ class CheckoutController extends Controller
             'checkout_token' => ['required', 'uuid'], 'quote_hash' => ['required', 'string', 'size:64'],
             'saved_address_id' => ['nullable', 'integer', 'min:1'],
             'payment_method' => ['required', 'in:COD,WALLET'], 'notes' => ['nullable', 'string', 'max:200'],
+            'wallet_payment_timing' => ['nullable', 'in:now,later'],
         ]);
         if (empty($validated['saved_address_id'])) {
             $validated = [...$validated, ...$request->validate([
@@ -120,13 +122,17 @@ class CheckoutController extends Controller
             ])];
         }
         $buyer = $this->authenticatedUser();
+        $deferWalletPayment = ($validated['wallet_payment_timing'] ?? 'now') === 'later';
+        abort_if($deferWalletPayment && $validated['payment_method'] !== 'WALLET', 422, 'Choose wallet payment to reserve a wallet order.');
         ksort($validated);
         $requestHash = hash('sha256', json_encode($validated, JSON_THROW_ON_ERROR));
         $existing = Purchase::query()->where('buyer_id', $buyer->id)->where('checkout_token', $validated['checkout_token'])->first();
         if ($existing) {
             abort_unless(hash_equals($existing->request_hash, $requestHash), 422, 'This checkout token was already used with different details.');
 
-            return redirect()->route('buyer.dashboard')->with('success', 'Your original purchase is already recorded.');
+            $unpaid = $existing->orders()->awaitingWalletPayment()->first();
+
+            return $unpaid ? redirect()->route('buyer.orders.wallet-payment', $unpaid) : redirect()->route('buyer.dashboard')->with('success', 'Your original purchase is already recorded.');
         }
         abort_unless($request->session()->get('checkout_token') === $validated['checkout_token'] && $request->session()->get('checkout_quote_hash') === $validated['quote_hash'], 422, 'Review checkout before placing your order.');
         // A saved address is always loaded through the buyer's relationship. Client address fields are ignored.
@@ -158,11 +164,11 @@ class CheckoutController extends Controller
         try {
             $items = $this->checkoutItems($request);
             $request->session()->put('checkout_shipping_context', $address);
-            $place = fn () => $purchases->place($buyer, $validated['checkout_token'], $requestHash, $items, $validated['quote_hash'], $request->session()->get('applied_voucher.id'), $address, $validated['payment_method']);
+            $place = fn () => $purchases->place($buyer, $validated['checkout_token'], $requestHash, $items, $validated['quote_hash'], $request->session()->get('applied_voucher.id'), $address, $validated['payment_method'], $deferWalletPayment);
             if ($request->session()->get('checkout_context.mode') === 'buy_now') {
-                $place();
+                $purchase = $place();
             } else {
-                app(BuyerCartService::class)->complete($buyer, $validated['checkout_token'], $items, $place);
+                $purchase = app(BuyerCartService::class)->complete($buyer, $validated['checkout_token'], $items, $place);
             }
         } catch (ValidationException $exception) {
             return redirect()->route('checkout.index')->withInput()->withErrors($exception->errors());
@@ -173,6 +179,10 @@ class CheckoutController extends Controller
         }
         $request->session()->forget(['checkout_shipping_context', 'checkout_context', 'applied_voucher', 'checkout_token', 'checkout_quote_hash']);
         $request->session()->put('cart', app(BuyerCartService::class)->display($buyer));
+
+        if ($deferWalletPayment) {
+            return redirect()->route('buyer.orders.wallet-payment', $purchase->orders()->firstOrFail())->with('success', 'Order reserved. Complete demo wallet payment before the displayed deadline.');
+        }
 
         return redirect()->route('buyer.dashboard')->with('success', 'Order placed successfully. Your seller will prepare the shipment.');
     }

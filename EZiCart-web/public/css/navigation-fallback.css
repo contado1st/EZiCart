@@ -273,15 +273,19 @@
 
     .auth-nav {
         max-width: 65vw;
+        min-width: 0;
         gap: 0.8rem;
         overflow-x: auto;
-        scrollbar-width: none;
+        scrollbar-width: thin;
+        padding-block: 4px;
         white-space: nowrap;
     }
 
     .auth-nav::-webkit-scrollbar {
-        display: none;
+        height: 3px;
     }
+
+    .auth-nav > * { flex-shrink: 0; }
 
     .auth-nav .logout-form-inline {
         flex: 0 0 auto;

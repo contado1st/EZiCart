@@ -17,7 +17,7 @@ class ProfileAppearanceController extends Controller
             'profile_bio' => ['nullable', 'string', 'max:1000'],
             'profile_theme' => ['required', Rule::in(array_keys(ProfileAppearanceService::THEMES))],
             'remove_avatar' => ['nullable', 'boolean'], 'remove_banner' => ['nullable', 'boolean'],
-            'avatar' => [Rule::prohibitedIf($request->boolean('remove_avatar')), 'nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:2048', Rule::dimensions()->minWidth(96)->minHeight(96)->maxWidth(2048)->maxHeight(2048)],
+            'avatar' => [Rule::prohibitedIf($request->boolean('remove_avatar')), 'nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120', Rule::dimensions()->minWidth(96)->minHeight(96)->maxWidth(2048)->maxHeight(2048)],
             'banner' => [Rule::prohibitedIf($request->boolean('remove_banner')), 'nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:2048', Rule::dimensions()->minWidth(600)->minHeight(200)->maxWidth(4096)->maxHeight(2048)],
         ]);
         $profiles->update($request->user(), $data);

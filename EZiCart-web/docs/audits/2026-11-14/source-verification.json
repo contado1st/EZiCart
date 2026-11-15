@@ -1,0 +1,27 @@
+[
+  {
+    "file": "Ecommerce_Role_Functionality_Checklist.docx",
+    "sha256": "FF67F052D428DA81D2EEC20F6A17250D2B0A66EC7BC98377B6CDD0BF4FBCEA87",
+    "matches_13_November_snapshot": true
+  },
+  {
+    "file": "Blackbox_Test_Cases_Seller_Modules-1.xlsx",
+    "sha256": "5EE7704EC5CBFB104F8941D35224C6829C68F0D70992F1DBDA96C5A731251CDC",
+    "matches_13_November_snapshot": true
+  },
+  {
+    "file": "Blackbox_Test_Cases_Rider_Modules-1 (1).xlsx",
+    "sha256": "FD19A6BA3C3753821B9F850A850E5D3D9BEA8BCC04BF7B1C7AC91997B3711ED9",
+    "matches_13_November_snapshot": true
+  },
+  {
+    "file": "Blackbox_Test_Cases_Buyer_Modules-1.xlsx",
+    "sha256": "4C89FF71236756CB065B85116EAAC0FA2AE0E9A094F320B1A1B7119E1D51871F",
+    "matches_13_November_snapshot": true
+  },
+  {
+    "file": "Blackbox_Test_Cases_Logistics_Modules-1 (1).xlsx",
+    "sha256": "0615000A6D58F8B3E5B6690FFFB08E498F6095ECD51158715486EE286570C84F",
+    "matches_13_November_snapshot": true
+  }
+]

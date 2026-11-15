@@ -60,7 +60,7 @@
 .web-variation-editor table input { width: 100%; min-width: 85px; padding: 8px; border: 1px solid #dce0e8; border-radius: 6px; }
 .web-variation-editor .dash-table-wrapper { overflow-x: auto; }
 .web-variation-editor table { min-width: 700px; }
-.web-variation-editor fieldset { border: 0; padding: 0; }
+.web-variation-editor fieldset { border: 0; padding: 0; min-width: 0; }
 .web-variation-preview { max-width: 120px; max-height: 100px; object-fit: contain; margin-block: 8px; }
 @media (max-width: 600px) { .web-form > label { flex-basis: 100%; } .web-operations { gap: 16px; } }
 @media print { .web-form, .web-actions { display: none; } }

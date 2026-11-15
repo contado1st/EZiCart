@@ -2,8 +2,13 @@
 
 namespace App\Services;
 
+use App\Models\DeliveryRetryRequest;
+use App\Models\DispatchCycle;
+use App\Models\DispatchOffer;
 use App\Models\Order;
+use App\Models\ParcelIncident;
 use App\Models\Product;
+use App\Models\SellerReturnResponse;
 use App\Models\StaffProfileRevision;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Builder;
@@ -18,8 +23,35 @@ class WorkflowAttentionService
     {
         $items = [];
         $count = 0;
+        if ($user->role === 'sorting_center') {
+            $retries = DeliveryRetryRequest::where('hub_id', $user->id)->where('status', 'PENDING')->count();
+            $unassigned = DispatchCycle::where('hub_id', $user->id)->where('status', 'UNASSIGNED')
+                ->whereHas('order', fn ($q) => $q->where(fn ($o) => $o->where(fn ($p) => $p->where('status', 'READY_FOR_PICKUP')->whereNull('pickup_courier_id'))->orWhere(fn ($d) => $d->where('status', 'SORTED')->whereNull('delivery_courier_id')))->whereDoesntHave('dispatchCycles', fn ($c) => $c->where('status', 'OFFERING')))
+                ->distinct()->count('order_id');
+            foreach ([[$retries, 'Review delivery retry proposals', route('logistics.dispatch').'#retry-requests'], [$unassigned, 'Resolve Unassigned parcel work', route('dispatch.index', ['status' => 'UNASSIGNED'])]] as [$total, $label, $url]) {
+                if ($total) {
+                    $count += $total;
+                    $items[] = ['label' => $label, 'url' => $url, 'count' => $total, 'target' => null];
+                }
+            }
+        }
+        if ($user->role === 'courier') {
+            $pending = DispatchOffer::where('rider_id', $user->id)->where('status', 'PENDING')->where('expires_at', '>', now())->count();
+            if ($pending) {
+                $count += $pending;
+                $items[] = ['label' => 'Respond to automatic parcel offers', 'url' => route('dispatch.index'), 'count' => $pending, 'target' => null];
+            }
+        }
+        if ($user->isCommerceAdmin() || $user->isLogisticsAdmin()) {
+            $incidents = ParcelIncident::where('status', 'OPEN')->count();
+            if ($incidents) {
+                $count += $incidents;
+                $items[] = ['label' => 'Review Lost/Damaged incidents and claims', 'url' => route('parcel-incidents.index'), 'count' => $incidents, 'target' => null];
+            }
+        }
         if ($user->isCommerceAdmin() || $user->isLogisticsAdmin()) {
             $groups = [
+                ['query' => app(DemoWalletFundingService::class)->visible($user)->where('provider', 'internal_demo')->where('status', 'PENDING')->where('user_id', '!=', $user->id)->where('expires_at', '>', now()), 'label' => 'Review demo wallet funding requests', 'route' => 'finance.wallet'],
                 ['query' => User::whereIn('role', $user->managedAccountRoles())->where('status', 'pending'), 'label' => 'Review account applications', 'route' => $user->isCommerceAdmin() ? 'admin.registrations.index' : 'logistics-admin.dashboard'],
                 ['query' => StaffProfileRevision::where('status', 'pending')->whereHas('user', fn ($q) => $q->whereIn('role', $user->managedAccountRoles())), 'label' => 'Review profile change requests', 'route' => $user->isCommerceAdmin() ? 'admin.profile-reviews.index' : 'logistics-admin.profile-reviews.index'],
             ];
@@ -47,11 +79,11 @@ class WorkflowAttentionService
             }
             $query = $this->candidates($user);
             $count = (clone $query)->count();
-            foreach ($query->with(['pendingCancellation', 'activeTransfer', 'deliveryAssignments', 'dispute', 'items', 'reviews'])->oldest('orders.id')->limit(20)->get() as $order) {
+            foreach ($query->with(['pendingCancellation', 'activeTransfer', 'deliveryAssignments', 'dispute.sellerResponse', 'items', 'reviews'])->oldest('orders.id')->limit(20)->get() as $order) {
                 $state = $this->progress->forViewer($order, $user);
                 $actionRoute = $state['action_route'];
                 $target = $actionRoute && Route::has($actionRoute) ? route($actionRoute, ['order' => $order->id]) : null;
-                $items[] = ['order_id' => $order->id, 'label' => $order->order_number.': '.$state['message'], 'url' => $this->orderUrl($user, $order), 'target' => $target, 'count' => 1];
+                $items[] = ['order_id' => $order->id, 'reference' => $order->order_number, 'submitted_at' => $order->created_at?->toIso8601String(), 'status' => str_replace('_', ' ', $order->operational_status), 'owner' => $state['owner'], 'label' => $order->order_number.': '.$state['message'], 'url' => $this->orderUrl($user, $order), 'target' => $target, 'count' => 1];
             }
             if ($user->role === 'sorting_center') {
                 $transfers = DB::table('parcel_transfers')->where(fn ($q) => $q
@@ -63,14 +95,31 @@ class WorkflowAttentionService
                 }
             }
         }
+        if (in_array($user->role, ['buyer', 'seller'], true)) {
+            $responses = SellerReturnResponse::whereHas('dispute', fn ($q) => $q->where($user->role === 'seller' ? 'seller_id' : 'buyer_id', $user->id)->where('status', 'PENDING'))
+                ->where('stage', $user->role === 'seller' ? 'awaiting_seller' : 'seller_rejected')
+                ->where($user->role === 'seller' ? 'response_due_at' : 'escalation_due_at', '>', now());
+            $responseCount = (clone $responses)->count();
+            $count += $responseCount;
+            foreach ($responses->with('dispute')->oldest('id')->limit(10)->get() as $response) {
+                $items[] = ['label' => $user->role === 'seller' ? 'Respond to return request #'.$response->dispute_id : 'Review rejection / escalation for return #'.$response->dispute_id, 'url' => route('returns.workflow', $response->dispute->order_id), 'count' => 1, 'target' => null];
+            }
+        }
         $returns = $this->returnTasks($user)->count();
+        if ($user->role === 'buyer') {
+            $unpaid = Order::where('buyer_id', $user->id)->awaitingWalletPayment()->count();
+            if ($unpaid) {
+                $count += $unpaid;
+                $items[] = ['label' => 'Complete reserved wallet payments', 'url' => route('buyer.dashboard', ['order_group' => 'to_pay']), 'count' => $unpaid, 'target' => null];
+            }
+        }
         if ($returns) {
             $count += $returns;
             $items[] = ['label' => 'Complete approved return pickup steps', 'url' => route('return-pickups.index'), 'count' => $returns, 'target' => null];
         }
         $states = [];
         if ($visibleIds !== []) {
-            foreach ($this->scoped($user)->whereIn('orders.id', $visibleIds)->with(['pendingCancellation', 'activeTransfer', 'deliveryAssignments', 'dispute', 'items', 'reviews'])->get() as $order) {
+            foreach ($this->scoped($user)->whereIn('orders.id', $visibleIds)->with(['pendingCancellation', 'activeTransfer', 'deliveryAssignments', 'dispute.sellerResponse', 'items', 'reviews'])->get() as $order) {
                 $states[$order->id] = $this->progress->forViewer($order, $user);
             }
         }

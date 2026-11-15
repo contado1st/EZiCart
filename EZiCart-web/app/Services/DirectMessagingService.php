@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\DirectConversation;
 use App\Models\DirectMessage;
 use App\Models\Order;
+use App\Models\Product;
 use App\Models\User;
 use App\Notifications\DirectMessageNotification;
 use Illuminate\Database\Eloquent\Builder;
@@ -91,11 +92,19 @@ class DirectMessagingService
         });
     }
 
-    public function send(DirectConversation $conversation, User $actor, string $body, ?Order $order = null): DirectMessage
+    public function authorizeProduct(Product $product, User $actor, User $partner): void
+    {
+        $seller = $actor->role === 'seller' ? $actor : $partner;
+        $buyer = $actor->role === 'buyer' ? $actor : $partner;
+        abort_unless($buyer->role === 'buyer' && $seller->role === 'seller' && $buyer->status === 'approved'
+            && $seller->status === 'approved' && (int) $product->user_id === $seller->id && $product->isListingVisible(), 404);
+    }
+
+    public function send(DirectConversation $conversation, User $actor, string $body, ?Order $order = null, ?Product $product = null): DirectMessage
     {
         abort_unless($conversation->hasParticipant($actor), 403);
 
-        return DB::transaction(function () use ($conversation, $actor, $body, $order) {
+        return DB::transaction(function () use ($conversation, $actor, $body, $order, $product) {
             $recipient = $conversation->otherUser($actor);
             $users = User::query()->whereKey([$actor->id, $recipient->id])->orderBy('id')->lockForUpdate()->get()->keyBy('id');
             abort_unless($this->canContact($users[$actor->id], $users[$recipient->id]), 403);
@@ -104,8 +113,16 @@ class DirectMessagingService
                 $this->authorizeOrder($order, $actor);
                 $this->authorizeOrder($order, $recipient);
             }
+            $context = null;
+            if ($product) {
+                abort_unless($actor->role === 'buyer', 403);
+                $product = Product::withVariantPrices()->whereKey($product->id)->lockForUpdate()->firstOrFail();
+                $this->authorizeProduct($product, $users[$actor->id], $users[$recipient->id]);
+                $context = ['product_id' => $product->id, 'name' => $product->name,
+                    'price_label' => $product->display_price_label, 'image_path' => $product->image_path];
+            }
             $conversation = DirectConversation::query()->whereKey($conversation->id)->lockForUpdate()->firstOrFail();
-            $message = $conversation->messages()->create(['sender_id' => $actor->id, 'recipient_id' => $recipient->id, 'body' => trim($body), 'order_id' => $order?->id]);
+            $message = $conversation->messages()->create(['sender_id' => $actor->id, 'recipient_id' => $recipient->id, 'body' => trim($body), 'order_id' => $order?->id, 'product_context' => $context]);
             $conversation->touch();
             $this->notifications->send($recipient, new DirectMessageNotification($message, trim($actor->first_name.' '.$actor->last_name)));
 

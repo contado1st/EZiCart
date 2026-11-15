@@ -10,9 +10,11 @@ class DirectMessage extends Model
 {
     protected $guarded = ['id'];
 
+    protected $hidden = ['product_context'];
+
     protected function casts(): array
     {
-        return ['read_at' => 'datetime'];
+        return ['read_at' => 'datetime', 'unsent_at' => 'datetime', 'product_context' => 'array'];
     }
 
     public function conversation(): BelongsTo

@@ -1,5 +1,7 @@
 @extends('layouts.app')
 
+@section('workspace-primary-route', 'admin.registrations.index')
+
 @push('styles')
     @vite('resources/css/shared/dashboard.css')
 @endpush
@@ -15,12 +17,12 @@
                     <p class="dash-subtitle">System-wide monitoring of marketplace transactions, commission revenue, and
                         verifications.</p>
                 </div>
-                <div>
+                <div class="workspace-page-actions">
                     <a href="{{ route('admin.registrations.index') }}" class="dash-btn-primary">
-                        Verify Users ({{ $stats['pending_users'] }})
+                        Review applications ({{ $stats['pending_users'] }})
                     </a>
                     <a href="{{ route('admin.compliance.products.index') }}"
-                        class="dash-btn-primary u-extracted-71c7258ecd">
+                        class="dash-btn-sm dash-btn-outline">
                         Review Products ({{ $stats['pending_product_reviews'] }})
                     </a>
                 </div>
@@ -111,7 +113,7 @@
                                         <td>
                                             <span
                                                 class="status-pill status-{{ strtolower(str_replace('_', '-', $order->status)) }}">
-                                                {{ str_replace('_', ' ', $order->status) }}
+                                                {{ str_replace('_', ' ', $order->operational_status) }}
                                             </span>
                                         </td>
                                         <td>
@@ -162,14 +164,18 @@
                                     <div class="dash-approval-email">{{ $pUser->email }}</div>
                                     <span
                                         class="dash-badge dash-badge-category dash-approval-badge">{{ ucfirst($pUser->role) }}</span>
+                                    <a class="workspace-review-link" href="{{ route('admin.registrations.show', $pUser) }}">Review details &amp; documents</a>
                                 </div>
-                                <div class="dash-approval-actions">
+                                <div class="dash-approval-actions workspace-review-actions">
                                     <form action="{{ route('admin.registrations.approve', $pUser->id) }}" method="POST" data-decision="admin.registrations.approve" data-decision-title="Approve this account?" data-decision-message="Confirm that you reviewed the submitted credentials and that this account meets the approval requirements." data-decision-label="Approve account" data-decision-tone="normal" onsubmit="return window.eziDecisionReady ? true : window.confirm(this.dataset.decisionMessage)">
                                         @csrf
                                         <button type="submit" class="dash-btn-sm dash-btn-success">Approve</button>
                                     </form>
                                     <form action="{{ route('admin.registrations.reject', $pUser->id) }}" method="POST" data-decision="admin.registrations.reject" data-decision-title="Reject this application?" data-decision-message="Check the rejection reason before recording your decision." data-decision-label="Reject application" data-decision-tone="danger" onsubmit="return window.eziDecisionReady ? true : window.confirm(this.dataset.decisionMessage)">
                                         @csrf
+                                        <label for="dashboard-rejection-{{ $pUser->id }}">Rejection reason
+                                            <input id="dashboard-rejection-{{ $pUser->id }}" name="reason" required minlength="5" maxlength="1000">
+                                        </label>
                                         <button type="submit" class="dash-btn-sm dash-btn-danger">Reject</button>
                                     </form>
                                 </div>

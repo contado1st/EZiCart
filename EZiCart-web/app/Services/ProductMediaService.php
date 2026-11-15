@@ -2,6 +2,8 @@
 
 namespace App\Services;
 
+use App\Models\DirectMessage;
+use App\Models\OrderItem;
 use App\Models\Product;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -39,11 +41,12 @@ class ProductMediaService
                 $files[] = ['kind' => 'video', 'file' => $request->file('product_video')];
             }
             foreach ($files as $entry) {
-                $path = $entry['file']->store('products/media', 'public');
+                $processor = app(ProductUploadProcessor::class);
+                $path = $entry['kind'] === 'image' ? $processor->image($entry['file'], 'products/media', field: 'gallery_images') : $processor->video($entry['file'], 'products/media');
                 if (! is_string($path)) {
                     throw new RuntimeException('Product media could not be stored.');
                 }
-                $staged[] = ['kind' => $entry['kind'], 'path' => $path, 'mime_type' => $entry['file']->getMimeType()];
+                $staged[] = ['kind' => $entry['kind'], 'path' => $path, 'mime_type' => $entry['kind'] === 'video' ? 'video/mp4' : $entry['file']->getMimeType()];
             }
 
             return $staged;
@@ -78,6 +81,10 @@ class ProductMediaService
     public function deleteFiles(array $paths): void
     {
         foreach (array_unique(array_filter($paths)) as $path) {
+            if (OrderItem::where('purchased_image_path', $path)->exists()
+                || DirectMessage::where('product_context->image_path', $path)->exists()) {
+                continue;
+            }
             try {
                 if (! Storage::disk('public')->delete($path)) {
                     report(new RuntimeException('A removed product media file could not be deleted.'));
