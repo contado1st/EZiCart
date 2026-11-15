@@ -1,12 +1,14 @@
 @extends('layouts.logistics')
 
+@section('workspace-primary-route', 'logistics.intake')
+
 @section('workspace')
     <header class="ops-heading">
         <div>
             <h1>Operations overview</h1>
             <p>Sorting hub · Updated {{ $updatedAt->format('d M Y H:i:s T') }} · Refresh to retrieve current hub records.</p>
         </div>
-        <div class="courier-actions">
+        <div class="courier-actions workspace-page-actions">
             <a class="ops-btn ops-btn--primary" href="{{ route('logistics.intake') }}">Receive parcel</a>
         </div>
     </header>
@@ -86,15 +88,15 @@
                     <tbody>
                         @foreach ($exceptions as $exception)
                             <tr>
-                                <td class="ops-mono">{{ $exception->order_number }}</td>
-                                <td>{{ $exception->rider_first_name }} {{ $exception->rider_last_name }}</td>
-                                <td>
+                                <td class="ops-mono" data-label="Parcel">{{ $exception->order_number }}</td>
+                                <td data-label="Former rider">{{ $exception->rider_first_name }} {{ $exception->rider_last_name }}</td>
+                                <td data-label="Current stage">
                                     <span class="ops-status ops-status--danger">
                                         {{ str_replace('_', ' ', $exception->order_status) }}
                                     </span>
                                 </td>
-                                <td>{{ $exception->reason }}</td>
-                                <td>
+                                <td data-label="Reason">{{ $exception->reason }}</td>
+                                <td data-label="Action">
                                     @if ($exception->type === 'SUSPENDED_RIDER_PICKUP_ACCEPTED')
                                         <a class="ops-btn ops-btn--primary" href="{{ route('logistics.pickupRequests') }}">Reassign pickup</a>
                                     @elseif ($exception->order_status === 'OUT_FOR_DELIVERY')
@@ -132,7 +134,12 @@
                 </h2>
                 @if ($queues[$key]->isEmpty())
                     <div class="ops-empty">
-                        <p>No parcels currently waiting in this queue.</p>
+                        @if ($queues[$key]->total() > 0)
+                            <p>No parcels on this page. This queue has {{ number_format($queues[$key]->total()) }} {{ \Illuminate\Support\Str::plural('parcel', $queues[$key]->total()) }}.</p>
+                            <a class="ops-btn" href="{{ $queues[$key]->url(1) }}">Return to first page</a>
+                        @else
+                            <p>No parcels currently waiting in this queue.</p>
+                        @endif
                     </div>
                 @else
                     <div class="ops-table-wrap">
@@ -148,15 +155,15 @@
                             <tbody>
                                 @foreach ($queues[$key] as $order)
                                     <tr>
-                                        <td class="ops-mono">{{ $order->order_number }}</td>
-                                        <td>{{ $order->municipality }}, {{ $order->province }}</td>
-                                        <td>
+                                        <td class="ops-mono" data-label="Order">{{ $order->order_number }}</td>
+                                        <td data-label="Destination">{{ $order->municipality }}, {{ $order->province }}</td>
+                                        <td data-label="Current stage">
                                             <span
                                                 class="ops-status {{ $order->status === 'DELIVERY_FAILED' ? 'ops-status--danger' : 'ops-status--pink' }}">
                                                 {{ str_replace('_', ' ', $order->operational_status) }}
                                             </span>
                                         </td>
-                                        <td class="ops-muted">{{ $order->updated_at->diffForHumans() }}</td>
+                                        <td class="ops-muted" data-label="Last updated">{{ $order->updated_at->diffForHumans() }}</td>
                                     </tr>
                                 @endforeach
                             </tbody>

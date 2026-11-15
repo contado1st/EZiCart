@@ -35,13 +35,33 @@
     const add = (type = '', value = '') => {
         if (rows.children.length >= 100) { feedback.textContent = 'A product can have at most 100 combinations.'; return; }
         const fragment = template.content.cloneNode(true);
+        const row = fragment.querySelector('[data-variation-row]');
         fragment.querySelectorAll('[name]').forEach(input => input.name = input.name.replace('__INDEX__', String(next)));
         fragment.querySelector('[data-variation-type]').value = type;
         fragment.querySelector('[data-variation-value]').value = value;
         next++;
         rows.append(fragment); updateStock();
+        return row;
     };
     editor.querySelector('[data-add-variation]').addEventListener('click', () => add());
+    editor.querySelector('[data-add-manual-variation]')?.addEventListener('click', () => {
+        const attribute = editor.querySelector('[data-manual-attribute]');
+        const option = editor.querySelector('[data-manual-option]');
+        const type = attribute.value.trim(), value = option.value.trim();
+        if (!type || !value || type.length > 50 || value.length > 50) {
+            feedback.textContent = 'Enter an attribute and an option, each up to 50 characters.';
+            return;
+        }
+        const duplicate = [...rows.querySelectorAll('[data-variation-row]')].some(row =>
+            row.querySelector('[data-variation-type]').value.trim().toLowerCase() === type.toLowerCase()
+            && row.querySelector('[data-variation-value]').value.trim().toLowerCase() === value.toLowerCase());
+        if (duplicate) { feedback.textContent = 'That variation already exists. Edit its row below.'; return; }
+        const row = add(type, value);
+        if (!row) return;
+        option.value = '';
+        row.querySelector('[data-variation-price]').focus();
+        feedback.textContent = 'Manual variation added. Enter its price and stock before saving the product.';
+    });
     editor.addEventListener('click', event => {
         const remove = event.target.closest('[data-remove-variation]');
         if (remove) { remove.closest('[data-variation-row]').remove(); updateStock(); feedback.textContent = 'Row removed. Save the product to retire this variation.'; }

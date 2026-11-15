@@ -6,6 +6,9 @@
     const storageKey = `ezicart-cart-selection-${page.dataset.buyer}`;
     let saved = null;
     try { saved = JSON.parse(sessionStorage.getItem(storageKey)); } catch (_) { /* Selection works without storage. */ }
+    if (Array.isArray(saved) && page.dataset.variationPreviousKey && page.dataset.variationNewKey) {
+        saved = [...new Set(saved.map(key => key === page.dataset.variationPreviousKey ? page.dataset.variationNewKey : key))];
+    }
     if (Array.isArray(saved)) available.forEach(item => { item.checked = saved.includes(item.value); });
     const keepShop = shopId => available.forEach(item => { if (item.dataset.shopId !== shopId) item.checked = false; });
     const initial = available.find(item => item.checked);

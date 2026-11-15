@@ -18,20 +18,19 @@
                 </div>
             </div>
 
-            <section class="workspace-metrics" aria-label="Purchase summary">
+            <section class="workspace-metrics buyer-purchases-summary" aria-label="Purchase summary">
                 <x-workspace-metric label="All orders" :value="$counts['all']" icon="cart1" detail="Your purchase history" />
                 <x-workspace-metric label="Preparing to ship" :value="$counts['to_ship']" icon="package1" detail="Placed, confirmed or being prepared" tone="warning" />
                 <x-workspace-metric label="To receive" :value="$counts['to_receive']" icon="delivery1" detail="Track your parcel and delivery" />
                 <x-workspace-metric label="Completed" :value="$counts['completed']" icon="checklist" detail="Completed purchases outside an active return/refund" tone="success" />
             </section>
 
-            @if (session('success'))
-                <div class="dash-alert-success"><x-shop-icon name="checklist" /> {{ session('success') }}</div>
-            @endif
+            <x-feature-feedback />
 
             @if (session('error'))
-                <div class="dash-alert-success u-extracted-ee8231be38">
-                    <x-shop-icon name="warning" /> {{ session('error') }}
+                <div class="feature-panel feature-feedback feature-feedback--error" role="alert">
+                    <h2>Action not completed</h2>
+                    <p>{{ session('error') }}</p>
                 </div>
             @endif
 
@@ -59,8 +58,7 @@
                     </form>
                 </div>
 
-                <p>Each purchase belongs to one status group. Counts and tabs retain your status filter; 25 orders per page. Returns/refunds include open disputes and recorded refund activity.</p>
-                @include('components.feature-feedback')
+                <p class="web-muted">Use a purchase tab or filter by order status. Up to 25 orders per page. Returns/refunds include open disputes and recorded refund activity.</p>
                 @forelse($orders as $order)
                     <div class="order-card u-extracted-dab43fb936">
                         <div class="order-card-header">
@@ -97,7 +95,7 @@
 
                                     @if ($alreadyReviewed)
                                         <div class="u-extracted-930b6add1c">
-                                            ★ Rated {{ $alreadyReviewed->rating }}/5:
+                                            <x-shop-icon name="star" /> Rated {{ $alreadyReviewed->rating }}/5:
                                             "{{ $alreadyReviewed->comment ?? 'No comment' }}"
                                             <a href="{{ route('buyer.reviews.edit', $alreadyReviewed) }}">Edit review / private history</a>
                                         </div>

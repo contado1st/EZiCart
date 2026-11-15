@@ -23,6 +23,9 @@
     margin: 0 0 1rem 0;
 }
 
+.voucher-form-card > p { margin: 0 0 0.75rem; line-height: 1.6; }
+.voucher-form-card > a { display: inline-flex; margin-bottom: 1rem; }
+
 .voucher-form-group {
     display: flex;
     flex-direction: column;

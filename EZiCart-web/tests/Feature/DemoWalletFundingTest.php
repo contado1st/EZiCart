@@ -158,6 +158,39 @@ class DemoWalletFundingTest extends TestCase
         $this->assertDatabaseCount('ledger_transactions', 0);
     }
 
+    #[TestWith(['demo_funding'])]
+    #[TestWith(['withdrawal'])]
+    public function test_wallet_retry_restores_only_the_matching_form_and_request_key(string $formName): void
+    {
+        $buyer = $this->user('buyer');
+        $key = (string) Str::uuid();
+        $payload = ['wallet_form' => $formName, 'amount' => '123.45', 'request_key' => $key];
+        $route = $formName === 'demo_funding' ? 'wallet.demo-funding.store' : 'finance.wallet.withdraw';
+        $payload += $formName === 'demo_funding' ? ['kind' => 'demo_credit', 'reason' => ''] : ['destination' => 'x'];
+        $this->signIn($buyer)->from(route('finance.wallet'))->post(route($route), $payload)
+            ->assertRedirect()->assertSessionHasErrors($formName === 'demo_funding' ? 'reason' : 'destination');
+        $response = $this->withCookie((string) config('session.cookie'), $this->app['session']->getId())
+            ->get(route('finance.wallet'))->assertOk();
+        $document = new \DOMDocument;
+        $document->loadHTML($response->getContent(), LIBXML_NOERROR | LIBXML_NOWARNING);
+        $xpath = new \DOMXPath($document);
+        $other = $formName === 'demo_funding' ? 'withdrawal' : 'demo_funding';
+        foreach ([$formName => true, $other => false] as $name => $restore) {
+            /** @var \DOMElement $form */
+            $form = $xpath->query('//form[input[@name="wallet_form"][@value="'.$name.'"]]')->item(0);
+            $this->assertInstanceOf(\DOMElement::class, $form);
+            /** @var \DOMElement $amount */
+            $amount = $xpath->query('.//input[@name="amount"]', $form)->item(0);
+            $this->assertSame($restore ? '123.45' : '', $amount->getAttribute('value'));
+            /** @var \DOMElement $requestKey */
+            $requestKey = $xpath->query('.//input[@name="request_key"]', $form)->item(0);
+            $this->assertTrue(Str::isUuid($requestKey->getAttribute('value')));
+            $this->assertSame($restore, $requestKey->getAttribute('value') === $key);
+        }
+        $this->assertDatabaseCount('wallet_funding_intents', 0);
+        $this->assertDatabaseCount('wallet_withdrawals', 0);
+    }
+
     private function data(string $kind = 'demo_credit'): array
     {
         return ['amount' => 200, 'kind' => $kind, 'request_key' => (string) Str::uuid(), 'reason' => 'School wallet flow testing.']

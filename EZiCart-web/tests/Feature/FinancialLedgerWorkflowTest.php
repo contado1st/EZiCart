@@ -280,6 +280,29 @@ class FinancialLedgerWorkflowTest extends TestCase
         $this->assertTrue($this->ledger->reconcile()['balanced']);
     }
 
+    public function test_wallet_review_and_history_keep_accessible_controls_and_page_recovery(): void
+    {
+        $this->fund($this->buyer, 10000);
+        $withdrawal = app(WalletWithdrawalService::class)->request($this->buyer, 5000, 'Sandbox test destination', (string) Str::uuid());
+        $adminPage = $this->signIn($this->admin)->get(route('finance.wallet'))->assertOk()
+            ->assertSee('Shared platform treasury; eligible for spending')
+            ->assertSee('for="withdrawal-decision-'.$withdrawal->id.'"', false)
+            ->assertSee('id="withdrawal-decision-'.$withdrawal->id.'" name="decision" required', false);
+        $document = new \DOMDocument;
+        $document->loadHTML($adminPage->getContent(), LIBXML_NOERROR | LIBXML_NOWARNING);
+        $xpath = new \DOMXPath($document);
+        $this->assertSame(1, $xpath->query('//nav[@aria-label="Financial operations"]/a[@aria-current="page"]')->length);
+
+        $this->signIn($this->buyer)->post(route('wallet.demo-funding.store'), ['amount' => '20.00', 'kind' => 'demo_credit',
+            'reason' => 'School demo request.', 'request_key' => (string) Str::uuid(), 'wallet_form' => 'demo_funding'])
+            ->assertRedirect()->assertSessionHasNoErrors();
+        $this->get(route('finance.wallet', ['entries_page' => 99, 'intents_page' => 99, 'withdrawals_page' => 99, 'workspace_tab' => 'wallet-history']))
+            ->assertOk()->assertSee('Your available sandbox funds')->assertDontSee('Shared platform treasury; eligible for spending')
+            ->assertSee('No transactions on this page.')->assertSee('No funding requests on this page.')
+            ->assertSee('No withdrawal requests on this page.')->assertSee('Return to first page')
+            ->assertSee('workspace_tab=wallet-history')->assertSee('entries_page=1')->assertSee('intents_page=1')->assertSee('withdrawals_page=1');
+    }
+
     public function test_versioned_pricing_uses_approved_effective_rates_and_dimensional_weight(): void
     {
         $creator = $this->user('logistics_admin');

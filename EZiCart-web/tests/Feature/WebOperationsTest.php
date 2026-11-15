@@ -90,7 +90,8 @@ class WebOperationsTest extends TestCase
         $attachment = MessageAttachment::firstOrFail();
         Storage::disk('private')->assertExists($attachment->path);
         $this->as($admin)->get(route('chat.show', [$conversation, 'panel' => 1]))->assertOk()->assertSee('parcel.png');
-        $this->get(route('chat.attachments.show', $attachment))->assertOk()->assertDownload('parcel.png');
+        $this->get(route('chat.attachments.show', $attachment))->assertOk()->assertSee('Download file');
+        $this->get(route('chat.attachments.show', [$attachment, 'download' => 1]))->assertOk()->assertDownload('parcel.png');
         $this->get(route('chat.attachments.show', [$attachment, 'preview' => 1]))->assertOk()->assertHeader('X-Content-Type-Options', 'nosniff');
         $this->as($this->user('buyer'))->get(route('chat.attachments.show', $attachment))->assertForbidden();
         $this->as($seller)->post(route('chat.store', $conversation), ['attachments' => [UploadedFile::fake()->image('payload.php')]])->assertSessionHasErrors('attachments.0');

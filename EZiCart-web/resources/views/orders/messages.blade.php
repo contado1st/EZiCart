@@ -3,7 +3,7 @@
 @section('communications-title', 'Messages')
 @section('communications-description', 'Private conversations with your contacts.')
 @section('communications-content')
-<div class="messaging-frame messaging-frame--thread">
+<div class="messaging-frame messaging-frame--thread" data-message-retractions="{{ route('chat.retractions', $conversation) }}">
     @include('components.conversation-list')
     <section class="conversation-thread" aria-labelledby="conversation-title">
         <header class="conversation-thread-heading"><div><a class="conversation-mobile-back" href="{{ route('chat.index', ['panel' => request()->boolean('panel') ? 1 : null]) }}">All conversations</a><h2 id="conversation-title">{{ $partner->business_name ?: trim($partner->first_name.' '.$partner->last_name) }}</h2><p>Private conversation &middot; {{ str_replace('_', ' ', $partner->role) }}</p><x-user-activity :user="$partner" /></div><a class="communications-text-link" href="{{ url()->full() }}">Refresh</a></header>
@@ -12,11 +12,11 @@
         <div class="conversation-history" data-conversation-history tabindex="0" aria-label="Message history">
             @forelse($messages as $message)
                 @php($ownMessage = $message->sender_id === auth()->id())
-                <article @class(['conversation-message', 'is-own' => $ownMessage])>
+                <article @class(['conversation-message', 'is-own' => $ownMessage]) data-direct-message="{{ $message->id }}" data-own-message="{{ $ownMessage ? '1' : '0' }}">
                     <div class="conversation-message-meta"><strong>{{ $ownMessage ? 'You' : trim($partner->first_name.' '.$partner->last_name) }}</strong></div>
-                    @if($message->product_context)<div class="conversation-order-context conversation-product-context"><div><strong>Product enquiry: {{ $message->product_context['name'] }}</strong><span>{{ $message->product_context['price_label'] }} · advertised at enquiry time</span></div>@if($message->product_context['image_path'])<img class="conversation-product-image" src="{{ route('chat.product-image', $message) }}" alt="Product image at enquiry time" width="80" height="80" loading="lazy">@endif</div>@endif
-                    <p class="conversation-bubble">{{ $message->body }}</p>
-                    <div class="web-attachment-list">@foreach($message->attachments as $attachment)<a class="web-attachment" href="{{ route('chat.attachments.show', $attachment) }}">@if(in_array($attachment->mime_type, ['image/jpeg','image/png','image/webp']))<img src="{{ route('chat.attachments.show', [$attachment, 'preview' => 1]) }}" alt="{{ $attachment->original_name }}" loading="lazy">@endif<strong>{{ $attachment->original_name }}</strong><small>{{ $attachment->mime_type }} · {{ number_format($attachment->size / 1024, 1) }} KB · Download</small></a>@endforeach</div>
+                    <div class="conversation-message-content" data-message-content>
+                        @include('orders.partials.message-content')
+                    </div>
                     <time datetime="{{ $message->created_at->toIso8601String() }}">{{ $message->created_at->format('M d, Y h:i A') }}</time>
                 </article>
             @empty<div class="conversation-first-message"><x-shop-icon name="chat" /><h3>No messages yet</h3><p>Only you and {{ $partner->first_name }} can access this conversation.</p></div>@endforelse
@@ -35,3 +35,6 @@
     </section>
 </div>
 @endsection
+@push('styles')
+    <script src="{{ asset('js/message-retractions.js') }}?v={{ filemtime(public_path('js/message-retractions.js')) }}" defer></script>
+@endpush

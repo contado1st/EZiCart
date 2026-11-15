@@ -63,6 +63,17 @@ class BuyerCartService
             $product = $products->get($line['product_id']);
             $options = $variations->get($line['product_id'], collect());
             $variation = $line['variation_id'] ? $options->firstWhere('id', $line['variation_id']) : null;
+            $variationOptions = [];
+            if ($product && $product->isListingVisible() && $product->seller?->status === 'approved'
+                && $product->seller->acceptsWebOrders() && $product->usesVariations($options->isNotEmpty())) {
+                $variationOptions = $options->filter(fn ($option) => $option->is_active)->sortBy('id')->map(fn ($option) => [
+                    'id' => $option->id, 'label' => $option->type.': '.$option->value,
+                    'unit_cents' => app(ProductPriceService::class)->resolve($product, $option, false)['unit_cents'],
+                    'stock' => $option->stock, 'selectable' => $option->stock >= $line['quantity'],
+                    'image_url' => ($option->image_path ?: $product->image_path) ? asset('storage/'.($option->image_path ?: $product->image_path)) : null,
+                    'has_own_image' => filled($option->image_path),
+                ])->values()->all();
+            }
             $stock = $product ? min(20, $product->stock, $variation ? $variation->stock : 20) : 0;
             $price = $product ? app(ProductPriceService::class)->resolve($product, $variation)['unit_cents'] : 0;
             $reason = match (true) {
@@ -78,7 +89,7 @@ class BuyerCartService
             $line += ['name' => $product?->name ?? 'Unavailable product', 'price' => $price / 100,
                 'unit_cents' => $price, 'image_path' => $variation?->image_path ?: $product?->image_path,
                 'seller_id' => $product?->user_id ?? 0, 'seller_name' => $product?->seller?->business_name ?: 'Shop unavailable',
-                'variation_info' => $variation ? $variation->type.': '.$variation->value : null,
+                'variation_info' => $variation ? $variation->type.': '.$variation->value : null, 'variation_options' => $variationOptions,
                 'available' => $reason === null, 'unavailable_reason' => $reason, 'max_quantity' => $stock];
         }
         unset($line);
@@ -140,6 +151,35 @@ class BuyerCartService
 
             return $items;
         });
+    }
+
+    /** Replace one saved option atomically; an existing target line receives its quantity. */
+    public function changeVariation(User $buyer, string $key, int $variationId): string
+    {
+        return DB::transaction(function () use ($buyer, $key, $variationId): string {
+            $this->lockBuyer($buyer);
+            $items = $this->read($buyer);
+            abort_unless(isset($items[$key]), 404);
+            $productId = $items[$key]['product_id'];
+            $product = Product::whereKey($productId)->lockForUpdate()->first();
+            $option = ProductVariation::whereKey($variationId)->where('product_id', $productId)->where('is_active', true)->first();
+            if (! $product || ! $option || ! $product->usesVariations(true)) {
+                throw ValidationException::withMessages(['variation_id' => 'Choose an available variation belonging to this product.']);
+            }
+
+            $newKey = self::key($productId, $variationId);
+            if ($newKey !== $key) {
+                $quantity = $items[$key]['quantity'] + ($items[$newKey]['quantity'] ?? 0);
+                unset($items[$key]);
+                $items[$newKey] = ['product_id' => $productId, 'variation_id' => $variationId, 'quantity' => $quantity];
+            }
+            $demand = array_filter($items, fn ($line) => $line['product_id'] === $productId);
+            app(ShopAvailabilityService::class)->assertOpen($demand);
+            $this->pricing->quote($demand, lock: true, context: ['buyer' => $buyer]);
+            $this->write($buyer, $items);
+
+            return $newKey;
+        }, 3);
     }
 
     public function selected(User $buyer, array $keys): array

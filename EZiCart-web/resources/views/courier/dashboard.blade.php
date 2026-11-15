@@ -1,6 +1,10 @@
 @extends('layouts.courier')
 
 @section('workspace')
+    @php
+        $parcelQueueTotal = $myDeliveryAssignments->total() + $claimedPickups->total() + $myActivePickups->total()
+            + $myReturns->total() + $availablePickups->total() + $myFailedDeliveries->total();
+    @endphp
     <header class="ops-heading">
         <div>
             <h1>My dispatch board</h1>
@@ -14,7 +18,7 @@
     </header>
 
     <x-rider-work-availability :rider="$courier" />
-    <section class="ops-stats ops-stats--priority" aria-label="Today's work summary">
+    <section class="ops-stats ops-stats--priority courier-work-summary" aria-label="Today's work summary">
         <div class="ops-stat ops-stat--action">
             <span class="workspace-stat-icon" aria-hidden="true"><x-shop-icon name="package1" /></span>
             <span>Pickup claims</span>
@@ -56,7 +60,6 @@
     {{-- Next operational task --}}
     <section class="courier-hero-card" aria-labelledby="courier-next-action-title">
         <div>
-            <span class="courier-hero-card__badge">Priority Action</span>
             <h2 id="courier-next-action-title">
                 @if (count($myDeliveryAssignments) > 0)
                     Doorstep delivery: {{ $myDeliveryAssignments->first()->order_number }}
@@ -70,8 +73,10 @@
                     Available pickup request
                 @elseif ($myFailedDeliveries->isNotEmpty())
                     Failed delivery under review: {{ $myFailedDeliveries->first()->order_number }}
+                @elseif ($parcelQueueTotal > 0)
+                    Check your parcel queues
                 @else
-                    All caught up!
+                    No open parcel tasks
                 @endif
             </h2>
             <p>
@@ -93,8 +98,10 @@
                     Review the seller pickup requests assigned to you.
                 @elseif ($myFailedDeliveries->isNotEmpty())
                     A failed delivery is with Logistics for review. Check its recorded attempt and messages.
+                @elseif ($parcelQueueTotal > 0)
+                    Parcels are available on another page. Use the queue tabs and page numbers to find your assigned work.
                 @else
-                    You have no open parcel tasks right now. Great job!
+                    You have no open parcel tasks right now. New assignments will appear in your queues.
                 @endif
             </p>
         </div>

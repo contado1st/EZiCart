@@ -92,6 +92,19 @@ class CartController extends Controller
         return back()->with('success', 'Item removed from cart.');
     }
 
+    public function changeVariation(Request $request, string $cartKey, BuyerCartService $carts): RedirectResponse
+    {
+        $data = $request->validate(['variation_id' => ['required', 'integer', 'min:1']]);
+        $newKey = $carts->changeVariation($request->user(), $cartKey, (int) $data['variation_id']);
+        if ($request->session()->get('checkout_context.mode') === 'cart') {
+            $request->session()->forget(['checkout_context', 'checkout_token', 'checkout_quote_hash', 'applied_voucher']);
+        }
+        $request->session()->put('cart', $carts->display($request->user()));
+
+        return redirect()->route('cart.index')->with('success', 'Variation updated. Prices and availability have been refreshed.')
+            ->with('cart_variation_change', ['previous_key' => $cartKey, 'new_key' => $newKey]);
+    }
+
     private function beginDraft(Request $request, array $items, string $mode): void
     {
         $request->session()->forget(['checkout_token', 'checkout_quote_hash', 'applied_voucher']);

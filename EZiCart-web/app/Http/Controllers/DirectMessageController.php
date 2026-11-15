@@ -10,6 +10,7 @@ use App\Models\User;
 use App\Notifications\DirectMessageNotification;
 use App\Services\ChatAttachmentService;
 use App\Services\DirectMessagingService;
+use App\Services\MessageRetractionService;
 use App\Services\MessagingInboxService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -88,6 +89,7 @@ class DirectMessageController extends Controller
     public function productImage(Request $request, DirectMessage $message)
     {
         abort_unless($message->conversation->hasParticipant($request->user()), 403);
+        abort_if($message->unsent_at, 410);
         $path = $message->product_context['image_path'] ?? null;
         abort_unless(is_string($path) && Storage::disk('public')->exists($path), 404);
         $mime = Storage::disk('public')->mimeType($path);
@@ -95,5 +97,28 @@ class DirectMessageController extends Controller
 
         return Storage::disk('public')->response($path, 'product-enquiry', ['Content-Type' => $mime,
             'X-Content-Type-Options' => 'nosniff', 'Cache-Control' => 'private, no-store', 'Content-Security-Policy' => "default-src 'none'; sandbox"], 'inline');
+    }
+
+    public function destroy(Request $request, DirectMessage $message, MessageRetractionService $retractions)
+    {
+        $request->validate(['panel' => ['nullable', 'boolean']]);
+        $message = $retractions->message($message, $request->user());
+
+        return redirect()->route('chat.show', [$message->conversation_id, 'panel' => $request->boolean('panel') ? 1 : null])
+            ->with('success', 'Message unsent for everyone.');
+    }
+
+    public function retractions(Request $request, DirectConversation $conversation)
+    {
+        abort_unless($conversation->hasParticipant($request->user()), 403);
+        $data = $request->validate(['message_ids' => ['required', 'array', 'min:1', 'max:40'], 'message_ids.*' => ['required', 'integer', 'min:1', 'distinct']]);
+        $messages = $conversation->messages()->whereIn('id', $data['message_ids'])
+            ->with('attachments:id,direct_message_id,unsent_at')->get(['id', 'conversation_id', 'body', 'unsent_at']);
+
+        return response()->json(['messages' => $messages->map(fn ($message) => [
+            'id' => $message->id, 'unsent' => $message->unsent_at !== null,
+            'attachments_only_unsent' => $message->body === 'Attachments unsent.',
+            'attachment_ids' => $message->attachments->whereNotNull('unsent_at')->pluck('id')->values(),
+        ])->values()])->header('Cache-Control', 'private, no-store');
     }
 }

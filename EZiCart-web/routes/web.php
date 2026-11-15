@@ -176,6 +176,7 @@ Route::middleware(['auth', 'account.active', 'auth.session'])->group(function ()
     Route::post('/orders/{order}/evidence', [ParcelEvidenceController::class, 'store'])->middleware('throttle:operational-action')->name('parcel-evidence.store');
     Route::get('/parcel-evidence/{evidence}/photo', [ParcelEvidenceController::class, 'photo'])->name('parcel-evidence.photo');
     Route::get('/chat/attachments/{attachment}', [ChatAttachmentController::class, 'show'])->name('chat.attachments.show');
+    Route::delete('/chat/attachments/{attachment}', [ChatAttachmentController::class, 'destroy'])->middleware('throttle:operational-action')->name('chat.attachments.destroy');
     Route::get('/buyer/vouchers', [VoucherClaimController::class, 'index'])->middleware('role:buyer')->name('buyer.vouchers.index');
     Route::post('/buyer/vouchers/{voucher}/claim', [VoucherClaimController::class, 'store'])->middleware(['role:buyer', 'throttle:operational-action'])->name('buyer.vouchers.claim');
     Route::get('/seller/availability', [ShopAvailabilityController::class, 'edit'])->middleware('role:seller')->name('seller.availability.edit');
@@ -196,7 +197,9 @@ Route::middleware(['auth', 'account.active', 'auth.session'])->group(function ()
         Route::get('/chat/contacts', [DirectMessageController::class, 'contacts'])->name('chat.contacts');
         Route::post('/chat/start/{recipient}', [DirectMessageController::class, 'start'])->middleware('throttle:operational-action')->name('chat.start');
         Route::get('/chat/messages/{message}/product-image', [DirectMessageController::class, 'productImage'])->whereNumber('message')->name('chat.product-image');
+        Route::delete('/chat/messages/{message}', [DirectMessageController::class, 'destroy'])->whereNumber('message')->middleware('throttle:operational-action')->name('chat.destroy');
         Route::get('/chat/conversations/{conversation}', [DirectMessageController::class, 'show'])->name('chat.show');
+        Route::get('/chat/conversations/{conversation}/retractions', [DirectMessageController::class, 'retractions'])->name('chat.retractions');
         Route::post('/chat/conversations/{conversation}/messages', [DirectMessageController::class, 'store'])->middleware('throttle:operational-action')->name('chat.store');
     });
     Route::get('/sales-reports', SalesReportController::class)->middleware('role:seller,admin,ecommerce_admin')->name('sales-reports.index');
@@ -318,6 +321,7 @@ Route::middleware(['auth', 'account.active', 'auth.session'])->group(function ()
             Route::post('/checkout', [CartController::class, 'select'])->middleware('throttle:operational-action')->name('checkout');
             Route::post('/add/{product}', [CartController::class, 'add'])->middleware('throttle:operational-action')->name('add');
             Route::patch('/update/{cartKey}', [CartController::class, 'update'])->middleware('throttle:operational-action')->name('update');
+            Route::patch('/variation/{cartKey}', [CartController::class, 'changeVariation'])->where('cartKey', '[0-9]+(?:_[0-9]+)?')->middleware('throttle:operational-action')->name('variation');
             Route::delete('/remove/{cartKey}', [CartController::class, 'remove'])->middleware('throttle:operational-action')->name('remove');
         });
 

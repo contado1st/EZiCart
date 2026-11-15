@@ -112,6 +112,32 @@ body.dashboard-workspace.workspace-logistics {
 .dashboard-workspace :is(.dash-title, .ops-heading h1) { margin: 0; color: var(--workspace-ink); font-family: inherit; font-size: 25px; line-height: 1.25; font-weight: 650; letter-spacing: -.025em; text-wrap: balance; }
 .dashboard-workspace :is(.dash-subtitle, .ops-heading p) { color: var(--workspace-muted); margin: 7px 0 0; max-width: 75ch; font-size: 12px; line-height: 1.6; }
 .dashboard-workspace .dash-header > div:last-child:not(:first-child) { display: flex; flex-wrap: wrap; gap: 8px; }
+.dashboard-workspace .workspace-page-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.dashboard-workspace .workspace-page-actions > a { margin: 0; min-height: 44px; font-size: 13px; }
+.dashboard-workspace :is(.workspace-filter-form, .workspace-row-form) { display: flex; align-items: flex-end; flex-wrap: wrap; gap: 10px; margin-block: 16px; }
+.dashboard-workspace :is(.workspace-filter-form, .workspace-row-form) > label { display: grid; gap: 6px; flex: 1 1 240px; max-width: 32rem; min-width: 0; font-size: 12px; }
+.dashboard-workspace :is(.workspace-filter-form, .workspace-row-form, .workspace-review-actions) :is(input:not([type="hidden"]), select, textarea) { width: 100%; min-width: 0; padding: 9px 10px; }
+.dashboard-workspace .workspace-row-form { padding-top: 16px; border-top: 1px solid var(--workspace-line); }
+.dashboard-workspace .workspace-review-item { padding-block: 18px; border-top: 1px solid var(--workspace-line); overflow-wrap: anywhere; }
+.dashboard-workspace .workspace-review-item h3 { margin: 0 0 6px; font-size: 15px; line-height: 1.5; }
+.dashboard-workspace .workspace-review-meta { margin: 4px 0; color: var(--workspace-muted); font-size: 12px; line-height: 1.6; }
+.dashboard-workspace .workspace-review-item .workspace-page-actions { margin-top: 12px; }
+.dashboard-workspace .workspace-review-link { display: inline-flex; align-items: center; min-height: 32px; width: fit-content; margin-top: 10px; color: var(--workspace-accent); font-size: 12px; text-underline-offset: 3px; }
+.dashboard-workspace .dash-approval-row { flex-wrap: wrap; gap: 16px; }
+.dashboard-workspace .dash-approval-row > div { min-width: 0; max-width: 100%; overflow-wrap: anywhere; }
+.dashboard-workspace .workspace-review-actions { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 10px; margin-top: 12px; min-width: 0; max-width: 100%; }
+.dashboard-workspace .workspace-review-actions > form { display: flex; align-items: flex-end; flex-wrap: wrap; gap: 8px; min-width: 0; max-width: 100%; margin: 0; }
+.dashboard-workspace .workspace-review-actions > form:has(label) { flex: 1 1 240px; }
+.dashboard-workspace .workspace-review-actions label { display: grid; gap: 6px; flex: 1 1 180px; min-width: 0; font-size: 12px; }
+.dashboard-workspace .workspace-review-actions button { font-size: 12px; }
+.dashboard-workspace .workspace-table-disclosure { min-width: 0; max-width: 28rem; margin-top: 10px; }
+.dashboard-workspace .workspace-table-disclosure > summary { min-height: 44px; padding: 10px 12px; border: 1px solid var(--workspace-line); border-radius: 7px; background: var(--workspace-canvas); font-size: 12px; line-height: 1.6; cursor: pointer; }
+.dashboard-workspace .workspace-table-disclosure > form { display: grid; justify-items: start; gap: 10px; min-width: 0; margin: 0; }
+.dashboard-workspace .workspace-table-disclosure label { display: grid; gap: 6px; width: 100%; min-width: 0; font-size: 12px; }
+.dashboard-workspace .workspace-table-disclosure :is(input:not([type="hidden"]), select, textarea) { width: 100%; min-width: 0; padding: 8px 10px; }
+.dashboard-workspace .wallet-page > :is(.dash-header, .workspace-order-tabs, .workspace-tabs, .workspace-metrics) { margin-block: 0; }
+.dashboard-workspace .profile-review-page > :is(.dash-header, .workspace-filter-form) { margin-block: 0; }
+.dashboard-workspace .dash-table .financial-amount { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .dashboard-workspace .dash-title .shop-icon { color: var(--workspace-accent); width: 23px; height: 23px; vertical-align: middle; }
 .dashboard-workspace :is(.dash-stats-grid, .ops-stats) { display: grid; grid-template-columns: repeat(auto-fit, minmax(165px, 1fr)); gap: 16px; margin: 0 0 24px; padding: 0; background: transparent; border: 0; }
 .dashboard-workspace :is(.dash-stat-card, .ops-stats .ops-stat, .workspace-metric) { position: relative; display: flex; flex-direction: column; gap: 0; min-height: 138px; margin: 0; padding: 20px; border: 1px solid var(--workspace-line); border-radius: 14px; background: #fff; box-shadow: none; text-decoration: none; overflow: hidden; }
@@ -244,6 +270,8 @@ body.workspace-nav-collapsed { --workspace-sidebar-width: 76px; }
 }
 @media (max-width: 900px) {
     body.dashboard-workspace { --workspace-sidebar-width: 0px; }
+    /* The sidebar leaves grid flow on mobile. Do not leave content in its zero-width track. */
+    .workspace-frame { grid-template-columns: minmax(0, 1fr); }
     .workspace-topbar { grid-template-columns: 174px minmax(0, 1fr); }
     .workspace-brand { padding: 0 16px; border-right: 0; }
     .workspace-toolbar { padding-inline: 8px 16px; }

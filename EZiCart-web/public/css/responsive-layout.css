@@ -77,6 +77,18 @@
     grid-template-columns: repeat(auto-fit, minmax(min(100%, 180px), 1fr));
 }
 
+/* Six rider totals stay balanced instead of leaving one card on a separate row. */
+.workspace-page .courier-work-summary { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+@container workspace-main (min-width: 1200px) {
+    .workspace-page .courier-work-summary { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+}
+@container workspace-main (max-width: 640px) {
+    .workspace-page .courier-work-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@container workspace-main (max-width: 350px) {
+    .workspace-page .courier-work-summary { grid-template-columns: minmax(0, 1fr); }
+}
+
 .workspace-page .dash-workflow-grid {
     grid-template-columns: minmax(0, 2fr) minmax(260px, 1fr);
 }
@@ -92,6 +104,11 @@
 .workspace-page .controls-grid {
     grid-template-columns: minmax(240px, 1fr) minmax(0, 2fr);
 }
+
+/* These subpages also respond to the space left beside the sidebar. */
+.workspace-page .vouchers-grid { grid-template-columns: minmax(260px, 360px) minmax(0, 1fr); }
+.workspace-page .dispute-detail-grid { grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); }
+.workspace-page :is(.vouchers-grid, .dispute-detail-grid, .controls-grid) > * { min-width: 0; }
 
 .workspace-page .workspace-account-grid {
     grid-template-columns: repeat(auto-fit, minmax(min(100%, 230px), 1fr));
@@ -114,7 +131,7 @@
 }
 
 @container workspace-main (max-width: 850px) {
-    .workspace-page :is(.dash-workflow-grid, .ops-grid, .workspace-admin-grid, .controls-grid) {
+    .workspace-page :is(.dash-workflow-grid, .ops-grid, .workspace-admin-grid, .controls-grid, .vouchers-grid, .dispute-detail-grid) {
         grid-template-columns: minmax(0, 1fr);
     }
 }
@@ -213,13 +230,16 @@
 @media (max-width: 900px) {
     .workspace-sidebar {
         width: min(270px, calc(100vw - 24px));
+        padding-top: env(safe-area-inset-top, 0px);
+        padding-bottom: env(safe-area-inset-bottom, 0px);
     }
 }
 
 @media (max-width: 540px) {
     body.dashboard-workspace {
-        --workspace-header-height: 104px;
+        --workspace-header-height: 116px;
     }
+    body.dashboard-workspace:has(.workspace-topbar--local-action) { --workspace-header-height: 64px; }
     .workspace-topbar {
         grid-template-columns: 128px minmax(0, 1fr);
     }
@@ -227,17 +247,59 @@
         align-self: start;
         height: 56px;
     }
+    .workspace-brand { gap: 4px; padding-inline: 8px; }
+    .workspace-brand img { width: 60px; }
+    .workspace-icon-button { width: 44px; height: 44px; }
     .workspace-toolbar {
         padding-left: 0;
     }
     .workspace-primary-action {
         position: absolute;
         inset: auto 12px 8px;
-        min-height: 32px;
+        min-height: 44px;
+        font-size: 12px;
         white-space: normal;
         text-align: center;
     }
     .dashboard-workspace :is(section[id], article[id]) {
         scroll-margin-top: 120px;
     }
+}
+
+/* Keep operational coordination reachable without horizontal panning on phones. */
+@media (max-width: 640px) {
+    .workspace-page .workspace-parcel-table { display: block; min-width: 0; width: 100%; }
+    .workspace-page .workspace-parcel-table thead { position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+    .workspace-page .workspace-parcel-table tbody { display: block; width: 100%; }
+    .workspace-page .workspace-parcel-table tbody > tr { display: block; padding: 10px; border-bottom: 1px solid var(--workspace-line); }
+    .workspace-page .workspace-parcel-table tbody > tr:last-child { border-bottom: 0; }
+    .workspace-page .workspace-parcel-table td { display: grid; grid-template-columns: 84px minmax(0, 1fr); gap: 10px; width: 100%; padding: 8px 0; border: 0; }
+    .workspace-page .workspace-parcel-table td::before { content: attr(data-label); color: var(--workspace-muted); font-size: 11px; font-weight: 600; }
+    .workspace-page .workspace-parcel-table td[colspan] { display: block; }
+    .workspace-page .workspace-parcel-table td[colspan]::before { display: none; }
+    .workspace-page .workspace-parcel-table .parcel-weight-label { grid-column: 2; }
+    .workspace-page .workspace-parcel-table td > p { grid-column: 2; }
+    .workspace-page .workspace-parcel-table .workspace-table-disclosure { grid-column: 2; margin-top: 0; max-width: 100%; }
+}
+
+@container workspace-main (min-width: 350px) and (max-width: 640px) {
+    .workspace-page .workspace-metrics.buyer-purchases-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@container workspace-main (max-width: 640px) {
+    .workspace-page .buyer-orders-content .workspace-order-filter { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 8px; width: 100%; }
+    .workspace-page .buyer-orders-content .workspace-order-filter > label { grid-column: 1 / -1; }
+    .workspace-page .buyer-orders-content .workspace-order-filter > select { min-width: 0; width: 100%; max-width: none; }
+}
+
+/* Approval evidence and decisions stay together on small screens. */
+@media (max-width: 640px) {
+    .workspace-page .profile-review-table { display: block; width: 100%; min-width: 0; }
+    .workspace-page .profile-review-table thead { position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+    .workspace-page .profile-review-table tbody { display: block; width: 100%; }
+    .workspace-page .profile-review-table tbody > tr { display: block; padding: 10px; border-bottom: 1px solid var(--workspace-line); }
+    .workspace-page .profile-review-table td { display: block; width: 100%; min-width: 0; padding: 10px 0; border: 0; overflow-wrap: anywhere; }
+    .workspace-page .profile-review-table td::before { display: block; content: attr(data-label); margin-bottom: 8px; font-size: 12px; font-weight: 650; color: var(--workspace-ink); }
+    .workspace-page .profile-review-table td[colspan]::before { display: none; }
+    .workspace-page .profile-review-table td:nth-child(2), .workspace-page .profile-review-table .profile-review-decision { min-width: 0; }
 }

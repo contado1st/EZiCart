@@ -223,7 +223,7 @@
         </footer>
     @endunless
 
-    @if(auth()->check() && in_array(auth()->user()->role, ['buyer', 'seller', 'courier', 'sorting_center', 'admin', 'ecommerce_admin', 'logistics_admin'], true))
+    @if(auth()->check() && !request()->routeIs('chat.*', '*.orders.messages.*') && in_array(auth()->user()->role, ['buyer', 'seller', 'courier', 'sorting_center', 'admin', 'ecommerce_admin', 'logistics_admin'], true))
         @include('components.message-drawer')
     @endif
 

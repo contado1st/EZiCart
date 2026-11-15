@@ -14,7 +14,7 @@ class DirectMessage extends Model
 
     protected function casts(): array
     {
-        return ['read_at' => 'datetime', 'product_context' => 'array'];
+        return ['read_at' => 'datetime', 'unsent_at' => 'datetime', 'product_context' => 'array'];
     }
 
     public function conversation(): BelongsTo

@@ -4,7 +4,7 @@
     @vite('resources/css/buyer/cart.css')
 @endpush
 @section('content')
-<main class="cart-container cart-page" data-cart-selection data-buyer="{{ auth()->id() }}" data-quote-url="{{ route('cart.selection-quote') }}">
+<main class="cart-container cart-page" data-cart-selection data-buyer="{{ auth()->id() }}" data-quote-url="{{ route('cart.selection-quote') }}" @if(session('cart_variation_change')) data-variation-previous-key="{{ session('cart_variation_change.previous_key') }}" data-variation-new-key="{{ session('cart_variation_change.new_key') }}" @endif>
     <header class="cart-heading"><div><h1>Shopping cart</h1><p>Buy several products from one shop per checkout. Everything else stays saved for later.</p></div><a href="{{ route('home') }}">Continue shopping</a></header>
     @include('components.feature-feedback')
     @if(session('error'))<p class="cart-feedback" role="alert">{{ session('error') }}</p>@endif
@@ -32,7 +32,9 @@
                         <div class="cart-product">
                             <input type="checkbox" name="selected_keys[]" value="{{ $key }}" form="cart-checkout-selection" data-cart-item data-shop-id="{{ $sellerId }}" data-cents="{{ $item['unit_cents'] }}" data-quantity="{{ $item['quantity'] }}" data-total-cents="{{ $item['item_cents'] ?? $item['unit_cents'] * $item['quantity'] }}" @checked(isset($selected[$key])) @disabled(!$item['available']) aria-label="Buy {{ $item['name'] }}">
                             @if($item['image_path'])<img src="{{ asset('storage/'.$item['image_path']) }}" alt="" loading="lazy">@else<span class="cart-product-placeholder"><x-shop-icon name="package1" /></span>@endif
-                            <div><a class="cart-product-title" href="{{ route('product.show', $item['product_id']) }}">{{ $item['name'] }}</a>@if($item['variation_info'])<p>{{ $item['variation_info'] }}</p>@endif<p class="cart-unit-mobile" data-line-breakdown>@foreach($item['price_segments'] ?? [['quantity' => $item['quantity'], 'unit_cents' => $item['unit_cents'], 'label' => 'Current price']] as $segment){{ $segment['quantity'] }} × &#8369;{{ number_format($segment['unit_cents'] / 100, 2) }} {{ $segment['label'] }}{{ $loop->last ? '' : ' + ' }}@endforeach</p>@if($item['unavailable_reason'])<p class="cart-line-warning">{{ $item['unavailable_reason'] }}</p>@endif</div>
+                            <div><a class="cart-product-title" href="{{ route('product.show', $item['product_id']) }}">{{ $item['name'] }}</a>@if($item['variation_info'])<p>{{ $item['variation_info'] }}</p>@endif
+                                @include('cart.partials.variation-selector')
+                                <p class="cart-unit-mobile" data-line-breakdown>@foreach($item['price_segments'] ?? [['quantity' => $item['quantity'], 'unit_cents' => $item['unit_cents'], 'label' => 'Current price']] as $segment){{ $segment['quantity'] }} × &#8369;{{ number_format($segment['unit_cents'] / 100, 2) }} {{ $segment['label'] }}{{ $loop->last ? '' : ' + ' }}@endforeach</p>@if($item['unavailable_reason'])<p class="cart-line-warning">{{ $item['unavailable_reason'] }}</p>@endif</div>
                         </div>
                         <span class="cart-unit-price" data-line-breakdown>@foreach($item['price_segments'] ?? [['quantity' => $item['quantity'], 'unit_cents' => $item['unit_cents'], 'label' => 'Current price']] as $segment){{ $segment['quantity'] }} × &#8369;{{ number_format($segment['unit_cents'] / 100, 2) }} {{ $segment['label'] }}{{ $loop->last ? '' : ' + ' }}@endforeach</span>
                         <form class="cart-quantity" method="POST" action="{{ route('cart.update', $key) }}">@csrf @method('PATCH')<div><button type="button" data-qty-step="-1" aria-label="Decrease {{ $item['name'] }} quantity">&minus;</button><label class="cart-sr-only" for="quantity-{{ $key }}">Quantity for {{ $item['name'] }}</label><input id="quantity-{{ $key }}" type="number" name="quantity" value="{{ $item['quantity'] }}" min="1" max="20" required><button type="button" data-qty-step="1" aria-label="Increase {{ $item['name'] }} quantity">+</button></div><button class="cart-text-button" type="submit">Update</button></form>
@@ -54,4 +56,5 @@
     @endif
 </main>
 <script src="{{ asset('js/cart-selection.js') }}?v={{ filemtime(public_path('js/cart-selection.js')) }}" defer></script>
+<script src="{{ asset('js/cart-variation-preview.js') }}?v={{ filemtime(public_path('js/cart-variation-preview.js')) }}" defer></script>
 @endsection

@@ -4,7 +4,8 @@
     gap: 20px;
 }
 .buyer-address-card { display: flex; flex-direction: column; min-width: 0; }
-.buyer-address-card-heading { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 20px; }
+.buyer-address-card-heading { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 20px; }
+.buyer-address-card-heading > * { min-width: 0; overflow-wrap: anywhere; }
 .buyer-address-card-heading h2 { margin: 0; font-size: 16px; font-weight: 600; }
 .buyer-address-default { display: inline-flex; width: fit-content; padding: 4px 8px; border-radius: 5px; font-size: 11px; color: var(--workspace-accent, #be2854); background: var(--workspace-soft, #fff0f4); }
 .buyer-address-summary { font-size: 13px; line-height: 1.8; color: var(--workspace-ink, #202634); overflow-wrap: anywhere; }
