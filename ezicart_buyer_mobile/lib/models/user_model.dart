@@ -20,6 +20,13 @@ class UserModel {
   final String? streetAddress;
   final String? houseNumber;
   final String? postalCode;
+  final String? profileDisplayName;
+  final String? profileBio;
+  final String profileTheme;
+  final String? avatarUrl;
+  final String? bannerUrl;
+  final bool hasAvatar;
+  final bool hasBanner;
 
   UserModel({
     required this.id,
@@ -41,6 +48,13 @@ class UserModel {
     this.streetAddress,
     this.houseNumber,
     this.postalCode,
+    this.profileDisplayName,
+    this.profileBio,
+    this.profileTheme = 'rose',
+    this.avatarUrl,
+    this.bannerUrl,
+    this.hasAvatar = false,
+    this.hasBanner = false,
   });
 
   factory UserModel.fromJson(Map<String, dynamic> json) {
@@ -68,8 +82,19 @@ class UserModel {
       streetAddress: json['street_address']?.toString(),
       houseNumber: json['house_number']?.toString(),
       postalCode: json['postal_code']?.toString(),
+      profileDisplayName: json['profile_display_name']?.toString(),
+      profileBio: json['profile_bio']?.toString(),
+      profileTheme: json['profile_theme']?.toString() ?? 'rose',
+      avatarUrl: json['avatar_url']?.toString(),
+      bannerUrl: json['banner_url']?.toString(),
+      hasAvatar: json['has_avatar'] == true,
+      hasBanner: json['has_banner'] == true,
     );
   }
+
+  String get displayName => (profileDisplayName != null && profileDisplayName!.trim().isNotEmpty)
+      ? profileDisplayName!.trim()
+      : fullName;
 
   String get fullName => name;
 

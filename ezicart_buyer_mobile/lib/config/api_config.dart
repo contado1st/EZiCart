@@ -91,6 +91,7 @@ class ApiConfig {
   static String get productsEndpoint => '$baseUrl/products';
   static String get categoriesEndpoint => '$baseUrl/categories';
   static String productDetailEndpoint(int id) => '$baseUrl/products/$id';
+  static String searchSuggestionsEndpoint(String q) => '$baseUrl/products/suggestions?q=${Uri.encodeComponent(q)}';
 
   // Shop / Storefront endpoints
   static String shopDetailsEndpoint(int id) => '$baseUrl/shops/$id';
@@ -98,6 +99,10 @@ class ApiConfig {
   static String get followedShopsEndpoint => '$baseUrl/buyer/followed-shops';
 
   // Cart & Pricing endpoints
+  static String get cartEndpoint => '$baseUrl/cart';
+  static String get cartItemsEndpoint => '$baseUrl/cart/items';
+  static String cartItemEndpoint(String key) => '$baseUrl/cart/items/$key';
+  static String get cartSyncEndpoint => '$baseUrl/cart/sync';
   static String get cartQuoteEndpoint => '$baseUrl/cart/quote';
 
   // Checkout & Orders endpoints
@@ -142,8 +147,10 @@ class ApiConfig {
   static String chatConversationEndpoint(int id) => '$baseUrl/chat/$id';
   static String chatSendMessageEndpoint(int id) => '$baseUrl/chat/$id/messages';
   static String chatStartEndpoint(int sellerId) => '$baseUrl/chat/start/$sellerId';
+  static String chatAttachmentEndpoint(int id) => '$baseUrl/chat/attachments/$id';
 
   // Account endpoints
   static String get updateProfileEndpoint => '$baseUrl/account/profile';
   static String get updatePasswordEndpoint => '$baseUrl/account/password';
+  static String get updateAppearanceEndpoint => '$baseUrl/account/appearance';
 }

@@ -90,6 +90,7 @@ class BuyerCartService
                 'unit_cents' => $price, 'image_path' => $variation?->image_path ?: $product?->image_path,
                 'seller_id' => $product?->user_id ?? 0, 'seller_name' => $product?->seller?->business_name ?: 'Shop unavailable',
                 'variation_info' => $variation ? $variation->type.': '.$variation->value : null, 'variation_options' => $variationOptions,
+                                          'variations' => $options->where('is_active', true)->values()->all(),
                 'available' => $reason === null, 'unavailable_reason' => $reason, 'max_quantity' => $stock];
         }
         unset($line);

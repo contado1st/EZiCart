@@ -106,10 +106,10 @@ class _PsgcAddressFormState extends State<PsgcAddressForm> {
 
   void _notifyChange() {
     final data = AddressFormData(
-      region: _isManual ? _manualRegionCtrl.text.trim() : (_selectedRegion?.name ?? ''),
-      province: _isManual ? _manualProvinceCtrl.text.trim() : (_selectedProvince?.name ?? ''),
-      municipality: _isManual ? _manualMuniCtrl.text.trim() : (_selectedLocality?.name ?? ''),
-      barangay: _isManual ? _manualBrgyCtrl.text.trim() : (_selectedBarangay?.name ?? ''),
+      region: _isManual ? _manualRegionCtrl.text.trim() : (_selectedRegion?.name ?? widget.initialData.region),
+      province: _isManual ? _manualProvinceCtrl.text.trim() : (_selectedProvince?.name ?? widget.initialData.province),
+      municipality: _isManual ? _manualMuniCtrl.text.trim() : (_selectedLocality?.name ?? widget.initialData.municipality),
+      barangay: _isManual ? _manualBrgyCtrl.text.trim() : (_selectedBarangay?.name ?? widget.initialData.barangay),
       houseNumber: _houseCtrl.text.trim().isNotEmpty ? _houseCtrl.text.trim() : null,
       streetAddress: _streetCtrl.text.trim().isNotEmpty ? _streetCtrl.text.trim() : null,
       postalCode: _postalCtrl.text.trim().isNotEmpty ? _postalCtrl.text.trim() : null,

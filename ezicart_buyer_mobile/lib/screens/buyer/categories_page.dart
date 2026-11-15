@@ -33,52 +33,51 @@ class _CategoriesPageState extends State<CategoriesPage> {
           final list = (body['data'] as List)
               .map((c) => CategoryModel.fromJson(c as Map<String, dynamic>))
               .toList();
-          setState(() {
-            _categories = list;
-            _isLoading = false;
-          });
-          return;
+          if (mounted) {
+            setState(() {
+              _categories = list;
+              _isLoading = false;
+            });
+            return;
+          }
         }
       }
     } catch (_) {}
-    setState(() {
-      _categories = [
-        CategoryModel(name: 'Beauty', icon: 'face', productCount: 0),
-        CategoryModel(name: 'Home & Living', icon: 'home', productCount: 0),
-        CategoryModel(name: 'Fashion', icon: 'checkroom', productCount: 0),
-        CategoryModel(name: 'Electronics', icon: 'devices', productCount: 0),
-        CategoryModel(name: 'Groceries', icon: 'shopping_basket', productCount: 0),
-      ];
-      _isLoading = false;
-    });
-  }
 
-  IconData _getCategoryIcon(String name) {
-    switch (name.toLowerCase()) {
-      case 'beauty':
-        return Icons.brush_outlined;
-      case 'home & living':
-        return Icons.home_outlined;
-      case 'fashion':
-        return Icons.checkroom_outlined;
-      case 'electronics':
-        return Icons.devices_outlined;
-      case 'groceries':
-        return Icons.shopping_basket_outlined;
-      default:
-        return Icons.category_outlined;
+    if (mounted) {
+      setState(() {
+        _categories = [
+          CategoryModel(name: 'Pet Supplies', icon: 'pets', productCount: 0),
+          CategoryModel(name: 'Electronics and Gadgets', icon: 'devices', productCount: 0),
+          CategoryModel(name: "Women's Apparel", icon: 'woman', productCount: 0),
+          CategoryModel(name: "Men's Apparel", icon: 'man', productCount: 0),
+          CategoryModel(name: 'Kids and Baby', icon: 'child_care', productCount: 0),
+          CategoryModel(name: 'Home and Garden', icon: 'yard', productCount: 0),
+          CategoryModel(name: 'Sports and Outdoors', icon: 'sports_basketball', productCount: 0),
+          CategoryModel(name: 'Health and Beauty', icon: 'spa', productCount: 0),
+          CategoryModel(name: 'Books and Media', icon: 'menu_book', productCount: 0),
+          CategoryModel(name: 'Food and Gourmet', icon: 'restaurant', productCount: 0),
+          CategoryModel(name: 'Furniture and Office Equipment', icon: 'chair', productCount: 0),
+          CategoryModel(name: 'Jewelry and Watches', icon: 'watch', productCount: 0),
+        ];
+        _isLoading = false;
+      });
     }
   }
 
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
-      return const Center(child: CircularProgressIndicator());
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
     }
 
     return Scaffold(
+      backgroundColor: AppTheme.bg,
       appBar: AppBar(
-        title: const Text('Product Categories'),
+        title: const Text('All Categories'),
+        elevation: 0,
       ),
       body: SafeArea(
         child: RefreshIndicator(
@@ -86,20 +85,21 @@ class _CategoriesPageState extends State<CategoriesPage> {
           child: GridView.builder(
             padding: const EdgeInsets.all(16),
             gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 2,
-              mainAxisSpacing: 14,
-              crossAxisSpacing: 14,
-              childAspectRatio: 1.15,
+              crossAxisCount: 3,
+              mainAxisSpacing: 12,
+              crossAxisSpacing: 12,
+              childAspectRatio: 0.85,
             ),
             itemCount: _categories.length,
             itemBuilder: (context, i) {
               final cat = _categories[i];
-              return Card(
+              final iconData = CategoryModel.getIcon(cat.name);
+              final iconColor = CategoryModel.getColor(cat.name);
+
+              return Material(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(14),
                 elevation: 0,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14),
-                  side: const BorderSide(color: AppTheme.line),
-                ),
                 child: InkWell(
                   borderRadius: BorderRadius.circular(14),
                   onTap: () {
@@ -109,38 +109,45 @@ class _CategoriesPageState extends State<CategoriesPage> {
                       Navigator.of(context).pop(cat.name);
                     }
                   },
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: AppTheme.line),
+                    ),
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Container(
-                          padding: const EdgeInsets.all(12),
+                          padding: const EdgeInsets.all(10),
                           decoration: BoxDecoration(
-                            color: AppTheme.primarySoft,
-                            borderRadius: BorderRadius.circular(12),
+                            color: iconColor.withValues(alpha: 0.1),
+                            shape: BoxShape.circle,
                           ),
                           child: Icon(
-                            _getCategoryIcon(cat.name),
-                            color: AppTheme.primary,
-                            size: 32,
+                            iconData,
+                            color: iconColor,
+                            size: 26,
                           ),
                         ),
-                        const SizedBox(height: 12),
+                        const SizedBox(height: 10),
                         Text(
                           cat.name,
                           textAlign: TextAlign.center,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            fontSize: 11.5,
                             color: AppTheme.ink,
+                            height: 1.2,
                           ),
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          '${cat.productCount} Items',
+                          '${cat.productCount} items',
                           style: const TextStyle(
-                            fontSize: 12,
+                            fontSize: 10,
                             color: AppTheme.muted,
                           ),
                         ),
@@ -156,4 +163,3 @@ class _CategoriesPageState extends State<CategoriesPage> {
     );
   }
 }
-

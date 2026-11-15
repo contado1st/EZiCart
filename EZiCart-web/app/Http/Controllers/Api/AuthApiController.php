@@ -46,13 +46,25 @@ class AuthApiController extends Controller
             ], 422);
         }
 
-        // Enforce Buyer Role only
-        if ($user->role !== 'buyer') {
-            return response()->json([
-                'success' => false,
-                'message' => 'This mobile application is exclusively for registered Buyers. Non-buyer accounts must use the web portal.',
-                'role' => $user->role,
-            ], 403);
+        $isCourierRequest = $request->input('app') === 'courier' || $request->input('role') === 'courier' || str_contains($request->path(), 'courier');
+
+        if ($isCourierRequest) {
+            if ($user->role !== 'courier') {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'This mobile application is exclusively for registered Drivers and Couriers.',
+                    'role' => $user->role,
+                ], 403);
+            }
+        } else {
+            // Enforce Buyer Role only
+            if ($user->role !== 'buyer') {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'This mobile application is exclusively for registered Buyers. Non-buyer accounts must use the web portal.',
+                    'role' => $user->role,
+                ], 403);
+            }
         }
 
         // Status verification
@@ -89,7 +101,7 @@ class AuthApiController extends Controller
             $user->forceFill(['email_verified_at' => now()])->save();
         }
 
-        $tokenResult = ApiToken::createTokenForUser($user, 'buyer_mobile');
+        $tokenResult = ApiToken::createTokenForUser($user, $isCourierRequest ? 'courier_mobile' : 'buyer_mobile');
 
         return response()->json([
             'success' => true,
@@ -209,7 +221,7 @@ class AuthApiController extends Controller
 
         $record->delete();
 
-        $tokenResult = ApiToken::createTokenForUser($user, 'buyer_mobile');
+        $tokenResult = ApiToken::createTokenForUser($user, $isCourierRequest ? 'courier_mobile' : 'buyer_mobile');
 
         return response()->json([
             'success' => true,
@@ -261,35 +273,68 @@ class AuthApiController extends Controller
      */
     public function forgotPassword(Request $request): JsonResponse
     {
-        $validated = $request->validate(['email' => ['required', 'email', 'max:255']]);
+        $validated = $request->validate([
+            'email' => ['required', 'email', 'max:255'],
+            'role' => ['nullable', 'string', 'in:courier,buyer'],
+        ]);
         $email = Str::lower(trim($validated['email']));
 
         $user = User::whereRaw('LOWER(TRIM(email)) = ?', [$email])->first();
 
-        if ($user && $user->status === 'approved') {
-            $code = (string) random_int(100000, 999999);
-            try {
-                $user->notify(new PasswordRecoveryCodeNotification($code));
-            } catch (\Throwable $e) {
-                report($e);
-            }
+        $isCourierRequest = $request->input('app') === 'courier' || $request->input('role') === 'courier' || str_contains($request->path(), 'courier');
 
-            // Save reset code record
-            EmailVerificationCode::updateOrCreate(
-                ['user_id' => $user->id],
-                [
-                    'code_hash' => Hash::make($code),
-                    'expires_at' => now()->addMinutes(15),
-                    'attempts' => 0,
-                    'last_sent_at' => now(),
-                    'channel' => 'email',
-                ]
-            );
+        if (! $user) {
+            return response()->json([
+                'success' => false,
+                'message' => $isCourierRequest
+                    ? 'No driver or courier account found with this email address.'
+                    : 'If an active buyer account matches that email address, a password recovery code has been sent.',
+            ], $isCourierRequest ? 404 : 200);
         }
+
+        if ($isCourierRequest && $user->role !== 'courier') {
+            return response()->json([
+                'success' => false,
+                'message' => 'This account is not registered as a driver or courier.',
+            ], 403);
+        }
+
+        if (! $isCourierRequest && $user->role !== 'buyer') {
+            return response()->json([
+                'success' => false,
+                'message' => 'This password reset portal is exclusively for registered buyers.',
+            ], 403);
+        }
+
+        if ($user->status === 'suspended') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Your account is suspended. Please contact dispatch or customer support.',
+            ], 403);
+        }
+
+        $code = (string) random_int(100000, 999999);
+        try {
+            $user->notify(new PasswordRecoveryCodeNotification($code));
+        } catch (\Throwable $e) {
+            report($e);
+        }
+
+        // Save reset code record
+        EmailVerificationCode::updateOrCreate(
+            ['user_id' => $user->id],
+            [
+                'code_hash' => Hash::make($code),
+                'expires_at' => now()->addMinutes(15),
+                'attempts' => 0,
+                'last_sent_at' => now(),
+                'channel' => 'email',
+            ]
+        );
 
         return response()->json([
             'success' => true,
-            'message' => 'If an active buyer account matches that email address, a password recovery code has been sent.',
+            'message' => 'A 6-digit recovery code has been sent to your email address.',
         ]);
     }
 
@@ -311,6 +356,21 @@ class AuthApiController extends Controller
             return response()->json(['success' => false, 'message' => 'Account not found.'], 404);
         }
 
+        $isCourierRequest = $request->input('app') === 'courier' || $request->input('role') === 'courier' || str_contains($request->path(), 'courier');
+        if ($isCourierRequest && $user->role !== 'courier') {
+            return response()->json([
+                'success' => false,
+                'message' => 'This account is not registered as a driver or courier.',
+            ], 403);
+        }
+
+        if (! $isCourierRequest && $user->role !== 'buyer') {
+            return response()->json([
+                'success' => false,
+                'message' => 'This password reset portal is exclusively for registered buyers.',
+            ], 403);
+        }
+
         $record = EmailVerificationCode::where('user_id', $user->id)->first();
 
         if (! $record || ! Hash::check($validated['code'], $record->code_hash)) {
@@ -319,6 +379,13 @@ class AuthApiController extends Controller
 
         if ($record->expires_at && Carbon::parse($record->expires_at)->isPast()) {
             return response()->json(['success' => false, 'message' => 'Recovery code has expired. Request a new one.'], 422);
+        }
+
+        if (Hash::check($validated['password'], $user->password)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'New password must be different from your current password.',
+            ], 422);
         }
 
         $user->forceFill([
@@ -331,7 +398,7 @@ class AuthApiController extends Controller
         // Invalidate previous API tokens
         $user->apiTokens()->delete();
 
-        $tokenResult = ApiToken::createTokenForUser($user, 'buyer_mobile');
+        $tokenResult = ApiToken::createTokenForUser($user, $isCourierRequest ? 'courier_mobile' : 'buyer_mobile');
 
         return response()->json([
             'success' => true,
@@ -349,7 +416,12 @@ class AuthApiController extends Controller
     {
         $user = $request->user();
 
-        $counts = [
+        $counts = $user->role === 'courier' ? [
+            'claimed_pickups' => \App\Models\Order::where('pickup_courier_id', $user->id)->where('status', 'READY_FOR_PICKUP')->whereNotNull('pickup_claimed_at')->count(),
+            'in_transit_hub' => \App\Models\Order::where('pickup_courier_id', $user->id)->where('status', 'PICKED_UP')->count(),
+            'assigned_delivery' => \App\Models\Order::where('delivery_courier_id', $user->id)->whereIn('status', ['ASSIGNED_TO_RIDER', 'OUT_FOR_DELIVERY'])->count(),
+            'returning_to_seller' => \App\Models\Order::where('delivery_courier_id', $user->id)->where('status', \App\Enums\OrderStatus::ReturnInTransit->value)->whereNull('return_handed_to_seller_at')->count(),
+        ] : [
             'all' => $user->buyerOrders()->count(),
             'to_ship' => $user->buyerOrders()->whereIn('status', ['PLACED', 'CONFIRMED', 'PREPARING'])->whereNot(fn ($q) => $q->awaitingWalletPayment())->count(),
             'to_pay' => $user->buyerOrders()->awaitingWalletPayment()->count(),
@@ -429,6 +501,13 @@ class AuthApiController extends Controller
             'age' => $user->age,
             'role' => $user->role,
             'status' => $user->status,
+            'badge_code' => $user->badge_code,
+            'vehicle_type' => $user->vehicle_type,
+            'plate_number' => $user->plate_number,
+            'vehicle_category' => $user->vehicle_category,
+            'vehicle_description' => $user->vehicle_description,
+            'vehicle_capacity_grams' => $user->vehicle_capacity_grams,
+            'hub_transfer_only' => (bool) $user->hub_transfer_only,
             'region' => $user->region,
             'province' => $user->province,
             'municipality' => $user->municipality,
@@ -436,6 +515,13 @@ class AuthApiController extends Controller
             'street_address' => $user->street_address,
             'house_number' => $user->house_number,
             'postal_code' => $user->postal_code,
+            'profile_display_name' => $user->profile_display_name,
+            'profile_bio' => $user->profile_bio,
+            'profile_theme' => $user->profile_theme ?: 'rose',
+            'has_avatar' => !empty($user->profile_avatar_path),
+            'has_banner' => !empty($user->profile_banner_path),
+            'avatar_url' => $user->profile_avatar_path ? url('/api/account/profile/media/avatar?v='.($user->updated_at?->timestamp ?? time())) : null,
+            'banner_url' => $user->profile_banner_path ? url('/api/account/profile/media/banner?v='.($user->updated_at?->timestamp ?? time())) : null,
         ];
     }
 }

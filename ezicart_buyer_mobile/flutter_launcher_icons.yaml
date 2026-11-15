@@ -1,0 +1,7 @@
+flutter_launcher_icons:
+  android: "ic_launcher"
+  ios: true
+  image_path: "assets/images/ezicart-icon.png"
+  min_sdk_android: 21
+  adaptive_icon_background: "assets/images/ezicart-adaptive-bg.png"
+  adaptive_icon_foreground: "assets/images/ezicart-adaptive-fg.png"

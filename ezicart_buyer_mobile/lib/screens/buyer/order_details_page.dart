@@ -7,6 +7,7 @@ import '../../config/api_config.dart';
 import '../../config/theme.dart';
 import '../../models/order_model.dart';
 import '../../services/api_service.dart';
+import '../../utils/philippine_time.dart';
 import 'create_dispute_page.dart';
 import 'messages_page.dart';
 import 'shop_page.dart';
@@ -74,7 +75,15 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
           TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Keep Order')),
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            onPressed: () => Navigator.pop(ctx, true),
+            onPressed: () {
+              if (reasonCtrl.text.trim().isEmpty) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Please provide a reason for cancellation.')),
+                );
+                return;
+              }
+              Navigator.pop(ctx, true);
+            },
             child: const Text('Cancel Order'),
           ),
         ],
@@ -202,8 +211,9 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
               TextField(
                 controller: commentCtrl,
                 maxLines: 3,
+                maxLength: 500,
                 decoration: const InputDecoration(
-                  hintText: 'Share your feedback on the product quality...',
+                  hintText: 'Share your feedback on the product quality (max 500 characters)...',
                 ),
               ),
             ],
@@ -212,6 +222,18 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
             TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
             ElevatedButton(
               onPressed: () async {
+                if (rating < 1) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Please select at least 1 star.')),
+                  );
+                  return;
+                }
+                if (commentCtrl.text.trim().length > 500) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Review cannot exceed 500 characters.')),
+                  );
+                  return;
+                }
                 Navigator.pop(ctx);
                 final scaffold = ScaffoldMessenger.of(context);
                 try {
@@ -347,7 +369,7 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        'Placed on: ${_order!.createdAt}',
+                        'Placed on: ${PhilippineTime.format(_order!.createdAt)}',
                         style: const TextStyle(fontSize: 12, color: AppTheme.muted),
                       ),
                     ],

@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\AuthApiController;
 use App\Http\Controllers\Api\CartApiController;
 use App\Http\Controllers\Api\ChatApiController;
 use App\Http\Controllers\Api\CheckoutApiController;
+use App\Http\Controllers\Api\CourierApiController;
 use App\Http\Controllers\Api\DiscoveryApiController;
 use App\Http\Controllers\Api\NotificationApiController;
 use App\Http\Controllers\Api\OrderApiController;
@@ -28,6 +29,8 @@ $defineApiRoutes = function () {
     // Public Auth
     Route::post('/login', [AuthApiController::class, 'login'])->middleware('throttle:auth-login');
     Route::post('/auth/login', [AuthApiController::class, 'login'])->middleware('throttle:auth-login');
+    Route::post('/courier/login', [AuthApiController::class, 'login'])->middleware('throttle:auth-login');
+    Route::post('/auth/courier/login', [AuthApiController::class, 'login'])->middleware('throttle:auth-login');
     Route::post('/register', [AuthApiController::class, 'register'])->middleware('throttle:registration');
     Route::post('/auth/register', [AuthApiController::class, 'register'])->middleware('throttle:registration');
     Route::post('/verify-email', [AuthApiController::class, 'verifyEmail'])->middleware('throttle:email-verification');
@@ -36,11 +39,16 @@ $defineApiRoutes = function () {
     Route::post('/auth/resend-verification', [AuthApiController::class, 'resendVerificationCode'])->middleware('throttle:email-verification-resend');
     Route::post('/forgot-password', [AuthApiController::class, 'forgotPassword'])->middleware('throttle:password-reset-link');
     Route::post('/auth/forgot-password', [AuthApiController::class, 'forgotPassword'])->middleware('throttle:password-reset-link');
+    Route::post('/courier/forgot-password', [AuthApiController::class, 'forgotPassword'])->middleware('throttle:password-reset-link');
+    Route::post('/auth/courier/forgot-password', [AuthApiController::class, 'forgotPassword'])->middleware('throttle:password-reset-link');
     Route::post('/reset-password', [AuthApiController::class, 'resetPassword'])->middleware('throttle:password-reset');
     Route::post('/auth/reset-password', [AuthApiController::class, 'resetPassword'])->middleware('throttle:password-reset');
+    Route::post('/courier/reset-password', [AuthApiController::class, 'resetPassword'])->middleware('throttle:password-reset');
+    Route::post('/auth/courier/reset-password', [AuthApiController::class, 'resetPassword'])->middleware('throttle:password-reset');
 
     // Catalog & Products (Public)
     Route::get('/products', [ProductApiController::class, 'index']);
+    Route::get('/products/suggestions', [ProductApiController::class, 'suggestions']);
     Route::get('/products/{id}', [ProductApiController::class, 'show'])->whereNumber('id');
     Route::get('/categories', [ProductApiController::class, 'categories']);
 
@@ -55,6 +63,14 @@ $defineApiRoutes = function () {
 
     // Authenticated Buyer Only Routes
     Route::middleware('auth.api:buyer')->group(function () {
+        // Persistent Buyer Cart (synchronized with Web database)
+        Route::get('/cart', [CartApiController::class, 'index']);
+        Route::post('/cart/items', [CartApiController::class, 'addItem']);
+        Route::patch('/cart/items/{key}', [CartApiController::class, 'updateItem']);
+        Route::delete('/cart/items/{key}', [CartApiController::class, 'removeItem']);
+        Route::delete('/cart', [CartApiController::class, 'clearCart']);
+        Route::post('/cart/sync', [CartApiController::class, 'sync']);
+
         // Current User Profile & Logout
         Route::get('/me', [AuthApiController::class, 'me']);
         Route::get('/auth/me', [AuthApiController::class, 'me']);
@@ -64,6 +80,8 @@ $defineApiRoutes = function () {
         // Profile & Security Management
         Route::put('/account/profile', [ProfileApiController::class, 'updateProfile']);
         Route::put('/account/password', [ProfileApiController::class, 'updatePassword']);
+        Route::post('/account/appearance', [ProfileApiController::class, 'updateAppearance']);
+        Route::get('/account/profile/media/{type}', [ProfileApiController::class, 'media']);
 
         // Seller Shop Following
         Route::post('/shops/{id}/follow', [ShopApiController::class, 'follow'])->whereNumber('id')->middleware('throttle:operational-action');
@@ -114,6 +132,39 @@ $defineApiRoutes = function () {
         Route::get('/chat/{conversation}', [ChatApiController::class, 'show'])->whereNumber('conversation');
         Route::post('/chat/{conversation}/messages', [ChatApiController::class, 'sendMessage'])->whereNumber('conversation');
         Route::post('/chat/start/{sellerId}', [ChatApiController::class, 'start'])->whereNumber('sellerId');
+        Route::get('/chat/attachments/{attachment}', [ChatApiController::class, 'attachment'])->whereNumber('attachment');
+    });
+
+    // Authenticated Driver & Courier Routes
+    Route::middleware('auth.api:courier')->prefix('courier')->group(function () {
+        Route::get('/me', [AuthApiController::class, 'me']);
+        Route::get('/auth/me', [AuthApiController::class, 'me']);
+        Route::post('/logout', [AuthApiController::class, 'logout']);
+        Route::post('/auth/logout', [AuthApiController::class, 'logout']);
+        Route::put('/password', [ProfileApiController::class, 'updatePassword']);
+        Route::put('/account/password', [ProfileApiController::class, 'updatePassword']);
+
+        Route::get('/dashboard', [CourierApiController::class, 'dashboard']);
+        Route::post('/badge/rotate', [CourierApiController::class, 'rotateBadge']);
+        Route::get('/orders/{id}', [CourierApiController::class, 'showOrder'])->whereNumber('id');
+        Route::post('/orders/{id}/claim', [CourierApiController::class, 'claimPickup'])->whereNumber('id');
+        Route::post('/orders/{id}/decline-pickup', [CourierApiController::class, 'declinePickup'])->whereNumber('id');
+        Route::post('/orders/{id}/arrive', [CourierApiController::class, 'arriveAtPickup'])->whereNumber('id');
+        Route::post('/orders/{id}/confirm-pickup', [CourierApiController::class, 'confirmPickup'])->whereNumber('id');
+        Route::post('/orders/{id}/accept-assignment', [CourierApiController::class, 'acceptDeliveryAssignment'])->whereNumber('id');
+        Route::post('/orders/{id}/start-delivery', [CourierApiController::class, 'startDelivery'])->whereNumber('id');
+        Route::post('/orders/{id}/decline-delivery-assignment', [CourierApiController::class, 'declineDeliveryAssignment'])->whereNumber('id');
+        Route::post('/orders/{id}/complete-delivery', [CourierApiController::class, 'completeDelivery'])->whereNumber('id');
+        Route::patch('/orders/{id}/complete-delivery', [CourierApiController::class, 'completeDelivery'])->whereNumber('id');
+        Route::post('/orders/{id}/fail-delivery', [CourierApiController::class, 'failDelivery'])->whereNumber('id');
+        Route::patch('/orders/{id}/fail-delivery', [CourierApiController::class, 'failDelivery'])->whereNumber('id');
+        Route::post('/orders/{id}/confirm-return-delivery', [CourierApiController::class, 'confirmReturnDelivery'])->whereNumber('id');
+        Route::get('/history', [CourierApiController::class, 'history']);
+        Route::get('/tracking', [CourierApiController::class, 'tracking']);
+        Route::get('/earnings', [CourierApiController::class, 'earnings']);
+        Route::post('/orders/{id}/remittance', [CourierApiController::class, 'submitRemittance'])->whereNumber('id');
+        Route::get('/orders/{id}/messages', [CourierApiController::class, 'orderMessages'])->whereNumber('id');
+        Route::post('/orders/{id}/messages', [CourierApiController::class, 'sendOrderMessage'])->whereNumber('id');
     });
 };
 
