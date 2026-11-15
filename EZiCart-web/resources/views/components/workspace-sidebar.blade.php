@@ -120,29 +120,65 @@
 @endphp
 <aside class="workspace-sidebar" id="workspace-sidebar" aria-label="{{ $sidebarRole }} navigation">
     <div class="workspace-sidebar-heading"><span class="workspace-role-dot" aria-hidden="true"></span><span class="workspace-nav-label">{{ $sidebarRole }}</span><button type="button" class="workspace-icon-button workspace-mobile-close" data-workspace-close aria-label="Close navigation"><x-shop-icon name="close" /></button></div>
-    <nav class="workspace-navigation">
+    <nav class="workspace-navigation" data-user-role="{{ $sidebarUser->role }}">
         @foreach ($navigation as $group => $items)
-            <div class="workspace-nav-group"><p class="workspace-nav-heading">{{ $group }}</p>
-                @foreach ($items as [$destination, $icon, $label, $pattern])
-                    @php
-                        [$destinationRoute, $destinationAnchor] = array_pad(explode('#', $destination, 2), 2, null);
-                        $isActive = $pattern !== '' && request()->routeIs($pattern);
-                    @endphp
-                    <a href="{{ route($destinationRoute) }}{{ $destinationAnchor ? '#'.$destinationAnchor : '' }}" @class(['workspace-nav-link', 'is-active' => $isActive]) @if ($isActive) aria-current="page" @endif title="{{ $label }}" @if($destinationRoute === 'chat.index') data-communication-label="{{ $label }}" aria-label="{{ $label }}{{ $communicationCounts['messages'] ? ', '.$communicationCounts['messages'].' unread' : '' }}" @else aria-label="{{ $label }}" @endif><x-shop-icon :name="$icon" /><span class="workspace-nav-label">{{ $label }}</span>@if($destinationRoute === 'chat.index')<x-communication-count kind="messages" :count="$communicationCounts['messages']" />@endif</a>
-                @endforeach
-            </div>
+            @php
+                $groupId = \Illuminate\Support\Str::slug($group);
+                $hasActiveItem = collect($items)->contains(function ($item) {
+                    $pattern = $item[3] ?? '';
+                    return $pattern !== '' && request()->routeIs($pattern);
+                });
+                $hasGroupUnread = collect($items)->contains(function ($item) use ($communicationCounts) {
+                    return ($item[0] ?? '') === 'chat.index' && ($communicationCounts['messages'] ?? 0) > 0;
+                });
+            @endphp
+            <details class="workspace-nav-group workspace-nav-dropdown" data-nav-group="{{ $groupId }}" @if($hasActiveItem) open data-active-group="true" @else open @endif>
+                <summary class="workspace-nav-heading workspace-nav-dropdown-trigger" aria-label="Toggle {{ $group }} section" title="Click to collapse or expand {{ $group }}">
+                    <span class="workspace-nav-group-title">{{ $group }}</span>
+                    <span class="workspace-nav-group-meta">
+                        @if($hasGroupUnread)
+                            <span class="workspace-group-badge" title="{{ $communicationCounts['messages'] }} unread messages" aria-label="Unread updates"></span>
+                        @endif
+                        <x-shop-icon name="chevron-down" class="workspace-dropdown-chevron" />
+                    </span>
+                </summary>
+                <div class="workspace-nav-group-content">
+                    @foreach ($items as [$destination, $icon, $label, $pattern])
+                        @php
+                            [$destinationRoute, $destinationAnchor] = array_pad(explode('#', $destination, 2), 2, null);
+                            $isActive = $pattern !== '' && request()->routeIs($pattern);
+                        @endphp
+                        <a href="{{ route($destinationRoute) }}{{ $destinationAnchor ? '#'.$destinationAnchor : '' }}" @class(['workspace-nav-link', 'is-active' => $isActive]) @if ($isActive) aria-current="page" @endif title="{{ $label }}" @if($destinationRoute === 'chat.index') data-communication-label="{{ $label }}" aria-label="{{ $label }}{{ $communicationCounts['messages'] ? ', '.$communicationCounts['messages'].' unread' : '' }}" @else aria-label="{{ $label }}" @endif><x-shop-icon :name="$icon" /><span class="workspace-nav-label">{{ $label }}</span>@if($destinationRoute === 'chat.index')<x-communication-count kind="messages" :count="$communicationCounts['messages']" />@endif</a>
+                    @endforeach
+                </div>
+            </details>
         @endforeach
-        <div class="workspace-nav-group"><p class="workspace-nav-heading">Account</p>
-            <a href="{{ route('login', ['__tab' => bin2hex(random_bytes(16)), '__new_account' => 1]) }}" target="_blank" rel="noopener" data-tab-session="new-tab" class="workspace-nav-link" title="Sign in another account in a new tab"><x-shop-icon name="account" /><span class="workspace-nav-label">Sign in another account</span></a>
-            @if($sidebarUser->role === 'seller' && $sidebarUser->status === 'approved')<a class="workspace-nav-link" href="{{ route('shops.show', $sidebarUser) }}" title="View my shop"><x-shop-icon name="package1" /><span class="workspace-nav-label">View my shop</span></a>@endif
-            <a href="{{ route('notifications.index') }}" @class(['workspace-nav-link', 'is-active' => request()->routeIs('notifications.*')]) title="Notifications" data-communication-label="Notifications" aria-label="Notifications{{ $communicationCounts['notifications'] ? ', '.$communicationCounts['notifications'].' unread' : '' }}"><x-shop-icon name="bell" /><span class="workspace-nav-label">Notifications</span><x-communication-count kind="notifications" :count="$communicationCounts['notifications']" /></a>
-            <a href="{{ route('account.profile.edit') }}" @class(['workspace-nav-link', 'is-active' => request()->routeIs('account.profile.*')]) title="Account & profile"><x-shop-icon name="settings" /><span class="workspace-nav-label">Account & profile</span></a>
-            <a href="{{ route('finance.wallet') }}" @class(['workspace-nav-link', 'is-active' => request()->routeIs('finance.*', 'wallet.*')]) @if(request()->routeIs('finance.*', 'wallet.*')) aria-current="page" @endif title="Finance & Wallet"><x-shop-icon name="money" /><span class="workspace-nav-label">Finance &amp; Wallet</span></a>
-            @if ($sidebarUser->role === 'buyer')
-                <a href="{{ route('buyer.addresses.index') }}" @class(['workspace-nav-link', 'is-active' => request()->routeIs('buyer.addresses.*')]) title="Addresses" @if (request()->routeIs('buyer.addresses.*')) aria-current="page" @endif><x-shop-icon name="location" /><span class="workspace-nav-label">Addresses</span></a>
-                <a href="{{ route('account.profile.edit') }}#buyer-password" class="workspace-nav-link" title="Change password"><x-shop-icon name="lock" /><span class="workspace-nav-label">Change password</span></a>
-            @endif
-        </div>
+        @php
+            $isAccountActive = request()->routeIs('notifications.*', 'account.profile.*', 'finance.*', 'wallet.*', 'buyer.addresses.*');
+            $hasAccountUnread = ($communicationCounts['notifications'] ?? 0) > 0;
+        @endphp
+        <details class="workspace-nav-group workspace-nav-dropdown" data-nav-group="account" @if($isAccountActive) open data-active-group="true" @else open @endif>
+            <summary class="workspace-nav-heading workspace-nav-dropdown-trigger" aria-label="Toggle Account section" title="Click to collapse or expand Account">
+                <span class="workspace-nav-group-title">Account</span>
+                <span class="workspace-nav-group-meta">
+                    @if($hasAccountUnread)
+                        <span class="workspace-group-badge" title="{{ $communicationCounts['notifications'] }} unread notifications" aria-label="Unread notifications"></span>
+                    @endif
+                    <x-shop-icon name="chevron-down" class="workspace-dropdown-chevron" />
+                </span>
+            </summary>
+            <div class="workspace-nav-group-content">
+                <a href="{{ route('login', ['__tab' => bin2hex(random_bytes(16)), '__new_account' => 1]) }}" target="_blank" rel="noopener" data-tab-session="new-tab" class="workspace-nav-link" title="Sign in another account in a new tab"><x-shop-icon name="account" /><span class="workspace-nav-label">Sign in another account</span></a>
+                @if($sidebarUser->role === 'seller' && $sidebarUser->status === 'approved')<a class="workspace-nav-link" href="{{ route('shops.show', $sidebarUser) }}" title="View my shop"><x-shop-icon name="package1" /><span class="workspace-nav-label">View my shop</span></a>@endif
+                <a href="{{ route('notifications.index') }}" @class(['workspace-nav-link', 'is-active' => request()->routeIs('notifications.*')]) title="Notifications" data-communication-label="Notifications" aria-label="Notifications{{ $communicationCounts['notifications'] ? ', '.$communicationCounts['notifications'].' unread' : '' }}"><x-shop-icon name="bell" /><span class="workspace-nav-label">Notifications</span><x-communication-count kind="notifications" :count="$communicationCounts['notifications']" /></a>
+                <a href="{{ route('account.profile.edit') }}" @class(['workspace-nav-link', 'is-active' => request()->routeIs('account.profile.*')]) title="Account & profile"><x-shop-icon name="settings" /><span class="workspace-nav-label">Account & profile</span></a>
+                <a href="{{ route('finance.wallet') }}" @class(['workspace-nav-link', 'is-active' => request()->routeIs('finance.*', 'wallet.*')]) @if(request()->routeIs('finance.*', 'wallet.*')) aria-current="page" @endif title="Finance & Wallet"><x-shop-icon name="money" /><span class="workspace-nav-label">Finance &amp; Wallet</span></a>
+                @if ($sidebarUser->role === 'buyer')
+                    <a href="{{ route('buyer.addresses.index') }}" @class(['workspace-nav-link', 'is-active' => request()->routeIs('buyer.addresses.*')]) title="Addresses" @if (request()->routeIs('buyer.addresses.*')) aria-current="page" @endif><x-shop-icon name="location" /><span class="workspace-nav-label">Addresses</span></a>
+                    <a href="{{ route('account.profile.edit') }}#buyer-password" class="workspace-nav-link" title="Change password"><x-shop-icon name="lock" /><span class="workspace-nav-label">Change password</span></a>
+                @endif
+            </div>
+        </details>
     </nav>
     <div class="workspace-sidebar-footer">
         <a href="{{ route('account.profile.edit') }}" class="workspace-user-link"><span class="workspace-avatar"><x-profile-avatar :user="$sidebarUser" /></span><span class="workspace-nav-label"><strong>{{ $sidebarUser->first_name }} {{ $sidebarUser->last_name }}</strong><small>{{ $sidebarRole }}</small></span></a>

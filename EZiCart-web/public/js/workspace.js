@@ -43,4 +43,49 @@
     });
     mobile.addEventListener('change', () => close(sidebar.contains(document.activeElement)));
     close();
+
+    // Nav Group Accordion Dropdown State Persistence
+    const nav = sidebar.querySelector('.workspace-navigation');
+    if (nav) {
+        const userRole = nav.dataset.userRole || 'default';
+        const storageKey = `ezicart_sidebar_nav_${userRole}`;
+        const dropdowns = nav.querySelectorAll('details.workspace-nav-dropdown');
+
+        try {
+            const raw = localStorage.getItem(storageKey);
+            if (raw) {
+                const saved = JSON.parse(raw);
+                dropdowns.forEach(details => {
+                    const gid = details.dataset.navGroup;
+                    const isActive = details.dataset.activeGroup === 'true' || details.querySelector('.is-active');
+                    if (isActive) {
+                        details.open = true;
+                    } else if (gid && typeof saved[gid] === 'boolean') {
+                        details.open = saved[gid];
+                    }
+                });
+            }
+        } catch (_) {}
+
+        const persistDropdowns = () => {
+            try {
+                const state = {};
+                dropdowns.forEach(details => {
+                    const gid = details.dataset.navGroup;
+                    if (gid) state[gid] = details.open;
+                });
+                localStorage.setItem(storageKey, JSON.stringify(state));
+            } catch (_) {}
+        };
+
+        dropdowns.forEach(details => {
+            details.addEventListener('toggle', () => {
+                // If group contains the active item, keep it open to prevent user disorientation
+                if (!details.open && (details.dataset.activeGroup === 'true' || details.querySelector('.is-active'))) {
+                    details.open = true;
+                }
+                persistDropdowns();
+            });
+        });
+    }
 })();
