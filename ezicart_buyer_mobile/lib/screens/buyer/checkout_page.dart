@@ -775,12 +775,16 @@ class _CheckoutPageState extends State<CheckoutPage> {
                             ],
                           ),
                           InkWell(
-                            onTap: () {
-                              Navigator.of(context).push(
-                                MaterialPageRoute(builder: (_) => const VouchersPage()),
+                            onTap: () async {
+                              final selectedCode = await Navigator.of(context).push<String>(
+                                MaterialPageRoute(builder: (_) => const VouchersPage(selectMode: true)),
                               );
+                              if (selectedCode != null && selectedCode.isNotEmpty) {
+                                _voucherCtrl.text = selectedCode;
+                                _applyVoucher();
+                              }
                             },
-                            child: const Text('Browse Vouchers', style: TextStyle(fontSize: 11.5, color: AppTheme.primary, fontWeight: FontWeight.w600)),
+                            child: const Text('Select Voucher', style: TextStyle(fontSize: 11.5, color: AppTheme.primary, fontWeight: FontWeight.w600)),
                           ),
                         ],
                       ),

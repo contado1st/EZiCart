@@ -12,6 +12,7 @@ import 'parcel_evidence_page.dart';
 import 'parcel_incidents_page.dart';
 import 'return_pickups_page.dart';
 import 'shop_page.dart';
+import 'vouchers_page.dart';
 import 'wallet_page.dart';
 import 'wishlist_page.dart';
 
@@ -1411,8 +1412,69 @@ class _ProfilePageState extends State<ProfilePage> {
             ),
             const SizedBox(height: 16),
 
-            // ─────────────────────────────────────────────────────────
-            // SECTION 3: PROFILE DETAILS ("buyer-profile")
+            // Voucher Center Quick Navigation Card
+            InkWell(
+              onTap: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const VouchersPage()),
+                );
+              },
+              borderRadius: BorderRadius.circular(16),
+              child: Container(
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: const Color(0xFFEAECEF)),
+                ),
+                padding: const EdgeInsets.all(16),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: Colors.amber.shade50,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Icon(
+                        Icons.confirmation_number_outlined,
+                        color: Colors.amber.shade800,
+                        size: 24,
+                      ),
+                    ),
+                    const SizedBox(width: 14),
+                    const Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Voucher Center',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 14.5,
+                              color: AppTheme.ink,
+                            ),
+                          ),
+                          SizedBox(height: 2),
+                          Text(
+                            'Browse platform discounts, seller vouchers, and claim offers.',
+                            style: TextStyle(
+                              fontSize: 11.5,
+                              color: AppTheme.muted,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const Icon(
+                      Icons.chevron_right,
+                      color: AppTheme.muted,
+                      size: 20,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
             // ─────────────────────────────────────────────────────────
             Container(
               decoration: BoxDecoration(
