@@ -199,6 +199,24 @@ class AuthApiController extends Controller
             return response()->json(['success' => false, 'message' => 'User account not found.'], 404);
         }
 
+        $isCourierRequest = ($user->role === 'courier')
+            || $request->input('app') === 'courier'
+            || $request->input('role') === 'courier'
+            || str_contains($request->path(), 'courier');
+
+        // If user is already approved and verified (e.g. from an earlier attempt where verification succeeded)
+        if ($user->status === 'approved' && $user->email_verified_at !== null) {
+            $tokenResult = ApiToken::createTokenForUser($user, $isCourierRequest ? 'courier_mobile' : 'buyer_mobile');
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Email verified successfully! You are now logged in.',
+                'token' => $tokenResult['plainTextToken'],
+                'token_type' => 'Bearer',
+                'user' => $this->formatUser($user),
+            ]);
+        }
+
         $record = EmailVerificationCode::where('user_id', $user->id)->first();
 
         if (! $record || ! Hash::check($validated['code'], $record->code_hash)) {
@@ -219,9 +237,9 @@ class AuthApiController extends Controller
             'status' => 'approved',
         ])->save();
 
-        $record->delete();
-
         $tokenResult = ApiToken::createTokenForUser($user, $isCourierRequest ? 'courier_mobile' : 'buyer_mobile');
+
+        $record->delete();
 
         return response()->json([
             'success' => true,
@@ -247,6 +265,14 @@ class AuthApiController extends Controller
 
         if (! $user) {
             return response()->json(['success' => false, 'message' => 'Account not found.'], 404);
+        }
+
+        if ($user->status === 'approved' && $user->email_verified_at !== null) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Your email is already verified. You can now log in.',
+                'already_verified' => true,
+            ]);
         }
 
         $record = EmailVerificationCode::firstOrNew(['user_id' => $user->id]);

@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../../config/theme.dart';
 import '../../providers/auth_provider.dart';
@@ -106,7 +107,9 @@ class _OtpVerificationPageState extends State<OtpVerificationPage>
     if (_secondsUntilExpiry <= 0) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('This verification code has expired. Please tap Resend Code.'),
+          content: Text(
+            'This verification code has expired. Please tap Resend Code.',
+          ),
           backgroundColor: Colors.red,
         ),
       );
@@ -144,7 +147,9 @@ class _OtpVerificationPageState extends State<OtpVerificationPage>
     if (success) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('A fresh 6-digit verification code has been sent to your email.'),
+          content: Text(
+            'A fresh 6-digit verification code has been sent to your email.',
+          ),
           backgroundColor: Colors.green,
         ),
       );
@@ -192,7 +197,11 @@ class _OtpVerificationPageState extends State<OtpVerificationPage>
           Text(
             'We have sent a 6-digit code to\n${widget.email}',
             textAlign: TextAlign.center,
-            style: const TextStyle(fontSize: 13, color: AppTheme.muted, height: 1.4),
+            style: const TextStyle(
+              fontSize: 13,
+              color: AppTheme.muted,
+              height: 1.4,
+            ),
           ),
           const SizedBox(height: 14),
 
@@ -201,10 +210,14 @@ class _OtpVerificationPageState extends State<OtpVerificationPage>
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               decoration: BoxDecoration(
-                color: _secondsUntilExpiry > 0 ? const Color(0xFFF1F5F9) : const Color(0xFFFEF2F2),
+                color: _secondsUntilExpiry > 0
+                    ? const Color(0xFFF1F5F9)
+                    : const Color(0xFFFEF2F2),
                 borderRadius: BorderRadius.circular(10),
                 border: Border.all(
-                  color: _secondsUntilExpiry > 0 ? const Color(0xFFE2E8F0) : const Color(0xFFFECACA),
+                  color: _secondsUntilExpiry > 0
+                      ? const Color(0xFFE2E8F0)
+                      : const Color(0xFFFECACA),
                 ),
               ),
               child: Row(
@@ -213,7 +226,9 @@ class _OtpVerificationPageState extends State<OtpVerificationPage>
                   Icon(
                     Icons.timer_outlined,
                     size: 15,
-                    color: _secondsUntilExpiry > 0 ? const Color(0xFF64748B) : Colors.red.shade700,
+                    color: _secondsUntilExpiry > 0
+                        ? const Color(0xFF64748B)
+                        : Colors.red.shade700,
                   ),
                   const SizedBox(width: 6),
                   Text(
@@ -223,7 +238,9 @@ class _OtpVerificationPageState extends State<OtpVerificationPage>
                     style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
-                      color: _secondsUntilExpiry > 0 ? const Color(0xFF475569) : Colors.red.shade800,
+                      color: _secondsUntilExpiry > 0
+                          ? const Color(0xFF475569)
+                          : Colors.red.shade800,
                     ),
                   ),
                 ],
@@ -238,7 +255,14 @@ class _OtpVerificationPageState extends State<OtpVerificationPage>
           // OTP Field with paste support (TC-BUY-025, TC-BUY-037)
           TextField(
             controller: _codeCtrl,
-            keyboardType: TextInputType.number,
+            keyboardType: const TextInputType.numberWithOptions(
+              decimal: false,
+              signed: false,
+            ),
+            inputFormatters: [
+              FilteringTextInputFormatter.digitsOnly,
+              LengthLimitingTextInputFormatter(6),
+            ],
             autocorrect: false,
             enableSuggestions: false,
             enableInteractiveSelection: true,
@@ -273,19 +297,26 @@ class _OtpVerificationPageState extends State<OtpVerificationPage>
 
           Center(
             child: TextButton(
-              onPressed: (_secondsUntilResend == 0 && !_isResending) ? _resend : null,
+              onPressed: (_secondsUntilResend == 0 && !_isResending)
+                  ? _resend
+                  : null,
               child: _isResending
                   ? const SizedBox(
                       width: 18,
                       height: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.primary),
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: AppTheme.primary,
+                      ),
                     )
                   : Text(
                       _secondsUntilResend > 0
                           ? 'Resend code in ${_secondsUntilResend}s'
                           : 'Resend Code',
                       style: TextStyle(
-                        color: _secondsUntilResend == 0 ? AppTheme.primary : AppTheme.muted,
+                        color: _secondsUntilResend == 0
+                            ? AppTheme.primary
+                            : AppTheme.muted,
                         fontWeight: FontWeight.w600,
                         fontSize: 13,
                       ),
