@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\MessageAttachment;
 use DOMDocument;
+use DOMElement;
 use DOMXPath;
 use Illuminate\Support\Facades\Storage;
 use ZipArchive;
@@ -143,6 +144,9 @@ class ChatAttachmentPreviewService
                 }
                 $cells = [];
                 foreach ($xpath->query('s:c', $row) as $cell) {
+                    if (! $cell instanceof DOMElement) {
+                        continue;
+                    }
                     if (count($cells) >= 20) {
                         $limited = true;
                         break;

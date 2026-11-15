@@ -176,15 +176,17 @@ class CartVariationChangeTest extends TestCase
         [$buyer, $product, $red, $blue] = $this->fixture();
         $product->forceFill(['image_path' => 'products/base.png'])->save();
         $red->forceFill(['image_path' => 'products/red.png'])->save();
+        $variantPhotoUrl = asset('storage/'.$red->image_path);
+        $productPhotoUrl = asset('storage/'.$product->image_path);
         $carts = app(BuyerCartService::class);
         $carts->add($buyer, $product->id, $red->id, 1);
         $options = $carts->display($buyer)[BuyerCartService::key($product->id, $red->id)]['variation_options'];
-        $this->assertSame(asset('storage/products/red.png'), $options[0]['image_url']);
+        $this->assertSame($variantPhotoUrl, $options[0]['image_url']);
         $this->assertTrue($options[0]['has_own_image']);
-        $this->assertSame(asset('storage/products/base.png'), $options[1]['image_url']);
+        $this->assertSame($productPhotoUrl, $options[1]['image_url']);
         $this->assertFalse($options[1]['has_own_image']);
         $this->actingAs($buyer)->get(route('cart.index'))->assertOk()->assertSee('data-cart-variation-preview', false)
-            ->assertSee('data-preview-image="'.asset('storage/products/red.png').'"', false)->assertSee('Variation photo: Color: Red');
+            ->assertSee('data-preview-image="'.$variantPhotoUrl.'"', false)->assertSee('Variation photo: Color: Red');
     }
 
     private function fixture(): array
