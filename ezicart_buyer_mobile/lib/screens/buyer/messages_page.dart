@@ -24,9 +24,8 @@ class _LocalAttachment {
     required this.name,
     this.extension,
     this.path,
-    this.bytes,
     required this.sizeInBytes,
-  });
+  }) : bytes = null;
 
   Future<Uint8List> readAsBytes() async {
     if (bytes != null) return bytes!;
@@ -175,18 +174,17 @@ class MessagesPageState extends State<MessagesPage> {
                 ),
                 child: Row(
                   children: [
-                    const Icon(
-                      Icons.search,
-                      size: 20,
-                      color: AppTheme.primary,
-                    ),
+                    const Icon(Icons.search, size: 20, color: AppTheme.primary),
                     const SizedBox(width: 10),
                     Expanded(
                       child: TextField(
                         controller: _searchCtrl,
                         textAlignVertical: TextAlignVertical.center,
                         onChanged: (val) => setState(() => _searchQuery = val),
-                        style: const TextStyle(fontSize: 13, color: AppTheme.ink),
+                        style: const TextStyle(
+                          fontSize: 13,
+                          color: AppTheme.ink,
+                        ),
                         decoration: const InputDecoration(
                           isDense: true,
                           hintText: 'Search name or shop',
@@ -209,7 +207,11 @@ class MessagesPageState extends State<MessagesPage> {
                         },
                         child: const Padding(
                           padding: EdgeInsets.symmetric(horizontal: 4),
-                          child: Icon(Icons.clear, size: 18, color: AppTheme.muted),
+                          child: Icon(
+                            Icons.clear,
+                            size: 18,
+                            color: AppTheme.muted,
+                          ),
                         ),
                       ),
                   ],
@@ -278,21 +280,30 @@ class MessagesPageState extends State<MessagesPage> {
                       onRefresh: _fetchThreads,
                       child: ListView.separated(
                         physics: const AlwaysScrollableScrollPhysics(),
-                        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+                        padding: const EdgeInsets.symmetric(
+                          vertical: 8,
+                          horizontal: 12,
+                        ),
                         itemCount: _filteredThreads.length,
                         separatorBuilder: (_, __) => const SizedBox(height: 8),
                         itemBuilder: (context, i) {
                           final t = _filteredThreads[i];
                           final hasUnread = t.unreadCount > 0;
                           final roleColor = _getRoleColor(t.partnerRole);
-                          final resolvedAvatar = ApiConfig.resolveImageUrl(t.avatarUrl);
+                          final resolvedAvatar = ApiConfig.resolveImageUrl(
+                            t.avatarUrl,
+                          );
 
                           return Container(
                             decoration: BoxDecoration(
-                              color: hasUnread ? const Color(0xFFFFF9FA) : Colors.white,
+                              color: hasUnread
+                                  ? const Color(0xFFFFF9FA)
+                                  : Colors.white,
                               borderRadius: BorderRadius.circular(12),
                               border: Border.all(
-                                color: hasUnread ? const Color(0xFFFFD1DC) : const Color(0xFFF1F3F6),
+                                color: hasUnread
+                                    ? const Color(0xFFFFD1DC)
+                                    : const Color(0xFFF1F3F6),
                               ),
                               boxShadow: [
                                 BoxShadow(
@@ -311,16 +322,18 @@ class MessagesPageState extends State<MessagesPage> {
                                   Navigator.of(context)
                                       .push(
                                         MaterialPageRoute(
-                                          builder: (_) => ChatConversationScreen(
-                                            conversationId: t.id,
-                                            partnerName: t.partnerName,
-                                            partnerId: t.partnerId,
-                                            partnerRole: t.partnerRole,
-                                            avatarUrl: t.avatarUrl,
-                                            isOnline: t.isOnline,
-                                            lastActiveAt: t.lastActiveAt,
-                                            lastActiveText: t.lastActiveText,
-                                          ),
+                                          builder: (_) =>
+                                              ChatConversationScreen(
+                                                conversationId: t.id,
+                                                partnerName: t.partnerName,
+                                                partnerId: t.partnerId,
+                                                partnerRole: t.partnerRole,
+                                                avatarUrl: t.avatarUrl,
+                                                isOnline: t.isOnline,
+                                                lastActiveAt: t.lastActiveAt,
+                                                lastActiveText:
+                                                    t.lastActiveText,
+                                              ),
                                         ),
                                       )
                                       .then((_) => _fetchThreads());
@@ -328,7 +341,8 @@ class MessagesPageState extends State<MessagesPage> {
                                 child: Padding(
                                   padding: const EdgeInsets.all(12),
                                   child: Row(
-                                    crossAxisAlignment: CrossAxisAlignment.center,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.center,
                                     children: [
                                       // Clickable Profile Avatar with Online Status
                                       GestureDetector(
@@ -342,8 +356,12 @@ class MessagesPageState extends State<MessagesPage> {
                                               decoration: BoxDecoration(
                                                 gradient: LinearGradient(
                                                   colors: [
-                                                    roleColor.withValues(alpha: 0.15),
-                                                    roleColor.withValues(alpha: 0.25),
+                                                    roleColor.withValues(
+                                                      alpha: 0.15,
+                                                    ),
+                                                    roleColor.withValues(
+                                                      alpha: 0.25,
+                                                    ),
                                                   ],
                                                   begin: Alignment.topLeft,
                                                   end: Alignment.bottomRight,
@@ -353,15 +371,21 @@ class MessagesPageState extends State<MessagesPage> {
                                               child: resolvedAvatar != null
                                                   ? ClipOval(
                                                       child: CachedNetworkImage(
-                                                        imageUrl: resolvedAvatar,
+                                                        imageUrl:
+                                                            resolvedAvatar,
                                                         fit: BoxFit.cover,
                                                         errorWidget: (_, __, ___) => Center(
                                                           child: Text(
-                                                            t.partnerName.isNotEmpty
-                                                                ? t.partnerName[0].toUpperCase()
+                                                            t
+                                                                    .partnerName
+                                                                    .isNotEmpty
+                                                                ? t.partnerName[0]
+                                                                      .toUpperCase()
                                                                 : 'S',
                                                             style: TextStyle(
-                                                              fontWeight: FontWeight.bold,
+                                                              fontWeight:
+                                                                  FontWeight
+                                                                      .bold,
                                                               fontSize: 18,
                                                               color: roleColor,
                                                             ),
@@ -372,10 +396,12 @@ class MessagesPageState extends State<MessagesPage> {
                                                   : Center(
                                                       child: Text(
                                                         t.partnerName.isNotEmpty
-                                                            ? t.partnerName[0].toUpperCase()
+                                                            ? t.partnerName[0]
+                                                                  .toUpperCase()
                                                             : 'S',
                                                         style: TextStyle(
-                                                          fontWeight: FontWeight.bold,
+                                                          fontWeight:
+                                                              FontWeight.bold,
                                                           fontSize: 18,
                                                           color: roleColor,
                                                         ),
@@ -391,9 +417,14 @@ class MessagesPageState extends State<MessagesPage> {
                                                   width: 13,
                                                   height: 13,
                                                   decoration: BoxDecoration(
-                                                    color: const Color(0xFF10B981),
+                                                    color: const Color(
+                                                      0xFF10B981,
+                                                    ),
                                                     shape: BoxShape.circle,
-                                                    border: Border.all(color: Colors.white, width: 2),
+                                                    border: Border.all(
+                                                      color: Colors.white,
+                                                      width: 2,
+                                                    ),
                                                   ),
                                                 ),
                                               ),
@@ -405,7 +436,8 @@ class MessagesPageState extends State<MessagesPage> {
                                       // Two-row structure guaranteeing consistent time alignment across every shop
                                       Expanded(
                                         child: Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
                                           children: [
                                             // Row 1: Name + Role pill on left, Time on far right
                                             Row(
@@ -417,11 +449,15 @@ class MessagesPageState extends State<MessagesPage> {
                                                         child: Text(
                                                           t.partnerName,
                                                           maxLines: 1,
-                                                          overflow: TextOverflow.ellipsis,
+                                                          overflow: TextOverflow
+                                                              .ellipsis,
                                                           style: TextStyle(
-                                                            fontWeight: hasUnread
-                                                                ? FontWeight.bold
-                                                                : FontWeight.w600,
+                                                            fontWeight:
+                                                                hasUnread
+                                                                ? FontWeight
+                                                                      .bold
+                                                                : FontWeight
+                                                                      .w600,
                                                             fontSize: 14.5,
                                                             color: AppTheme.ink,
                                                           ),
@@ -429,19 +465,28 @@ class MessagesPageState extends State<MessagesPage> {
                                                       ),
                                                       const SizedBox(width: 6),
                                                       Container(
-                                                        padding: const EdgeInsets.symmetric(
-                                                          horizontal: 5,
-                                                          vertical: 1.5,
-                                                        ),
+                                                        padding:
+                                                            const EdgeInsets.symmetric(
+                                                              horizontal: 5,
+                                                              vertical: 1.5,
+                                                            ),
                                                         decoration: BoxDecoration(
-                                                          color: roleColor.withValues(alpha: 0.1),
-                                                          borderRadius: BorderRadius.circular(4),
+                                                          color: roleColor
+                                                              .withValues(
+                                                                alpha: 0.1,
+                                                              ),
+                                                          borderRadius:
+                                                              BorderRadius.circular(
+                                                                4,
+                                                              ),
                                                         ),
                                                         child: Text(
-                                                          t.partnerRole.toUpperCase(),
+                                                          t.partnerRole
+                                                              .toUpperCase(),
                                                           style: TextStyle(
                                                             fontSize: 8.5,
-                                                            fontWeight: FontWeight.bold,
+                                                            fontWeight:
+                                                                FontWeight.bold,
                                                             color: roleColor,
                                                             letterSpacing: 0.3,
                                                           ),
@@ -453,7 +498,9 @@ class MessagesPageState extends State<MessagesPage> {
                                                 const SizedBox(width: 8),
                                                 // Fixed right-aligned timestamp in Philippine Time
                                                 Text(
-                                                  PhilippineTime.formatChatTime(t.lastMessageAt),
+                                                  PhilippineTime.formatChatTime(
+                                                    t.lastMessageAt,
+                                                  ),
                                                   style: TextStyle(
                                                     fontSize: 11,
                                                     color: hasUnread
@@ -477,7 +524,8 @@ class MessagesPageState extends State<MessagesPage> {
                                                         ? t.lastMessage
                                                         : 'Start a conversation...',
                                                     maxLines: 1,
-                                                    overflow: TextOverflow.ellipsis,
+                                                    overflow:
+                                                        TextOverflow.ellipsis,
                                                     style: TextStyle(
                                                       fontSize: 12.5,
                                                       color: hasUnread
@@ -492,20 +540,25 @@ class MessagesPageState extends State<MessagesPage> {
                                                 if (hasUnread) ...[
                                                   const SizedBox(width: 8),
                                                   Container(
-                                                    padding: const EdgeInsets.symmetric(
-                                                      horizontal: 7,
-                                                      vertical: 2,
-                                                    ),
+                                                    padding:
+                                                        const EdgeInsets.symmetric(
+                                                          horizontal: 7,
+                                                          vertical: 2,
+                                                        ),
                                                     decoration: BoxDecoration(
                                                       color: AppTheme.primary,
-                                                      borderRadius: BorderRadius.circular(10),
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                            10,
+                                                          ),
                                                     ),
                                                     child: Text(
                                                       '${t.unreadCount}',
                                                       style: const TextStyle(
                                                         color: Colors.white,
                                                         fontSize: 10,
-                                                        fontWeight: FontWeight.bold,
+                                                        fontWeight:
+                                                            FontWeight.bold,
                                                       ),
                                                     ),
                                                   ),
@@ -604,10 +657,8 @@ class _ChatConversationScreenState extends State<ChatConversationScreen> {
     if (_partnerId > 0) {
       Navigator.of(context).push(
         MaterialPageRoute(
-          builder: (_) => ShopPage(
-            sellerId: _partnerId,
-            initialShopName: _partnerName,
-          ),
+          builder: (_) =>
+              ShopPage(sellerId: _partnerId, initialShopName: _partnerName),
         ),
       );
     }
@@ -625,13 +676,17 @@ class _ChatConversationScreenState extends State<ChatConversationScreen> {
 
         if (partner != null && mounted) {
           setState(() {
-            _partnerId = (partner['id'] is int) ? partner['id'] : int.tryParse('${partner['id']}') ?? _partnerId;
+            _partnerId = (partner['id'] is int)
+                ? partner['id']
+                : int.tryParse('${partner['id']}') ?? _partnerId;
             _partnerName = partner['name']?.toString() ?? _partnerName;
             _partnerRole = partner['role']?.toString() ?? _partnerRole;
             _avatarUrl = partner['avatar_url']?.toString() ?? _avatarUrl;
             _isOnline = partner['is_online'] == true;
-            _lastActiveAt = partner['last_active_at']?.toString() ?? _lastActiveAt;
-            _lastActiveText = partner['last_active_text']?.toString() ?? _lastActiveText;
+            _lastActiveAt =
+                partner['last_active_at']?.toString() ?? _lastActiveAt;
+            _lastActiveText =
+                partner['last_active_text']?.toString() ?? _lastActiveText;
           });
         }
 
@@ -705,36 +760,59 @@ class _ChatConversationScreenState extends State<ChatConversationScreen> {
                 ListTile(
                   leading: const CircleAvatar(
                     backgroundColor: Color(0xFFFFF0F4),
-                    child: Icon(Icons.photo_library_rounded, color: AppTheme.primary),
+                    child: Icon(
+                      Icons.photo_library_rounded,
+                      color: AppTheme.primary,
+                    ),
                   ),
-                  title: const Text('Photo Gallery', style: TextStyle(fontWeight: FontWeight.w600)),
+                  title: const Text(
+                    'Photo Gallery',
+                    style: TextStyle(fontWeight: FontWeight.w600),
+                  ),
                   subtitle: const Text('Select photos from your gallery'),
-                  onTap: () {
+                  onTap: () async {
                     Navigator.pop(ctx);
+                    await Future.delayed(const Duration(milliseconds: 120));
                     _pickFromGallery();
                   },
                 ),
                 ListTile(
                   leading: const CircleAvatar(
                     backgroundColor: Color(0xFFEFF6FF),
-                    child: Icon(Icons.camera_alt_rounded, color: Color(0xFF2563EB)),
+                    child: Icon(
+                      Icons.camera_alt_rounded,
+                      color: Color(0xFF2563EB),
+                    ),
                   ),
-                  title: const Text('Take Photo', style: TextStyle(fontWeight: FontWeight.w600)),
+                  title: const Text(
+                    'Take Photo',
+                    style: TextStyle(fontWeight: FontWeight.w600),
+                  ),
                   subtitle: const Text('Capture a picture with your camera'),
-                  onTap: () {
+                  onTap: () async {
                     Navigator.pop(ctx);
+                    await Future.delayed(const Duration(milliseconds: 120));
                     _pickFromCamera();
                   },
                 ),
                 ListTile(
                   leading: const CircleAvatar(
                     backgroundColor: Color(0xFFF0FDF4),
-                    child: Icon(Icons.folder_open_rounded, color: Color(0xFF16A34A)),
+                    child: Icon(
+                      Icons.folder_open_rounded,
+                      color: Color(0xFF16A34A),
+                    ),
                   ),
-                  title: const Text('Documents & Files', style: TextStyle(fontWeight: FontWeight.w600)),
-                  subtitle: const Text('PDFs, Word docs, spreadsheets, or text files'),
-                  onTap: () {
+                  title: const Text(
+                    'Documents & Files',
+                    style: TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                  subtitle: const Text(
+                    'PDFs, Word docs, spreadsheets, or text files',
+                  ),
+                  onTap: () async {
                     Navigator.pop(ctx);
+                    await Future.delayed(const Duration(milliseconds: 120));
                     _pickDocuments();
                   },
                 ),
@@ -749,7 +827,48 @@ class _ChatConversationScreenState extends State<ChatConversationScreen> {
   Future<void> _pickFromGallery() async {
     try {
       final picker = ImagePicker();
-      final List<XFile> images = await picker.pickMultiImage();
+      List<XFile> images = [];
+
+      // 1. Try pickMultiImage first
+      try {
+        images = await picker.pickMultiImage();
+      } catch (e) {
+        debugPrint('pickMultiImage not supported or failed: $e');
+      }
+
+      // 2. If multi-image picker returned empty, fallback to standard pickImage
+      if (images.isEmpty) {
+        try {
+          final single = await picker.pickImage(
+            source: ImageSource.gallery,
+            maxWidth: 1920,
+            maxHeight: 1920,
+            imageQuality: 85,
+          );
+          if (single != null) {
+            images = [single];
+          }
+        } catch (e) {
+          debugPrint('pickImage gallery failed: $e');
+        }
+      }
+
+      // 3. If still empty, fallback to FilePicker with image type
+      if (images.isEmpty) {
+        try {
+          final files = await FilePicker.pickFiles(type: FileType.image);
+          if (files.isNotEmpty) {
+            for (final f in files) {
+              if (f.path != null && f.path!.isNotEmpty) {
+                images.add(XFile(f.path!, name: f.name));
+              }
+            }
+          }
+        } catch (e) {
+          debugPrint('FilePicker fallback failed: $e');
+        }
+      }
+
       if (images.isNotEmpty) {
         final remaining = 3 - _selectedAttachments.length;
         int added = 0;
@@ -768,21 +887,23 @@ class _ChatConversationScreenState extends State<ChatConversationScreen> {
             continue;
           }
           final ext = img.name.contains('.') ? img.name.split('.').last : 'jpg';
-          _selectedAttachments.add(_LocalAttachment(
-            name: img.name,
-            extension: ext,
-            path: img.path,
-            sizeInBytes: length,
-          ));
+          _selectedAttachments.add(
+            _LocalAttachment(
+              name: img.name,
+              extension: ext,
+              path: img.path,
+              sizeInBytes: length,
+            ),
+          );
           added++;
         }
         if (mounted) setState(() {});
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error selecting images: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error selecting images: $e')));
       }
     }
   }
@@ -790,7 +911,12 @@ class _ChatConversationScreenState extends State<ChatConversationScreen> {
   Future<void> _pickFromCamera() async {
     try {
       final picker = ImagePicker();
-      final XFile? photo = await picker.pickImage(source: ImageSource.camera);
+      final XFile? photo = await picker.pickImage(
+        source: ImageSource.camera,
+        maxWidth: 1920,
+        maxHeight: 1920,
+        imageQuality: 85,
+      );
       if (photo != null) {
         final length = await photo.length();
         if (length > 2 * 1024 * 1024) {
@@ -804,33 +930,48 @@ class _ChatConversationScreenState extends State<ChatConversationScreen> {
           }
           return;
         }
-        final ext = photo.name.contains('.') ? photo.name.split('.').last : 'jpg';
-        _selectedAttachments.add(_LocalAttachment(
-          name: photo.name,
-          extension: ext,
-          path: photo.path,
-          sizeInBytes: length,
-        ));
+        final ext = photo.name.contains('.')
+            ? photo.name.split('.').last
+            : 'jpg';
+        _selectedAttachments.add(
+          _LocalAttachment(
+            name: photo.name,
+            extension: ext,
+            path: photo.path,
+            sizeInBytes: length,
+          ),
+        );
         if (mounted) setState(() {});
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error capturing photo: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error opening camera: $e')));
       }
     }
   }
 
   Future<void> _pickDocuments() async {
     try {
-      final files = await FilePicker.pickFiles(type: FileType.any);
+      final List<PlatformFile> files = await FilePicker.pickFiles(
+        type: FileType.any,
+      );
       if (files.isNotEmpty) {
         final remaining = 3 - _selectedAttachments.length;
         int added = 0;
         for (final file in files) {
           if (added >= remaining) break;
-          final size = file.lengthSync() ?? (await file.length()) ?? 0;
+          int size = 0;
+          try {
+            size = file.lengthSync() ?? (await file.length()) ?? 0;
+          } catch (_) {
+            if (file.path != null && file.path!.isNotEmpty) {
+              try {
+                size = File(file.path!).lengthSync();
+              } catch (_) {}
+            }
+          }
           if (size > 2 * 1024 * 1024) {
             if (mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
@@ -842,21 +983,23 @@ class _ChatConversationScreenState extends State<ChatConversationScreen> {
             }
             continue;
           }
-          _selectedAttachments.add(_LocalAttachment(
-            name: file.name,
-            extension: file.extension,
-            path: file.path,
-            sizeInBytes: size,
-          ));
+          _selectedAttachments.add(
+            _LocalAttachment(
+              name: file.name,
+              extension: file.extension,
+              path: file.path,
+              sizeInBytes: size,
+            ),
+          );
           added++;
         }
         if (mounted) setState(() {});
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error picking file: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error picking file: $e')));
       }
     }
   }
@@ -895,18 +1038,22 @@ class _ChatConversationScreenState extends State<ChatConversationScreen> {
         final files = <http.MultipartFile>[];
         for (final att in _selectedAttachments) {
           if (att.path != null && att.path!.isNotEmpty) {
-            files.add(await http.MultipartFile.fromPath(
-              'attachments[]',
-              att.path!,
-              filename: att.name,
-            ));
+            files.add(
+              await http.MultipartFile.fromPath(
+                'attachments[]',
+                att.path!,
+                filename: att.name,
+              ),
+            );
           } else {
             final bytes = await att.readAsBytes();
-            files.add(http.MultipartFile.fromBytes(
-              'attachments[]',
-              bytes,
-              filename: att.name,
-            ));
+            files.add(
+              http.MultipartFile.fromBytes(
+                'attachments[]',
+                bytes,
+                filename: att.name,
+              ),
+            );
           }
         }
 
@@ -941,16 +1088,18 @@ class _ChatConversationScreenState extends State<ChatConversationScreen> {
         if (mounted) {
           setState(() => _isSending = false);
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Failed to send message. Please retry.')),
+            const SnackBar(
+              content: Text('Failed to send message. Please retry.'),
+            ),
           );
         }
       }
     } catch (e) {
       if (mounted) {
         setState(() => _isSending = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Could not send message: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Could not send message: $e')));
       }
     }
   }
@@ -974,7 +1123,11 @@ class _ChatConversationScreenState extends State<ChatConversationScreen> {
                     child: CircularProgressIndicator(color: Colors.white),
                   ),
                   errorWidget: (_, __, ___) => const Center(
-                    child: Icon(Icons.broken_image, color: Colors.white, size: 48),
+                    child: Icon(
+                      Icons.broken_image,
+                      color: Colors.white,
+                      size: 48,
+                    ),
                   ),
                 ),
               ),
@@ -1041,7 +1194,10 @@ class _ChatConversationScreenState extends State<ChatConversationScreen> {
 
                 return Container(
                   width: 140,
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 6,
+                  ),
                   decoration: BoxDecoration(
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(8),
@@ -1075,14 +1231,21 @@ class _ChatConversationScreenState extends State<ChatConversationScreen> {
                             ),
                             Text(
                               '$sizeKb KB',
-                              style: const TextStyle(fontSize: 9.5, color: AppTheme.muted),
+                              style: const TextStyle(
+                                fontSize: 9.5,
+                                color: AppTheme.muted,
+                              ),
                             ),
                           ],
                         ),
                       ),
                       GestureDetector(
                         onTap: () => _removeAttachment(i),
-                        child: const Icon(Icons.close, size: 16, color: AppTheme.muted),
+                        child: const Icon(
+                          Icons.close,
+                          size: 16,
+                          color: AppTheme.muted,
+                        ),
                       ),
                     ],
                   ),
@@ -1218,8 +1381,12 @@ class _ChatConversationScreenState extends State<ChatConversationScreen> {
                               '$activeStatusText • View shop',
                               style: TextStyle(
                                 fontSize: 11,
-                                color: _isOnline ? const Color(0xFF059669) : AppTheme.muted,
-                                fontWeight: _isOnline ? FontWeight.w500 : FontWeight.normal,
+                                color: _isOnline
+                                    ? const Color(0xFF059669)
+                                    : AppTheme.muted,
+                                fontWeight: _isOnline
+                                    ? FontWeight.w500
+                                    : FontWeight.normal,
                               ),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
@@ -1278,13 +1445,23 @@ class _ChatConversationScreenState extends State<ChatConversationScreen> {
                     )
                   : ListView.builder(
                       controller: _scrollCtrl,
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 12,
+                      ),
                       itemCount: _messages.length,
                       itemBuilder: (context, i) {
                         final m = _messages[i];
                         final isFirst = i == 0;
-                        final isNewDay = isFirst || !PhilippineTime.isSameDay(_messages[i - 1].createdAt, m.createdAt);
-                        final bubbleTime = PhilippineTime.formatBubbleTime(m.createdAt);
+                        final isNewDay =
+                            isFirst ||
+                            !PhilippineTime.isSameDay(
+                              _messages[i - 1].createdAt,
+                              m.createdAt,
+                            );
+                        final bubbleTime = PhilippineTime.formatBubbleTime(
+                          m.createdAt,
+                        );
 
                         return Column(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1292,7 +1469,9 @@ class _ChatConversationScreenState extends State<ChatConversationScreen> {
                             // Date divider pill when day changes
                             if (isNewDay)
                               Padding(
-                                padding: const EdgeInsets.symmetric(vertical: 12),
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 12,
+                                ),
                                 child: Row(
                                   children: [
                                     Expanded(
@@ -1302,15 +1481,24 @@ class _ChatConversationScreenState extends State<ChatConversationScreen> {
                                       ),
                                     ),
                                     Container(
-                                      margin: const EdgeInsets.symmetric(horizontal: 10),
-                                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                                      margin: const EdgeInsets.symmetric(
+                                        horizontal: 10,
+                                      ),
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 12,
+                                        vertical: 4,
+                                      ),
                                       decoration: BoxDecoration(
                                         color: const Color(0xFFF1F5F9),
                                         borderRadius: BorderRadius.circular(12),
-                                        border: Border.all(color: const Color(0xFFE2E8F0)),
+                                        border: Border.all(
+                                          color: const Color(0xFFE2E8F0),
+                                        ),
                                       ),
                                       child: Text(
-                                        PhilippineTime.formatDateDivider(m.createdAt),
+                                        PhilippineTime.formatDateDivider(
+                                          m.createdAt,
+                                        ),
                                         style: const TextStyle(
                                           fontSize: 11,
                                           fontWeight: FontWeight.w600,
@@ -1331,7 +1519,11 @@ class _ChatConversationScreenState extends State<ChatConversationScreen> {
                             // Partner Message Header with Name & Icon (when incoming)
                             if (!m.isMe) ...[
                               Padding(
-                                padding: const EdgeInsets.only(left: 38, bottom: 2, top: 4),
+                                padding: const EdgeInsets.only(
+                                  left: 38,
+                                  bottom: 2,
+                                  top: 4,
+                                ),
                                 child: Text(
                                   _partnerName,
                                   style: const TextStyle(
@@ -1348,15 +1540,19 @@ class _ChatConversationScreenState extends State<ChatConversationScreen> {
                               padding: const EdgeInsets.symmetric(vertical: 2),
                               child: Row(
                                 crossAxisAlignment: CrossAxisAlignment.end,
-                                mainAxisAlignment:
-                                    m.isMe ? MainAxisAlignment.end : MainAxisAlignment.start,
+                                mainAxisAlignment: m.isMe
+                                    ? MainAxisAlignment.end
+                                    : MainAxisAlignment.start,
                                 children: [
                                   // Seller avatar icon beside incoming message
                                   if (!m.isMe) ...[
                                     Container(
                                       width: 28,
                                       height: 28,
-                                      margin: const EdgeInsets.only(right: 8, bottom: 2),
+                                      margin: const EdgeInsets.only(
+                                        right: 8,
+                                        bottom: 2,
+                                      ),
                                       decoration: const BoxDecoration(
                                         color: AppTheme.primarySoft,
                                         shape: BoxShape.circle,
@@ -1366,24 +1562,29 @@ class _ChatConversationScreenState extends State<ChatConversationScreen> {
                                               child: CachedNetworkImage(
                                                 imageUrl: resolvedAvatar,
                                                 fit: BoxFit.cover,
-                                                errorWidget: (_, __, ___) => Center(
-                                                  child: Text(
-                                                    _partnerName.isNotEmpty
-                                                        ? _partnerName[0].toUpperCase()
-                                                        : 'S',
-                                                    style: const TextStyle(
-                                                      fontWeight: FontWeight.bold,
-                                                      color: AppTheme.primary,
-                                                      fontSize: 12,
+                                                errorWidget: (_, __, ___) =>
+                                                    Center(
+                                                      child: Text(
+                                                        _partnerName.isNotEmpty
+                                                            ? _partnerName[0]
+                                                                  .toUpperCase()
+                                                            : 'S',
+                                                        style: const TextStyle(
+                                                          fontWeight:
+                                                              FontWeight.bold,
+                                                          color:
+                                                              AppTheme.primary,
+                                                          fontSize: 12,
+                                                        ),
+                                                      ),
                                                     ),
-                                                  ),
-                                                ),
                                               ),
                                             )
                                           : Center(
                                               child: Text(
                                                 _partnerName.isNotEmpty
-                                                    ? _partnerName[0].toUpperCase()
+                                                    ? _partnerName[0]
+                                                          .toUpperCase()
                                                     : 'S',
                                                 style: const TextStyle(
                                                   fontWeight: FontWeight.bold,
@@ -1398,13 +1599,23 @@ class _ChatConversationScreenState extends State<ChatConversationScreen> {
                                   // Bubble content
                                   Container(
                                     constraints: BoxConstraints(
-                                      maxWidth: MediaQuery.of(context).size.width * 0.74,
+                                      maxWidth:
+                                          MediaQuery.of(context).size.width *
+                                          0.74,
                                     ),
-                                    padding: const EdgeInsets.fromLTRB(12, 10, 12, 8),
+                                    padding: const EdgeInsets.fromLTRB(
+                                      12,
+                                      10,
+                                      12,
+                                      8,
+                                    ),
                                     decoration: BoxDecoration(
                                       gradient: m.isMe
                                           ? const LinearGradient(
-                                              colors: [Color(0xFFD63363), Color(0xFFBE2854)],
+                                              colors: [
+                                                Color(0xFFD63363),
+                                                Color(0xFFBE2854),
+                                              ],
                                               begin: Alignment.topLeft,
                                               end: Alignment.bottomRight,
                                             )
@@ -1413,15 +1624,23 @@ class _ChatConversationScreenState extends State<ChatConversationScreen> {
                                       borderRadius: BorderRadius.only(
                                         topLeft: const Radius.circular(16),
                                         topRight: const Radius.circular(16),
-                                        bottomLeft: Radius.circular(m.isMe ? 16 : 4),
-                                        bottomRight: Radius.circular(m.isMe ? 4 : 16),
+                                        bottomLeft: Radius.circular(
+                                          m.isMe ? 16 : 4,
+                                        ),
+                                        bottomRight: Radius.circular(
+                                          m.isMe ? 4 : 16,
+                                        ),
                                       ),
                                       border: m.isMe
                                           ? null
-                                          : Border.all(color: const Color(0xFFE2E8F0)),
+                                          : Border.all(
+                                              color: const Color(0xFFE2E8F0),
+                                            ),
                                       boxShadow: [
                                         BoxShadow(
-                                          color: Colors.black.withValues(alpha: 0.03),
+                                          color: Colors.black.withValues(
+                                            alpha: 0.03,
+                                          ),
                                           blurRadius: 4,
                                           offset: const Offset(0, 1),
                                         ),
@@ -1435,32 +1654,61 @@ class _ChatConversationScreenState extends State<ChatConversationScreen> {
                                         // Attachments if present
                                         if (m.attachments.isNotEmpty) ...[
                                           ...m.attachments.map((att) {
-                                            if (att.isImage && att.url.isNotEmpty) {
+                                            if (att.isImage &&
+                                                att.url.isNotEmpty) {
                                               return Padding(
-                                                padding: const EdgeInsets.only(bottom: 6),
+                                                padding: const EdgeInsets.only(
+                                                  bottom: 6,
+                                                ),
                                                 child: ClipRRect(
-                                                  borderRadius: BorderRadius.circular(8),
+                                                  borderRadius:
+                                                      BorderRadius.circular(8),
                                                   child: GestureDetector(
-                                                    onTap: () => _showImagePreview(att.url),
+                                                    onTap: () =>
+                                                        _showImagePreview(
+                                                          att.url,
+                                                        ),
                                                     child: Container(
-                                                      constraints: const BoxConstraints(maxHeight: 180),
+                                                      constraints:
+                                                          const BoxConstraints(
+                                                            maxHeight: 180,
+                                                          ),
                                                       child: CachedNetworkImage(
                                                         imageUrl: att.url,
                                                         fit: BoxFit.cover,
-                                                        placeholder: (_, __) => Container(
-                                                          height: 120,
-                                                          color: Colors.grey.shade200,
-                                                          child: const Center(
-                                                            child: CircularProgressIndicator(strokeWidth: 2),
-                                                          ),
-                                                        ),
-                                                        errorWidget: (_, __, ___) => Container(
-                                                          height: 100,
-                                                          color: Colors.grey.shade200,
-                                                          child: const Center(
-                                                            child: Icon(Icons.broken_image, color: Colors.grey),
-                                                          ),
-                                                        ),
+                                                        placeholder: (_, __) =>
+                                                            Container(
+                                                              height: 120,
+                                                              color: Colors
+                                                                  .grey
+                                                                  .shade200,
+                                                              child: const Center(
+                                                                child:
+                                                                    CircularProgressIndicator(
+                                                                      strokeWidth:
+                                                                          2,
+                                                                    ),
+                                                              ),
+                                                            ),
+                                                        errorWidget:
+                                                            (
+                                                              _,
+                                                              __,
+                                                              ___,
+                                                            ) => Container(
+                                                              height: 100,
+                                                              color: Colors
+                                                                  .grey
+                                                                  .shade200,
+                                                              child: const Center(
+                                                                child: Icon(
+                                                                  Icons
+                                                                      .broken_image,
+                                                                  color: Colors
+                                                                      .grey,
+                                                                ),
+                                                              ),
+                                                            ),
                                                       ),
                                                     ),
                                                   ),
@@ -1469,37 +1717,60 @@ class _ChatConversationScreenState extends State<ChatConversationScreen> {
                                             } else {
                                               // Document file attachment chip
                                               return Container(
-                                                margin: const EdgeInsets.only(bottom: 6),
-                                                padding: const EdgeInsets.all(8),
+                                                margin: const EdgeInsets.only(
+                                                  bottom: 6,
+                                                ),
+                                                padding: const EdgeInsets.all(
+                                                  8,
+                                                ),
                                                 decoration: BoxDecoration(
                                                   color: m.isMe
-                                                      ? Colors.white.withValues(alpha: 0.15)
+                                                      ? Colors.white.withValues(
+                                                          alpha: 0.15,
+                                                        )
                                                       : const Color(0xFFF1F5F9),
-                                                  borderRadius: BorderRadius.circular(8),
+                                                  borderRadius:
+                                                      BorderRadius.circular(8),
                                                 ),
                                                 child: Row(
-                                                  mainAxisSize: MainAxisSize.min,
+                                                  mainAxisSize:
+                                                      MainAxisSize.min,
                                                   children: [
                                                     Icon(
-                                                      att.mimeType.contains('pdf')
-                                                          ? Icons.picture_as_pdf_rounded
-                                                          : Icons.insert_drive_file_rounded,
+                                                      att.mimeType.contains(
+                                                            'pdf',
+                                                          )
+                                                          ? Icons
+                                                                .picture_as_pdf_rounded
+                                                          : Icons
+                                                                .insert_drive_file_rounded,
                                                       size: 22,
-                                                      color: m.isMe ? Colors.white : AppTheme.primary,
+                                                      color: m.isMe
+                                                          ? Colors.white
+                                                          : AppTheme.primary,
                                                     ),
                                                     const SizedBox(width: 8),
                                                     Flexible(
                                                       child: Column(
-                                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                                        crossAxisAlignment:
+                                                            CrossAxisAlignment
+                                                                .start,
                                                         children: [
                                                           Text(
                                                             att.name,
                                                             maxLines: 1,
-                                                            overflow: TextOverflow.ellipsis,
+                                                            overflow:
+                                                                TextOverflow
+                                                                    .ellipsis,
                                                             style: TextStyle(
-                                                              fontWeight: FontWeight.bold,
+                                                              fontWeight:
+                                                                  FontWeight
+                                                                      .bold,
                                                               fontSize: 12,
-                                                              color: m.isMe ? Colors.white : AppTheme.ink,
+                                                              color: m.isMe
+                                                                  ? Colors.white
+                                                                  : AppTheme
+                                                                        .ink,
                                                             ),
                                                           ),
                                                           Text(
@@ -1507,8 +1778,10 @@ class _ChatConversationScreenState extends State<ChatConversationScreen> {
                                                             style: TextStyle(
                                                               fontSize: 10,
                                                               color: m.isMe
-                                                                  ? Colors.white70
-                                                                  : AppTheme.muted,
+                                                                  ? Colors
+                                                                        .white70
+                                                                  : AppTheme
+                                                                        .muted,
                                                             ),
                                                           ),
                                                         ],
@@ -1526,7 +1799,9 @@ class _ChatConversationScreenState extends State<ChatConversationScreen> {
                                           Text(
                                             m.body,
                                             style: TextStyle(
-                                              color: m.isMe ? Colors.white : AppTheme.ink,
+                                              color: m.isMe
+                                                  ? Colors.white
+                                                  : AppTheme.ink,
                                               fontSize: 13.5,
                                               height: 1.35,
                                             ),
@@ -1540,7 +1815,9 @@ class _ChatConversationScreenState extends State<ChatConversationScreen> {
                                             bubbleTime,
                                             style: TextStyle(
                                               color: m.isMe
-                                                  ? Colors.white.withValues(alpha: 0.75)
+                                                  ? Colors.white.withValues(
+                                                      alpha: 0.75,
+                                                    )
                                                   : const Color(0xFF94A3B8),
                                               fontSize: 9.5,
                                             ),
@@ -1636,13 +1913,21 @@ class _ChatConversationScreenState extends State<ChatConversationScreen> {
                               enabledBorder: InputBorder.none,
                               focusedBorder: InputBorder.none,
                               counterText: '',
-                              contentPadding: EdgeInsets.fromLTRB(14, 10, 14, 6),
+                              contentPadding: EdgeInsets.fromLTRB(
+                                14,
+                                10,
+                                14,
+                                6,
+                              ),
                             ),
                           ),
                           // Subtle character counter if length > 50
                           if (_msgCtrl.text.length > 50)
                             Padding(
-                              padding: const EdgeInsets.only(right: 12, bottom: 4),
+                              padding: const EdgeInsets.only(
+                                right: 12,
+                                bottom: 4,
+                              ),
                               child: Text(
                                 '${_msgCtrl.text.length}/2000',
                                 style: TextStyle(
@@ -1675,7 +1960,9 @@ class _ChatConversationScreenState extends State<ChatConversationScreen> {
                         shape: BoxShape.circle,
                         boxShadow: [
                           BoxShadow(
-                            color: const Color(0xFFBE2854).withValues(alpha: 0.3),
+                            color: const Color(
+                              0xFFBE2854,
+                            ).withValues(alpha: 0.3),
                             blurRadius: 6,
                             offset: const Offset(0, 2),
                           ),
