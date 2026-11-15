@@ -15,7 +15,7 @@
             <div class="auth-content">
                 <div class="auth-mobile-brand"><a class="auth-brand" href="{{ route('home') }}">EZiCart<span>.</span></a></div>
                 <h2 id="auth-title">Apply as a seller</h2><p class="auth-intro">Complete the form, verify your email, then await review.</p>
-                <nav class="auth-role-nav" aria-label="Choose account type"><a href="{{ route('register') }}">Buyer</a><a class="is-active" aria-current="page" href="{{ route('register.seller') }}">Seller</a><a href="{{ route('register.sorting') }}">Logistics company</a></nav>
+                <nav class="auth-role-nav" aria-label="Choose account type"><a href="{{ route('register') }}">Buyer</a><a class="is-active" aria-current="page" href="{{ route('register.seller') }}">Seller</a><a href="{{ route('register.sorting') }}">Logistic co. / Sorting center</a></nav>
                 <div class="registration-progress" data-registration-progress aria-live="polite">
                     <div class="registration-progress-copy"><span data-step-count>Step 1</span><strong data-step-title></strong></div>
                     <div class="registration-progress-track" role="progressbar" aria-label="Registration progress" aria-valuemin="1" aria-valuemax="5" aria-valuenow="1"><span data-progress-fill></span></div>

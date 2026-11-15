@@ -1,14 +1,8 @@
 @props(['name'])
 
 @php
-    $availableShopicons = [
-        'account', 'arrowback', 'bell', 'cart1', 'cart2', 'chat', 'checklist', 'close', 'delivery1',
-        'diagram', 'exclamationtriangle', 'heart', 'info', 'invoice', 'lightbulb', 'location',
-        'lock', 'megaphone', 'money', 'note', 'package1', 'phone', 'print', 'search', 'settings',
-        'shield', 'smileypositive', 'star', 'voucher', 'warning',
-    ];
-
-    abort_unless(in_array($name, $availableShopicons, true), 404);
+    $icon = config('icons.'.$name);
+    abort_unless(is_string($icon) && preg_match('/\A[a-z0-9-]+\z/', $icon), 404);
 @endphp
 
-<shopicon-regular-{{ $name }} {{ $attributes->class(['shop-icon']) }} data-shopicon="true" aria-hidden="true">{!! file_get_contents(resource_path('icons/shopicons/'.$name.'.svg')) !!}</shopicon-regular-{{ $name }}>
+<span {{ $attributes->class(['shop-icon', 'tabler-icon']) }} data-tabler-icon="{{ $icon }}" aria-hidden="true">{!! file_get_contents(resource_path('icons/tabler/'.$icon.'.svg')) !!}</span>

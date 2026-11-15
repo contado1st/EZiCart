@@ -25,7 +25,7 @@
                 <nav class="auth-role-nav" aria-label="Choose account type">
                     <a class="is-active" aria-current="page" href="{{ route('register') }}">Buyer</a>
                     <a href="{{ route('register.seller') }}">Seller</a>
-                    <a href="{{ route('register.sorting') }}">Logistics company</a>
+                    <a href="{{ route('register.sorting') }}">Logistic co. / Sorting center</a>
                 </nav>
                 <div class="registration-progress" data-registration-progress aria-live="polite">
                     <div class="registration-progress-copy"><span data-step-count>Step 1</span><strong data-step-title></strong></div>

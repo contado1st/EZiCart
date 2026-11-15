@@ -4,7 +4,7 @@
     <link rel="stylesheet" href="{{ asset('css/auth-fallback.css') }}">
 @endpush
 
-@section('title', 'Register a logistics company | EZiCart')
+@section('title', 'Register a Logistic co. / Sorting center | EZiCart')
 
 @section('content')
     @php($applicant = $applicant ?? null)
@@ -14,8 +14,8 @@
             <aside class="auth-aside"><a class="auth-brand" href="{{ route('home') }}">EZiCart<span>.</span></a><div class="auth-aside-copy"><p class="auth-kicker">For delivery and sorting partners</p><h1>Connect your logistics team.</h1><p>Submit company details for review. Access starts after approval.</p></div><p class="auth-aside-foot">Documents: JPG, PNG, or PDF, up to 5 MB each.</p></aside>
             <div class="auth-content">
                 <div class="auth-mobile-brand"><a class="auth-brand" href="{{ route('home') }}">EZiCart<span>.</span></a></div>
-                <h2 id="auth-title">Apply as a logistics company</h2><p class="auth-intro">Verify your email, then submit for review.</p>
-                <nav class="auth-role-nav" aria-label="Choose account type"><a href="{{ route('register') }}">Buyer</a><a href="{{ route('register.seller') }}">Seller</a><a class="is-active" aria-current="page" href="{{ route('register.sorting') }}">Logistics company</a></nav>
+                <h2 id="auth-title">Apply as a Logistic co. / Sorting center</h2><p class="auth-intro">Verify your email, then submit for review.</p>
+                <nav class="auth-role-nav" aria-label="Choose account type"><a href="{{ route('register') }}">Buyer</a><a href="{{ route('register.seller') }}">Seller</a><a class="is-active" aria-current="page" href="{{ route('register.sorting') }}">Logistic co. / Sorting center</a></nav>
                 <div class="registration-progress" data-registration-progress aria-live="polite">
                     <div class="registration-progress-copy"><span data-step-count>Step 1</span><strong data-step-title></strong></div>
                     <div class="registration-progress-track" role="progressbar" aria-label="Registration progress" aria-valuemin="1" aria-valuemax="5" aria-valuenow="1"><span data-progress-fill></span></div>

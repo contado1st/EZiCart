@@ -3,11 +3,12 @@
     "private": true,
     "type": "module",
     "scripts": {
-        "build": "vite build",
+        "build": "php scripts/sync-tabler-icons.php && vite build",
+        "icons:sync": "php scripts/sync-tabler-icons.php",
         "dev": "vite"
     },
     "devDependencies": {
-        "@h2d2/shopicons": "^1.2.0",
+        "@tabler/icons": "3.52.0",
         "@tailwindcss/vite": "^4.0.0",
         "concurrently": "^10.0.3",
         "laravel-vite-plugin": "^3.1",

@@ -88,13 +88,38 @@
     border-color: #bdc1bb;
 }
 
-.logistics-qr-intake-form .ops-field:first-child {
+.logistics-qr-intake-form {
+    grid-template-areas:
+        "reference location verify"
+        "help help help";
+}
+
+.logistics-qr-intake-form .logistics-intake-reference {
+    grid-area: reference;
     min-width: 0;
 }
 
-.logistics-qr-intake-form .ops-field:first-child > p {
+.logistics-qr-intake-form .logistics-intake-location {
+    grid-area: location;
+    min-width: 0;
+}
+
+.logistics-qr-intake-form > .logistics-scan-btn-lg {
+    grid-area: verify;
+    white-space: nowrap;
+}
+
+.logistics-qr-intake-form .logistics-intake-help {
+    grid-area: help;
     max-width: 68ch;
-    margin: 7px 0 0;
+    margin: 0;
+}
+
+@media (max-width: 760px) {
+    .logistics-qr-intake-form {
+        grid-template-columns: minmax(0, 1fr);
+        grid-template-areas: "reference" "help" "location" "verify";
+    }
 }
 
 .logistics-qr-intake-form .ops-scanner__viewport-wrap,
