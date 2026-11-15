@@ -134,6 +134,7 @@
             @endphp
             <details class="workspace-nav-group workspace-nav-dropdown" data-nav-group="{{ $groupId }}" @if($hasActiveItem) open data-active-group="true" @else open @endif>
                 <summary class="workspace-nav-heading workspace-nav-dropdown-trigger" aria-label="Toggle {{ $group }} section" title="Click to collapse or expand {{ $group }}">
+                    <span class="workspace-nav-group-pill" aria-hidden="true"></span>
                     <span class="workspace-nav-group-title">{{ $group }}</span>
                     <span class="workspace-nav-group-meta">
                         @if($hasGroupUnread)
@@ -159,6 +160,7 @@
         @endphp
         <details class="workspace-nav-group workspace-nav-dropdown" data-nav-group="account" @if($isAccountActive) open data-active-group="true" @else open @endif>
             <summary class="workspace-nav-heading workspace-nav-dropdown-trigger" aria-label="Toggle Account section" title="Click to collapse or expand Account">
+                <span class="workspace-nav-group-pill" aria-hidden="true"></span>
                 <span class="workspace-nav-group-title">Account</span>
                 <span class="workspace-nav-group-meta">
                     @if($hasAccountUnread)
@@ -179,6 +181,40 @@
                 @endif
             </div>
         </details>
+        <script>
+            (function() {
+                try {
+                    var nav = document.currentScript.closest('.workspace-navigation');
+                    if (!nav) return;
+                    var role = nav.dataset.userRole || 'default';
+                    var key = 'ezicart_sidebar_nav_' + role;
+                    var raw = localStorage.getItem(key);
+                    var data = raw ? JSON.parse(raw) : {};
+                    var savedState = data.groups || data || {};
+                    var prevActive = data.lastActive || null;
+
+                    var activeEl = nav.querySelector('details.workspace-nav-dropdown[data-active-group="true"]');
+                    var currActive = activeEl ? activeEl.dataset.navGroup : null;
+
+                    if (currActive && currActive !== prevActive) {
+                        savedState[currActive] = true;
+                        data.lastActive = currActive;
+                    }
+
+                    var groups = nav.querySelectorAll('details.workspace-nav-dropdown');
+                    for (var i = 0; i < groups.length; i++) {
+                        var g = groups[i];
+                        var gid = g.dataset.navGroup;
+                        if (!gid) continue;
+                        if (typeof savedState[gid] === 'boolean') {
+                            g.open = savedState[gid];
+                        }
+                    }
+                    data.groups = savedState;
+                    localStorage.setItem(key, JSON.stringify(data));
+                } catch (e) {}
+            })();
+        </script>
     </nav>
     <div class="workspace-sidebar-footer">
         <a href="{{ route('account.profile.edit') }}" class="workspace-user-link"><span class="workspace-avatar"><x-profile-avatar :user="$sidebarUser" /></span><span class="workspace-nav-label"><strong>{{ $sidebarUser->first_name }} {{ $sidebarUser->last_name }}</strong><small>{{ $sidebarRole }}</small></span></a>
