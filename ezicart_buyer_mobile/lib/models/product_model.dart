@@ -122,6 +122,7 @@ class ProductModel {
   final List<ProductMediaItem> mediaItems;
   final String? displayPriceLabel;
   final bool isWishlisted;
+  final bool isWatched;
 
   int get reviewCount => reviewsCount;
 
@@ -202,6 +203,7 @@ class ProductModel {
     this.mediaItems = const [],
     this.displayPriceLabel,
     this.isWishlisted = false,
+    this.isWatched = false,
   });
 
   ProductModel copyWith({
@@ -223,6 +225,7 @@ class ProductModel {
     List<ProductMediaItem>? mediaItems,
     String? displayPriceLabel,
     bool? isWishlisted,
+    bool? isWatched,
   }) {
     return ProductModel(
       id: id ?? this.id,
@@ -243,6 +246,7 @@ class ProductModel {
       mediaItems: mediaItems ?? this.mediaItems,
       displayPriceLabel: displayPriceLabel ?? this.displayPriceLabel,
       isWishlisted: isWishlisted ?? this.isWishlisted,
+      isWatched: isWatched ?? this.isWatched,
     );
   }
 
@@ -329,6 +333,7 @@ class ProductModel {
       mediaItems: parsedMedia,
       displayPriceLabel: json['display_price_label']?.toString(),
       isWishlisted: json['is_wishlisted'] == true,
+      isWatched: json['is_watched'] == true,
     );
   }
 }

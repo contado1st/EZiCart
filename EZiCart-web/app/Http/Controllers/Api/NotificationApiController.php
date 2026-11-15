@@ -9,6 +9,7 @@ use App\Notifications\OrderMessageNotification;
 use App\Notifications\OrderStatusNotification;
 use App\Notifications\OrderWorkflowNotification;
 use App\Notifications\StockAvailabilityNotification;
+use App\Services\StockSubscriptionService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -24,6 +25,14 @@ class NotificationApiController extends Controller
         $filter = $request->input('filter', 'all');
         $category = $request->input('category', 'all');
         $perPage = min((int) $request->input('per_page', 20), 50);
+
+        if ($category === 'stock' || $category === 'all') {
+            try {
+                app(StockSubscriptionService::class)->checkUserSubscriptions($buyer->id);
+            } catch (\Throwable $e) {
+                report($e);
+            }
+        }
 
         $owned = $buyer->notifications();
         $totalCount = (clone $owned)->count();

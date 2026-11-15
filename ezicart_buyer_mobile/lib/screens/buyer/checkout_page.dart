@@ -281,7 +281,12 @@ class _CheckoutPageState extends State<CheckoutPage> {
                   color: isDeferred ? Colors.orange : Colors.green,
                 ),
                 const SizedBox(width: 8),
-                Text(isDeferred ? 'Order Reserved!' : (isWallet ? 'Order Paid & Placed!' : 'Order Placed!')),
+                Expanded(
+                  child: Text(
+                    isDeferred ? 'Order Reserved!' : (isWallet ? 'Order Paid & Placed!' : 'Order Placed!'),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
               ],
             ),
             content: Text(

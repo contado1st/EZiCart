@@ -233,6 +233,11 @@ class ProductApiController extends Controller
         $buyer = $this->resolveBuyer($request);
         if ($buyer) {
             $product->setAttribute('is_wishlisted', $buyer->wishlistedProducts()->where('products.id', $product->id)->exists());
+            $isWatched = DB::table('stock_subscriptions')
+                ->where('user_id', $buyer->id)
+                ->where('product_id', $product->id)
+                ->exists();
+            $product->setAttribute('is_watched', $isWatched);
             try {
                 $recommendations->recordView($buyer, $product);
             } catch (\Throwable $e) {
@@ -240,6 +245,7 @@ class ProductApiController extends Controller
             }
         } else {
             $product->setAttribute('is_wishlisted', false);
+            $product->setAttribute('is_watched', false);
         }
 
         return response()->json([

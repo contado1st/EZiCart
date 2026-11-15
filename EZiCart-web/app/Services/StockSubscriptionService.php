@@ -14,10 +14,13 @@ class StockSubscriptionService
     public function state(Product $product): string
     {
         $product->loadMissing('seller', 'variations');
-        $stock = (int) $product->stock;
-        if ($product->usesVariations($product->variations->isNotEmpty())) {
-            $stock = min($stock, (int) $product->variations->where('is_active', true)->sum('stock'));
+        $hasVariations = $product->usesVariations($product->variations->isNotEmpty()) && $product->variations->isNotEmpty();
+        if ($hasVariations) {
+            $stock = (int) $product->variations->where('is_active', true)->sum('stock');
+        } else {
+            $stock = (int) $product->stock;
         }
+
         if (! $product->isListingVisible() || $product->seller?->status !== 'approved' || $stock <= 0) {
             return 'unavailable';
         }
@@ -32,6 +35,14 @@ class StockSubscriptionService
         DB::table('stock_subscriptions')->insertOrIgnore([
             'user_id' => $buyer->id, 'product_id' => $product->id, 'last_state' => $this->state($product), 'created_at' => now(), 'updated_at' => now(),
         ]);
+    }
+
+    public function checkUserSubscriptions(int $userId): void
+    {
+        $subIds = DB::table('stock_subscriptions')->where('user_id', $userId)->pluck('id');
+        foreach ($subIds as $id) {
+            $this->check((int) $id);
+        }
     }
 
     public function check(int $id): void

@@ -38,6 +38,7 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
   void initState() {
     super.initState();
     _product = widget.product;
+    _isWatched = widget.product.isWatched;
     _selectedVariation = null;
     _loadFreshDetails();
   }
@@ -134,32 +135,54 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
   }
 
   Future<void> _toggleStockAlert() async {
+    final token = await ApiService.getToken();
+    if (token == null || token.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Please sign in to enable stock alerts.')),
+        );
+      }
+      return;
+    }
+
     setState(() => _isWatchLoading = true);
     try {
       if (_isWatched) {
         final res = await ApiService.delete(
           ApiConfig.unwatchStockEndpoint(_product.id),
         );
+        final body = jsonDecode(res.body);
         if (res.statusCode == 200 && mounted) {
-          setState(() => _isWatched = false);
+          setState(() {
+            _isWatched = false;
+            _product = _product.copyWith(isWatched: false);
+          });
           ScaffoldMessenger.of(
             context,
-          ).showSnackBar(const SnackBar(content: Text('Stock alert removed.')));
+          ).showSnackBar(SnackBar(content: Text(body['message'] ?? 'Stock alert removed.')));
         }
       } else {
         final res = await ApiService.post(
           ApiConfig.watchStockEndpoint(_product.id),
           {},
         );
+        final body = jsonDecode(res.body);
         if (res.statusCode == 200 && mounted) {
-          setState(() => _isWatched = true);
+          setState(() {
+            _isWatched = true;
+            _product = _product.copyWith(isWatched: true);
+          });
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(
-                'Stock alert active! We will notify you of inventory changes for ${_product.name}.',
+                body['message'] ?? 'Stock alert active! We will notify you of inventory changes for ${_product.name}.',
               ),
               backgroundColor: Colors.green,
             ),
+          );
+        } else if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(body['message'] ?? 'Could not activate stock alert.')),
           );
         }
       }
@@ -186,6 +209,7 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
             _product = ProductModel.fromJson(
               body['data'] as Map<String, dynamic>,
             );
+            _isWatched = _product.isWatched;
             if (_product.variations.isNotEmpty && _selectedVariation != null) {
               final match = _product.variations.where(
                 (v) => v.id == _selectedVariation!.id,

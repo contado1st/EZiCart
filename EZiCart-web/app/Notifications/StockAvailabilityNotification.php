@@ -17,17 +17,28 @@ class StockAvailabilityNotification extends Notification
 
     public function message(): string
     {
-        return $this->product->name.': '.match (true) {
-            $this->state === 'unavailable' => 'currently unavailable.',
-            $this->previous === 'unavailable' => 'back in stock'.($this->state === 'low' ? ' with limited availability.' : '.'),
-            $this->state === 'low' => 'low stock. Availability may change before checkout.',
-            default => 'stock is available again.',
+        return match (true) {
+            $this->state === 'unavailable' => "{$this->product->name} is currently out of stock.",
+            $this->previous === 'unavailable' => "{$this->product->name} is available again! Back in stock to purchase.",
+            $this->state === 'low' => "{$this->product->name} is low on stock. Only a few items left.",
+            default => "{$this->product->name} is available again! In stock to purchase.",
         };
     }
 
     public function toDatabase(object $notifiable): array
     {
-        return ['product_id' => $this->product->id, 'event_type' => 'stock_'.$this->state, 'message' => $this->message(), 'url' => route('buyer.stock.index')];
+        $title = match ($this->state) {
+            'unavailable' => 'Out of Stock: '.$this->product->name,
+            default => 'Available Again: '.$this->product->name,
+        };
+
+        return [
+            'product_id' => $this->product->id,
+            'event_type' => 'stock_'.$this->state,
+            'title' => $title,
+            'message' => $this->message(),
+            'url' => route('buyer.stock.index'),
+        ];
     }
 
     public function toMail(object $notifiable): MailMessage

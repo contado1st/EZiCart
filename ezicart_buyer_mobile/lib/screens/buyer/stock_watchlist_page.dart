@@ -1,7 +1,6 @@
 import 'dart:convert';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 import '../../config/api_config.dart';
 import '../../config/theme.dart';
 import '../../models/product_model.dart';
@@ -59,32 +58,28 @@ class _StockWatchlistPageState extends State<StockWatchlistPage> {
     } catch (_) {}
   }
 
-  Color _getStatusColor(String state) {
-    switch (state) {
-      case 'available':
-        return Colors.green;
-      case 'low':
-        return Colors.orange.shade800;
-      default:
-        return Colors.red;
+  Color _getStatusColor(StockAlertProduct item) {
+    if (item.isOutOfStock) {
+      return Colors.red.shade700;
     }
+    if (item.isLowStock) {
+      return Colors.orange.shade800;
+    }
+    return Colors.green.shade700;
   }
 
-  String _getStatusLabel(String state) {
-    switch (state) {
-      case 'available':
-        return 'IN STOCK';
-      case 'low':
-        return 'LOW STOCK';
-      default:
-        return 'OUT OF STOCK';
+  String _getStatusLabel(StockAlertProduct item) {
+    if (item.isOutOfStock) {
+      return 'OUT OF STOCK';
     }
+    if (item.isLowStock) {
+      return 'LOW STOCK';
+    }
+    return 'AVAILABLE';
   }
 
   @override
   Widget build(BuildContext context) {
-    final currency = NumberFormat.currency(symbol: '₱', decimalDigits: 2);
-
     return Scaffold(
       appBar: AppBar(
         title: const Text('Stock Alerts Watchlist'),
@@ -123,7 +118,7 @@ class _StockWatchlistPageState extends State<StockWatchlistPage> {
                     itemBuilder: (context, i) {
                       final item = _items[i];
                       final imgUrl = ApiConfig.resolveImageUrl(item.imagePath);
-                      final stateColor = _getStatusColor(item.availabilityState);
+                      final stateColor = _getStatusColor(item);
 
                       return Card(
                         elevation: 0,
@@ -141,15 +136,17 @@ class _StockWatchlistPageState extends State<StockWatchlistPage> {
                                     name: item.name,
                                     description: '',
                                     price: item.price,
+                                    displayPriceLabel: item.displayPriceLabel,
                                     stock: item.stock,
                                     category: item.category ?? 'General',
                                     imagePath: item.imagePath,
                                     sellerName: item.sellerName,
-                                    variations: const [],
+                                    isWatched: true,
+                                    variations: item.variations,
                                   ),
                                 ),
                               ),
-                            );
+                            ).then((_) => _fetchWatchlist());
                           },
                           borderRadius: BorderRadius.circular(12),
                           child: Padding(
@@ -182,9 +179,9 @@ class _StockWatchlistPageState extends State<StockWatchlistPage> {
                                         overflow: TextOverflow.ellipsis,
                                         style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
                                       ),
-                                      const SizedBox(height: 2),
+                                      const SizedBox(height: 3),
                                       Text(
-                                        currency.format(item.price),
+                                        item.formattedPrice,
                                         style: const TextStyle(
                                           color: AppTheme.primary,
                                           fontWeight: FontWeight.bold,
@@ -195,13 +192,14 @@ class _StockWatchlistPageState extends State<StockWatchlistPage> {
                                       Row(
                                         children: [
                                           Container(
-                                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
                                             decoration: BoxDecoration(
-                                              color: stateColor.withValues(alpha: 0.1),
+                                              color: stateColor.withAlpha(25),
                                               borderRadius: BorderRadius.circular(4),
+                                              border: Border.all(color: stateColor.withAlpha(70)),
                                             ),
                                             child: Text(
-                                              _getStatusLabel(item.availabilityState),
+                                              _getStatusLabel(item),
                                               style: TextStyle(
                                                 color: stateColor,
                                                 fontSize: 10,
@@ -211,8 +209,12 @@ class _StockWatchlistPageState extends State<StockWatchlistPage> {
                                           ),
                                           const SizedBox(width: 8),
                                           Text(
-                                            'Stock: ${item.stock}',
-                                            style: const TextStyle(fontSize: 11, color: AppTheme.muted),
+                                            item.stock > 0 ? '${item.stock} in stock' : 'Out of stock',
+                                            style: TextStyle(
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.w500,
+                                              color: item.stock > 0 ? AppTheme.muted : Colors.red.shade700,
+                                            ),
                                           ),
                                         ],
                                       ),

@@ -21,6 +21,7 @@ import 'search_page.dart';
 import 'vouchers_page.dart';
 import 'wallet_page.dart';
 import 'notifications_page.dart';
+import 'stock_watchlist_page.dart';
 import 'wishlist_page.dart';
 
 class BuyerDashboard extends StatefulWidget {
@@ -595,56 +596,9 @@ class _BuyerDashboardState extends State<BuyerDashboard> {
                         onTap: () {
                           Navigator.of(context).push(
                             MaterialPageRoute(
-                              builder: (_) => const ForYouPage(),
+                              builder: (_) => const StockWatchlistPage(),
                             ),
                           );
-                        },
-                        borderRadius: BorderRadius.circular(10),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            vertical: 10,
-                            horizontal: 4,
-                          ),
-                          decoration: BoxDecoration(
-                            color: Colors.teal.shade50,
-                            borderRadius: BorderRadius.circular(10),
-                            border: Border.all(color: Colors.teal.shade100),
-                          ),
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(
-                                Icons.auto_awesome_outlined,
-                                color: Colors.teal.shade800,
-                                size: 22,
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                'Deals For You',
-                                textAlign: TextAlign.center,
-                                maxLines: 2,
-                                style: TextStyle(
-                                  fontSize: 10.5,
-                                  height: 1.15,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.teal.shade900,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: InkWell(
-                        onTap: () async {
-                          await Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder: (_) => const NotificationsPage(),
-                            ),
-                          );
-                          _fetchNotificationCount();
                         },
                         borderRadius: BorderRadius.circular(10),
                         child: Container(
@@ -667,7 +621,7 @@ class _BuyerDashboardState extends State<BuyerDashboard> {
                               ),
                               const SizedBox(height: 4),
                               Text(
-                                'Alerts',
+                                'Stock Alerts',
                                 textAlign: TextAlign.center,
                                 maxLines: 2,
                                 style: TextStyle(
@@ -1202,6 +1156,23 @@ class _BuyerDashboardState extends State<BuyerDashboard> {
     ];
 
     return Scaffold(
+      floatingActionButton: _currentIndex == 0
+          ? FloatingActionButton.extended(
+              onPressed: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const ForYouPage()),
+                );
+              },
+              backgroundColor: const Color(0xFFBE2854),
+              foregroundColor: Colors.white,
+              elevation: 4,
+              icon: const Icon(Icons.auto_awesome, size: 20),
+              label: const Text(
+                'Deals For You',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+              ),
+            )
+          : null,
       appBar: AppBar(
         flexibleSpace: Container(
           decoration: const BoxDecoration(
@@ -1226,19 +1197,6 @@ class _BuyerDashboardState extends State<BuyerDashboard> {
           ),
         ),
         actions: [
-          IconButton(
-            icon: const Icon(
-              Icons.favorite_outline,
-              color: Colors.white,
-              size: 26,
-            ),
-            tooltip: 'My Wishlist',
-            onPressed: () {
-              Navigator.of(
-                context,
-              ).push(MaterialPageRoute(builder: (_) => const WishlistPage()));
-            },
-          ),
           Stack(
             children: [
               IconButton(
@@ -1281,6 +1239,19 @@ class _BuyerDashboardState extends State<BuyerDashboard> {
                   ),
                 ),
             ],
+          ),
+          IconButton(
+            icon: const Icon(
+              Icons.favorite_outline,
+              color: Colors.white,
+              size: 26,
+            ),
+            tooltip: 'My Wishlist',
+            onPressed: () {
+              Navigator.of(
+                context,
+              ).push(MaterialPageRoute(builder: (_) => const WishlistPage()));
+            },
           ),
           Stack(
             children: [
