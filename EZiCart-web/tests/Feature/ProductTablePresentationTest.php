@@ -8,6 +8,7 @@ use App\Models\Product;
 use App\Models\ProductDraft;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -21,15 +22,17 @@ class ProductTablePresentationTest extends TestCase
     {
         parent::setUp();
         $this->withoutVite();
+        Storage::fake('public');
     }
 
     public function test_catalog_tables_show_cover_images_and_keep_products_without_photos_readable(): void
     {
         $seller = $this->user('seller');
-        Product::forceCreate(['user_id' => $seller->id, 'name' => 'Photographed item', 'category' => 'Home and Garden', 'price' => 100, 'stock' => 2, 'image_path' => 'products/table-cover.jpg']);
+        $coverPath = UploadedFile::fake()->image('table-cover.jpg')->storeAs('products', 'table-cover.jpg', 'public');
+        $product = Product::forceCreate(['user_id' => $seller->id, 'name' => 'Photographed item', 'category' => 'Home and Garden', 'price' => 100, 'stock' => 2, 'image_path' => $coverPath]);
         Product::forceCreate(['user_id' => $seller->id, 'name' => 'No photo item', 'category' => 'Home and Garden', 'price' => 50, 'stock' => 2]);
         $this->actingAs($seller)->get(route('seller.sales.index'))->assertOk()
-            ->assertSee(asset('storage/products/table-cover.jpg'), false)->assertSee('Photographed item')
+            ->assertSee(asset('storage/'.$product->image_path), false)->assertSee('Photographed item')
             ->assertSee('No photo item')->assertSee('Image unavailable: No photo item')
             ->assertSee('loading="lazy"', false);
     }
@@ -40,21 +43,24 @@ class ProductTablePresentationTest extends TestCase
         $buyer = $this->user('buyer');
         $rider = $this->user('courier');
         $hub = $this->user('sorting_center');
-        $product = Product::forceCreate(['user_id' => $seller->id, 'name' => 'Updated catalog name', 'category' => 'Home and Garden', 'price' => 100, 'stock' => 2, 'image_path' => 'products/replacement-cover.jpg']);
+        $currentImagePath = UploadedFile::fake()->image('replacement-cover.jpg')->storeAs('products', 'replacement-cover.jpg', 'public');
+        $purchaseImagePath = UploadedFile::fake()->image('purchased-cover.jpg')->storeAs('products', 'purchased-cover.jpg', 'public');
+        $purchaseImageUrl = asset('storage/'.$purchaseImagePath);
+        $product = Product::forceCreate(['user_id' => $seller->id, 'name' => 'Updated catalog name', 'category' => 'Home and Garden', 'price' => 100, 'stock' => 2, 'image_path' => $currentImagePath]);
         $order = Order::forceCreate(['order_number' => 'TABLE-'.Str::random(10), 'buyer_id' => $buyer->id, 'seller_id' => $seller->id,
             'pickup_courier_id' => $rider->id, 'sorting_center_id' => $hub->id, 'status' => 'READY_FOR_PICKUP', 'parcel_weight_grams' => 1000,
             'recipient_name' => 'Test buyer', 'recipient_contact' => '09123456789', 'province' => 'Laguna', 'municipality' => 'Majayjay', 'barangay' => 'Poblacion', 'street_address' => 'Synthetic test address',
             'subtotal' => 100, 'shipping_fee' => 50, 'total_amount' => 150, 'payment_method' => 'COD']);
-        OrderItem::create(['order_id' => $order->id, 'product_id' => $product->id, 'product_name' => 'Purchased name', 'quantity' => 1, 'unit_price' => 100, 'item_total' => 100, 'purchased_image_path' => 'products/purchased-cover.jpg']);
+        OrderItem::create(['order_id' => $order->id, 'product_id' => $product->id, 'product_name' => 'Purchased name', 'quantity' => 1, 'unit_price' => 100, 'item_total' => 100, 'purchased_image_path' => $purchaseImagePath]);
         $response = $this->actingAs($rider)->get(route('courier.dashboard'))->assertOk()
-            ->assertSee('Purchased name')->assertSee(asset('storage/products/purchased-cover.jpg'), false)
-            ->assertDontSee('products/replacement-cover.jpg');
+            ->assertSee('Purchased name')->assertSee($purchaseImageUrl, false)
+            ->assertDontSee(asset('storage/'.$currentImagePath), false);
         $this->assertTrue($response->viewData('availablePickups')->first()->relationLoaded('items'));
         $order->forceFill(['status' => 'PICKED_UP', 'picked_up_at' => now()])->save();
         $this->flushSession();
         Auth::forgetGuards();
         $response = $this->actingAs($hub)->get(route('logistics.intake'))->assertOk()
-            ->assertSee(asset('storage/products/purchased-cover.jpg'), false)->assertSee('Purchased name');
+            ->assertSee($purchaseImageUrl, false)->assertSee('Purchased name');
         $this->assertTrue($response->viewData('parcels')->first()->relationLoaded('items'));
     }
 
