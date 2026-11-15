@@ -3,24 +3,16 @@
     --interaction-ease: cubic-bezier(.16, 1, .3, 1);
     --interaction-focus: var(--workspace-accent, #be2854);
     --workspace-field-border: #8792a2;
-    --workspace-frame-pink: #dc557f;
-    --workspace-frame-inner: #f2d5df;
-    --workspace-frame-secondary: #efb6c8;
-    --workspace-frame-neutral: #d7dbe3;
+    --workspace-frame-line: var(--workspace-line, #e7e9ef);
 }
 
 .dashboard-workspace :is(.dash-panel, .ops-panel, .feature-panel, .buyer-account-panel) {
-    border: 3px solid var(--workspace-frame-pink);
-    box-shadow: inset 0 0 0 1px var(--workspace-frame-inner);
+    border: 1px solid var(--workspace-frame-line);
+    box-shadow: none;
     background: #fff;
-    transition: border-color 150ms ease;
 }
 
-.dashboard-workspace :is(.dash-panel, .ops-panel, .feature-panel, .buyer-account-panel):focus-within {
-    border-color: var(--workspace-frame-pink);
-}
-
-/* Carry the same double edge across dashboard cards and data tables. */
+/* Dashboard containers share one neutral edge; emphasis belongs to their content. */
 .dashboard-workspace :is(
     .dash-stat-card,
     .ops-stat,
@@ -37,8 +29,8 @@
     .report-summary-card,
     .report-table-section
 ) {
-    border: 2px solid var(--workspace-frame-secondary);
-    box-shadow: inset 0 0 0 1px var(--workspace-frame-neutral);
+    border: 1px solid var(--workspace-frame-line);
+    box-shadow: none;
 }
 
 .dashboard-workspace :is(
@@ -47,9 +39,9 @@
     .ops-table-wrap,
     .feature-table-scroll
 ) {
-    border: 1px solid var(--workspace-frame-secondary);
+    border: 1px solid var(--workspace-frame-line);
     border-radius: 10px;
-    box-shadow: inset 0 0 0 1px var(--workspace-frame-neutral);
+    box-shadow: none;
 }
 
 .dashboard-workspace :is(
@@ -59,7 +51,7 @@
     .feature-table,
     .cart-table
 ) {
-    border: 1px solid var(--workspace-frame-inner);
+    border: 1px solid var(--workspace-frame-line);
     border-collapse: separate;
     border-spacing: 0;
     border-radius: 7px;
@@ -78,15 +70,6 @@
 
 .dashboard-workspace :is(.ops-panel > h2, .ops-panel > summary) {
     font-size: 15px;
-}
-
-.dashboard-workspace :is(.ops-panel--urgent, .ops-alert--error, .logistics-triage-banner) {
-    border-color: var(--workspace-frame-pink);
-    box-shadow: inset 0 0 0 1px var(--workspace-frame-inner), 0 5px 18px rgb(54 36 45 / 5%);
-}
-
-.dashboard-workspace :is(.ops-stat--action, .dash-stat-card:has(.dash-stat-subtext.danger), .workspace-metric--warning, .workspace-metric--danger) {
-    border-color: var(--workspace-frame-pink);
 }
 
 .dashboard-workspace :is(.dash-table, .ops-table, .admin-table, .feature-table, .cart-table) th {

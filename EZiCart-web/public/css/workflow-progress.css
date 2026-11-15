@@ -3,7 +3,7 @@
 .workflow-attention-trigger:hover { background: var(--workspace-soft, #fff5f8); }
 .workflow-attention-trigger > .shop-icon { width: 18px; height: 18px; }
 .workflow-attention-trigger .workflow-action-badge { margin-left: 0; }
-.workflow-attention-dialog { width: min(760px, calc(100% - 32px)); max-width: none; max-height: calc(100dvh - 32px); margin: auto; padding: 0; overflow: auto; border: 2px solid var(--workspace-accent, #be2854); border-radius: 12px; background: var(--workspace-surface, #fff); color: var(--workspace-ink, #202634); overscroll-behavior: contain; }
+.workflow-attention-dialog { width: min(760px, calc(100% - 32px)); max-width: none; max-height: calc(100dvh - 32px); margin: auto; padding: 0; overflow: auto; border: 1px solid var(--workspace-line, #e7e9ef); border-radius: 12px; background: var(--workspace-surface, #fff); color: var(--workspace-ink, #202634); overscroll-behavior: contain; }
 .workflow-attention-dialog[open] { display: grid; grid-template-rows: auto minmax(0, 1fr); overflow: hidden; }
 .workflow-attention-dialog .workflow-attention-content { min-height: 0; overflow: auto; overscroll-behavior: contain; }
 .workflow-attention-dialog .workflow-attention-content [role=table] { max-height: none; overflow: visible; }
@@ -19,7 +19,7 @@ body.workflow-attention-open { overflow: hidden; }
 .workflow-attention-content li a { color: var(--workspace-accent, #9f2046); font-size: 12px; text-decoration: underline; text-underline-offset: 3px; }
 .workflow-action-badge { display: inline-flex; flex: 0 0 auto; align-items: center; justify-content: center; min-width: 18px; height: 18px; padding: 0 5px; margin-left: 6px; border-radius: 9px; color: #fff; background: #be2854; font-size: 10px; font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums; }
 .workflow-action-badge[hidden] { display: none; }
-.order-process { padding: 16px; margin-bottom: 18px; border: 1px solid #e4d6df; border-radius: 9px; background: #fff; }
+.order-process { padding: 16px; margin-bottom: 18px; border: 1px solid var(--workspace-line, #e7e9ef); border-radius: 9px; background: #fff; }
 .order-process-heading { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; font-size: 13px; }
 .order-process-heading > span { color: var(--workspace-accent, #9f2046); font-size: 11px; }
 .order-process-steps { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 8px; margin: 16px 0; padding: 0; list-style: none; font-size: 10px; }

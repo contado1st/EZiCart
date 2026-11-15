@@ -59,6 +59,8 @@ Vehicle choices include motorcycles/scooters (2 wheels), tricycles (3 wheels), a
 
 Historical scan rows that did not record a status retain their original data. Evidence derives the status from the last recorded tracking event at that time; it does not invent historical transitions. Photos are optional evidence for intermediate events, attached after the event is recorded.
 
+Web QR scanning supports built-in laptop cameras and connected desktop/USB webcams. Open the website over HTTPS (or localhost for local testing), choose **Use camera** / **Start QR camera**, and allow camera access when your browser asks. After access is granted, a **Camera** selector appears when more than one camera is available. Hold the entire parcel or rider-badge QR code in view. QR frames are decoded locally, including on browsers without built-in QR detection; only the captured reference is submitted through the existing verification form. Batch scanning adds each unique parcel reference once and still requires manifest confirmation. Closing the scanner, switching away from the page, or submitting its form releases the webcam. If access is blocked, allow this site in browser/device camera settings; if the camera is busy, close other apps using it. Scanner-gun and manual-entry options remain available.
+
 ## Vouchers
 
 1. A seller creates a voucher with its existing discount/total redemption settings plus **Maximum unique buyers** and **Uses per buyer**.
