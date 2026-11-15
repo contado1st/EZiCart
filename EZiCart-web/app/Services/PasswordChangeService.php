@@ -64,7 +64,11 @@ class PasswordChangeService
 
                 return 'The verification code is incorrect.';
             }
-            Auth::logoutOtherDevices($currentPassword);
+            try {
+                Auth::logoutOtherDevices($currentPassword);
+            } catch (\Throwable) {
+                // Ignore if session guard is not bound in API/stateless requests
+            }
             $locked->forceFill(['password' => $password, 'remember_token' => Str::random(60)])->save();
             DB::table('password_change_challenges')->where('user_id', $locked->id)->delete();
             app(AdministrativeAuditService::class)->record($locked, $locked, 'account_password_changed', [], ['email_verified' => true], 'Password changed after registered-email verification.');

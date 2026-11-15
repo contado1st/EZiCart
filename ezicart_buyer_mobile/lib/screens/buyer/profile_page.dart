@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
@@ -28,14 +29,18 @@ class _ProfilePageState extends State<ProfilePage> {
   List<Map<String, dynamic>> _followedShops = [];
   bool _isLoadingFollowedShops = true;
 
-  // Change Password controllers
+  // Change Password controllers & state
   final _currentPasswordCtrl = TextEditingController();
+  final _passwordCodeCtrl = TextEditingController();
   final _newPasswordCtrl = TextEditingController();
   final _confirmPasswordCtrl = TextEditingController();
   bool _obscureCurrent = true;
   bool _obscureNew = true;
   bool _obscureConfirm = true;
+  bool _isSendingCode = false;
   bool _isUpdatingPassword = false;
+  int _codeCooldownSeconds = 0;
+  Timer? _codeCooldownTimer;
 
   @override
   void initState() {
@@ -47,9 +52,64 @@ class _ProfilePageState extends State<ProfilePage> {
   @override
   void dispose() {
     _currentPasswordCtrl.dispose();
+    _passwordCodeCtrl.dispose();
     _newPasswordCtrl.dispose();
     _confirmPasswordCtrl.dispose();
+    _codeCooldownTimer?.cancel();
     super.dispose();
+  }
+
+  void _startCodeCooldown([int seconds = 60]) {
+    _codeCooldownTimer?.cancel();
+    setState(() => _codeCooldownSeconds = seconds);
+    _codeCooldownTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted) {
+        timer.cancel();
+        return;
+      }
+      if (_codeCooldownSeconds <= 1) {
+        timer.cancel();
+        setState(() => _codeCooldownSeconds = 0);
+      } else {
+        setState(() => _codeCooldownSeconds--);
+      }
+    });
+  }
+
+  Future<void> _requestCode() async {
+    final current = _currentPasswordCtrl.text.trim();
+    if (current.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please enter your current password to request a verification code.'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    setState(() => _isSendingCode = true);
+    final auth = context.read<AuthProvider>();
+    final result = await auth.requestPasswordCode(current);
+    if (!mounted) return;
+    setState(() => _isSendingCode = false);
+
+    if (result['success'] == true) {
+      _startCodeCooldown(60);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(result['message'] ?? 'A 6-digit verification code was sent to your registered email.'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(result['message'] ?? 'Failed to send verification code.'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 
   Future<void> _loadPreferences() async {
@@ -646,6 +706,7 @@ class _ProfilePageState extends State<ProfilePage> {
   // 3. CHANGE PASSWORD HANDLER
   Future<void> _submitChangePassword() async {
     final current = _currentPasswordCtrl.text;
+    final code = _passwordCodeCtrl.text.trim();
     final newPass = _newPasswordCtrl.text;
     final confirmPass = _confirmPasswordCtrl.text;
 
@@ -655,10 +716,32 @@ class _ProfilePageState extends State<ProfilePage> {
       );
       return;
     }
+    if (code.isEmpty || code.length != 6) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please enter the 6-digit email verification code.'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
     if (newPass.length < 8) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('New password must be at least 8 characters.'),
+        ),
+      );
+      return;
+    }
+    final hasUpper = newPass.contains(RegExp(r'[A-Z]'));
+    final hasLower = newPass.contains(RegExp(r'[a-z]'));
+    final hasNumber = newPass.contains(RegExp(r'[0-9]'));
+    final hasSymbol = newPass.contains(RegExp(r'[^A-Za-z0-9]'));
+    if (!hasUpper || !hasLower || !hasNumber || !hasSymbol) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Password must include uppercase, lowercase, numbers, and symbols.'),
+          backgroundColor: Colors.orange,
         ),
       );
       return;
@@ -683,16 +766,24 @@ class _ProfilePageState extends State<ProfilePage> {
 
     setState(() => _isUpdatingPassword = true);
     final auth = context.read<AuthProvider>();
-    final success = await auth.updatePassword(current, newPass);
+    final success = await auth.updatePassword(
+      current,
+      newPass,
+      passwordConfirmation: confirmPass,
+      passwordCode: code,
+    );
     if (mounted) {
       setState(() => _isUpdatingPassword = false);
       if (success) {
         _currentPasswordCtrl.clear();
+        _passwordCodeCtrl.clear();
         _newPasswordCtrl.clear();
         _confirmPasswordCtrl.clear();
+        _codeCooldownTimer?.cancel();
+        setState(() => _codeCooldownSeconds = 0);
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Password updated successfully!'),
+            content: Text('Your password has been changed successfully!'),
             backgroundColor: Colors.green,
           ),
         );
@@ -1603,17 +1694,51 @@ class _ProfilePageState extends State<ProfilePage> {
                   ),
                   const SizedBox(height: 4),
                   const Text(
-                    'Use a unique password (min 8 chars) to protect your EZiCart account.',
+                    'Use a unique password to protect your EZiCart account.',
                     style: TextStyle(fontSize: 11.5, color: AppTheme.muted),
+                  ),
+                  const SizedBox(height: 12),
+
+                  // Notice Box matching web instructions
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF8FAFC),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: const Color(0xFFE2E8F0)),
+                    ),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Icon(
+                          Icons.mark_email_read_outlined,
+                          size: 18,
+                          color: AppTheme.primary,
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'First verify access to your registered email (${user?.email ?? 'address'}). Request a code with your current password, then enter it with your new password below. Codes expire in 5 minutes and allow 5 attempts.',
+                            style: const TextStyle(
+                              fontSize: 11.5,
+                              color: Color(0xFF475569),
+                              height: 1.35,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                   const SizedBox(height: 14),
 
-                  // Current Password
+                  // Current password to request code
                   TextField(
                     controller: _currentPasswordCtrl,
                     obscureText: _obscureCurrent,
                     decoration: InputDecoration(
-                      labelText: 'Current Password',
+                      labelText: 'Current password',
+                      hintText: 'Enter current password to request a code',
                       contentPadding: const EdgeInsets.symmetric(
                         horizontal: 12,
                         vertical: 10,
@@ -1630,6 +1755,95 @@ class _ProfilePageState extends State<ProfilePage> {
                       ),
                     ),
                   ),
+                  const SizedBox(height: 8),
+
+                  // Code request & resend status row
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          _codeCooldownSeconds > 0
+                              ? 'Wait ${_codeCooldownSeconds}s before resending. A new code replaces the previous one.'
+                              : 'Send 6-digit verification code to your email.',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: _codeCooldownSeconds > 0
+                                ? Colors.orange.shade800
+                                : AppTheme.muted,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      OutlinedButton.icon(
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: AppTheme.primary,
+                          side: const BorderSide(color: AppTheme.primary),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 8,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          visualDensity: VisualDensity.compact,
+                        ),
+                        onPressed: (_isSendingCode || _codeCooldownSeconds > 0)
+                            ? null
+                            : _requestCode,
+                        icon: _isSendingCode
+                            ? const SizedBox(
+                                width: 14,
+                                height: 14,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: AppTheme.primary,
+                                ),
+                              )
+                            : Icon(
+                                _codeCooldownSeconds > 0
+                                    ? Icons.timer_outlined
+                                    : Icons.send_outlined,
+                                size: 14,
+                              ),
+                        label: Text(
+                          _isSendingCode
+                              ? 'Sending...'
+                              : (_codeCooldownSeconds > 0
+                                  ? '${_codeCooldownSeconds}s'
+                                  : 'Send Code'),
+                          style: const TextStyle(
+                            fontSize: 11.5,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
+
+                  const Divider(color: Color(0xFFF1F5F9), height: 1),
+                  const SizedBox(height: 14),
+
+                  // 6-digit Email Verification Code
+                  TextField(
+                    controller: _passwordCodeCtrl,
+                    keyboardType: TextInputType.number,
+                    maxLength: 6,
+                    decoration: const InputDecoration(
+                      labelText: 'Email verification code',
+                      hintText: 'Enter 6-digit code',
+                      counterText: '',
+                      prefixIcon: Icon(
+                        Icons.pin_outlined,
+                        size: 18,
+                        color: AppTheme.muted,
+                      ),
+                      contentPadding: EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 10,
+                      ),
+                    ),
+                  ),
                   const SizedBox(height: 10),
 
                   // New Password
@@ -1638,8 +1852,7 @@ class _ProfilePageState extends State<ProfilePage> {
                     obscureText: _obscureNew,
                     decoration: InputDecoration(
                       labelText: 'New Password',
-                      hintText:
-                          'Min 8 characters with letters, numbers, symbols',
+                      hintText: 'Min 8 chars with letters, numbers, symbols',
                       contentPadding: const EdgeInsets.symmetric(
                         horizontal: 12,
                         vertical: 10,
@@ -1678,17 +1891,28 @@ class _ProfilePageState extends State<ProfilePage> {
                       ),
                     ),
                   ),
+                  const SizedBox(height: 6),
+                  const Text(
+                    'Choose a password different from your current password. Must be at least 8 characters with uppercase, lowercase, numbers, and symbols.',
+                    style: TextStyle(
+                      fontSize: 10.5,
+                      color: AppTheme.muted,
+                      height: 1.3,
+                    ),
+                  ),
                   const SizedBox(height: 14),
 
                   Align(
                     alignment: Alignment.centerRight,
                     child: ElevatedButton(
                       style: ElevatedButton.styleFrom(
+                        backgroundColor: AppTheme.primary,
+                        foregroundColor: Colors.white,
                         padding: const EdgeInsets.symmetric(
-                          horizontal: 18,
+                          horizontal: 20,
                           vertical: 10,
                         ),
-                        minimumSize: const Size(130, 40),
+                        minimumSize: const Size(140, 40),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(8),
                         ),

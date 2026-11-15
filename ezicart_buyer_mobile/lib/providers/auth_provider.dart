@@ -425,19 +425,59 @@ class AuthProvider extends ChangeNotifier {
     } catch (_) {}
   }
 
-  Future<bool> updatePassword(
-    String currentPassword,
-    String newPassword,
-  ) async {
+  Future<Map<String, dynamic>> requestPasswordCode(String currentPassword) async {
     _isLoading = true;
     notifyListeners();
 
     try {
-      final res = await ApiService.put(ApiConfig.updatePasswordEndpoint, {
+      final res = await ApiService.post(ApiConfig.requestPasswordCodeEndpoint, {
+        'current_password': currentPassword,
+      });
+      final data = jsonDecode(res.body);
+      _isLoading = false;
+      notifyListeners();
+
+      if (res.statusCode == 200 && data['success'] == true) {
+        return {
+          'success': true,
+          'message': data['message'] ?? 'A verification code was sent to your registered email.',
+        };
+      }
+
+      return {
+        'success': false,
+        'message': _extractErrorMessage(data, 'Failed to send verification code.'),
+      };
+    } catch (e) {
+      _isLoading = false;
+      notifyListeners();
+      return {
+        'success': false,
+        'message': e.toString(),
+      };
+    }
+  }
+
+  Future<bool> updatePassword(
+    String currentPassword,
+    String newPassword, {
+    String? passwordConfirmation,
+    String? passwordCode,
+  }) async {
+    _isLoading = true;
+    notifyListeners();
+
+    try {
+      final payload = {
         'current_password': currentPassword,
         'password': newPassword,
-        'password_confirmation': newPassword,
-      });
+        'password_confirmation': passwordConfirmation ?? newPassword,
+      };
+      if (passwordCode != null && passwordCode.trim().isNotEmpty) {
+        payload['password_code'] = passwordCode.trim();
+      }
+
+      final res = await ApiService.put(ApiConfig.updatePasswordEndpoint, payload);
       final data = jsonDecode(res.body);
       _isLoading = false;
       if (res.statusCode == 200 && data['success'] == true) {

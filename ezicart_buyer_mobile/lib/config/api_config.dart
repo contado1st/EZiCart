@@ -159,6 +159,7 @@ class ApiConfig {
 
   // Account endpoints
   static String get updateProfileEndpoint => '$baseUrl/account/profile';
+  static String get requestPasswordCodeEndpoint => '$baseUrl/account/password/code';
   static String get updatePasswordEndpoint => '$baseUrl/account/password';
   static String get updateAppearanceEndpoint => '$baseUrl/account/appearance';
 
