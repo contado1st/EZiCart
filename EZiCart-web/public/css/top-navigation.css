@@ -1,16 +1,19 @@
 /* Shared top navigation only. Role palettes and content frames keep their own colors. */
 .navbar, .workspace-topbar, .applicant-topbar, .editorial-nav {
-    --topnav-background: #7BDFF2;
-    --topnav-ink: #123b49;
-    --topnav-muted: #28515e;
-    --topnav-cloud: #F7F8F5;
-    --topnav-line: #54bfd3;
-    --topnav-action: #075e70;
-    --topnav-hover: #e7f8fc;
+    --topnav-background: linear-gradient(180deg, rgba(255, 255, 255, 0) 0%, rgba(255, 255, 255, 0.35) 60%, rgba(255, 255, 255, 0) 100%), linear-gradient(105deg, #7BDFF2 0%, #9de6f7 18%, #ff85a8 48%, rgba(255, 182, 202, 0.55) 75%, rgba(255, 255, 255, 0) 100%);
+    --topnav-ink: #1c2536;
+    --topnav-muted: #4a5568;
+    --topnav-cloud: rgba(255, 255, 255, 0.92);
+    --topnav-line: #f0cdd8;
+    --topnav-action: #be2854;
+    --topnav-hover: #fff1f6;
 }
 .navbar, .landing-page .navbar, .catalog-search-page .navbar,
 .workspace-topbar, .applicant-topbar, .landing-page .editorial-nav {
     background: var(--topnav-background);
+    background-blend-mode: multiply;
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
     color: var(--topnav-ink);
     border-top: 0;
     border-bottom: 1px solid var(--topnav-line);

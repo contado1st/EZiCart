@@ -19,6 +19,10 @@
 .buyer-account-sidebar {
     align-self: start;
     padding: 1.15rem;
+    background: linear-gradient(180deg, rgba(123, 223, 242, 0.08) 0%, rgba(255, 133, 168, 0.07) 35%, rgba(255, 255, 255, 0.3) 75%, transparent 100%);
+    background-blend-mode: multiply;
+    border: 1px solid #f0d5df;
+    border-radius: 12px;
 }
 
 .buyer-account-person {

@@ -13,7 +13,14 @@ body.catalog-search-page {
 .catalog-search-page, .catalog-search-page * { font-family: "Instrument Sans", ui-sans-serif, system-ui, sans-serif; }
 .catalog-search-page ::selection { background: #fbd1e0; color: #4c2236; }
 .catalog-search-page :is(a, button, input, select, summary):focus-visible { outline: 2px solid var(--catalog-accent); outline-offset: 3px; }
-.catalog-search-page .navbar { border-top: 0; border-bottom: 1px solid #e6b6c9; background: #7BDFF2; }
+.catalog-search-page .navbar {
+    border-top: 0;
+    border-bottom: 1px solid #f0cdd8;
+    background: var(--topnav-background, linear-gradient(180deg, rgba(255, 255, 255, 0) 0%, rgba(255, 255, 255, 0.35) 60%, rgba(255, 255, 255, 0) 100%), linear-gradient(105deg, #7BDFF2 0%, #9de6f7 18%, #ff85a8 48%, rgba(255, 182, 202, 0.55) 75%, rgba(255, 255, 255, 0) 100%));
+    background-blend-mode: multiply;
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+}
 .catalog-search-page .navbar-container { width: min(calc(100% - 48px), 1440px); }
 .catalog-search-page .search-input { border: 1px solid #dc9eb7; border-radius: 7px 0 0 7px; background: #fff; color: var(--catalog-ink); padding-inline: 16px; font-size: 13px; }
 .catalog-search-page .search-button { border-radius: 0 7px 7px 0; border: 1px solid var(--catalog-accent); background: var(--catalog-accent); color: #fff; padding-inline: 20px; }
