@@ -27,8 +27,7 @@
         <main>
             <section class="editorial-stage editorial-hero" data-scroll-stage="hero" aria-labelledby="hero-title">
                 <div class="editorial-pin hero-pin">
-                    <img class="hero-photograph" src="{{ asset('images/hero_asset.jpg') }}" alt=""
-                        fetchpriority="high" width="1600" height="900">
+                    <x-hero-videos />
                     <div class="hero-paper-wash" aria-hidden="true"></div>
                     <div class="hero-copy">
                         <h1 id="hero-title" class="hero-wordmark" data-word-reveal>EZiCart</h1>
@@ -83,21 +82,9 @@
                     </div>
 
                     @if ($featuredProducts->isNotEmpty())
-                        <div class="edits-list" aria-label="Featured available products">
-                            @foreach ($featuredProducts as $index => $product)
-                                <a href="{{ route('product.show', $product->id) }}" class="edit-row" data-rev>
-                                    <span class="edit-index"
-                                        aria-hidden="true">{{ str_pad($index + 1, 2, '0', STR_PAD_LEFT) }}</span>
-                                    <span class="edit-product">
-                                        <span class="edit-name">{{ $product->name }}</span>
-                                        <span
-                                            class="edit-description">{{ \Illuminate\Support\Str::limit($product->description ?: 'View product details and seller information.', 105) }}</span>
-                                    </span>
-                                    <span
-                                        class="edit-seller">{{ $product->seller->business_name ?? 'EZiCart seller' }}</span>
-                                    <span class="edit-price"><x-product-price :product="$product" /></span>
-                                    <span class="edit-arrow" aria-hidden="true">↗</span>
-                                </a>
+                        <div class="storefront-product-grid">
+                            @foreach ($featuredProducts as $product)
+                                <x-catalog-product-card :product="$product" />
                             @endforeach
                         </div>
                     @else
@@ -136,25 +123,16 @@
                                     your account.</span></li>
                         </ol>
                     </div>
-                    <a class="composition-image-link"
-                        href="{{ $featuredProduct ? route('product.show', $featuredProduct->id) : '#browse-products' }}"
-                        aria-label="{{ $featuredProduct ? 'View ' . $featuredProduct->name : 'Browse available products' }}">
-                        @if ($featuredProduct?->image_path)
-                            <img class="composition-image" src="{{ asset('storage/' . $featuredProduct->image_path) }}"
-                                alt="{{ $featuredProduct->name }}" loading="lazy">
-                        @else
-                            <img class="composition-image composition-image-placeholder"
-                                src="{{ asset('images/floating_element_1.png') }}" alt="" loading="lazy"
-                                width="970" height="1455">
-                        @endif
-                        @if ($featuredProduct)
-                            <span
-                                class="composition-label"><span>{{ $featuredProduct->category }}</span><strong>{{ $featuredProduct->name }}</strong><em>₱{{ number_format($featuredProduct->effective_price, 2) }}</em></span>
-                        @else
-                            <span class="composition-label"><span>EZiCart</span><strong>Browse the
-                                    marketplace</strong><em>Explore available finds</em></span>
-                        @endif
-                    </a>
+                    @if ($featuredProduct)
+                        <div class="storefront-composition-product">
+                            <x-catalog-product-card :product="$featuredProduct" />
+                        </div>
+                    @else
+                        <a class="composition-image-link" href="#browse-products" aria-label="Browse available products">
+                            <img class="composition-image composition-image-placeholder" src="{{ asset('images/floating_element_1.png') }}" alt="" loading="lazy" width="970" height="1455">
+                            <span class="composition-label"><span>EZiCart</span><strong>Browse the marketplace</strong><em>Explore available finds</em></span>
+                        </a>
+                    @endif
                     <span class="stage-index" aria-hidden="true">03 / 03</span>
                 </div>
             </section>
@@ -201,27 +179,9 @@
                             @endif
                         </div>
                     @else
-                        <div class="product-grid">
+                        <div class="storefront-product-grid">
                             @foreach ($products as $product)
-                                <a href="{{ route('product.show', $product->id) }}" class="product-entry" data-rev>
-                                    <span class="product-image-frame">
-                                        @if ($product->image_path)
-                                            <img src="{{ asset('storage/' . $product->image_path) }}"
-                                                alt="{{ $product->name }}" class="product-image" loading="lazy">
-                                        @else
-                                            <span class="product-image-empty" aria-hidden="true">EZ</span>
-                                        @endif
-                                        <span class="product-category">{{ $product->category_label }}</span>
-                                    </span>
-                                    <span class="product-meta">
-                                        <span class="product-name">{{ $product->name }}</span>
-                                        <span
-                                            class="product-seller">{{ $product->seller->business_name ?? 'EZiCart seller' }}</span>
-                                        <span class="product-bottom"><span
-                                                class="product-price"><x-product-price :product="$product" /></span><span
-                                                class="product-rating">{{ $product->average_rating > 0 ? number_format($product->average_rating, 1) . ' / 5' : 'New listing' }}</span></span>
-                                    </span>
-                                </a>
+                                <x-catalog-product-card :product="$product" />
                             @endforeach
                         </div>
 

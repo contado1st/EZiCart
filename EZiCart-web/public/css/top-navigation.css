@@ -1,0 +1,69 @@
+/* Shared top navigation only. Role palettes and content frames keep their own colors. */
+.navbar, .workspace-topbar, .applicant-topbar, .editorial-nav {
+    --topnav-background: #7BDFF2;
+    --topnav-ink: #123b49;
+    --topnav-muted: #28515e;
+    --topnav-cloud: #F7F8F5;
+    --topnav-line: #54bfd3;
+    --topnav-action: #075e70;
+    --topnav-hover: #e7f8fc;
+}
+.navbar, .landing-page .navbar, .catalog-search-page .navbar,
+.workspace-topbar, .applicant-topbar, .landing-page .editorial-nav {
+    background: var(--topnav-background);
+    color: var(--topnav-ink);
+    border-top: 0;
+    border-bottom: 1px solid var(--topnav-line);
+    box-shadow: none;
+}
+.navbar .brand-logo, .applicant-topbar .brand-logo, .workspace-topbar .workspace-brand > a {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    padding: 4px 10px;
+    border: 1px solid #fff;
+    border-radius: 12px;
+    background: var(--topnav-cloud);
+    line-height: 1;
+}
+.navbar .brand-logo img, .applicant-topbar .brand-logo img { display: block; width: 96px; height: 48px; object-fit: contain; object-position: center; }
+.workspace-topbar .workspace-brand > a { padding: 4px 6px; border-radius: 10px; }
+.workspace-topbar .workspace-brand img { display: block; width: 80px; height: 40px; object-fit: contain; }
+.workspace-topbar {
+    --workspace-ink: var(--topnav-ink);
+    --workspace-muted: var(--topnav-muted);
+    --workspace-line: var(--topnav-line);
+    --workspace-soft: var(--topnav-cloud);
+    --workspace-accent: var(--topnav-action);
+    --workspace-accent-hover: #064b59;
+}
+.workspace-topbar .workspace-icon-button { color: var(--topnav-ink); }
+.workspace-topbar .workspace-icon-button:hover { color: var(--topnav-action); background: var(--topnav-cloud); }
+.navbar .auth-nav :is(.nav-link, .logout-form-inline button), .navbar .navbar-workspace-label { color: var(--topnav-ink); }
+.navbar .auth-nav :is(.nav-link, .logout-form-inline button):hover { color: var(--topnav-action); background: var(--topnav-hover); }
+.navbar .auth-nav .btn-primary, .navbar .search-button { color: #fff; background: var(--topnav-action); border-color: var(--topnav-action); }
+.navbar .auth-nav .btn-primary:hover, .navbar .search-button:hover { color: #fff; background: #064b59; border-color: #064b59; }
+.navbar .search-form { border-bottom: 0; }
+.navbar .search-input, .navbar .search-input:focus { color: var(--topnav-ink); background: var(--topnav-cloud); border: 1px solid #397b8c; box-shadow: none; padding-inline: 12px; }
+.navbar .search-input::placeholder { color: var(--topnav-muted); opacity: 1; }
+.navbar .search-form:focus-within { outline: 2px solid var(--topnav-action); outline-offset: 3px; }
+.navbar :is(a, button, input):focus-visible, .workspace-topbar :is(a, button):focus-visible,
+.applicant-topbar :is(a, button):focus-visible, .editorial-nav a:focus-visible { outline: 2px solid var(--topnav-action); outline-offset: 3px; }
+.landing-page .editorial-nav { width: 100%; max-width: none; margin-inline: 0; }
+.landing-page .editorial-nav a { color: var(--topnav-ink); }
+.landing-page .editorial-nav a:hover { color: var(--topnav-action); text-decoration: underline; }
+.applicant-topbar { display: flex; align-items: center; flex-wrap: wrap; gap: 16px 24px; margin: 0; padding: 16px 24px; }
+.applicant-topbar .applicant-topbar-copy { flex: 1 1 320px; min-width: 0; }
+.applicant-topbar p { color: var(--topnav-muted); }
+.applicant-topbar form { margin: 0; }
+.applicant-topbar button { min-height: 44px; color: var(--topnav-ink); background: var(--topnav-cloud); border-color: #397b8c; }
+@media (max-width: 700px) {
+    .navbar .brand-logo img, .applicant-topbar .brand-logo img { width: 72px; height: 40px; }
+    .navbar .brand-logo, .applicant-topbar .brand-logo { padding: 4px 8px; }
+}
+@media (max-width: 540px) {
+    .workspace-topbar .workspace-brand > a { padding: 4px 5px; }
+    .workspace-topbar .workspace-brand img { width: 52px; height: 34px; }
+    .applicant-topbar { padding: 16px; }
+}

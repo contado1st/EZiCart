@@ -1,0 +1,43 @@
+/* Keep the existing photo cards; only their arrangement and controls change. */
+[data-category-carousel] .buyer-category-grid {
+    display: grid;
+    grid-template-columns: none;
+    grid-auto-flow: column;
+    grid-auto-columns: calc((100% - 4 * 12px) / 5);
+    gap: 12px;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scroll-snap-type: none;
+    scroll-behavior: auto;
+    scroll-padding-inline: 4px;
+    scrollbar-width: thin;
+    scrollbar-color: #dc9eb7 #fff;
+    padding: 4px 4px 12px;
+}
+[data-category-carousel] .buyer-category-tile { scroll-snap-align: none; }
+.category-carousel-controls { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 8px; margin: 0 0 12px; }
+.category-carousel-controls[hidden] { display: none; }
+.category-carousel-controls button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 44px;
+    min-height: 44px;
+    padding: 8px 12px;
+    color: #8c3845;
+    background: #fff;
+    border: 1px solid #d9d9d4;
+    border-radius: 8px;
+    font: 600 13px/1.4 "Instrument Sans", ui-sans-serif, system-ui, sans-serif;
+    cursor: pointer;
+}
+.category-carousel-controls button:hover { background: #fff1f5; border-color: #8c3845; }
+.category-carousel-controls button[hidden] { display: none; }
+.category-carousel-next-icon { transform: rotate(180deg); }
+[data-category-carousel] :is(button, [data-carousel-track]):focus-visible { outline: 2px solid #8c3845; outline-offset: 3px; }
+@media (max-width: 900px) {
+    [data-category-carousel] .buyer-category-grid { grid-auto-columns: calc((100% - 2 * 12px) / 3); }
+}
+@media (max-width: 620px) {
+    [data-category-carousel] .buyer-category-grid { grid-auto-columns: calc((100% - 12px) / 2.15); }
+}

@@ -60,7 +60,7 @@ body.dashboard-workspace.workspace-logistics {
     grid-template-columns: 180px minmax(0, 1fr);
     height: var(--workspace-header-height);
     border-bottom: 1px solid var(--workspace-line);
-    background: linear-gradient(110deg, #fff1f5 0%, #fbd1e0 55%, #f5a9c3 100%);
+    background: #7BDFF2;
 }
 .workspace-brand { display: flex; align-items: center; justify-content: flex-start; gap: 10px; padding: 0 16px; min-width: 0; }
 .workspace-brand > a { display: inline-flex; flex-shrink: 0; }

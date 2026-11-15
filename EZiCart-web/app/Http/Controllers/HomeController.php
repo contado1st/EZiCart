@@ -14,7 +14,7 @@ use Illuminate\Support\Facades\DB;
 
 class HomeController extends Controller
 {
-    public function index(Request $request)
+    public function index(Request $request, ProductRecommendationService $recommendations)
     {
         $roleDashboardRoute = match ($request->user()?->role) {
             'admin', 'ecommerce_admin' => 'admin.dashboard',
@@ -33,7 +33,8 @@ class HomeController extends Controller
         $categories = array_map(fn ($name) => ['name' => $name, 'icon' => $categoryIcons[$name] ?? 'package1', 'image' => $categoryImages[$name] ?? null], app(ProductCategoryService::class)->browseOptions(Product::availableForMarketplace()->distinct()->pluck('category')));
 
         $query = Product::query()->availableForMarketplace()
-            ->with('seller')->withVariantPrices();
+            ->with('seller')->withVariantPrices()
+            ->withAvg('reviews as catalog_rating', 'rating')->withCount('reviews as catalog_review_count');
 
         // Filter by category
         if ($request->filled('category')) {
@@ -49,10 +50,13 @@ class HomeController extends Controller
         }
 
         $products = $query->latest()->paginate(12)->withQueryString();
+        $forYouProducts = $request->user()?->role === 'buyer'
+            ? $recommendations->query($request->user())->limit(5)->get()
+            : null;
 
         $view = $request->user() ? 'home' : 'home-guest';
 
-        return view($view, compact('categories', 'products'));
+        return view($view, compact('categories', 'products', 'forYouProducts'));
     }
 
     public function showProduct(Request $request, Product $product, ProductRecommendationService $recommendations)
