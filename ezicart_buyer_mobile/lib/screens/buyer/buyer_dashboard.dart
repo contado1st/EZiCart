@@ -1154,10 +1154,10 @@ class _BuyerDashboardState extends State<BuyerDashboard> {
         title: Row(
           children: [
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
+              padding: const EdgeInsets.all(4),
               decoration: BoxDecoration(
                 color: Colors.white,
-                borderRadius: BorderRadius.circular(6),
+                borderRadius: BorderRadius.circular(8),
                 boxShadow: [
                   BoxShadow(
                     color: Colors.black.withValues(alpha: 0.1),
@@ -1166,13 +1166,15 @@ class _BuyerDashboardState extends State<BuyerDashboard> {
                   ),
                 ],
               ),
-              child: const Text(
-                'EZ',
-                style: TextStyle(
+              child: Image.asset(
+                'assets/images/ezicart-logo.png',
+                height: 24,
+                width: 24,
+                fit: BoxFit.contain,
+                errorBuilder: (_, __, ___) => const Icon(
+                  Icons.shopping_bag_outlined,
                   color: Color(0xFFBE2854),
-                  fontWeight: FontWeight.w900,
-                  fontSize: 13,
-                  letterSpacing: 0.5,
+                  size: 20,
                 ),
               ),
             ),
