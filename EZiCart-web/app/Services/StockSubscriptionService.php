@@ -13,7 +13,13 @@ class StockSubscriptionService
 
     public function state(Product $product): string
     {
-        $product->loadMissing('seller', 'variations');
+        if ($product->relationLoaded('seller') && $product->seller && (! $product->seller->hasAttribute('status') || ! $product->seller->hasAttribute('role'))) {
+            $product->load('seller');
+        } else {
+            $product->loadMissing('seller');
+        }
+        $product->loadMissing('variations');
+
         $hasVariations = $product->usesVariations($product->variations->isNotEmpty()) && $product->variations->isNotEmpty();
         if ($hasVariations) {
             $stock = (int) $product->variations->where('is_active', true)->sum('stock');

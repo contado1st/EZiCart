@@ -63,7 +63,7 @@ class DiscoveryApiController extends Controller
             ->where('user_id', $buyer->id)
             ->pluck('product_id');
 
-        $products = Product::with(['seller:id,business_name,municipality,province', 'variations' => fn ($q) => $q->where('is_active', true)])
+        $products = Product::with(['seller:id,business_name,municipality,province,status,role', 'variations' => fn ($q) => $q->where('is_active', true)])
             ->whereIn('id', $watched)
             ->latest('id')
             ->get();
