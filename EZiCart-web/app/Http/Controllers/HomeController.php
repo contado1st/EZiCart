@@ -28,7 +28,9 @@ class HomeController extends Controller
             return redirect()->route($roleDashboardRoute);
         }
 
-        $categories = array_map(fn ($name) => ['name' => $name, 'icon' => 'package1'], app(ProductCategoryService::class)->browseOptions(Product::availableForMarketplace()->distinct()->pluck('category')));
+        $categoryIcons = config('web-commerce.category_icons', []);
+        $categoryImages = config('web-commerce.category_images', []);
+        $categories = array_map(fn ($name) => ['name' => $name, 'icon' => $categoryIcons[$name] ?? 'package1', 'image' => $categoryImages[$name] ?? null], app(ProductCategoryService::class)->browseOptions(Product::availableForMarketplace()->distinct()->pluck('category')));
 
         $query = Product::query()->availableForMarketplace()
             ->with('seller')->withVariantPrices();

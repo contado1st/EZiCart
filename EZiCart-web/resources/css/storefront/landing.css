@@ -722,7 +722,7 @@ body.landing-page {
     display: block;
     width: 100%;
     max-height: min(72vh, 54rem);
-    aspect-ratio: 4 / 5;
+    width: 100%;
     align-self: center;
     overflow: hidden;
     color: var(--landing-ink);
@@ -861,7 +861,7 @@ body.landing-page {
 .product-image-frame {
     position: relative;
     display: grid;
-    aspect-ratio: 4 / 5;
+    width: 100%;
     place-items: center;
     overflow: hidden;
     background: var(--landing-paper-soft);
@@ -1541,12 +1541,16 @@ body.landing-page {
     .footer-topline p {
         grid-column: 1;
         grid-row: 2;
+    min-width: 0;
+    overflow-wrap: anywhere;
         font-size: 0.95rem;
     }
 
     .footer-top-link {
         grid-column: 2;
         grid-row: 2;
+    min-width: 0;
+    overflow-wrap: anywhere;
         max-width: 6.5rem;
         font-size: 0.59rem;
     }
@@ -1632,6 +1636,7 @@ body.landing-page {
 
 /* Buyer storefront: marketplace-first layout using the editorial EZiCart theme. */
 .buyer-store-main {
+    min-width: 0;
     display: grid;
     gap: clamp(2rem, 4vw, 4rem);
     width: var(--landing-width);
@@ -1822,6 +1827,7 @@ body.landing-page {
 }
 
 .buyer-shelf {
+    min-width: 0;
     padding: clamp(1.1rem, 2.4vw, 2rem);
     background: #fffdfa;
     border: 1px solid rgb(7 7 7 / 10%);
@@ -1860,48 +1866,94 @@ body.landing-page {
     text-underline-offset: 0.25em;
 }
 
+.buyer-category-shelf {
+    padding: 0;
+    border: 0;
+    background: transparent;
+}
+
+.buyer-category-shelf .buyer-shelf-heading {
+    border-bottom: 0;
+    padding-bottom: 0;
+}
+
 .buyer-category-grid {
+    min-width: 0;
     display: grid;
     grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 0.6rem;
 }
 
 .buyer-category-tile {
-    display: grid;
-    min-height: 8rem;
-    align-content: space-between;
-    gap: 0.7rem;
-    padding: 1rem;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    overflow: hidden;
+    padding: 4px;
     color: var(--landing-ink);
-    background: linear-gradient(145deg, #fffdfa 0%, #f8e9eb 100%);
-    border-right: 1px solid rgb(7 7 7 / 10%);
-    border-bottom: 1px solid rgb(7 7 7 / 10%);
+    background: #fff;
+    border: 1px solid #d9d9d4;
+    border-radius: 10px;
+    box-shadow: 0 3px 6px rgb(7 7 7 / 12%);
+    text-align: center;
     text-decoration: none;
-    transition: background-color 180ms ease, color 180ms ease;
 }
 
-.buyer-category-tile:hover {
-    background: var(--landing-blush);
+.buyer-category-background {
+    display: block;
+    flex: 0 0 auto;
+    width: 100%;
+    height: auto;
+    aspect-ratio: 4 / 3;
+    object-fit: cover;
+    object-position: center;
+    border-radius: 6px;
 }
 
-.buyer-category-number {
-    color: #a34755;
-    font-size: 0.65rem;
-    letter-spacing: 0.1em;
+.buyer-category-caption {
+    display: grid;
+    flex: 1;
+    grid-template-rows: 1fr auto;
+    align-items: center;
+    min-width: 0;
+    min-height: 5.5rem;
+    gap: 0.55rem;
+    padding: 0.8rem 0.4rem 0.65rem;
+    overflow-wrap: anywhere;
+    background: #fff;
+    border-radius: 0 0 6px 6px;
+    transition: background-color 180ms ease;
+}
+
+.buyer-category-tile .buyer-category-icon {
+    width: 6rem;
+    height: 6rem;
+    color: #8c3845;
+}
+
+.buyer-category-tile:focus-visible {
+    position: relative;
+    outline: 2px solid #8c3845;
+    outline-offset: -3px;
+}
+
+.buyer-category-tile:hover .buyer-category-caption {
+    background: #f8e6e9;
 }
 
 .buyer-category-tile strong {
-    font-size: clamp(0.98rem, 1.5vw, 1.3rem);
-    font-weight: 500;
-    line-height: 1.15;
+    font-size: clamp(0.95rem, 1.4vw, 1.15rem);
+    font-weight: 600;
+    line-height: 1.2;
 }
 
 .buyer-category-link {
     display: flex;
-    justify-content: space-between;
-    gap: 0.4rem;
-    color: #5f5556;
+    justify-content: center;
+    gap: 0.25rem;
+    color: #423a3d;
     font-family: "Instrument Sans", ui-sans-serif, system-ui, sans-serif;
-    font-size: 0.66rem;
+    font-size: 0.7rem;
 }
 
 .buyer-arrival-grid {
@@ -2164,6 +2216,7 @@ body.landing-page {
     }
 
     .buyer-category-grid {
+        min-width: 0;
         grid-template-columns: repeat(3, minmax(0, 1fr));
     }
 
@@ -2249,12 +2302,17 @@ body.landing-page {
     }
 
     .buyer-category-grid {
+        min-width: 0;
         grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 
     .buyer-category-tile {
-        min-height: 7rem;
-        padding: 0.75rem;
+        padding: 3px;
+    }
+
+    .buyer-category-tile .buyer-category-icon {
+        width: 4.5rem;
+        height: 4.5rem;
     }
 
     .buyer-arrival-grid,

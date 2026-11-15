@@ -79,9 +79,15 @@
                 <div class="buyer-category-grid">
                     @foreach ($categories as $category)
                         <a class="buyer-category-tile" href="{{ route('home', ['category' => $category['name']]) }}#browse-products">
-                            <span class="buyer-category-number">{{ str_pad($loop->iteration, 2, '0', STR_PAD_LEFT) }}</span>
-                            <strong>{{ $category['name'] }}</strong>
-                            <span class="buyer-category-link">Explore category <span aria-hidden="true">↗</span></span>
+                            @if ($category['image'])
+                                <img class="buyer-category-background" src="{{ asset('images/categories/'.$category['image']) }}" alt="" width="1024" height="1024" loading="lazy" decoding="async">
+                            @else
+                                <x-shop-icon :name="$category['icon']" class="buyer-category-icon" />
+                            @endif
+                            <span class="buyer-category-caption">
+                                <strong>{{ $category['name'] }}</strong>
+                                <span class="buyer-category-link">Explore category <span aria-hidden="true">→</span></span>
+                            </span>
                         </a>
                     @endforeach
                 </div>

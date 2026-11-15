@@ -42,7 +42,7 @@
 
         <form class="ops-form ops-intake-form logistics-qr-intake-form" action="{{ route('logistics.scan') }}" method="POST">
             @csrf
-            <div class="ops-field">
+            <div class="ops-field logistics-intake-reference">
                 <label for="reference">Parcel QR code or reference</label>
                 <input id="reference"
                     name="reference"
@@ -54,10 +54,9 @@
                     autocomplete="off"
                     placeholder="Scan a parcel QR code or enter EZP:…"
                     aria-describedby="intake-reference-help">
-                <p class="ops-muted" id="intake-reference-help">The camera reads the EZP parcel QR printed on the waybill. A handheld scanner or order number also works.</p>
             </div>
 
-            <div class="ops-field">
+            <div class="ops-field logistics-intake-location">
                 <label for="location_reference">Returns / Exception location (for failed parcels)</label>
                 <input id="location_reference"
                     name="location_reference"
@@ -68,6 +67,8 @@
             <input type="hidden" name="method" value="manual">
 
             <button class="ops-btn ops-btn--primary logistics-scan-btn-lg" type="submit">Verify parcel</button>
+
+            <p class="ops-muted logistics-intake-help" id="intake-reference-help">The camera reads the EZP parcel QR printed on the waybill. A handheld scanner or order number also works.</p>
 
             <div class="ops-scanner__viewport-wrap" data-qr-video-container hidden>
                 <video class="ops-scanner__video" data-qr-video playsinline muted hidden></video>
