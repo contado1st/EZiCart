@@ -208,7 +208,7 @@ class _ShopPageState extends State<ShopPage> {
   Future<void> _startChat() async {
     try {
       final res = await ApiService.post(ApiConfig.chatStartEndpoint(widget.sellerId), {});
-      if (res.statusCode == 200 && mounted) {
+      if ((res.statusCode == 200 || res.statusCode == 201) && mounted) {
         final body = jsonDecode(res.body);
         final conversationId = body['conversation_id'];
         Navigator.of(context).push(
@@ -216,8 +216,15 @@ class _ShopPageState extends State<ShopPage> {
             builder: (_) => ChatConversationScreen(
               conversationId: conversationId,
               partnerName: _shop?.displayName ?? _shop?.name ?? 'Merchant',
+              partnerId: widget.sellerId,
+              partnerRole: 'seller',
             ),
           ),
+        );
+      } else if (mounted) {
+        final err = jsonDecode(res.body);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(err['message'] ?? 'Could not start chat.')),
         );
       }
     } catch (e) {

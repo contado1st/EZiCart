@@ -130,8 +130,10 @@ $defineApiRoutes = function () {
         // Chat & Messaging
         Route::get('/chat/threads', [ChatApiController::class, 'threads']);
         Route::get('/chat/{conversation}', [ChatApiController::class, 'show'])->whereNumber('conversation');
-        Route::post('/chat/{conversation}/messages', [ChatApiController::class, 'sendMessage'])->whereNumber('conversation');
-        Route::post('/chat/start/{sellerId}', [ChatApiController::class, 'start'])->whereNumber('sellerId');
+        Route::post('/chat/{conversation}/messages', [ChatApiController::class, 'sendMessage'])->whereNumber('conversation')->middleware('throttle:operational-action');
+        Route::delete('/chat/{conversation}/messages/{message}', [ChatApiController::class, 'unsendMessage'])->whereNumber(['conversation', 'message'])->middleware('throttle:operational-action');
+        Route::delete('/chat/{conversation}/attachments/{attachment}', [ChatApiController::class, 'unsendAttachment'])->whereNumber(['conversation', 'attachment'])->middleware('throttle:operational-action');
+        Route::post('/chat/start/{sellerId}', [ChatApiController::class, 'start'])->whereNumber('sellerId')->middleware('throttle:operational-action');
         Route::get('/chat/attachments/{attachment}', [ChatApiController::class, 'attachment'])->whereNumber('attachment');
     });
 

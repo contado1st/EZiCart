@@ -146,6 +146,8 @@ class ApiConfig {
   static String get chatThreadsEndpoint => '$baseUrl/chat/threads';
   static String chatConversationEndpoint(int id) => '$baseUrl/chat/$id';
   static String chatSendMessageEndpoint(int id) => '$baseUrl/chat/$id/messages';
+  static String chatUnsendMessageEndpoint(int conversationId, int messageId) => '$baseUrl/chat/$conversationId/messages/$messageId';
+  static String chatUnsendAttachmentEndpoint(int conversationId, int attachmentId) => '$baseUrl/chat/$conversationId/attachments/$attachmentId';
   static String chatStartEndpoint(int sellerId) => '$baseUrl/chat/start/$sellerId';
   static String chatAttachmentEndpoint(int id) => '$baseUrl/chat/attachments/$id';
 

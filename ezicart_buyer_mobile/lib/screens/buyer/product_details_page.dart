@@ -176,8 +176,11 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
     }
 
     try {
-      final res = await ApiService.post(ApiConfig.chatStartEndpoint(_product.sellerId!), {});
-      if (res.statusCode == 200 && mounted) {
+      final res = await ApiService.post(
+        ApiConfig.chatStartEndpoint(_product.sellerId!),
+        {'product_id': _product.id},
+      );
+      if ((res.statusCode == 200 || res.statusCode == 201) && mounted) {
         final body = jsonDecode(res.body);
         final conversationId = body['conversation_id'];
         Navigator.of(context).push(
@@ -185,8 +188,15 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
             builder: (_) => ChatConversationScreen(
               conversationId: conversationId,
               partnerName: _product.sellerName,
+              partnerId: _product.sellerId,
+              productId: _product.id,
             ),
           ),
+        );
+      } else if (mounted) {
+        final body = jsonDecode(res.body);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(body['message'] ?? 'Could not start chat.')),
         );
       }
     } catch (e) {

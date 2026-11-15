@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
@@ -5,12 +6,15 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:http_parser/http_parser.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../config/api_config.dart';
 import '../../config/theme.dart';
 import '../../models/chat_model.dart';
+import '../../models/product_model.dart';
 import '../../services/api_service.dart';
 import '../../utils/philippine_time.dart';
+import 'product_details_page.dart';
 import 'shop_page.dart';
 
 class _LocalAttachment {
@@ -24,13 +28,80 @@ class _LocalAttachment {
     required this.name,
     this.extension,
     this.path,
+    this.bytes,
     required this.sizeInBytes,
-  }) : bytes = null;
+  });
+
+  bool get isImage {
+    final ext = cleanExtension;
+    return ext == 'jpg' || ext == 'jpeg' || ext == 'png' || ext == 'webp';
+  }
+
+  String get cleanExtension {
+    var ext = (extension ?? '').trim().toLowerCase().replaceAll('.', '');
+    if (ext.isEmpty && name.contains('.')) {
+      ext = name.split('.').last.trim().toLowerCase();
+    }
+    if (ext.isEmpty && path != null && path!.contains('.')) {
+      ext = path!.split('.').last.trim().toLowerCase();
+    }
+    if (ext == 'tmp' || ext.isEmpty) {
+      return 'jpg';
+    }
+    return ext;
+  }
+
+  String get uploadFileName {
+    final ext = cleanExtension;
+    if (name.contains('.')) {
+      final parts = name.split('.');
+      final currentExt = parts.last.trim().toLowerCase();
+      if (currentExt == 'tmp' ||
+          !['jpg', 'jpeg', 'png', 'webp', 'pdf', 'doc', 'docx', 'xls', 'xlsx', 'txt']
+              .contains(currentExt)) {
+        return '${parts.sublist(0, parts.length - 1).join('.')}.$ext';
+      }
+      return name;
+    }
+    return '$name.$ext';
+  }
+
+  MediaType get mediaType {
+    final ext = cleanExtension;
+    switch (ext) {
+      case 'jpg':
+      case 'jpeg':
+        return MediaType('image', 'jpeg');
+      case 'png':
+        return MediaType('image', 'png');
+      case 'webp':
+        return MediaType('image', 'webp');
+      case 'pdf':
+        return MediaType('application', 'pdf');
+      case 'doc':
+        return MediaType('application', 'msword');
+      case 'docx':
+        return MediaType('application',
+            'vnd.openxmlformats-officedocument.wordprocessingml.document');
+      case 'xls':
+        return MediaType('application', 'vnd.ms-excel');
+      case 'xlsx':
+        return MediaType('application',
+            'vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      case 'txt':
+        return MediaType('text', 'plain');
+      default:
+        return MediaType('application', 'octet-stream');
+    }
+  }
 
   Future<Uint8List> readAsBytes() async {
-    if (bytes != null) return bytes!;
+    if (bytes != null && bytes!.isNotEmpty) return bytes!;
     if (path != null && path!.isNotEmpty) {
-      return await File(path!).readAsBytes();
+      final f = File(path!);
+      if (await f.exists()) {
+        return await f.readAsBytes();
+      }
     }
     return Uint8List(0);
   }
@@ -48,15 +119,20 @@ class MessagesPageState extends State<MessagesPage> {
   bool _isLoading = true;
   String _searchQuery = '';
   final TextEditingController _searchCtrl = TextEditingController();
+  Timer? _threadsTimer;
 
   @override
   void initState() {
     super.initState();
     _fetchThreads();
+    _threadsTimer = Timer.periodic(const Duration(seconds: 5), (_) {
+      if (mounted) _fetchThreads(silent: true);
+    });
   }
 
   @override
   void dispose() {
+    _threadsTimer?.cancel();
     _searchCtrl.dispose();
     super.dispose();
   }
@@ -65,7 +141,10 @@ class MessagesPageState extends State<MessagesPage> {
     _fetchThreads();
   }
 
-  Future<void> _fetchThreads() async {
+  Future<void> _fetchThreads({bool silent = false}) async {
+    if (!silent && mounted) {
+      setState(() => _isLoading = true);
+    }
     try {
       final res = await ApiService.get(ApiConfig.chatThreadsEndpoint);
       if (res.statusCode == 200) {
@@ -85,7 +164,7 @@ class MessagesPageState extends State<MessagesPage> {
       }
     } catch (_) {}
 
-    if (mounted) {
+    if (mounted && !silent) {
       setState(() => _isLoading = false);
     }
   }
@@ -595,6 +674,7 @@ class ChatConversationScreen extends StatefulWidget {
   final String? lastActiveAt;
   final String? lastActiveText;
   final int? orderId;
+  final int? productId;
 
   const ChatConversationScreen({
     super.key,
@@ -607,6 +687,7 @@ class ChatConversationScreen extends StatefulWidget {
     this.lastActiveAt,
     this.lastActiveText,
     this.orderId,
+    this.productId,
   });
 
   @override
@@ -619,6 +700,8 @@ class _ChatConversationScreenState extends State<ChatConversationScreen> {
   List<ChatMessageModel> _messages = [];
   bool _isLoading = true;
   bool _isSending = false;
+  bool _canSend = true;
+  Timer? _pollTimer;
 
   // Selected attachments (up to 3, max 2MB each)
   final List<_LocalAttachment> _selectedAttachments = [];
@@ -631,6 +714,7 @@ class _ChatConversationScreenState extends State<ChatConversationScreen> {
   bool _isOnline = false;
   String? _lastActiveAt;
   String? _lastActiveText;
+  String? _authToken;
 
   @override
   void initState() {
@@ -643,11 +727,27 @@ class _ChatConversationScreenState extends State<ChatConversationScreen> {
     _lastActiveAt = widget.lastActiveAt;
     _lastActiveText = widget.lastActiveText;
 
+    _loadAuthToken();
     _loadMessages();
+    _pollTimer = Timer.periodic(const Duration(seconds: 3), (_) {
+      if (mounted) _loadMessages(silent: true);
+    });
+  }
+
+  Future<void> _loadAuthToken() async {
+    final t = await ApiService.getToken();
+    if (mounted) setState(() => _authToken = t);
+  }
+
+  String _authenticatedUrl(String url) {
+    if (url.isEmpty || _authToken == null || _authToken!.isEmpty) return url;
+    final separator = url.contains('?') ? '&' : '?';
+    return '$url${separator}token=$_authToken';
   }
 
   @override
   void dispose() {
+    _pollTimer?.cancel();
     _msgCtrl.dispose();
     _scrollCtrl.dispose();
     super.dispose();
@@ -664,7 +764,10 @@ class _ChatConversationScreenState extends State<ChatConversationScreen> {
     }
   }
 
-  Future<void> _loadMessages() async {
+  Future<void> _loadMessages({bool silent = false}) async {
+    if (!silent && mounted) {
+      setState(() => _isLoading = true);
+    }
     try {
       final res = await ApiService.get(
         ApiConfig.chatConversationEndpoint(widget.conversationId),
@@ -674,19 +777,24 @@ class _ChatConversationScreenState extends State<ChatConversationScreen> {
         final data = body['data'];
         final partner = data?['partner'];
 
-        if (partner != null && mounted) {
+        if (mounted) {
           setState(() {
-            _partnerId = (partner['id'] is int)
-                ? partner['id']
-                : int.tryParse('${partner['id']}') ?? _partnerId;
-            _partnerName = partner['name']?.toString() ?? _partnerName;
-            _partnerRole = partner['role']?.toString() ?? _partnerRole;
-            _avatarUrl = partner['avatar_url']?.toString() ?? _avatarUrl;
-            _isOnline = partner['is_online'] == true;
-            _lastActiveAt =
-                partner['last_active_at']?.toString() ?? _lastActiveAt;
-            _lastActiveText =
-                partner['last_active_text']?.toString() ?? _lastActiveText;
+            if (partner != null) {
+              _partnerId = (partner['id'] is int)
+                  ? partner['id']
+                  : int.tryParse('${partner['id']}') ?? _partnerId;
+              _partnerName = partner['name']?.toString() ?? _partnerName;
+              _partnerRole = partner['role']?.toString() ?? _partnerRole;
+              _avatarUrl = partner['avatar_url']?.toString() ?? _avatarUrl;
+              _isOnline = partner['is_online'] == true;
+              _lastActiveAt =
+                  partner['last_active_at']?.toString() ?? _lastActiveAt;
+              _lastActiveText =
+                  partner['last_active_text']?.toString() ?? _lastActiveText;
+            }
+            if (data?['can_send'] != null) {
+              _canSend = data['can_send'] == true;
+            }
           });
         }
 
@@ -695,17 +803,27 @@ class _ChatConversationScreenState extends State<ChatConversationScreen> {
           final list = rawMessages
               .map((m) => ChatMessageModel.fromJson(m as Map<String, dynamic>))
               .toList();
+
+          final bool hasChanged = list.length != _messages.length ||
+              (list.isNotEmpty && _messages.isNotEmpty && list.last.id != _messages.last.id);
+
+          final bool wasNearBottom = _scrollCtrl.hasClients &&
+              (_scrollCtrl.position.maxScrollExtent - _scrollCtrl.offset < 120);
+
           setState(() {
             _messages = list;
             _isLoading = false;
           });
-          _scrollToBottom();
+
+          if (hasChanged && (wasNearBottom || !silent)) {
+            _scrollToBottom();
+          }
           return;
         }
       }
     } catch (_) {}
 
-    if (mounted) {
+    if (mounted && !silent) {
       setState(() => _isLoading = false);
     }
   }
@@ -829,15 +947,14 @@ class _ChatConversationScreenState extends State<ChatConversationScreen> {
       final picker = ImagePicker();
       List<XFile> images = [];
 
-      // 1. Try pickMultiImage first
       try {
-        images = await picker.pickMultiImage();
+        images = await picker.pickMultiImage(
+          maxWidth: 1920,
+          maxHeight: 1920,
+          imageQuality: 85,
+        );
       } catch (e) {
-        debugPrint('pickMultiImage not supported or failed: $e');
-      }
-
-      // 2. If multi-image picker returned empty, fallback to standard pickImage
-      if (images.isEmpty) {
+        debugPrint('pickMultiImage failed, trying single image: $e');
         try {
           final single = await picker.pickImage(
             source: ImageSource.gallery,
@@ -845,27 +962,9 @@ class _ChatConversationScreenState extends State<ChatConversationScreen> {
             maxHeight: 1920,
             imageQuality: 85,
           );
-          if (single != null) {
-            images = [single];
-          }
-        } catch (e) {
-          debugPrint('pickImage gallery failed: $e');
-        }
-      }
-
-      // 3. If still empty, fallback to FilePicker with image type
-      if (images.isEmpty) {
-        try {
-          final files = await FilePicker.pickFiles(type: FileType.image);
-          if (files.isNotEmpty) {
-            for (final f in files) {
-              if (f.path != null && f.path!.isNotEmpty) {
-                images.add(XFile(f.path!, name: f.name));
-              }
-            }
-          }
-        } catch (e) {
-          debugPrint('FilePicker fallback failed: $e');
+          if (single != null) images = [single];
+        } catch (e2) {
+          debugPrint('pickImage failed: $e2');
         }
       }
 
@@ -874,24 +973,33 @@ class _ChatConversationScreenState extends State<ChatConversationScreen> {
         int added = 0;
         for (final img in images) {
           if (added >= remaining) break;
-          final length = await img.length();
+          final bytes = await img.readAsBytes();
+          final length = bytes.isNotEmpty ? bytes.length : await img.length();
           if (length > 2 * 1024 * 1024) {
             if (mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
                   content: Text('File "${img.name}" exceeds the 2MB limit.'),
-                  backgroundColor: Colors.red.shade700,
+                  backgroundColor: const Color(0xFFBE2854),
                 ),
               );
             }
             continue;
           }
-          final ext = img.name.contains('.') ? img.name.split('.').last : 'jpg';
+          var ext = (img.name.contains('.')
+                  ? img.name.split('.').last
+                  : (img.path.contains('.') ? img.path.split('.').last : 'jpg'))
+              .toLowerCase();
+          if (ext == 'tmp' || ext.isEmpty) ext = 'jpg';
+          final name =
+              img.name.endsWith('.$ext') ? img.name : '${img.name}.$ext';
+
           _selectedAttachments.add(
             _LocalAttachment(
-              name: img.name,
+              name: name,
               extension: ext,
               path: img.path,
+              bytes: bytes,
               sizeInBytes: length,
             ),
           );
@@ -901,9 +1009,9 @@ class _ChatConversationScreenState extends State<ChatConversationScreen> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Error selecting images: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error selecting images: $e')),
+        );
       }
     }
   }
@@ -918,26 +1026,33 @@ class _ChatConversationScreenState extends State<ChatConversationScreen> {
         imageQuality: 85,
       );
       if (photo != null) {
-        final length = await photo.length();
+        final bytes = await photo.readAsBytes();
+        final length = bytes.isNotEmpty ? bytes.length : await photo.length();
         if (length > 2 * 1024 * 1024) {
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: Text('Photo "${photo.name}" exceeds the 2MB limit.'),
-                backgroundColor: Colors.red.shade700,
+                backgroundColor: const Color(0xFFBE2854),
               ),
             );
           }
           return;
         }
-        final ext = photo.name.contains('.')
-            ? photo.name.split('.').last
-            : 'jpg';
+        var ext = (photo.name.contains('.')
+                ? photo.name.split('.').last
+                : 'jpg')
+            .toLowerCase();
+        if (ext == 'tmp' || ext.isEmpty) ext = 'jpg';
+        final name =
+            photo.name.endsWith('.$ext') ? photo.name : '${photo.name}.$ext';
+
         _selectedAttachments.add(
           _LocalAttachment(
-            name: photo.name,
+            name: name,
             extension: ext,
             path: photo.path,
+            bytes: bytes,
             sizeInBytes: length,
           ),
         );
@@ -945,9 +1060,9 @@ class _ChatConversationScreenState extends State<ChatConversationScreen> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Error opening camera: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error opening camera: $e')),
+        );
       }
     }
   }
@@ -955,39 +1070,80 @@ class _ChatConversationScreenState extends State<ChatConversationScreen> {
   Future<void> _pickDocuments() async {
     try {
       final List<PlatformFile> files = await FilePicker.pickFiles(
-        type: FileType.any,
+        type: FileType.custom,
+        allowedExtensions: [
+          'jpg',
+          'jpeg',
+          'png',
+          'webp',
+          'pdf',
+          'doc',
+          'docx',
+          'xls',
+          'xlsx',
+          'txt',
+        ],
       );
       if (files.isNotEmpty) {
         final remaining = 3 - _selectedAttachments.length;
         int added = 0;
+        final allowed = {
+          'jpg',
+          'jpeg',
+          'png',
+          'webp',
+          'pdf',
+          'doc',
+          'docx',
+          'xls',
+          'xlsx',
+          'txt',
+        };
+
         for (final file in files) {
           if (added >= remaining) break;
-          int size = 0;
-          try {
-            size = file.lengthSync() ?? (await file.length()) ?? 0;
-          } catch (_) {
-            if (file.path != null && file.path!.isNotEmpty) {
-              try {
-                size = File(file.path!).lengthSync();
-              } catch (_) {}
-            }
-          }
-          if (size > 2 * 1024 * 1024) {
+          final ext = file.extension?.toLowerCase() ??
+              (file.name.contains('.')
+                  ? file.name.split('.').last.toLowerCase()
+                  : '');
+          if (!allowed.contains(ext)) {
             if (mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
-                  content: Text('File "${file.name}" exceeds the 2MB limit.'),
-                  backgroundColor: Colors.red.shade700,
+                  content: Text(
+                    'File "${file.name}" has an unsupported format. Allowed formats: JPG, PNG, WEBP, PDF, DOC, DOCX, XLS, XLSX, TXT.',
+                  ),
+                  backgroundColor: const Color(0xFFBE2854),
                 ),
               );
             }
             continue;
           }
+
+          final bytes = await file.readAsBytes();
+          final size =
+              file.lengthSync() ?? (await file.length()) ?? bytes.length;
+          if (size > 2 * 1024 * 1024) {
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('File "${file.name}" exceeds the 2MB limit.'),
+                  backgroundColor: const Color(0xFFBE2854),
+                ),
+              );
+            }
+            continue;
+          }
+
+          final name =
+              file.name.endsWith('.$ext') ? file.name : '${file.name}.$ext';
+
           _selectedAttachments.add(
             _LocalAttachment(
-              name: file.name,
-              extension: file.extension,
+              name: name,
+              extension: ext,
               path: file.path,
+              bytes: bytes,
               sizeInBytes: size,
             ),
           );
@@ -997,9 +1153,9 @@ class _ChatConversationScreenState extends State<ChatConversationScreen> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Error picking file: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error picking file: $e')),
+        );
       }
     }
   }
@@ -1008,6 +1164,65 @@ class _ChatConversationScreenState extends State<ChatConversationScreen> {
     setState(() {
       _selectedAttachments.removeAt(index);
     });
+  }
+
+  Future<void> _unsendMessage(ChatMessageModel message) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Unsend message?'),
+        content: const Text(
+          'The message and its files will be removed from this conversation for everyone. People may already have seen or downloaded them.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFDC2626),
+            ),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text(
+              'Unsend for everyone',
+              style: TextStyle(color: Colors.white),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true) return;
+
+    try {
+      final res = await ApiService.delete(
+        ApiConfig.chatUnsendMessageEndpoint(widget.conversationId, message.id),
+      );
+      if (res.statusCode == 200) {
+        await _loadMessages(silent: true);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Message unsent for everyone.')),
+          );
+        }
+      } else {
+        if (mounted) {
+          final body = jsonDecode(res.body);
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(body['message'] ?? 'Failed to unsend message.'),
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error: $e')));
+      }
+    }
   }
 
   Future<void> _send() async {
@@ -1031,29 +1246,51 @@ class _ChatConversationScreenState extends State<ChatConversationScreen> {
 
       if (_selectedAttachments.isNotEmpty) {
         final fields = <String, String>{
-          'body': text,
+          if (text.isNotEmpty) 'body': text,
           if (widget.orderId != null) 'order_id': '${widget.orderId}',
+          if (widget.productId != null) 'product_id': '${widget.productId}',
         };
 
         final files = <http.MultipartFile>[];
         for (final att in _selectedAttachments) {
-          if (att.path != null && att.path!.isNotEmpty) {
+          final uploadName = att.uploadFileName;
+          final mediaType = att.mediaType;
+
+          if (att.bytes != null && att.bytes!.isNotEmpty) {
+            files.add(
+              http.MultipartFile.fromBytes(
+                'attachments[]',
+                att.bytes!,
+                filename: uploadName,
+                contentType: mediaType,
+              ),
+            );
+          } else if (att.path != null &&
+              att.path!.isNotEmpty &&
+              File(att.path!).existsSync()) {
             files.add(
               await http.MultipartFile.fromPath(
                 'attachments[]',
                 att.path!,
-                filename: att.name,
+                filename: uploadName,
+                contentType: mediaType,
               ),
             );
           } else {
-            final bytes = await att.readAsBytes();
-            files.add(
-              http.MultipartFile.fromBytes(
-                'attachments[]',
-                bytes,
-                filename: att.name,
-              ),
-            );
+            final b = await att.readAsBytes();
+            if (b.isNotEmpty) {
+              files.add(
+                http.MultipartFile.fromBytes(
+                  'attachments[]',
+                  b,
+                  filename: uploadName,
+                  contentType: mediaType,
+                ),
+              );
+            } else {
+              throw Exception(
+                  'Unable to read attachment "${att.name}". Please reselect the file.');
+            }
           }
         }
 
@@ -1068,11 +1305,12 @@ class _ChatConversationScreenState extends State<ChatConversationScreen> {
           {
             'body': text,
             if (widget.orderId != null) 'order_id': widget.orderId,
+            if (widget.productId != null) 'product_id': widget.productId,
           },
         );
       }
 
-      if (res.statusCode == 201) {
+      if (res.statusCode == 200 || res.statusCode == 201) {
         final body = jsonDecode(res.body);
         final newMsg = ChatMessageModel.fromJson(body['data']);
         if (mounted) {
@@ -1087,9 +1325,23 @@ class _ChatConversationScreenState extends State<ChatConversationScreen> {
       } else {
         if (mounted) {
           setState(() => _isSending = false);
+          String err = 'Failed to send message.';
+          try {
+            final body = jsonDecode(res.body);
+            if (body['errors'] is Map) {
+              final errMap = body['errors'] as Map;
+              final list = errMap.values
+                  .expand((v) => v is List ? v : [v])
+                  .toList();
+              if (list.isNotEmpty) err = list.first.toString();
+            } else if (body['message'] != null) {
+              err = body['message'].toString();
+            }
+          } catch (_) {}
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Failed to send message. Please retry.'),
+            SnackBar(
+              content: Text(err),
+              backgroundColor: const Color(0xFFBE2854),
             ),
           );
         }
@@ -1117,7 +1369,10 @@ class _ChatConversationScreenState extends State<ChatConversationScreen> {
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(12),
                 child: CachedNetworkImage(
-                  imageUrl: imageUrl,
+                  imageUrl: _authenticatedUrl(imageUrl),
+                  httpHeaders: _authToken != null
+                      ? {'Authorization': 'Bearer $_authToken'}
+                      : null,
                   fit: BoxFit.contain,
                   placeholder: (_, __) => const Center(
                     child: CircularProgressIndicator(color: Colors.white),
@@ -1142,6 +1397,50 @@ class _ChatConversationScreenState extends State<ChatConversationScreen> {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  void _showDocumentInfo(ChatAttachmentModel att) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(
+          children: [
+            Icon(
+              att.mimeType.contains('pdf')
+                  ? Icons.picture_as_pdf_rounded
+                  : Icons.insert_drive_file_rounded,
+              color: AppTheme.primary,
+            ),
+            const SizedBox(width: 8),
+            const Text(
+              'File Details',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              att.name,
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+            ),
+            const SizedBox(height: 8),
+            Text('Size: ${att.formattedSize}'),
+            const SizedBox(height: 4),
+            Text('Type: ${att.mimeType}'),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Close'),
+          ),
+        ],
       ),
     );
   }
@@ -1205,15 +1504,40 @@ class _ChatConversationScreenState extends State<ChatConversationScreen> {
                   ),
                   child: Row(
                     children: [
-                      Icon(
-                        file.extension == 'pdf'
-                            ? Icons.picture_as_pdf_rounded
-                            : Icons.attach_file_rounded,
-                        size: 20,
-                        color: file.extension == 'pdf'
-                            ? Colors.red
-                            : AppTheme.primary,
-                      ),
+                      if (file.isImage &&
+                          file.bytes != null &&
+                          file.bytes!.isNotEmpty)
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(4),
+                          child: Image.memory(
+                            file.bytes!,
+                            width: 24,
+                            height: 24,
+                            fit: BoxFit.cover,
+                          ),
+                        )
+                      else if (file.isImage &&
+                          file.path != null &&
+                          File(file.path!).existsSync())
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(4),
+                          child: Image.file(
+                            File(file.path!),
+                            width: 24,
+                            height: 24,
+                            fit: BoxFit.cover,
+                          ),
+                        )
+                      else
+                        Icon(
+                          file.extension == 'pdf'
+                              ? Icons.picture_as_pdf_rounded
+                              : Icons.attach_file_rounded,
+                          size: 20,
+                          color: file.extension == 'pdf'
+                              ? Colors.red
+                              : AppTheme.primary,
+                        ),
                       const SizedBox(width: 6),
                       Expanded(
                         child: Column(
@@ -1596,70 +1920,208 @@ class _ChatConversationScreenState extends State<ChatConversationScreen> {
                                     ),
                                   ],
 
-                                  // Bubble content
-                                  Container(
-                                    constraints: BoxConstraints(
-                                      maxWidth:
-                                          MediaQuery.of(context).size.width *
-                                          0.74,
-                                    ),
-                                    padding: const EdgeInsets.fromLTRB(
-                                      12,
-                                      10,
-                                      12,
-                                      8,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      gradient: m.isMe
-                                          ? const LinearGradient(
-                                              colors: [
-                                                Color(0xFFD63363),
-                                                Color(0xFFBE2854),
-                                              ],
-                                              begin: Alignment.topLeft,
-                                              end: Alignment.bottomRight,
-                                            )
-                                          : null,
-                                      color: m.isMe ? null : Colors.white,
-                                      borderRadius: BorderRadius.only(
-                                        topLeft: const Radius.circular(16),
-                                        topRight: const Radius.circular(16),
-                                        bottomLeft: Radius.circular(
-                                          m.isMe ? 16 : 4,
-                                        ),
-                                        bottomRight: Radius.circular(
-                                          m.isMe ? 4 : 16,
-                                        ),
+                                  // Bubble content with Unsend & Product Enquiry support
+                                  GestureDetector(
+                                    onLongPress: (m.isMe && !m.isUnsent)
+                                        ? () => _unsendMessage(m)
+                                        : null,
+                                    child: Container(
+                                      constraints: BoxConstraints(
+                                        maxWidth:
+                                            MediaQuery.of(context).size.width *
+                                            0.74,
                                       ),
-                                      border: m.isMe
-                                          ? null
-                                          : Border.all(
-                                              color: const Color(0xFFE2E8F0),
-                                            ),
-                                      boxShadow: [
-                                        BoxShadow(
-                                          color: Colors.black.withValues(
-                                            alpha: 0.03,
+                                      padding: const EdgeInsets.fromLTRB(
+                                        12,
+                                        10,
+                                        12,
+                                        8,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        gradient: m.isMe && !m.isUnsent
+                                            ? const LinearGradient(
+                                                colors: [
+                                                  Color(0xFFD63363),
+                                                  Color(0xFFBE2854),
+                                                ],
+                                                begin: Alignment.topLeft,
+                                                end: Alignment.bottomRight,
+                                              )
+                                            : null,
+                                        color: m.isMe
+                                            ? (m.isUnsent
+                                                ? const Color(0xFFF1F5F9)
+                                                : null)
+                                            : Colors.white,
+                                        borderRadius: BorderRadius.only(
+                                          topLeft: const Radius.circular(16),
+                                          topRight: const Radius.circular(16),
+                                          bottomLeft: Radius.circular(
+                                            m.isMe ? 16 : 4,
                                           ),
-                                          blurRadius: 4,
-                                          offset: const Offset(0, 1),
+                                          bottomRight: Radius.circular(
+                                            m.isMe ? 4 : 16,
+                                          ),
                                         ),
-                                      ],
-                                    ),
-                                    child: Column(
-                                      crossAxisAlignment: m.isMe
-                                          ? CrossAxisAlignment.end
-                                          : CrossAxisAlignment.start,
-                                      children: [
-                                        // Attachments if present
-                                        if (m.attachments.isNotEmpty) ...[
-                                          ...m.attachments.map((att) {
-                                            if (att.isImage &&
-                                                att.url.isNotEmpty) {
-                                              return Padding(
-                                                padding: const EdgeInsets.only(
-                                                  bottom: 6,
+                                        border: m.isMe && !m.isUnsent
+                                            ? null
+                                            : Border.all(
+                                                color: const Color(0xFFE2E8F0),
+                                              ),
+                                        boxShadow: [
+                                          BoxShadow(
+                                            color: Colors.black.withValues(
+                                              alpha: 0.03,
+                                            ),
+                                            blurRadius: 4,
+                                            offset: const Offset(0, 1),
+                                          ),
+                                        ],
+                                      ),
+                                      child: Column(
+                                        crossAxisAlignment: m.isMe
+                                            ? CrossAxisAlignment.end
+                                            : CrossAxisAlignment.start,
+                                        children: [
+                                          // Product Enquiry Context Banner
+                                          if (!m.isUnsent &&
+                                              m.productContext != null) ...[
+                                            GestureDetector(
+                                              onTap: () {
+                                                final pid =
+                                                    m.productContext!['product_id'];
+                                                if (pid != null) {
+                                                  final id = pid is int
+                                                      ? pid
+                                                      : int.tryParse('$pid');
+                                                  if (id != null) {
+                                                    Navigator.of(context).push(
+                                                      MaterialPageRoute(
+                                                        builder: (_) =>
+                                                            ProductDetailsPage(
+                                                              product: ProductModel(
+                                                                id: id,
+                                                                name: m.productContext!['name']?.toString() ?? 'Product',
+                                                                description: '',
+                                                                category: 'General',
+                                                                price: 0,
+                                                                stock: 1,
+                                                                sellerName: _partnerName,
+                                                                variations: [],
+                                                              ),
+                                                            ),
+                                                      ),
+                                                    );
+                                                  }
+                                                }
+                                              },
+                                              child: Container(
+                                                margin: const EdgeInsets.only(
+                                                  bottom: 8,
                                                 ),
+                                                padding: const EdgeInsets.all(
+                                                  8,
+                                                ),
+                                                decoration: BoxDecoration(
+                                                  color: m.isMe
+                                                      ? Colors.white.withValues(
+                                                          alpha: 0.18,
+                                                        )
+                                                      : const Color(0xFFF8FAFC),
+                                                  borderRadius:
+                                                      BorderRadius.circular(8),
+                                                  border: Border.all(
+                                                    color: m.isMe
+                                                        ? Colors.white.withValues(
+                                                            alpha: 0.35,
+                                                          )
+                                                        : const Color(
+                                                            0xFFE2E8F0,
+                                                          ),
+                                                  ),
+                                                ),
+                                                child: Row(
+                                                  mainAxisSize:
+                                                      MainAxisSize.min,
+                                                  children: [
+                                                    if (m.productContext!['image_url'] !=
+                                                        null)
+                                                      ClipRRect(
+                                                        borderRadius:
+                                                            BorderRadius.circular(
+                                                              6,
+                                                            ),
+                                                        child: CachedNetworkImage(
+                                                          imageUrl:
+                                                              m.productContext!['image_url'],
+                                                          width: 40,
+                                                          height: 40,
+                                                          fit: BoxFit.cover,
+                                                          errorWidget:
+                                                              (_, __, ___) =>
+                                                                  const Icon(
+                                                                    Icons
+                                                                        .shopping_bag_outlined,
+                                                                    size: 22,
+                                                                  ),
+                                                        ),
+                                                      ),
+                                                    const SizedBox(width: 8),
+                                                    Flexible(
+                                                      child: Column(
+                                                        crossAxisAlignment:
+                                                            CrossAxisAlignment
+                                                                .start,
+                                                        children: [
+                                                          Text(
+                                                            'Enquiry: ${m.productContext!['name'] ?? 'Product'}',
+                                                            maxLines: 1,
+                                                            overflow:
+                                                                TextOverflow
+                                                                    .ellipsis,
+                                                            style: TextStyle(
+                                                              fontWeight:
+                                                                  FontWeight
+                                                                      .bold,
+                                                              fontSize: 11.5,
+                                                              color: m.isMe
+                                                                  ? Colors.white
+                                                                  : AppTheme
+                                                                      .ink,
+                                                            ),
+                                                          ),
+                                                          if (m.productContext!['price_label'] !=
+                                                              null)
+                                                            Text(
+                                                              '${m.productContext!['price_label']} · at enquiry time',
+                                                              style: TextStyle(
+                                                                fontSize: 10,
+                                                                color: m.isMe
+                                                                    ? Colors
+                                                                        .white70
+                                                                    : AppTheme
+                                                                        .primary,
+                                                              ),
+                                                            ),
+                                                        ],
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+
+                                          // Attachments if present
+                                          if (!m.isUnsent &&
+                                              m.attachments.isNotEmpty) ...[
+                                            ...m.attachments.map((att) {
+                                              if (att.isImage &&
+                                                  att.url.isNotEmpty) {
+                                                return Padding(
+                                                  padding: const EdgeInsets.only(
+                                                    bottom: 6,
+                                                  ),
                                                 child: ClipRRect(
                                                   borderRadius:
                                                       BorderRadius.circular(8),
@@ -1674,7 +2136,10 @@ class _ChatConversationScreenState extends State<ChatConversationScreen> {
                                                             maxHeight: 180,
                                                           ),
                                                       child: CachedNetworkImage(
-                                                        imageUrl: att.url,
+                                                        imageUrl: _authenticatedUrl(att.url),
+                                                        httpHeaders: _authToken != null
+                                                            ? {'Authorization': 'Bearer $_authToken'}
+                                                            : null,
                                                         fit: BoxFit.cover,
                                                         placeholder: (_, __) =>
                                                             Container(
@@ -1716,7 +2181,9 @@ class _ChatConversationScreenState extends State<ChatConversationScreen> {
                                               );
                                             } else {
                                               // Document file attachment chip
-                                              return Container(
+                                              return GestureDetector(
+                                                onTap: () => _showDocumentInfo(att),
+                                                child: Container(
                                                 margin: const EdgeInsets.only(
                                                   bottom: 6,
                                                 ),
@@ -1789,43 +2256,65 @@ class _ChatConversationScreenState extends State<ChatConversationScreen> {
                                                     ),
                                                   ],
                                                 ),
-                                              );
+                                              ),
+                                            );
                                             }
                                           }),
                                         ],
 
-                                        // Message Text Body
+                                        // Message Text Body / Unsent message text
                                         if (m.body.isNotEmpty) ...[
                                           Text(
                                             m.body,
                                             style: TextStyle(
-                                              color: m.isMe
-                                                  ? Colors.white
-                                                  : AppTheme.ink,
+                                              color: m.isUnsent
+                                                  ? const Color(0xFF64748B)
+                                                  : (m.isMe
+                                                      ? Colors.white
+                                                      : AppTheme.ink),
+                                              fontStyle: m.isUnsent
+                                                  ? FontStyle.italic
+                                                  : FontStyle.normal,
                                               fontSize: 13.5,
                                               height: 1.35,
                                             ),
                                           ),
                                         ],
 
-                                        // Philippine Time timestamp
-                                        if (bubbleTime.isNotEmpty) ...[
-                                          const SizedBox(height: 3),
-                                          Text(
-                                            bubbleTime,
-                                            style: TextStyle(
-                                              color: m.isMe
-                                                  ? Colors.white.withValues(
-                                                      alpha: 0.75,
-                                                    )
-                                                  : const Color(0xFF94A3B8),
-                                              fontSize: 9.5,
-                                            ),
-                                          ),
-                                        ],
+                                        // Philippine Time timestamp + Unsend action
+                                        Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            if (bubbleTime.isNotEmpty)
+                                              Text(
+                                                bubbleTime,
+                                                style: TextStyle(
+                                                  color: m.isMe && !m.isUnsent
+                                                      ? Colors.white.withValues(
+                                                          alpha: 0.75,
+                                                        )
+                                                      : const Color(0xFF94A3B8),
+                                                  fontSize: 9.5,
+                                                ),
+                                              ),
+                                            if (m.isMe && !m.isUnsent) ...[
+                                              const SizedBox(width: 4),
+                                              GestureDetector(
+                                                onTap: () => _unsendMessage(m),
+                                                child: Icon(
+                                                  Icons.more_horiz_rounded,
+                                                  size: 14,
+                                                  color: Colors.white
+                                                      .withValues(alpha: 0.7),
+                                                ),
+                                              ),
+                                            ],
+                                          ],
+                                        ),
                                       ],
                                     ),
                                   ),
+                                ),
                                 ],
                               ),
                             ),
@@ -1835,21 +2324,41 @@ class _ChatConversationScreenState extends State<ChatConversationScreen> {
                     ),
             ),
 
-            // Attachment preview tray
-            _buildAttachmentPreviewTray(),
+            // Restricted contact banner or Message composer
+            if (!_canSend)
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 14,
+                ),
+                color: const Color(0xFFF8FAFC),
+                child: const Text(
+                  'Messaging is unavailable because this contact is no longer active or related to your account. Your history remains available.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Color(0xFF64748B),
+                    height: 1.4,
+                  ),
+                ),
+              )
+            else ...[
+              // Attachment preview tray
+              _buildAttachmentPreviewTray(),
 
-            // Modern Input Bar with Attachment trigger & Character Counter
-            Container(
-              padding: const EdgeInsets.fromLTRB(10, 8, 12, 10),
-              decoration: const BoxDecoration(
-                color: Colors.white,
-                border: Border(top: BorderSide(color: Color(0xFFEAECEF))),
-              ),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  // Attachment button (Gallery, Camera, Documents - up to 3, 2MB each)
-                  IconButton(
+              // Modern Input Bar with Attachment trigger & Character Counter
+              Container(
+                padding: const EdgeInsets.fromLTRB(10, 8, 12, 10),
+                decoration: const BoxDecoration(
+                  color: Colors.white,
+                  border: Border(top: BorderSide(color: Color(0xFFEAECEF))),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    // Attachment button (Gallery, Camera, Documents - up to 3, 2MB each)
+                    IconButton(
                     icon: Stack(
                       clipBehavior: Clip.none,
                       children: [
@@ -1990,8 +2499,9 @@ class _ChatConversationScreenState extends State<ChatConversationScreen> {
               ),
             ),
           ],
-        ),
+        ],
       ),
-    );
+    ),
+  );
   }
 }
