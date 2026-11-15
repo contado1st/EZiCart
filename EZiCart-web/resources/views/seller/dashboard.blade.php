@@ -1,5 +1,7 @@
 @extends('layouts.app')
 
+@section('workspace-primary-route', 'seller.products.create')
+
 @push('styles')
     @vite('resources/css/shared/dashboard.css')
 @endpush
@@ -12,12 +14,12 @@
         <main class="dash-main">
             <div class="dash-header">
                 <div>
-                    <h1 class="dash-title">Welcome back, {{ auth()->user()->first_name }} <x-shop-icon name="smileypositive" /></h1>
-                    <p class="dash-subtitle">Here is what is happening with your store today.</p>
+                    <h1 class="dash-title">Orders and store performance</h1>
+                    <p class="dash-subtitle">Review pending orders, prepare parcels and keep your inventory up to date.</p>
                 </div>
-                <div>
+                <div class="workspace-page-actions">
                     <a href="{{ route('seller.products.create') }}" class="dash-btn-primary">
-                        + Add New Product
+                        Add product
                     </a>
                 </div>
             </div>
@@ -48,7 +50,7 @@
                 <div class="dash-stat-card">
                     <span class="workspace-stat-icon" aria-hidden="true"><x-shop-icon name="star" /></span>
                     <div class="dash-stat-label">Store Rating</div>
-                    <div class="dash-stat-value warning">⭐ {{ $stats['rating'] }}</div>
+                    <div class="dash-stat-value warning">{{ $stats['rating'] }}</div>
                     <div class="dash-stat-subtext">{{ $stats['review_count'] }} customer reviews</div>
                 </div>
             </div>
@@ -77,7 +79,7 @@
                                 <div class="u-extracted-13cbe03b9a">
                                     <span
                                         class="status-pill status-{{ strtolower(str_replace('_', '-', $order->status)) }}">
-                                        {{ str_replace('_', ' ', $order->status) }}
+                                        {{ str_replace('_', ' ', $order->operational_status) }}
                                     </span>
                                     <div class="u-extracted-102e7d3885">
                                         ₱{{ number_format($order->total_amount, 2) }}</div>

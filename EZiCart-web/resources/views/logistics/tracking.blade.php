@@ -11,20 +11,21 @@
     <section class="ops-panel">
         <form class="ops-form" method="GET" action="{{ route('logistics.tracking') }}" aria-label="Filter parcel tracking">
             <div class="ops-field">
-                <label for="tracking-order-search">Order number</label>
-                <input id="tracking-order-search" name="search" value="{{ request('search') }}" maxlength="100" placeholder="e.g. ORD-10293">
+                <label for="tracking-order-search">Order, parcel reference, ID or buyer name</label>
+                <input id="tracking-order-search" name="search" value="{{ request('search') }}" maxlength="100" placeholder="Order number, EZP:code, numeric ID or buyer">
             </div>
             <div class="ops-field">
                 <label for="tracking-status">Status</label>
                 <select id="tracking-status" name="status">
-                    <option value="">All active</option>
-                    @foreach (['PICKED_UP', 'AT_SORTING_CENTER', 'SORTED', 'ASSIGNED_TO_RIDER', 'OUT_FOR_DELIVERY', 'DELIVERY_FAILED', 'RETURN_IN_TRANSIT', 'RETURNED_TO_SELLER'] as $status)
+                    <option value="">Default / selected queue</option>
+                    @foreach (\App\Services\LogisticsQueueService::STATUSES as $status)
                         <option value="{{ $status }}" @selected(request('status') === $status)>
                             {{ str_replace('_', ' ', $status) }}
                         </option>
                     @endforeach
                 </select>
             </div>
+            <div class="ops-field"><label for="tracking-queue">Dashboard queue</label><select id="tracking-queue" name="queue"><option value="">Active parcels by default</option>@foreach(array_keys(\App\Services\LogisticsQueueService::QUEUES) as $queue)<option value="{{ $queue }}" @selected(request('queue') === $queue)>{{ ucwords(str_replace('_', ' ', $queue)) }}</option>@endforeach</select></div>
             <div class="ops-field">
                 <label for="tracking-rider">Rider</label>
                 <select id="tracking-rider" name="rider">
@@ -57,16 +58,18 @@
                 <input id="tracking-date" type="date" name="date" value="{{ request('date') }}">
             </div>
             <button class="ops-btn ops-btn--primary" type="submit">Apply filters</button>
-            @if (request()->filled('search') || request()->filled('status') || request()->filled('rider') || request()->filled('rider_search') || request()->filled('area') || request()->filled('date'))
+            @if (request()->filled('search') || request()->filled('status') || request()->filled('queue') || request()->filled('rider') || request()->filled('rider_search') || request()->filled('area') || request()->filled('date'))
                 <a class="ops-btn" href="{{ route('logistics.tracking') }}">Clear filters</a>
             @endif
         </form>
 
-        @if (request()->filled('search') || request()->filled('status') || request()->filled('rider') || request()->filled('rider_search') || request()->filled('area') || request()->filled('date'))
+        <p class="ops-muted">{{ $orders->total() }} matching parcels. Default view shows active/return stages. Select Delivered or Completed to search those records. Queue, status, rider, area and updated date narrow the same search; delivery-today uses delivery time in {{ config('app.timezone') }}.</p>
+        @if (request()->filled('search') || request()->filled('status') || request()->filled('queue') || request()->filled('rider') || request()->filled('rider_search') || request()->filled('area') || request()->filled('date'))
             <ul class="ops-filter-chips" aria-label="Active filters">
                 @if (request()->filled('search'))
-                    <li>Order: <strong>{{ request('search') }}</strong></li>
+                    <li>Search: <strong>{{ request('search') }}</strong></li>
                 @endif
+                @if(request()->filled('queue'))<li>Queue: <strong>{{ ucwords(str_replace('_', ' ', request('queue'))) }}</strong></li>@endif
                 @if (request()->filled('status'))
                     <li>Status: <strong>{{ str_replace('_', ' ', request('status')) }}</strong></li>
                 @endif
@@ -91,6 +94,7 @@
             <div class="ops-heading">
                 <div>
                     <p class="ops-mono">Order {{ $order->order_number }}</p>
+                    <p class="ops-muted">Record #{{ $order->id }} · Parcel reference EZP:{{ $order->parcel_code }}</p>
                     <h2>{{ $order->recipient_name }} · {{ $order->municipality }}</h2>
                     <p>
                         Rider: <strong>{{ $order->deliveryCourier ? $order->deliveryCourier->first_name . ' ' . $order->deliveryCourier->last_name : 'No delivery rider assigned' }}</strong>
@@ -98,8 +102,9 @@
                     </p>
                 </div>
                 <div class="courier-actions">
+                    <a class="ops-btn" href="{{ route('logistics-corrections.create', $order) }}">Request correction review</a>
                     <span class="ops-status {{ $order->status === 'DELIVERY_FAILED' ? 'ops-status--danger' : ($order->status === 'RETURN_IN_TRANSIT' ? 'ops-status--amber' : ($order->status === 'DELIVERED' || $order->status === 'COMPLETED' ? 'ops-status--green' : 'ops-status--pink')) }}">
-                        {{ str_replace('_', ' ', $order->status) }}
+                        {{ str_replace('_', ' ', $order->operational_status) }}
                     </span>
                     @if ($order->status === 'DELIVERY_FAILED')
                         <form method="POST" action="{{ route('logistics.orders.return', $order) }}" data-decision="logistics.orders.return" data-decision-title="Start return handling?" data-decision-message="This moves the selected parcel into the return workflow. Check the reason first." data-decision-label="Start return" data-decision-tone="danger" onsubmit="return window.eziDecisionReady ? true : window.confirm(this.dataset.decisionMessage)">

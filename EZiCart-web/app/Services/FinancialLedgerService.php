@@ -19,7 +19,7 @@ class FinancialLedgerService
 
     public function wallet(User $user, string $bucket = 'available'): FinancialAccount
     {
-        abort_unless(in_array($bucket, ['available', 'pending', 'held'], true), 422);
+        abort_unless(in_array($bucket, ['available', 'pending', 'held', 'payout_hold'], true), 422);
 
         return $this->account('user:'.$user->id.':'.$bucket, $user->role, $user->id, $bucket);
     }

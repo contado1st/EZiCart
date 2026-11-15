@@ -8,6 +8,7 @@
     @include('components.order-deadlines', ['order' => $order])
     <div class="dash-wrapper">
 <main class="dash-main">
+            <x-return-request-stage :case="$order->dispute" :viewer="auth()->user()" />
             @if (session('success'))
                 <p role="status">{{ session('success') }}</p>
             @endif
@@ -35,7 +36,7 @@
                         <div class="order-date">Payment: {{ $order->payment_method }}</div>
                     </div>
                     <span
-                        class="status-pill status-{{ strtolower(str_replace('_', '-', $order->status)) }}">{{ str_replace('_', ' ', $order->status) }}</span>
+                        class="status-pill status-{{ strtolower(str_replace('_', '-', $order->status)) }}">{{ str_replace('_', ' ', $order->operational_status) }}</span>
                 </div>
 
                 <h2 class="courier-section-title">Recipient</h2>
@@ -46,12 +47,14 @@
                 <h2 class="courier-section-title">Items</h2>
                 @foreach ($order->items as $item)
                     <div class="order-item-row">
+                        <x-purchased-item-image :item="$item" />
                         <div>
                             <strong>{{ $item->product_name }}</strong>
                             @if ($item->variation_info)
                                 <span>({{ $item->variation_info }})</span>
                             @endif
                             <span>&times; {{ $item->quantity }}</span>
+                            <x-item-price-note :item="$item" />
                         </div>
                         <div>{{ number_format($item->item_total, 2) }}</div>
                     </div>
@@ -59,7 +62,8 @@
 
                 <h2 class="courier-section-title">Order summary</h2>
                 @if (! app(\App\Services\OrderWalletService::class)->paymentReady($order) && in_array($order->status, ['PLACED', 'CONFIRMED', 'PREPARING', 'READY_FOR_PICKUP'], true))
-                    <p role="status">Fulfillment is on hold because payment verification for {{ $order->payment_method }} is not configured yet.</p>
+                    @if($order->isAwaitingWalletPayment())<p role="status">Awaiting the buyer's demo wallet payment. Do not prepare this unpaid reservation.</p>
+                    @else<p role="status">Fulfillment is on hold because payment verification for {{ $order->payment_method }} is not configured yet.</p>@endif
                 @endif
                 <p>Subtotal: {{ number_format($order->subtotal, 2) }}</p>
                 @if ($order->discount_amount)
@@ -77,7 +81,7 @@
                         waybill</a>
                     <a href="{{ route('seller.orders.messages.show', $order) }}" class="dash-btn-sm dash-btn-outline">Message buyer</a>
                     @if (! app(\App\Services\OrderWalletService::class)->paymentReady($order) && in_array($order->status, ['PLACED', 'CONFIRMED', 'PREPARING', 'READY_FOR_PICKUP'], true))
-                        <span>Fulfillment is on hold until payment verification is configured.</span>
+                        <span>{{ $order->isAwaitingWalletPayment() ? 'Awaiting buyer payment; preparation is blocked.' : 'Fulfillment is on hold until payment verification is configured.' }}</span>
                     @elseif ($order->status === 'PLACED')
                         <form action="{{ route('seller.orders.updateStatus', $order->id) }}" method="POST" data-decision="seller.orders.updateStatus" data-decision-title="Update order status?" data-decision-message="Check the selected status. This updates the order workflow and may notify the buyer and delivery staff." data-decision-label="Update status" data-decision-tone="normal" onsubmit="return window.eziDecisionReady ? true : window.confirm(this.dataset.decisionMessage)">
                             @csrf
@@ -128,19 +132,7 @@
                             <button type="submit" class="dash-btn-sm dash-btn-primary">Confirm rider handover</button>
                         </form>
                     @elseif($order->status === 'RETURN_IN_TRANSIT')
-                        @if ($order->return_handed_to_seller_at)
-                            <form action="{{ route('seller.orders.confirmReturn', $order) }}" method="POST" data-decision="seller.orders.confirmReturn" data-decision-title="Confirm returned parcel?" data-decision-message="Continue only after you physically received the returned parcel." data-decision-label="Confirm return" data-decision-tone="normal" onsubmit="return window.eziDecisionReady ? true : window.confirm(this.dataset.decisionMessage)">
-                                @csrf
-                                <label for="return-rider-badge">Scan return rider badge QR/code</label>
-                                <input id="return-rider-badge" name="rider_badge" data-qr-input required maxlength="100" placeholder="EZR:…" autocomplete="off">
-                                <input type="hidden" name="method" value="manual">
-                                <button type="button" data-qr-start>Use camera</button><button type="button" data-qr-stop hidden>Stop camera</button>
-                                <video data-qr-video playsinline hidden></video><p data-qr-status role="status">Camera, handheld scanner, or manual entry.</p>
-                                <button type="submit" class="dash-btn-sm dash-btn-primary">Confirm scanned return received</button>
-                            </form>
-                        @else
-                            <span class="text-muted-small">Awaiting courier handoff</span>
-                        @endif
+                        <a class="dash-btn-sm dash-btn-primary" href="{{ route('returns.workflow', $order) }}">Review return receipt and inspection</a>
                     @endif
                     @if (!$order->pendingCancellation && in_array($order->status, ['PLACED', 'CONFIRMED', 'PREPARING', 'READY_FOR_PICKUP'], true) && $order->picked_up_at === null && $order->seller_handover_at === null)
                         <form action="{{ route('seller.orders.cancel', $order) }}" method="POST" class="order-schedule-form" data-decision="seller.orders.cancel" data-decision-title="Cancel this order?" data-decision-message="Review the order and cancellation reason before continuing." data-decision-label="Cancel order" data-decision-tone="danger" onsubmit="return window.eziDecisionReady ? true : window.confirm(this.dataset.decisionMessage)">
@@ -152,13 +144,8 @@
                     @endif
                 </div>
             </section>
-            @if($order->status === 'RETURNED_TO_SELLER' && $order->restock_inspected_at === null && $order->inventory_restored_at === null)
-                <section class="dash-panel"><h2>Inspect returned items</h2>
-                    <form method="POST" action="{{ route('seller.orders.return-inspection', $order) }}" data-decision="seller.orders.return-inspection" data-decision-title="Submit return inspection?" data-decision-message="Check the inspection outcome and evidence before recording this return assessment." data-decision-label="Submit inspection" data-decision-tone="normal" onsubmit="return window.eziDecisionReady ? true : window.confirm(this.dataset.decisionMessage)">@csrf
-                        <label>Inspection result<select name="restock" required><option value="">Choose a result</option><option value="1">All items are sellable — restock</option><option value="0">Items are damaged or unsuitable — exclude from stock</option></select></label>
-                        <label>Inspection notes<textarea name="reason" required minlength="5" maxlength="500"></textarea></label><button class="dash-btn-sm" type="submit">Record inspection</button>
-                    </form>
-                </section>
+            @if($order->status === 'RETURNED_TO_SELLER')
+                <section class="dash-panel"><h2>Returned parcel workflow</h2><p>Seller receipt, sellable-unit inspection and refund review remain separate actions.</p><a class="dash-btn-sm dash-btn-primary" href="{{ route('returns.workflow', $order) }}">Inspect returned items and review progress</a></section>
             @endif
             @if($order->dispute?->status === 'REPLACEMENT_APPROVED' && $order->status === 'RETURNED_TO_SELLER')
                 <form method="POST" action="{{ route('seller.replacements.store', $order->dispute) }}" data-decision="seller.replacements.store" data-decision-title="Create replacement shipment?" data-decision-message="Review the replacement items and delivery details before creating the shipment." data-decision-label="Create replacement" data-decision-tone="normal" onsubmit="return window.eziDecisionReady ? true : window.confirm(this.dataset.decisionMessage)">@csrf<button class="dash-btn-sm" type="submit">Create approved no-charge replacement</button></form>

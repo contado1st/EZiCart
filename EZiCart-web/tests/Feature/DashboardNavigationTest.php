@@ -155,6 +155,104 @@ class DashboardNavigationTest extends TestCase
         $this->get(route('logistics-admin.dashboard', ['applications_page' => 99]))->assertOk()->assertSee('No records on this page.');
     }
 
+    public function test_empty_queue_pages_do_not_claim_that_all_parcel_work_is_finished(): void
+    {
+        $rider = $this->user('courier');
+        $this->order(['status' => 'READY_FOR_PICKUP', 'pickup_courier_id' => $rider->id, 'pickup_claimed_at' => now()]);
+        $this->signIn($rider)->get(route('courier.dashboard', ['workspace_tab' => 'accepted-pickups', 'claimed_page' => 99]))
+            ->assertOk()->assertSee('Check your parcel queues')->assertSee('Parcels are available on another page.')
+            ->assertDontSee('No open parcel tasks')
+            ->assertViewHas('claimedPickups', fn ($queue) => $queue->total() === 1 && $queue->isEmpty());
+
+        $hub = $this->user('sorting_center');
+        $this->order(['status' => 'AT_SORTING_CENTER', 'sorting_center_id' => $hub->id]);
+        $this->signIn($hub)->get(route('logistics.dashboard', ['workspace_tab' => 'hub-sorting', 'sorting_page' => 99]))
+            ->assertOk()->assertSee('No parcels on this page. This queue has 1 parcel.')
+            ->assertSee('Return to first page')->assertSee('sorting_page=1', false)
+            ->assertViewHas('queues', fn ($queues) => $queues['sorting']->total() === 1 && $queues['sorting']->isEmpty());
+        $this->get(route('logistics.dashboard'))->assertOk()
+            ->assertSee('data-label="Destination"', false)->assertSee('data-label="Current stage"', false)
+            ->assertSee('data-label="Last updated"', false);
+    }
+
+    public function test_buyer_feedback_is_announced_once_with_the_correct_severity(): void
+    {
+        foreach ([
+            ['success', 'Your order update was saved.', 'status'],
+            ['error', 'The parcel was already collected.', 'alert'],
+        ] as [$key, $message, $role]) {
+            $response = $this->signIn($this->buyer)->withSession([$key => $message])->get(route('buyer.dashboard'));
+            $response->assertOk();
+            $html = $response->getContent();
+            $this->assertSame(1, substr_count($html, $message), 'Feedback must not be duplicated.');
+            $document = new \DOMDocument;
+            $document->loadHTML($html, LIBXML_NOERROR | LIBXML_NOWARNING);
+            $xpath = new \DOMXPath($document);
+            $this->assertSame(1, $xpath->query('//*[@role="'.$role.'"][contains(., "'.$message.'")]')->length);
+        }
+    }
+
+    public function test_control_tower_empty_pages_preserve_queue_truth_and_filter_recovery(): void
+    {
+        $admin = $this->user('logistics_admin');
+        $hub = $this->user('sorting_center');
+        $this->user('courier', ['status' => 'pending']);
+        $order = $this->order(['sorting_center_id' => $hub->id]);
+        Area::forceCreate(['name' => 'Demo area', 'code' => 'EMPTY-PAGE', 'sorting_center_id' => $hub->id, 'is_active' => true]);
+        DB::table('logistics_exceptions')->insert(['order_id' => $order->id, 'opened_by' => $admin->id, 'type' => 'DEMO_RECOVERY', 'reason' => 'Review physical custody.', 'status' => 'OPEN', 'created_at' => now(), 'updated_at' => now()]);
+
+        $response = $this->signIn($admin)->get(route('logistics-admin.dashboard', [
+            'page' => 99, 'applications_page' => 99, 'users_page' => 99, 'areas_page' => 99, 'exceptions_page' => 99,
+            'workspace_tab' => 'parcels', 'search' => 'NAV-',
+        ]));
+        $response->assertOk()->assertSee('No parcels on this page.')->assertSee('No applications on this page.')
+            ->assertSee('No managed accounts on this page.')->assertSee('No service areas on this page.')
+            ->assertSee('No recovery exceptions on this page.')->assertDontSee('No open recovery exceptions.');
+
+        $document = new \DOMDocument;
+        $document->loadHTML($response->getContent(), LIBXML_NOERROR | LIBXML_NOWARNING);
+        $xpath = new \DOMXPath($document);
+        foreach (['parcels' => 'page', 'applications' => 'applications_page', 'managed-accounts' => 'users_page', 'service-areas' => 'areas_page', 'network-exceptions' => 'exceptions_page'] as $panel => $pageName) {
+            /** @var \DOMElement $link */
+            $link = $xpath->query('//*[@id="'.$panel.'"]//a[normalize-space(.)="Return to first page"]')->item(0);
+            $this->assertInstanceOf(\DOMElement::class, $link);
+            parse_str((string) parse_url($link->getAttribute('href'), PHP_URL_QUERY), $query);
+            $this->assertSame('1', $query[$pageName]);
+            $this->assertSame('NAV-', $query['search']);
+            $this->assertSame('parcels', $query['workspace_tab']);
+        }
+    }
+
+    public function test_control_tower_disclosures_preserve_guarded_forms_and_reopen_after_validation_errors(): void
+    {
+        $hub = $this->user('sorting_center');
+        $sorted = $this->order(['sorting_center_id' => $hub->id]);
+        $this->order(['status' => 'READY_FOR_PICKUP']);
+        $admin = $this->user('logistics_admin');
+        $response = $this->signIn($admin)->get(route('logistics-admin.dashboard'))->assertOk();
+        $document = new \DOMDocument;
+        $document->loadHTML($response->getContent(), LIBXML_NOERROR | LIBXML_NOWARNING);
+        $xpath = new \DOMXPath($document);
+        $this->assertSame(2, $xpath->query('//details[contains(@class,"workspace-table-disclosure")]')->length);
+        $this->assertSame(0, $xpath->query('//details[contains(@class,"workspace-table-disclosure")][@open]')->length);
+        /** @var \DOMElement $form */
+        foreach ($xpath->query('//details[contains(@class,"workspace-table-disclosure")]/form') as $form) {
+            $this->assertSame('post', strtolower($form->getAttribute('method')));
+            $this->assertNotSame('', $form->getAttribute('data-decision'));
+            $this->assertSame(1, $xpath->query('.//input[@name="_token"]', $form)->length);
+            $this->assertSame(1, $xpath->query('.//*[@name="reason"][@required][@minlength="5"][@maxlength="500"]', $form)->length);
+            $this->assertSame(1, $xpath->query('.//select[@required]', $form)->length);
+        }
+
+        $this->from(route('logistics-admin.dashboard'))->post(route('logistics-admin.orders.transfer', $sorted), ['destination_hub_id' => $hub->id])
+            ->assertRedirect()->assertSessionHasErrors('reason');
+        // A browser carries its session ID through the redirect so JSON errors reload from storage.
+        $invalid = $this->withCookie((string) config('session.cookie'), $this->app['session']->getId())
+            ->get(route('logistics-admin.dashboard'))->assertOk();
+        $document->loadHTML($invalid->getContent(), LIBXML_NOERROR | LIBXML_NOWARNING);
+        $this->assertSame(2, (new \DOMXPath($document))->query('//details[contains(@class,"workspace-table-disclosure")][@open]')->length, 'Server validation errors must reopen the action forms.');
+    }
+
     private function user(string $role, array $extra = []): User
     {
         return User::forceCreate($extra + ['email' => Str::uuid().'@example.test', 'password' => 'Password123!', 'first_name' => 'Navigation', 'last_name' => 'Tester', 'role' => $role, 'status' => 'approved', 'email_verified_at' => now(), 'contact_no' => '09123456789']);

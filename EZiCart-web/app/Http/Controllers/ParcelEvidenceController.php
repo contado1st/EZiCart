@@ -43,7 +43,7 @@ class ParcelEvidenceController extends Controller
             'PICKED_UP' => 'Pickup rider: take the parcel to the hub. Hub: scan the parcel at intake.',
             'AT_SORTING_CENTER' => 'Hub: verify destination, sort and stage the parcel.', 'SORTED' => 'Hub: assign an eligible rider and prepare physical release.',
             'ASSIGNED_TO_RIDER' => $order->hub_released_at ? 'Assigned rider: start delivery after receiving the parcel.' : 'Hub: scan the assigned rider badge and parcel to record physical release.',
-            'OUT_FOR_DELIVERY' => 'Assigned rider: obtain the buyer’s delivery code, proof photo and COD amount before confirming delivery.',
+            'OUT_FOR_DELIVERY' => $order->payment_method === 'WALLET' ? 'Assigned rider: obtain the buyer’s delivery code and proof photo. Verified prepaid parcels require PHP 0.00 cash collection.' : 'Assigned rider: obtain the buyer’s delivery code, proof photo and COD amount before confirming delivery.',
             'DELIVERY_FAILED' => 'Hub: review the recorded failure and recover the parcel before reassignment or return.',
             'DELIVERED' => 'Buyer: inspect the received parcel and confirm receipt.', 'COMPLETED' => 'Buyer: review the purchased product.',
             'RETURN_IN_TRANSIT' => 'Assigned rider and seller: complete the scanned return handoff.', default => 'This parcel has reached a resolved stage. Review the recorded history below.',

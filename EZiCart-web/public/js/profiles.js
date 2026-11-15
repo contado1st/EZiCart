@@ -33,9 +33,10 @@
             const file = input.files[0];
             if (urls.has(type)) { URL.revokeObjectURL(urls.get(type)); urls.delete(type); }
             if (!file) { show(remove?.checked ? null : originalSrc); return; }
-            const limit = 2 * 1024 * 1024;
+            const megabytes = input.dataset.profileUpload === 'avatar' ? 5 : 2;
+            const limit = megabytes * 1024 * 1024;
             if (file.size > limit || (file.type && !['image/jpeg', 'image/png', 'image/webp'].includes(file.type))) {
-                input.setCustomValidity('Choose a JPEG, PNG or WebP image up to 2 MB.');
+                input.setCustomValidity(`Choose a JPEG, PNG or WebP image up to ${megabytes} MB.`);
                 input.reportValidity(); show(originalSrc); return;
             }
             if (remove) remove.checked = false;

@@ -12,10 +12,10 @@
         </a>
 
         <h1 class="u-extracted-df12e366b7">
-            File an Order Dispute
+            Return request or order dispute
         </h1>
         <p class="u-extracted-6114e04314">
-            Submit a claim for damaged goods, wrong items, or fulfillment failures for admin intervention.
+            Ask the seller to review your request within 72 hours, or choose direct administrator assistance for urgent issues. Approval does not itself arrange pickup or send money.
         </p>
 
         <div class="dispute-order-meta">
@@ -26,6 +26,8 @@
 
         <form action="{{ route('buyer.orders.dispute.store', $order->id) }}" method="POST" enctype="multipart/form-data" data-decision="buyer.orders.dispute.store" data-decision-title="Submit this dispute?" data-decision-message="Check your reason and evidence before submitting this case for review." data-decision-label="Submit dispute" data-decision-tone="normal" onsubmit="return window.eziDecisionReady ? true : window.confirm(this.dataset.decisionMessage)">
             @csrf
+            @include('components.feature-feedback')
+            <div class="u-extracted-f267e3ca68"><label for="review-path">Who should review first?</label><select id="review-path" name="review_path" class="search-input"><option value="seller_first" @selected(old('review_path') !== 'admin_help')>Seller first (72-hour response window)</option><option value="admin_help" @selected(old('review_path') === 'admin_help')>Administrator assistance now</option></select></div>
 
             <div class="u-extracted-f267e3ca68">
                 <label class="u-extracted-66f2146a90">

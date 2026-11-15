@@ -16,12 +16,12 @@
             <div class="ops-heading">
                 <div>
                     <p class="ops-mono">Order {{ $order->order_number }}</p>
-                    <h2>{{ $order->municipality }} · {{ str_replace('_', ' ', $order->status) }}</h2>
+                    <h2>{{ $order->municipality }} · {{ str_replace('_', ' ', $order->operational_status) }}</h2>
                     <p class="ops-muted">Recipient: {{ $order->recipient_name }} · {{ $order->delivery_area }}</p>
                 </div>
                 <div class="courier-tracking-state">
                     <span class="ops-status {{ $order->status === 'DELIVERY_FAILED' ? 'ops-status--danger' : ($order->status === 'RETURN_IN_TRANSIT' ? 'ops-status--amber' : 'ops-status--pink') }}">
-                        {{ str_replace('_', ' ', $order->status) }}
+                        {{ str_replace('_', ' ', $order->operational_status) }}
                     </span>
                     <span class="ops-muted">Updated {{ $order->updated_at->diffForHumans() }}</span>
                 </div>

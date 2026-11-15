@@ -7,6 +7,7 @@ use App\Models\EmailVerificationCode;
 use App\Models\User;
 use App\Notifications\EmailVerificationCodeNotification;
 use App\Notifications\PasswordRecoveryCodeNotification;
+use App\Services\ApplicantDraftSession;
 use App\Services\ProductCategoryService;
 use App\Services\PsgcAddressService;
 use App\Services\RegistrationIdentityService;
@@ -219,6 +220,9 @@ class AuthController extends Controller
 
         $user = $request->user();
 
+        $request->session()->forget('applicant_drafts');
+        $request->session()->put('web_auth_version', (int) $user->web_auth_version);
+
         $this->discardIncompatibleIntendedUrl($request, $user);
 
         // 1. Admin accounts bypass OTP verification
@@ -260,6 +264,12 @@ class AuthController extends Controller
             Auth::logout();
             $request->session()->invalidate();
             $request->session()->regenerateToken();
+
+            if ($user->role === 'seller' && $user->email_verified_at !== null) {
+                app(ApplicantDraftSession::class)->begin($request, $user);
+
+                return redirect()->route('applicant-drafts.index')->with('success', 'Your application is under review. You may prepare private drafts; selling and submission require approval.');
+            }
 
             $roleLabel = match ($user->role) {
                 'seller' => 'seller registration',

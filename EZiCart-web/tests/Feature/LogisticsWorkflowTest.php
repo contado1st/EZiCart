@@ -17,10 +17,12 @@ use App\Notifications\AccountStatusNotification;
 use App\Notifications\DirectMessageNotification;
 use App\Notifications\OrderStatusNotification;
 use App\Notifications\OrderWorkflowNotification;
+use App\Notifications\PasswordChangeCodeNotification;
 use App\Notifications\PasswordRecoveryCodeNotification;
 use App\Notifications\ProductComplianceNotification;
 use App\Services\InventoryRestorationService;
 use App\Services\OrderTransitionService;
+use App\Services\PasswordChangeService;
 use App\Services\RiderBadgeService;
 use App\Services\TransactionAwareNotificationSender;
 use Illuminate\Database\QueryException;
@@ -1808,7 +1810,7 @@ class LogisticsWorkflowTest extends TestCase
             });
     }
 
-    public function test_logistics_dashboard_caches_counters_briefly_and_refreshes_them(): void
+    public function test_logistics_dashboard_refreshes_counters_with_records_and_ignores_legacy_cache(): void
     {
         $center = $this->user('sorting_center', 'approved');
         Cache::forget('logistics.dashboard.stats.'.$center->id.'.'.today()->toDateString());
@@ -1819,9 +1821,9 @@ class LogisticsWorkflowTest extends TestCase
         $this->order(['status' => 'PICKED_UP']);
 
         $this->get(route('logistics.dashboard'))
-            ->assertViewHas('stats', fn (array $stats): bool => $stats['inbound'] === 0);
+            ->assertViewHas('stats', fn (array $stats): bool => $stats['inbound'] === 1);
 
-        Cache::forget('logistics.dashboard.stats.'.$center->id.'.'.today()->toDateString());
+        Cache::put('logistics.dashboard.stats.'.$center->id.'.'.today()->toDateString(), ['inbound' => 999], 60);
         $this->get(route('logistics.dashboard'))
             ->assertViewHas('stats', fn (array $stats): bool => $stats['inbound'] === 1);
     }
@@ -2560,6 +2562,7 @@ class LogisticsWorkflowTest extends TestCase
             'last_name' => $buyer->last_name,
             'middle_initial' => 'Q',
             'contact_no' => '09999999999',
+            'region' => 'CALABARZON',
             'province' => 'Laguna',
             'municipality' => 'Majayjay',
             'barangay' => 'Poblacion',
@@ -2582,8 +2585,12 @@ class LogisticsWorkflowTest extends TestCase
             'password' => 'New-Account@2026',
             'password_confirmation' => 'New-Account@2026',
         ])->assertSessionHasErrors('current_password');
+        Notification::fake();
+        app(PasswordChangeService::class)->request($buyer, 'password');
+        $passwordCode = Notification::sent($buyer, PasswordChangeCodeNotification::class)->sole()->code;
         $this->patch(route('account.password.update'), [
             'current_password' => 'password',
+            'password_code' => $passwordCode,
             'password' => 'New-Account@2026',
             'password_confirmation' => 'New-Account@2026',
         ])->assertRedirect()->assertSessionHas('success');
@@ -3125,6 +3132,7 @@ class LogisticsWorkflowTest extends TestCase
             'status' => $status,
             'vehicle_capacity_grams' => $role === 'courier' ? 100000 : null,
             'vehicle_capacity_verified_at' => $role === 'courier' ? now() : null,
+            'work_availability' => $role === 'courier' ? 'available' : 'unavailable',
             'first_name' => fake()->firstName(),
             'last_name' => fake()->lastName(),
             'sex' => 'Other',

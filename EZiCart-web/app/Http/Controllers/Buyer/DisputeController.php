@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Buyer;
 use App\Http\Controllers\Controller;
 use App\Models\Dispute;
 use App\Models\Order;
+use App\Services\SellerReturnService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -37,6 +38,7 @@ class DisputeController extends Controller
             'reason' => 'required|string|in:Damaged Item,Wrong Item Delivered,Missing Items,Non-Delivery,Defective Goods,Other',
             'description' => 'required|string|min:20|max:2000',
             'evidence_file' => 'nullable|file|mimes:jpg,jpeg,png,pdf|max:5120',
+            'review_path' => 'sometimes|in:seller_first,admin_help',
         ]);
 
         $evidencePath = null;
@@ -52,7 +54,7 @@ class DisputeController extends Controller
                     $evidencePath = $request->file('evidence_file')->store('disputes/evidence', 'private');
                 }
 
-                Dispute::create([
+                $dispute = Dispute::create([
                     'order_id' => $lockedOrder->id,
                     'buyer_id' => $buyer->id,
                     'seller_id' => $lockedOrder->seller_id,
@@ -61,6 +63,9 @@ class DisputeController extends Controller
                     'evidence_path' => $evidencePath,
                     'status' => 'PENDING',
                 ]);
+                if (($validated['review_path'] ?? 'seller_first') === 'seller_first') {
+                    app(SellerReturnService::class)->start($dispute);
+                }
             });
         } catch (Throwable $exception) {
             if ($evidencePath !== null) {
@@ -70,6 +75,6 @@ class DisputeController extends Controller
             throw $exception;
         }
 
-        return redirect()->route('buyer.dashboard')->with('success', 'Dispute ticket submitted. An administrator will review your evidence.');
+        return redirect()->route('buyer.dashboard')->with('success', ($validated['review_path'] ?? 'seller_first') === 'seller_first' ? 'Return request submitted. Your seller has 72 hours to respond. Request urgent admin assistance from the return progress page at any time while the request is open.' : 'Dispute ticket submitted directly for administrator review.');
     }
 }

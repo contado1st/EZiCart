@@ -17,6 +17,7 @@ class LogisticsSettlementService
     /** Invoked inside the approved seller-settlement transaction after the same hold/dispute checks. */
     public function settle(Order $order, User $actor): void
     {
+        ParcelIncidentService::assertClear($order);
         $shipment = ShipmentFinancial::where('order_id', $order->id)->lockForUpdate()->firstOrFail();
         if ($shipment->settled_at) {
             return;

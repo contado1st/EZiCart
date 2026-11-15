@@ -1,0 +1,136 @@
+{
+  "date": "2026-11-14",
+  "scope": "Laravel web only; Flutter excluded",
+  "git_revision": "a841440a3116b4409bee9f50f7300c767c67b1d5",
+  "case_count": 319,
+  "checklist_count": 127,
+  "cases": {
+    "Aligned": 164,
+    "Partial": 4,
+    "Different": 95,
+    "Missing": 56,
+    "Unverified": 0,
+    "Optional": 0
+  },
+  "checklist": {
+    "Aligned": 70,
+    "Partial": 32,
+    "Different": 15,
+    "Missing": 6,
+    "Unverified": 2,
+    "Optional": 2
+  },
+  "roles": {
+    "Seller": {
+      "Aligned": 46,
+      "Partial": 0,
+      "Different": 36,
+      "Missing": 42,
+      "Unverified": 0,
+      "Optional": 0
+    },
+    "Buyer": {
+      "Aligned": 73,
+      "Partial": 1,
+      "Different": 27,
+      "Missing": 9,
+      "Unverified": 0,
+      "Optional": 0
+    },
+    "Rider": {
+      "Aligned": 22,
+      "Partial": 3,
+      "Different": 15,
+      "Missing": 1,
+      "Unverified": 0,
+      "Optional": 0
+    },
+    "Logistics": {
+      "Aligned": 23,
+      "Partial": 0,
+      "Different": 17,
+      "Missing": 4,
+      "Unverified": 0,
+      "Optional": 0
+    }
+  },
+  "previous_partials": {
+    "total": 54,
+    "current": {
+      "Aligned": 37,
+      "Partial": 0,
+      "Different": 17,
+      "Missing": 0,
+      "Unverified": 0,
+      "Optional": 0
+    }
+  },
+  "changed_case_assessments": 75,
+  "historical_pre_followup_verification": {
+    "laravel": {
+      "result": "passed",
+      "tests": 723,
+      "assertions": 6205,
+      "log": "storage/logs/teacher-reaudit-2026-11-14-final.xml"
+    },
+    "frontend": {
+      "result": "passed",
+      "tests": 63,
+      "log": "storage/logs/teacher-reaudit-frontend-2026-11-14.txt"
+    },
+    "audit_probes": {
+      "result": "passed",
+      "tests": 8,
+      "assertions": 36,
+      "log": "storage/logs/teacher-reaudit-probes-2026-11-14.xml"
+    },
+    "not_executed": [
+      "Literal 319 teacher workbook scenarios/fixture data",
+      "Browser/device acceptance",
+      "Live SMTP/SMS/provider payment delivery",
+      "MySQL timed races",
+      "Production deployment verification"
+    ]
+  },
+  "post_followup_focused_verification": {
+    "result": "passed",
+    "tests": 146,
+    "assertions": 1180,
+    "suites": [
+      "RiderWorkAvailabilityTest: 18 tests, 132 assertions",
+      "FinancialLedgerWorkflowTest: 20 tests, 260 assertions",
+      "PartialSellerReportingTest: 11 tests, 79 assertions",
+      "ReturnWorkflowRevisionTest: 35 tests, 267 assertions",
+      "WorkflowRevisionTest: 62 tests, 442 assertions"
+    ],
+    "full_laravel_suite_after_followup": "started but stopped after exceeding the interactive check window"
+  },
+  "source_hashes": [
+    {
+      "file": "Ecommerce_Role_Functionality_Checklist.docx",
+      "sha256": "FF67F052D428DA81D2EEC20F6A17250D2B0A66EC7BC98377B6CDD0BF4FBCEA87",
+      "matches_13_November_snapshot": true
+    },
+    {
+      "file": "Blackbox_Test_Cases_Seller_Modules-1.xlsx",
+      "sha256": "5EE7704EC5CBFB104F8941D35224C6829C68F0D70992F1DBDA96C5A731251CDC",
+      "matches_13_November_snapshot": true
+    },
+    {
+      "file": "Blackbox_Test_Cases_Rider_Modules-1 (1).xlsx",
+      "sha256": "FD19A6BA3C3753821B9F850A850E5D3D9BEA8BCC04BF7B1C7AC91997B3711ED9",
+      "matches_13_November_snapshot": true
+    },
+    {
+      "file": "Blackbox_Test_Cases_Buyer_Modules-1.xlsx",
+      "sha256": "4C89FF71236756CB065B85116EAAC0FA2AE0E9A094F320B1A1B7119E1D51871F",
+      "matches_13_November_snapshot": true
+    },
+    {
+      "file": "Blackbox_Test_Cases_Logistics_Modules-1 (1).xlsx",
+      "sha256": "0615000A6D58F8B3E5B6690FFFB08E498F6095ECD51158715486EE286570C84F",
+      "matches_13_November_snapshot": true
+    }
+  ],
+  "caution": "Implementation alignment, not teacher Pass/Fail execution or a completion percentage. Historical 13 November evidence is retained separately."
+}

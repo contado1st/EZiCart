@@ -3,9 +3,11 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\FinancialAccount;
 use App\Models\Voucher;
 use App\Services\AdministrativeAuditService;
 use App\Services\VoucherFundingService;
+use App\Services\VoucherScheduleRules;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -14,8 +16,9 @@ class PlatformVoucherController extends Controller
     public function index()
     {
         $vouchers = Voucher::query()->whereNull('seller_id')->with('budget.reserveAccount')->latest()->paginate(20);
+        $availableCents = (int) FinancialAccount::where('key', 'platform:treasury')->where('frozen', false)->value('balance_cents');
 
-        return view('admin.vouchers', compact('vouchers'));
+        return view('admin.vouchers', compact('vouchers', 'availableCents'));
     }
 
     public function store(Request $request, AdministrativeAuditService $audits)
@@ -24,10 +27,12 @@ class PlatformVoucherController extends Controller
         $data = $request->validate([
             'code' => ['required', 'string', 'max:50', 'unique:vouchers,code'], 'type' => ['required', 'in:fixed,percent'],
             'value' => ['required', 'numeric', 'min:0.01', 'decimal:0,2', $request->input('type') === 'percent' ? 'max:100' : 'max:99999999'],
-            'min_spend' => ['required', 'numeric', 'min:0', 'decimal:0,2'], 'max_discount' => ['nullable', 'numeric', 'min:0.01', 'decimal:0,2'],
-            'usage_limit' => ['required', 'integer', 'min:1', 'max:1000000'], 'expires_at' => ['nullable', 'date', 'after:now'],
+            'min_spend' => ['required', 'numeric', 'min:0', 'decimal:0,2'], 'max_discount' => ['required_if:type,percent', 'nullable', 'numeric', 'min:0.01', 'decimal:0,2'],
+            'usage_limit' => ['required', 'integer', 'min:1', 'max:1000000'], ...app(VoucherScheduleRules::class)->fields(),
+            'recipient_limit' => ['nullable', 'integer', 'min:1', 'max:1000000'], 'per_buyer_limit' => ['nullable', 'integer', 'min:1', 'max:1000'],
             'discount_target' => ['nullable', 'in:merchandise,shipping'],
         ]);
+        app(VoucherScheduleRules::class)->assertBounds($data);
         DB::transaction(function () use ($request, $data, $audits): void {
             $voucher = Voucher::create([...$data, 'seller_id' => null, 'is_active' => true]);
             app(VoucherFundingService::class)->reserve($voucher, $request->user());

@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\DirectConversation;
 use App\Models\DirectMessage;
 use App\Models\Order;
+use App\Models\Product;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -24,7 +25,7 @@ class ChatAttachmentService
         return min((int) config('web-commerce.attachment_max_kb'), $bytes > 0 ? max(1, intdiv($bytes, 1024)) : PHP_INT_MAX);
     }
 
-    public function send(DirectConversation $conversation, User $actor, ?string $body, array $files, ?Order $order = null): DirectMessage
+    public function send(DirectConversation $conversation, User $actor, ?string $body, array $files, ?Order $order = null, ?Product $product = null): DirectMessage
     {
         abort_unless($conversation->hasParticipant($actor), 403);
         $stored = [];
@@ -37,8 +38,8 @@ class ChatAttachmentService
                 $stored[] = ['path' => $path, 'original_name' => Str::limit(preg_replace('/[\x00-\x1f\x7f]/u', '', basename(str_replace('\\', '/', $file->getClientOriginalName()))) ?: 'attachment', 200, ''), 'mime_type' => $file->getMimeType(), 'size' => $file->getSize()];
             }
 
-            return DB::transaction(function () use ($conversation, $actor, $body, $order, $stored) {
-                $message = app(DirectMessagingService::class)->send($conversation, $actor, filled($body) ? $body : 'Shared '.count($stored).' attachment(s).', $order);
+            return DB::transaction(function () use ($conversation, $actor, $body, $order, $product, $stored) {
+                $message = app(DirectMessagingService::class)->send($conversation, $actor, filled($body) ? $body : 'Shared '.count($stored).' attachment(s).', $order, $product);
                 $message->attachments()->createMany($stored);
 
                 return $message;

@@ -14,6 +14,23 @@ use LogicException;
 
 class Order extends Model
 {
+    public function dispatchCycles(): HasMany
+    {
+        return $this->hasMany(DispatchCycle::class);
+    }
+
+    protected $with = ['activeIncident'];
+
+    public function activeIncident(): HasOne
+    {
+        return $this->hasOne(ParcelIncident::class, 'open_order_id');
+    }
+
+    public function getOperationalStatusAttribute(): string
+    {
+        return $this->activeIncident?->kind ?? $this->status;
+    }
+
     protected $hidden = ['parcel_weight_grams', 'weight_recorded_by', 'weight_recorded_at'];
 
     use HasFactory;
@@ -76,6 +93,18 @@ class Order extends Model
     public function buyer(): BelongsTo
     {
         return $this->belongsTo(User::class, 'buyer_id');
+    }
+
+    public function scopeAwaitingWalletPayment(Builder $query): Builder
+    {
+        return $query->where('status', 'PLACED')->where('payment_method', 'WALLET')
+            ->whereNotNull('wallet_payment_due_at')->whereNull('wallet_transaction_id');
+    }
+
+    public function isAwaitingWalletPayment(): bool
+    {
+        return $this->status === 'PLACED' && $this->payment_method === 'WALLET'
+            && $this->wallet_payment_due_at !== null && $this->wallet_transaction_id === null;
     }
 
     public function purchase(): BelongsTo
@@ -217,6 +246,7 @@ class Order extends Model
             'weight_recorded_at' => 'datetime',
             'financial_version' => 'integer', 'wallet_paid_cents' => 'integer', 'seller_promo_funded_cents' => 'integer', 'platform_shipping_funded_cents' => 'integer', 'shipping_discount_cents' => 'integer',
             'seller_response_due_at' => 'datetime',
+            'wallet_payment_due_at' => 'datetime',
             'preparation_due_at' => 'datetime',
             'seller_reminded_at' => 'datetime',
             'restock_inspected_at' => 'datetime',
@@ -234,6 +264,9 @@ class Order extends Model
             'delivery_recovered_at' => 'datetime',
             'out_for_delivery_at' => 'datetime',
             'delivered_at' => 'datetime',
+            'completion_enrolled_at' => 'datetime',
+            'auto_completion_due_at' => 'datetime',
+            'auto_completed_at' => 'datetime',
             'failed_at' => 'datetime',
             'return_handed_to_seller_at' => 'datetime',
             'inventory_restored_at' => 'datetime',

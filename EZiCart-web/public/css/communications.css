@@ -54,6 +54,9 @@
 .conversation-order-context { display: flex; align-items: center; gap: 10px; margin: 14px 24px 0; padding: 12px 14px; background: #f8f9fc; border-radius: 8px; font-size: 11px; }
 .conversation-order-icon { color: var(--connect-muted); }
 .conversation-order-context > div { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.conversation-product-context { max-width: 100%; margin: 0; flex-wrap: wrap; }
+.conversation-product-context > div { flex: 1 1 140px; }
+.conversation-product-image { width: 80px; height: 80px; object-fit: cover; border-radius: 6px; flex-shrink: 0; }
 .conversation-order-context strong { font-weight: 600; overflow-wrap: anywhere; }
 .conversation-order-context span { font-size: 10px; color: var(--connect-muted); }
 .conversation-order-context > a { display: flex; align-items: center; gap: 5px; margin-left: auto; flex-shrink: 0; color: var(--connect-accent); text-decoration: none; }
@@ -66,6 +69,27 @@
 .conversation-message-meta > span { font-size: 9px; text-transform: capitalize; }
 .conversation-bubble { max-width: min(85%, 560px); padding: 11px 14px; margin: 0; border-radius: 2px 12px 12px 12px; background: #f1f3f7; color: var(--connect-ink); font-size: 13px; line-height: 1.7; white-space: pre-wrap; overflow-wrap: anywhere; }
 .conversation-message.is-own .conversation-bubble { background: var(--connect-soft); border-radius: 12px 2px 12px 12px; color: var(--connect-accent); }
+.conversation-unsent { margin: 4px 0; color: var(--connect-muted); font-size: 12px; }
+.conversation-message-content { min-width: 0; max-width: 100%; display: flex; flex-direction: column; align-items: inherit; }
+.conversation-attachment { display: grid; gap: 6px; min-width: 0; max-width: 100%; }
+.conversation-message-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 12px; margin: 5px 0 0; font-size: 11px; }
+.conversation-message-actions form { margin: 0; }
+.conversation-message-actions :is(a, button) { display: inline-flex; align-items: center; min-height: 36px; padding: 6px 0; border: 0; background: transparent; color: var(--connect-accent); font: inherit; cursor: pointer; text-underline-offset: 3px; }
+.conversation-message-actions button:hover { text-decoration: underline; }
+.attachment-preview { min-width: 0; padding: 20px; border: 1px solid var(--connect-line); border-radius: 10px; background: #fff; }
+.attachment-preview-heading { display: flex; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; gap: 16px; margin-bottom: 20px; }
+.attachment-preview-heading > div { min-width: 0; }
+.attachment-preview-heading h2 { margin: 0; font-size: 18px; overflow-wrap: anywhere; }
+.attachment-preview-heading p { color: var(--connect-muted); font-size: 12px; }
+.attachment-preview-heading .web-actions a { display: inline-flex; align-items: center; min-height: 40px; padding: 9px 14px; border: 1px solid var(--connect-line); border-radius: 7px; background: #fff; color: var(--connect-accent); font-size: 12px; text-decoration: none; }
+.attachment-preview-heading .web-actions .attachment-download { border-color: var(--connect-accent); background: var(--connect-accent); color: #fff; }
+.attachment-preview-image { display: block; max-width: 100%; max-height: 75dvh; margin-inline: auto; object-fit: contain; }
+.attachment-preview-pdf { width: 100%; height: 70dvh; min-height: 300px; border: 1px solid var(--connect-line); }
+.attachment-preview-text { max-height: 70dvh; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 13px; line-height: 1.7; }
+.attachment-preview-table { overflow-x: auto; margin-block: 12px 20px; }
+.attachment-preview-table table { min-width: 100%; border-collapse: collapse; font-size: 12px; }
+.attachment-preview-table td { min-width: 100px; max-width: 300px; padding: 10px; border: 1px solid var(--connect-line); overflow-wrap: anywhere; }
+.attachment-preview-table td small { display: block; margin-bottom: 4px; color: var(--connect-muted); }
 .conversation-message > time { color: var(--connect-muted); font-size: 9px; margin-top: 6px; }
 .conversation-first-message { display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; min-height: 160px; padding: 24px 12px; color: var(--connect-muted); }
 .conversation-first-message h3 { font-size: 14px; color: var(--connect-ink); font-weight: 600; margin: 14px 0 6px; }
@@ -75,7 +99,9 @@
 .conversation-composer > label { display: block; font-size: 11px; font-weight: 600; margin-bottom: 7px; }
 .conversation-composer textarea { display: block; resize: vertical; width: 100%; min-height: 72px; max-height: 160px; border: 1px solid #d9dde6; border-radius: 8px; padding: 11px 12px; background: #fff; color: var(--connect-ink); font: inherit; font-size: 13px; line-height: 1.6; }
 .conversation-composer textarea::placeholder { color: var(--connect-muted); opacity: 1; }
-.conversation-composer-footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 10px; }
+.conversation-composer-footer { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin-top: 10px; }
+.conversation-composer-footer > span { flex: 1 1 160px; min-width: 0; overflow-wrap: anywhere; }
+.conversation-composer-footer > button { flex-shrink: 0; }
 .conversation-composer-footer > span { color: var(--connect-muted); font-size: 10px; }
 .conversation-composer-footer button { display: inline-flex; align-items: center; gap: 9px; padding: 10px 15px; border: 0; border-radius: 7px; background: var(--connect-accent); color: #fff; font-size: 12px; font-weight: 600; cursor: pointer; }
 .conversation-composer-footer button:hover { background: var(--connect-hover); }

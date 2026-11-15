@@ -15,7 +15,7 @@
             @foreach($slides as $slide)
                 <div class="product-media-slide" data-gallery-slide data-kind="{{ $slide['kind'] }}" role="group" aria-roledescription="slide" aria-label="{{ $loop->iteration }} of {{ $slides->count() }}, {{ $slide['kind'] }}">
                     @if($slide['kind'] === 'video')
-                        <video controls playsinline preload="none" aria-label="{{ $product->name }} product video"><source src="{{ asset('storage/'.$slide['path']) }}" type="{{ $slide['mime_type'] }}">Your browser cannot play this video. <a href="{{ asset('storage/'.$slide['path']) }}">Open the product video</a>.</video>
+                        <video controls muted playsinline preload="metadata" data-product-autoplay aria-label="{{ $product->name }} product video"><source src="{{ asset('storage/'.$slide['path']) }}" type="{{ $slide['mime_type'] }}">Your browser cannot play this video. <a href="{{ asset('storage/'.$slide['path']) }}">Open the product video</a>.</video>
                     @else
                         <img src="{{ asset('storage/'.$slide['path']) }}" alt="{{ $product->name }} — photo {{ $loop->iteration }}" loading="{{ $loop->first ? 'eager' : 'lazy' }}" draggable="false">
                     @endif

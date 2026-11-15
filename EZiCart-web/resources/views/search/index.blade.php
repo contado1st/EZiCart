@@ -46,6 +46,7 @@
                 <div class="catalog-active-filters" aria-label="Applied filters"><span>Selected:</span>@foreach ($activeFilters as $filter)<a href="{{ route('search.index', $filter['query']) }}" aria-label="Remove {{ $filter['label'] }}">{{ $filter['label'] }}<x-shop-icon name="close" /></a>@endforeach</div>
             @endif
             @if ($products->isNotEmpty())
+                @if($filters['sort'] === 'best_selling')<p class="catalog-result-range">Ranked by units on completed orders without executed refunds. Cancelled, void and refunded orders do not boost this ranking.</p>@endif
                 <p class="catalog-result-range">Showing {{ $products->firstItem() }}–{{ $products->lastItem() }} of {{ number_format($products->total()) }} products</p>
                 <div class="catalog-product-grid">
                     @foreach ($products as $product)
@@ -54,7 +55,7 @@
                             <div class="catalog-product-content">
                                 <span class="catalog-product-category">{{ $product->category_label }}</span>
                                 <h2>{{ $product->name }}</h2>
-                                <strong class="catalog-product-price">₱{{ number_format($product->price, 2) }}</strong>
+                                <strong class="catalog-product-price"><x-product-price :product="$product" /></strong>
                                 <div class="catalog-product-rating">@if ($product->catalog_review_count > 0)<x-shop-icon name="star" /><span>{{ number_format($product->catalog_rating, 1) }}</span><small>({{ number_format($product->catalog_review_count) }})</small>@else<span>No ratings yet</span>@endif</div>
                                 <div class="catalog-product-store">{{ $product->seller?->business_name ?: $product->seller?->first_name ?: 'EZiCart seller' }}</div>
                                 @if ($product->seller?->province)<div class="catalog-product-location"><x-shop-icon name="location" /><span>{{ $product->seller->province }}</span></div>@endif
@@ -64,6 +65,9 @@
                 </div>
                 <div class="catalog-pagination">{{ $products->links() }}</div>
             @else
+                @if($searchSuggestions)
+                    <nav class="catalog-active-filters" aria-label="Suggested search terms"><span>Did you mean:</span>@foreach($searchSuggestions as $suggestion)<a href="{{ route('search.index', array_merge(\Illuminate\Support\Arr::except($filters, 'page'), ['search' => $suggestion])) }}">{{ $suggestion }}</a>@endforeach</nav>
+                @endif
                 <section class="catalog-empty"><span class="catalog-empty-icon"><x-shop-icon name="search" /></span><h2>No matching products</h2><p>@if ($activeFilters)Try a wider price range or remove a filter to see more results.@elseif ($searchTerm !== '')Try a different keyword, a shorter product name, or a shop name.@else Available products will appear here when sellers add listings.@endif</p><a href="{{ route('search.index', $activeFilters ? ['search' => $searchTerm] : []) }}">{{ $activeFilters ? 'Clear filters' : 'Browse all products' }}</a></section>
             @endif
         </section>

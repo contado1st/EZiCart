@@ -80,6 +80,7 @@ class OrderTransitionService
                 }
             }
             $lockedOrder = Order::query()->whereKey($order->id)->lockForUpdate()->firstOrFail();
+            ParcelIncidentService::assertClear($lockedOrder);
             $current = $lockedOrder->status;
             abort_if($lockedOrder->pendingCancellation()->exists(), 422, 'Resolve the pending cancellation request before changing this order.');
             abort_if(ParcelTransfer::query()->where('active_order_id', $lockedOrder->id)->exists(), 422, 'Complete the active hub transfer before changing parcel status.');
@@ -107,8 +108,8 @@ class OrderTransitionService
                 $this->authorizeCancellation($lockedOrder, $actor, $current, $notes);
             }
 
-            if ($target === OrderStatus::Completed && $lockedOrder->dispute()->whereIn('status', ['PENDING', 'UNDER_REVIEW'])->exists()) {
-                throw new HttpException(422, 'This order cannot be completed while its dispute is under review.');
+            if ($target === OrderStatus::Completed && ($reason = app(OrderCompletionEligibilityService::class)->holdReason($lockedOrder))) {
+                throw new HttpException(422, $reason);
             }
 
             if ($target === OrderStatus::Delivered && blank($attributes['delivery_code_used_at'] ?? null)) {
@@ -130,7 +131,7 @@ class OrderTransitionService
             if (in_array($target, [OrderStatus::AssignedToRider, OrderStatus::PickedUp, OrderStatus::OutForDelivery, OrderStatus::ReturnInTransit], true)) {
                 $riderId = $target === OrderStatus::PickedUp ? $lockedOrder->pickup_courier_id : ($attributes['delivery_courier_id'] ?? $lockedOrder->delivery_courier_id);
                 abort_unless($riderId, 422, 'Assign a verified vehicle before moving this parcel.');
-                app(ParcelLoadService::class)->assertFits($lockedOrder, User::findOrFail($riderId));
+                app(ParcelLoadService::class)->assertFits($lockedOrder, User::findOrFail($riderId), newWork: $target === OrderStatus::AssignedToRider);
             }
             if ($target === OrderStatus::Confirmed && $lockedOrder->seller_response_due_at?->isPast()) {
                 throw new HttpException(422, 'The seller confirmation deadline has expired.');
@@ -152,11 +153,15 @@ class OrderTransitionService
             $lockedOrder->forceFill([...$transitionAttributes, 'status' => $target->value])->save();
             if ($target === OrderStatus::Delivered) {
                 $this->finances->recordCollection($lockedOrder, $actor);
+                if (app(OrderCompletionEligibilityService::class)->afterRollout($lockedOrder)) {
+                    $lockedOrder->forceFill(['completion_enrolled_at' => now(), 'auto_completion_due_at' => $lockedOrder->delivered_at->copy()->addHours(168)])->save();
+                }
             }
 
             $this->recordAssignmentLifecycle($lockedOrder->refresh(), $actor, $target);
 
             if ($target === OrderStatus::Cancelled) {
+                DispatchOfferService::withdrawForOrder($lockedOrder, 'Order cancelled; provisional offers withdrawn.');
                 $this->inventoryRestoration->restore($lockedOrder);
                 $this->finances->voidUncollected($lockedOrder, $actor);
             }
@@ -192,10 +197,43 @@ class OrderTransitionService
         });
     }
 
+    /** System-only entry; never impersonates the buyer and never settles funds. */
+    public function completeAutomatically(Order $order): bool
+    {
+        return DB::transaction(function () use ($order) {
+            $locked = Order::whereKey($order->id)->lockForUpdate()->firstOrFail();
+            if (app(OrderCompletionEligibilityService::class)->automaticReason($locked) !== null) {
+                return false;
+            }
+            $locked->forceFill(['status' => OrderStatus::Completed->value, 'auto_completed_at' => now()])->save();
+            $reason = 'System completion after 168 elapsed hours from verified delivery. No active return/dispute or evidence/settlement exception. Earnings remain subject to verified funding and separate payout approval.';
+            ParcelTrackingEvent::create(['order_id' => $locked->id, 'actor_id' => null, 'event_type' => 'order_auto_completed', 'status' => 'COMPLETED', 'location' => $locked->municipality, 'notes' => $reason]);
+            $this->audits->record(null, $locked, 'order_auto_completed', ['status' => 'DELIVERED'], ['status' => 'COMPLETED'], $reason);
+            $this->notifications->send([$locked->buyer, $locked->seller], new OrderStatusNotification($locked, 'COMPLETED', 'order_auto_completed', $reason));
+
+            return true;
+        }, 3);
+    }
+
+    public function enrollCompletion(Order $order, string $reason): void
+    {
+        DB::transaction(function () use ($order, $reason) {
+            $locked = Order::whereKey($order->id)->lockForUpdate()->firstOrFail();
+            abort_unless($locked->status === 'DELIVERED' && mb_strlen($reason) >= 10 && mb_strlen($reason) <= 500, 422);
+            abort_if(app(OrderCompletionEligibilityService::class)->holdReason($locked) !== null, 422, 'Resolve the delivery hold before enrollment.');
+            if ($locked->completion_enrolled_at) {
+                return;
+            }
+            $locked->forceFill(['completion_enrolled_at' => now(), 'auto_completion_due_at' => $locked->delivered_at->copy()->addHours(168)])->save();
+            $this->audits->record(null, $locked, 'completion_legacy_opt_in', [], ['auto_completion_due_at' => $locked->auto_completion_due_at], $reason);
+        }, 3);
+    }
+
     public function receiveHubTransfer(ParcelTransfer $transfer, User $actor, string $reference): void
     {
         DB::transaction(function () use ($transfer, $actor, $reference): void {
             $order = Order::query()->whereKey($transfer->order_id)->lockForUpdate()->firstOrFail();
+            ParcelIncidentService::assertClear($order);
             $locked = ParcelTransfer::query()->whereKey($transfer->id)->lockForUpdate()->firstOrFail();
             abort_unless($actor->role === 'sorting_center' && $actor->status === 'approved' && $actor->id === $locked->destination_hub_id, 403);
             abort_unless($locked->status === 'IN_TRANSIT' && $locked->released_at !== null && $order->sorting_center_id === $locked->source_hub_id && in_array($order->status, ['AT_SORTING_CENTER', 'SORTED'], true), 422, 'Only a released transfer can be received.');
@@ -209,6 +247,26 @@ class OrderTransitionService
             $this->notifications->send([$order->buyer, $order->seller], new OrderWorkflowNotification($order, 'hub_transfer_received', 'Parcel received at the destination hub for sorting.'));
             $this->notifications->send(collect([$locked->sourceHub, $locked->carrier])->filter(), new WebOperationsNotification(['message' => 'Destination hub received '.$order->order_number.'. This parcel is now unloaded from its transport vehicle reservation.', 'url' => route('parcel-transfers.index')]));
         });
+    }
+
+    public function expireWalletPayment(Order $order): bool
+    {
+        return DB::transaction(function () use ($order): bool {
+            $locked = Order::whereKey($order->id)->lockForUpdate()->firstOrFail();
+            if (! $locked->isAwaitingWalletPayment() || $locked->wallet_payment_due_at->isFuture() || $locked->pendingCancellation()->exists()
+                || $locked->wallet_paid_cents !== 0 || $locked->picked_up_at !== null || $locked->seller_handover_at !== null
+                || $locked->received_at !== null || $locked->hub_released_at !== null) {
+                return false;
+            }
+            $locked->forceFill(['status' => OrderStatus::Cancelled->value])->save();
+            $this->inventoryRestoration->restore($locked);
+            $this->finances->voidUncollected($locked, null);
+            ParcelTrackingEvent::create(['order_id' => $locked->id, 'event_type' => 'wallet_payment_expired', 'status' => 'CANCELLED', 'notes' => 'Unpaid wallet reservation expired. No wallet funds were charged.']);
+            $this->audits->record(null, $locked, 'wallet_payment_expired', ['status' => 'PLACED'], ['status' => 'CANCELLED'], 'Unpaid stock/voucher reservation released at its payment deadline.');
+            $this->notifications->send($locked->buyer, new OrderWorkflowNotification($locked, 'wallet_payment_expired', 'Payment time expired. The unpaid order was cancelled and its reservations released. No demo wallet funds were charged.'));
+
+            return true;
+        }, 3);
     }
 
     public function expireSellerDeadline(Order $order): bool
@@ -242,13 +300,20 @@ class OrderTransitionService
     {
         DB::transaction(function () use ($order, $buyer, $reason): void {
             $locked = Order::query()->whereKey($order->id)->lockForUpdate()->firstOrFail();
+            ParcelIncidentService::assertClear($locked);
             abort_unless($buyer->role === 'buyer' && $locked->buyer_id === $buyer->id, 403);
             $this->authorizeCancellation($locked, $buyer, $locked->status, $reason);
+            if ($locked->isAwaitingWalletPayment()) {
+                $this->transition($locked, $buyer, OrderStatus::Cancelled, 'unpaid_wallet_cancelled', notes: $reason.' No wallet payment was charged.');
+
+                return;
+            }
             abort_if($locked->pendingCancellation()->exists(), 422, 'A cancellation request is already pending.');
             OrderCancellationRequest::create([
                 'order_id' => $locked->id, 'active_order_id' => $locked->id, 'requested_by' => $buyer->id,
                 'reason' => $reason, 'respond_by' => now()->addHours((int) config('commerce.cancellation_response_hours', 24)),
             ]);
+            DispatchOfferService::withdrawForOrder($locked, 'Buyer cancellation requested; provisional offers withdrawn.');
             ParcelTrackingEvent::create(['order_id' => $locked->id, 'actor_id' => $buyer->id, 'event_type' => 'cancellation_requested', 'status' => $locked->status, 'notes' => $reason]);
             $this->audits->record($buyer, $locked, 'cancellation_requested', [], ['cancellation_status' => 'PENDING'], $reason);
             $this->notifications->send([$locked->buyer, $locked->seller], new OrderWorkflowNotification($locked, 'cancellation_requested', 'Cancellation pending seller approval. Fulfillment is paused until the request is resolved.'));
@@ -259,6 +324,10 @@ class OrderTransitionService
     {
         return DB::transaction(function () use ($order, $actor, $approve, $response): bool {
             $locked = Order::query()->whereKey($order->id)->lockForUpdate()->firstOrFail();
+            if ($actor === null && $locked->activeIncident) {
+                return false;
+            }
+            ParcelIncidentService::assertClear($locked);
             $request = $locked->pendingCancellation()->lockForUpdate()->first();
             if (! $request) {
                 return false;
@@ -293,9 +362,12 @@ class OrderTransitionService
                 $this->audits->record($actor, $locked, 'cancellation_approved', ['cancellation_status' => 'PENDING'], ['cancellation_status' => 'APPROVED'], $response);
             }
             $event = $approve ? 'cancellation_approved' : 'cancellation_rejected';
+            $refundMessage = $locked->payment_method === 'WALLET' && $locked->wallet_paid_cents > 0
+                ? 'Recorded sandbox wallet payment credited back: PHP '.number_format($locked->wallet_paid_cents / 100, 2).'.'
+                : 'No COD payment was collected, so no COD refund is due.';
             ParcelTrackingEvent::create(['order_id' => $locked->id, 'actor_id' => $actor?->id, 'event_type' => $event, 'status' => $locked->status, 'notes' => $response]);
             $this->notifications->send(collect([$locked->buyer, $locked->seller, $locked->pickupCourier, $locked->sortingCenter])->filter()->unique('id'),
-                new OrderWorkflowNotification($locked, $event, $approve ? 'Cancellation approved. Reserved inventory released; no COD payment was collected, so no refund is due.' : 'Cancellation rejected: '.$response));
+                new OrderWorkflowNotification($locked, $event, $approve ? 'Cancellation approved. Reserved inventory released. '.$refundMessage.' Check saved vouchers for restored eligibility.' : 'Cancellation rejected: '.$response));
 
             return true;
         }, 3);
@@ -305,7 +377,7 @@ class OrderTransitionService
     {
         return DB::transaction(function () use ($order): bool {
             $locked = Order::query()->whereKey($order->id)->lockForUpdate()->firstOrFail();
-            if ($locked->status !== 'ASSIGNED_TO_RIDER' || $locked->hub_released_at !== null) {
+            if ($locked->activeIncident || $locked->status !== 'ASSIGNED_TO_RIDER' || $locked->hub_released_at !== null) {
                 return false;
             }
             $assignment = $locked->deliveryAssignments()->where('status', 'active')->lockForUpdate()->first();
@@ -323,10 +395,39 @@ class OrderTransitionService
         }, 3);
     }
 
+    public function withdrawUnavailableDeliveryOffer(Order $order, User $candidate, ?User $actor = null): bool
+    {
+        return DB::transaction(function () use ($order, $candidate, $actor): bool {
+            $rider = app(ParcelLoadService::class)->lockVehicle($candidate->id);
+            if (! config('rider-work.enforce_availability') || $rider->role !== 'courier' || $rider->status !== 'approved' || $rider->work_availability === 'available') {
+                return false;
+            }
+            abort_unless($actor === null || $actor->id === $rider->id, 403);
+            $locked = Order::whereKey($order->id)->lockForUpdate()->firstOrFail();
+            if ($locked->activeIncident || $locked->status !== 'ASSIGNED_TO_RIDER' || (int) $locked->delivery_courier_id !== $rider->id || $locked->hub_released_at !== null) {
+                return false;
+            }
+            $assignment = $locked->deliveryAssignments()->where('rider_id', $rider->id)->where('status', 'active')->lockForUpdate()->first();
+            if (! $assignment || $assignment->accepted_at !== null) {
+                return false;
+            }
+            $assignment->update(['status' => 'reassigned', 'active_order_id' => null, 'released_at' => now()]);
+            $locked->forceFill(['status' => OrderStatus::Sorted->value, 'delivery_courier_id' => null, 'assigned_at' => null])->save();
+            $message = 'Rider unavailable for new work. Unaccepted offer returned to hub dispatch; no physical handover recorded.';
+            ParcelTrackingEvent::create(['order_id' => $locked->id, 'actor_id' => $actor?->id, 'event_type' => 'delivery_offer_withdrawn_for_availability', 'status' => $locked->status, 'notes' => $message]);
+            $this->audits->record($actor, $locked, 'delivery_offer_withdrawn_for_availability', ['status' => 'ASSIGNED_TO_RIDER', 'rider_id' => $rider->id], ['status' => 'SORTED', 'rider_id' => null], $message);
+            $this->notifications->send(collect([$rider, $locked->sortingCenter, $locked->buyer, $locked->seller])->filter()->unique('id'),
+                new OrderWorkflowNotification($locked, 'delivery_offer_withdrawn_for_availability', $message));
+
+            return true;
+        }, 3);
+    }
+
     public function declineDeliveryAssignment(Order $order, User $actor, ?string $reason = null): Order
     {
         return DB::transaction(function () use ($order, $actor, $reason): Order {
             $lockedOrder = Order::query()->whereKey($order->id)->lockForUpdate()->firstOrFail();
+            ParcelIncidentService::assertClear($lockedOrder);
             abort_unless(
                 $actor->role === 'courier'
                     && $actor->status === 'approved'
@@ -387,6 +488,7 @@ class OrderTransitionService
     {
         return DB::transaction(function () use ($order, $actor): Order {
             $lockedOrder = Order::query()->whereKey($order->id)->lockForUpdate()->firstOrFail();
+            ParcelIncidentService::assertClear($lockedOrder);
             abort_unless(
                 $actor->role === 'sorting_center'
                     && $actor->status === 'approved'
@@ -452,6 +554,7 @@ class OrderTransitionService
         return DB::transaction(function () use ($order, $actor, $locationCode, $method, $ip): Order {
             abort_unless($actor->role === 'sorting_center' && $actor->status === 'approved', 403, 'Only an approved sorting center can receive a failed parcel.');
             $lockedOrder = Order::query()->whereKey($order->id)->lockForUpdate()->firstOrFail();
+            ParcelIncidentService::assertClear($lockedOrder);
             $rider = User::query()->whereKey($lockedOrder->delivery_courier_id)->first();
             $failedParcel = $lockedOrder->status === OrderStatus::DeliveryFailed->value;
             $suspendedRiderRecovery = $lockedOrder->status === OrderStatus::OutForDelivery->value && $rider?->status === 'suspended';
@@ -582,7 +685,7 @@ class OrderTransitionService
         }
     }
 
-    private function validateSellerOrderInventory(Order $order): void
+    public function validateSellerOrderInventory(Order $order): void
     {
         $items = OrderItem::query()
             ->where('order_id', $order->id)

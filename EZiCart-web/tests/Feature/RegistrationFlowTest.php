@@ -505,9 +505,9 @@ class RegistrationFlowTest extends TestCase
     }
 
     /**
-     * Scenario 12: A verified but unapproved seller cannot log in.
+     * Scenario 12: A verified applicant gets private drafts without operational login.
      */
-    public function test_verified_but_unapproved_seller_cannot_log_in(): void
+    public function test_verified_but_unapproved_seller_has_only_a_private_draft_workspace(): void
     {
         $seller = User::query()->forceCreate([
             'first_name' => 'Pending',
@@ -523,8 +523,8 @@ class RegistrationFlowTest extends TestCase
         $this->post(route('login.post'), [
             'email' => $seller->email,
             'password' => 'Password@2026',
-        ])->assertRedirect(route('login'))
-            ->assertSessionHas('error', 'Your email has been verified. Your seller registration is now awaiting admin approval.');
+        ])->assertRedirect(route('applicant-drafts.index'))
+            ->assertSessionHas('success', 'Your application is under review. You may prepare private drafts; selling and submission require approval.');
 
         $this->assertGuest();
     }

@@ -20,25 +20,36 @@
                 <div class="dash-alert-success"><x-shop-icon name="checklist" /> {{ session('success') }}</div>
             @endif
 
+            @include('components.feature-feedback')
+            <form method="GET" class="feature-panel feature-form" action="{{ route('seller.orders.index') }}">
+                <label>Order or buyer<input type="search" name="q" maxlength="120" value="{{ $filters['q'] ?? '' }}" placeholder="Order number or buyer name"></label>
+                <label>Placed from<input type="date" name="from_date" value="{{ $filters['from_date'] ?? '' }}"></label>
+                <label>Placed to<input type="date" name="to_date" value="{{ $filters['to_date'] ?? '' }}"></label>
+                <label>Status<select name="status"><option value="">All statuses</option>@foreach (\App\Enums\OrderStatus::cases() as $status)<option value="{{ $status->value }}" @selected(($filters['status'] ?? '') === $status->value)>{{ $status->value === 'PREPARING' ? 'In Packing (confirmed and preparing)' : str_replace('_', ' ', $status->value) }}</option>@endforeach</select></label>
+                <button class="dash-btn-sm dash-btn-primary" type="submit">Apply filters</button>
+                <a class="dash-btn-sm" href="{{ route('seller.orders.index') }}">Reset</a>
+            </form>
+            <p>Tab counts match the order/buyer and placement-date filters. {{ $orders->total() }} orders in the selected status; 25 per page.</p>
+            @php($tabFilters = \Illuminate\Support\Arr::only($filters, ['q', 'from_date', 'to_date']))
             <!-- Filter Tabs -->
             <div class="order-tabs-bar">
-                <a href="{{ route('seller.orders.index') }}"
+                <a href="{{ route('seller.orders.index', $tabFilters) }}"
                     class="order-tab-link {{ !request('status') ? 'active' : '' }}">
                     All Orders ({{ $counts['all'] }})
                 </a>
-                <a href="{{ route('seller.orders.index', ['status' => 'PLACED']) }}"
+                <a href="{{ route('seller.orders.index', array_merge($tabFilters, ['status' => 'PLACED'])) }}"
                     class="order-tab-link {{ request('status') === 'PLACED' ? 'active' : '' }}">
                     New Placed ({{ $counts['placed'] }})
                 </a>
-                <a href="{{ route('seller.orders.index', ['status' => 'PREPARING']) }}"
+                <a href="{{ route('seller.orders.index', array_merge($tabFilters, ['status' => 'PREPARING'])) }}"
                     class="order-tab-link {{ request('status') === 'PREPARING' ? 'active' : '' }}">
                     In Packing ({{ $counts['preparing'] }})
                 </a>
-                <a href="{{ route('seller.orders.index', ['status' => 'READY_FOR_PICKUP']) }}"
+                <a href="{{ route('seller.orders.index', array_merge($tabFilters, ['status' => 'READY_FOR_PICKUP'])) }}"
                     class="order-tab-link {{ request('status') === 'READY_FOR_PICKUP' ? 'active' : '' }}">
                     Ready for Pickup ({{ $counts['ready'] }})
                 </a>
-                <a href="{{ route('seller.orders.index', ['status' => 'COMPLETED']) }}"
+                <a href="{{ route('seller.orders.index', array_merge($tabFilters, ['status' => 'COMPLETED'])) }}"
                     class="order-tab-link {{ request('status') === 'COMPLETED' ? 'active' : '' }}">
                     Completed ({{ $counts['completed'] }})
                 </a>
@@ -57,7 +68,7 @@
                         </div>
                         <div>
                             <span class="status-pill status-{{ strtolower(str_replace('_', '-', $order->status)) }}">
-                                {{ $order->pendingCancellation ? 'CANCELLATION PENDING' : str_replace('_', ' ', $order->status) }}
+                                {{ $order->pendingCancellation ? 'CANCELLATION PENDING' : str_replace('_', ' ', $order->operational_status) }}
                             </span>
                         </div>
                     </div>
@@ -88,10 +99,9 @@
                     <div class="order-card-footer">
                         <div class="order-total-block">
                             Payment: <strong>{{ $order->payment_method }}</strong> &bull;
-                            Net Earnings: <strong
-                                class="u-extracted-f8f1327255">₱{{ number_format($order->subtotal - $order->commission_fee, 2) }}</strong>
-                            <span class="u-extracted-cf0c302441">(10% platform fee
-                                deducted)</span>
+                            Merchandise subtotal: <strong
+                                class="u-extracted-f8f1327255">₱{{ number_format($order->subtotal, 2) }}</strong>
+                            <a class="u-extracted-cf0c302441" href="{{ route('seller.reports.index') }}">View discounts, commission and recognized sales</a>
                         </div>
 
                         <div class="order-seller-action-row">

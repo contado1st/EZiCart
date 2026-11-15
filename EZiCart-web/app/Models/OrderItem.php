@@ -22,11 +22,18 @@ class OrderItem extends Model
         'quantity',
         'item_total',
         'unit_weight_grams',
+        'purchased_image_path',
+        'pricing_snapshot',
     ];
 
     public function order(): BelongsTo
     {
         return $this->belongsTo(Order::class);
+    }
+
+    protected function casts(): array
+    {
+        return ['pricing_snapshot' => 'array'];
     }
 
     public function product(): BelongsTo

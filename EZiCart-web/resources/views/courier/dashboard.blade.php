@@ -1,6 +1,10 @@
 @extends('layouts.courier')
 
 @section('workspace')
+    @php
+        $parcelQueueTotal = $myDeliveryAssignments->total() + $claimedPickups->total() + $myActivePickups->total()
+            + $myReturns->total() + $availablePickups->total() + $myFailedDeliveries->total();
+    @endphp
     <header class="ops-heading">
         <div>
             <h1>My dispatch board</h1>
@@ -13,7 +17,8 @@
         </div>
     </header>
 
-    <section class="ops-stats ops-stats--priority" aria-label="Today's work summary">
+    <x-rider-work-availability :rider="$courier" />
+    <section class="ops-stats ops-stats--priority courier-work-summary" aria-label="Today's work summary">
         <div class="ops-stat ops-stat--action">
             <span class="workspace-stat-icon" aria-hidden="true"><x-shop-icon name="package1" /></span>
             <span>Pickup claims</span>
@@ -55,7 +60,6 @@
     {{-- Next operational task --}}
     <section class="courier-hero-card" aria-labelledby="courier-next-action-title">
         <div>
-            <span class="courier-hero-card__badge">Priority Action</span>
             <h2 id="courier-next-action-title">
                 @if (count($myDeliveryAssignments) > 0)
                     Doorstep delivery: {{ $myDeliveryAssignments->first()->order_number }}
@@ -69,8 +73,10 @@
                     Available pickup request
                 @elseif ($myFailedDeliveries->isNotEmpty())
                     Failed delivery under review: {{ $myFailedDeliveries->first()->order_number }}
+                @elseif ($parcelQueueTotal > 0)
+                    Check your parcel queues
                 @else
-                    All caught up!
+                    No open parcel tasks
                 @endif
             </h2>
             <p>
@@ -92,8 +98,10 @@
                     Review the seller pickup requests assigned to you.
                 @elseif ($myFailedDeliveries->isNotEmpty())
                     A failed delivery is with Logistics for review. Check its recorded attempt and messages.
+                @elseif ($parcelQueueTotal > 0)
+                    Parcels are available on another page. Use the queue tabs and page numbers to find your assigned work.
                 @else
-                    You have no open parcel tasks right now. Great job!
+                    You have no open parcel tasks right now. New assignments will appear in your queues.
                 @endif
             </p>
         </div>
@@ -233,6 +241,7 @@
                                         </div>
                                         <video data-qr-video playsinline hidden></video>
                                         <p data-qr-status role="status" class="ops-muted">Scan the parcel label, or enter its code manually.</p>
+                                        <p class="ops-muted">Use EZP: followed by the label code, or the label code alone. The order number is not the parcel label code.</p>
                                     @endif
                                     <button class="ops-btn ops-btn--primary" @disabled($courier->status !== 'approved')>
                                         {{ $order->pickup_arrived_at && $order->seller_handover_at ? 'Confirm scanned parcel possession' : ($order->pickup_arrived_at ? 'Waiting for seller handover' : 'Record arrival at seller') }}
@@ -274,6 +283,7 @@
                             <td data-label="Collected">{{ $order->picked_up_at?->format('d M H:i') }}</td>
                             <td data-label="Status">
                                 <span class="ops-status ops-status--amber">Awaiting hub receipt</span>
+                                <a class="ops-btn" href="{{ route('courier.orders.show', $order) }}">Pickup record and compensation</a>
                             </td>
                         </tr>
                     @empty
@@ -402,7 +412,7 @@
                         <tr>
                             <td class="ops-mono" data-label="Order">
                                 <a href="{{ route('courier.orders.show', $order) }}"><strong>{{ $order->order_number }}</strong><x-parcel-weight :order="$order" compact /></a>
-                                <div><span class="ops-status {{ $order->status === 'OUT_FOR_DELIVERY' ? 'ops-status--pink' : 'ops-status--amber' }}">{{ str_replace('_', ' ', $order->status) }}</span></div>
+                                <div><span class="ops-status {{ $order->status === 'OUT_FOR_DELIVERY' ? 'ops-status--pink' : 'ops-status--amber' }}">{{ str_replace('_', ' ', $order->operational_status) }}</span></div>
                                 <div class="ops-muted">Assigned {{ $order->assigned_at?->diffForHumans() }}</div>
                             </td>
                             <td data-label="Recipient">
@@ -416,16 +426,10 @@
                                 </div>
                             </td>
                             <td data-label="Payment">
-                                @if ($order->payment_method === 'COD')
-                                    <div class="courier-cod-badge">
-                                        <x-shop-icon name="money" /> COD: ₱{{ number_format($order->total_amount, 2) }}
-                                    </div>
-                                @else
-                                    <span class="ops-status ops-status--green">{{ $order->payment_method }}</span>
-                                    <div class="ops-muted">₱{{ number_format($order->total_amount, 2) }}</div>
-                                @endif
+                                <x-courier-payment-status :order="$order" :ready="$paymentReadiness[$order->id]" />
                             </td>
                             <td data-label="Delivery action">
+                                @if(!$paymentReadiness[$order->id])<p class="ops-muted">Payment review required. Delivery completion is blocked; physically held parcels must still follow failure/recovery instructions.</p>@endif
                                 @if ($order->status === 'ASSIGNED_TO_RIDER')
                                     @if ($order->hub_released_at)
                                         <form method="POST" action="{{ route('courier.orders.startDelivery', $order) }}" data-decision="courier.orders.startDelivery" data-decision-title="Start delivery?" data-decision-message="This records that the parcel is going out for delivery." data-decision-label="Start delivery" data-decision-tone="normal" onsubmit="return window.eziDecisionReady ? true : window.confirm(this.dataset.decisionMessage)">
@@ -435,7 +439,7 @@
                                                 <input id="start-parcel-reference-{{ $order->id }}" name="parcel_reference" maxlength="100" placeholder="EZP:…" autocomplete="off">
                                             </div>
                                             <input type="hidden" name="method" value="manual">
-                                            <button class="ops-btn ops-btn--primary" @disabled($courier->status !== 'approved')>
+                                            <button class="ops-btn ops-btn--primary" @disabled($courier->status !== 'approved' || !$paymentReadiness[$order->id])>
                                                 Start delivery
                                             </button>
                                         </form>
@@ -482,7 +486,7 @@
                                                 <label for="proof-file-{{ $order->id }}">Proof of delivery photo or document</label>
                                                 <input id="proof-file-{{ $order->id }}" type="file" name="proof_file" accept=".jpg,.jpeg,.png,.pdf" required>
                                             </div>
-                                            <button class="ops-btn ops-btn--primary" type="submit">Confirm delivered</button>
+                                            <button class="ops-btn ops-btn--primary" type="submit" @disabled(!$paymentReadiness[$order->id])>Confirm delivered</button>
                                         </form>
                                     </details>
                                     <details>

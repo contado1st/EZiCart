@@ -20,6 +20,7 @@ use App\Services\CheckoutPricingService;
 use App\Services\DeliveryCodeService;
 use App\Services\DeliveryPricingService;
 use App\Services\DeliveryRateManagementService;
+use App\Services\DemoWalletFundingService;
 use App\Services\FinancialLedgerService;
 use App\Services\LogisticsSettlementService;
 use App\Services\OrderFinancialService;
@@ -32,6 +33,7 @@ use App\Services\RiderBadgeService;
 use App\Services\ShipmentAdjustmentService;
 use App\Services\VoucherFundingService;
 use App\Services\WalletFundingService;
+use App\Services\WalletOrderPaymentService;
 use App\Services\WalletWithdrawalService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
@@ -41,6 +43,7 @@ use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
+use PHPUnit\Framework\Attributes\TestWith;
 use Symfony\Component\HttpKernel\Exception\HttpException;
 use Tests\TestCase;
 
@@ -190,6 +193,12 @@ class FinancialLedgerWorkflowTest extends TestCase
         $order->forceFill(['status' => 'COMPLETED', 'delivered_at' => now()->subDays(8)])->save();
         $finances = app(OrderFinancialService::class);
         $payout = $finances->requestPayout($order, $this->seller);
+        $pendingAfterFirstRequest = $this->ledger->wallet($this->seller, 'pending')->balance_cents;
+        $retry = $finances->requestPayout($order->fresh(), $this->seller);
+        $this->assertSame($payout->id, $retry->id);
+        $this->assertSame($pendingAfterFirstRequest, $this->ledger->wallet($this->seller, 'pending')->balance_cents);
+        $this->assertSame($payout->amount_cents, $this->ledger->wallet($this->seller, 'payout_hold')->balance_cents);
+        $this->assertSame(1, LedgerTransaction::query()->where('idempotency_key', 'seller-payout:'.$payout->id.':hold')->count());
         $finances->approvePayout($payout, $this->admin, 'Checked eligible settlement.');
         $finances->settleToWallet($payout, $this->admin, 'Credit eligible proceeds.');
         $this->assertSame(15200, $this->ledger->wallet($this->seller)->balance_cents);
@@ -271,6 +280,29 @@ class FinancialLedgerWorkflowTest extends TestCase
         $this->assertTrue($this->ledger->reconcile()['balanced']);
     }
 
+    public function test_wallet_review_and_history_keep_accessible_controls_and_page_recovery(): void
+    {
+        $this->fund($this->buyer, 10000);
+        $withdrawal = app(WalletWithdrawalService::class)->request($this->buyer, 5000, 'Sandbox test destination', (string) Str::uuid());
+        $adminPage = $this->signIn($this->admin)->get(route('finance.wallet'))->assertOk()
+            ->assertSee('Shared platform treasury; eligible for spending')
+            ->assertSee('for="withdrawal-decision-'.$withdrawal->id.'"', false)
+            ->assertSee('id="withdrawal-decision-'.$withdrawal->id.'" name="decision" required', false);
+        $document = new \DOMDocument;
+        $document->loadHTML($adminPage->getContent(), LIBXML_NOERROR | LIBXML_NOWARNING);
+        $xpath = new \DOMXPath($document);
+        $this->assertSame(1, $xpath->query('//nav[@aria-label="Financial operations"]/a[@aria-current="page"]')->length);
+
+        $this->signIn($this->buyer)->post(route('wallet.demo-funding.store'), ['amount' => '20.00', 'kind' => 'demo_credit',
+            'reason' => 'School demo request.', 'request_key' => (string) Str::uuid(), 'wallet_form' => 'demo_funding'])
+            ->assertRedirect()->assertSessionHasNoErrors();
+        $this->get(route('finance.wallet', ['entries_page' => 99, 'intents_page' => 99, 'withdrawals_page' => 99, 'workspace_tab' => 'wallet-history']))
+            ->assertOk()->assertSee('Your available sandbox funds')->assertDontSee('Shared platform treasury; eligible for spending')
+            ->assertSee('No transactions on this page.')->assertSee('No funding requests on this page.')
+            ->assertSee('No withdrawal requests on this page.')->assertSee('Return to first page')
+            ->assertSee('workspace_tab=wallet-history')->assertSee('entries_page=1')->assertSee('intents_page=1')->assertSee('withdrawals_page=1');
+    }
+
     public function test_versioned_pricing_uses_approved_effective_rates_and_dimensional_weight(): void
     {
         $creator = $this->user('logistics_admin');
@@ -307,7 +339,9 @@ class FinancialLedgerWorkflowTest extends TestCase
         $this->signIn($this->user('sorting_center'))->get(route('finance.batches'))->assertOk();
     }
 
-    public function test_prepaid_order_completes_pickup_hub_transfer_delivery_and_cost_based_settlement_without_cod(): void
+    #[TestWith([false])]
+    #[TestWith([true])]
+    public function test_prepaid_order_completes_pickup_hub_transfer_delivery_and_cost_based_settlement_without_cod(bool $internalDemo): void
     {
         $this->withoutExceptionHandling();
         $this->approveExampleRates();
@@ -326,12 +360,21 @@ class FinancialLedgerWorkflowTest extends TestCase
         $delivery = $this->rider($destination);
         $delivery->serviceAreas()->attach($area->id, ['is_active' => true, 'is_primary' => true]);
         $logisticsAdmin = $this->user('logistics_admin');
-        $this->fund($this->buyer, 30000);
+        if ($internalDemo) {
+            $funding = app(DemoWalletFundingService::class);
+            $intent = $funding->request($this->buyer, 30000, (string) Str::uuid(), 'demo_credit', ['reason' => 'Internal demo delivery journey.']);
+            $funding->review($intent, $this->admin, 'approve', 'Approved school journey credits.');
+        } else {
+            $this->fund($this->buyer, 30000);
+        }
         $product = $this->product();
         $address = [...$this->address(), 'municipality' => 'Santa Cruz', 'destination_area_id' => $area->id];
         $cart = [['product_id' => $product->id, 'quantity' => 1]];
         $quote = app(CheckoutPricingService::class)->quote($cart, null, false, ['address' => $address, 'payment_method' => 'WALLET']);
-        $order = app(PlacePurchaseService::class)->place($this->buyer, (string) Str::uuid(), 'journey', $cart, $quote['hash'], null, $address, 'WALLET')->orders()->firstOrFail();
+        $order = app(PlacePurchaseService::class)->place($this->buyer, (string) Str::uuid(), 'journey', $cart, $quote['hash'], null, $address, 'WALLET', $internalDemo)->orders()->firstOrFail();
+        if ($internalDemo) {
+            $order = app(WalletOrderPaymentService::class)->pay($order, $this->buyer);
+        }
         $this->signIn($this->seller)->patch(route('orders.weight', $order), ['parcel_weight_kg' => '1.000', 'reason' => 'Packed parcel weighed.'])->assertRedirect()->assertSessionHasNoErrors();
         foreach (['CONFIRMED', 'PREPARING', 'READY_FOR_PICKUP'] as $status) {
             $this->patch(route('seller.orders.updateStatus', $order), ['status' => $status])->assertRedirect()->assertSessionHasNoErrors();
@@ -424,7 +467,7 @@ class FinancialLedgerWorkflowTest extends TestCase
     private function rider(User $hub): User
     {
         $rider = $this->user('courier');
-        $rider->forceFill(['logistics_owner_id' => $hub->id, 'vehicle_capacity_grams' => 100000, 'vehicle_capacity_verified_at' => now(), 'license_expires_at' => today()->addYear()])->save();
+        $rider->forceFill(['logistics_owner_id' => $hub->id, 'work_availability' => 'available', 'vehicle_capacity_grams' => 100000, 'vehicle_capacity_verified_at' => now(), 'license_expires_at' => today()->addYear()])->save();
 
         return $rider;
     }

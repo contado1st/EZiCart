@@ -4,6 +4,7 @@
 <main class="container workflow-admin-page">
     <header class="dash-header"><div><h1 class="dash-title">{{ $actor->role === 'courier' ? 'Assigned hub transfers' : 'Hub transfers' }}</h1><p class="dash-subtitle">A planned movement becomes physical custody only after the source and destination scans.</p></div></header>
     @if($actor->role === 'courier')<section class="dash-panel"><h2>Dedicated hub transport</h2><x-vehicle-capacity :rider="$actor" /><p>Collect only parcels released by your source hub. Take them to the named destination hub and present each parcel label for receipt scanning. Destination receipt closes the transfer and releases your reserved load.</p><a href="{{ route('load-planning.index') }}">Check vehicle load</a></section>@endif
+    @if($actor->role === 'courier')<p><a class="dash-btn-sm" href="{{ route('courier.work-availability.index') }}">Set availability for new hub transfers</a></p>@endif
     @if(session('success'))<p role="status">{{ session('success') }}</p>@endif
     @if($errors->any())<div role="alert">@foreach($errors->all() as $message)<p>{{ $message }}</p>@endforeach</div>@endif
     @forelse($transfers as $transfer)<section class="dash-panel">

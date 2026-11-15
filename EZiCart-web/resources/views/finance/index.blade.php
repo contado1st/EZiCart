@@ -14,10 +14,13 @@
     <section class="dash-panel" id="finance-balances"><h2>Order payments and cash custody</h2>
         <div class="dash-table-wrapper"><table class="dash-table"><thead><tr><th>Order</th><th>Payment amount</th><th>Cash collected</th><th>Funding / remittance</th><th>Actions</th></tr></thead><tbody>
         @forelse($finances as $finance)<tr>
-            <td>{{ $finance->order->order_number }}<br>{{ $finance->order->payment_method }}</td><td>PHP {{ number_format(($finance->order->payment_method === 'WALLET' ? $finance->order->wallet_paid_cents : $finance->due_cents) / 100, 2) }}<br>{{ $finance->order->payment_method === 'WALLET' ? 'Wallet payment recorded' : 'COD due' }}</td>
+            <td>{{ $finance->order->order_number }}<br>{{ $finance->order->payment_method }}</td><td>PHP {{ number_format(($finance->order->payment_method === 'WALLET' ? ($finance->order->isAwaitingWalletPayment() ? \App\Services\CheckoutPricingService::cents($finance->order->total_amount) : $finance->order->wallet_paid_cents) : $finance->due_cents) / 100, 2) }}<br>{{ $finance->order->payment_method === 'WALLET' ? ($finance->order->isAwaitingWalletPayment() ? 'Awaiting demo wallet payment' : 'Wallet payment recorded') : 'COD due' }}</td>
             <td>{{ $finance->order->payment_method === 'WALLET' ? 'Not applicable (prepaid)' : ($finance->collected_cents === null ? 'Not recorded' : '₱'.number_format($finance->collected_cents / 100, 2)) }}</td>
             <td>{{ str_replace('_', ' ', $finance->remittance_status) }}@if($finance->remitted_cents !== null)<p>Submitted: ₱{{ number_format($finance->remitted_cents / 100, 2) }}</p>@endif</td>
             <td>
+                @if(in_array($finance->order->status, ['RETURN_IN_TRANSIT', 'RETURNED_TO_SELLER'], true) && app(\App\Services\ReturnWorkflowService::class)->canView($actor, $finance->order))
+                    <a class="dash-btn-sm" href="{{ route('returns.workflow', $finance->order) }}">Review return workflow</a>
+                @endif
                 @if($finance->platform_subsidy_cents > 0)
                     <p>Platform promotion: ₱{{ number_format($finance->platform_subsidy_cents / 100, 2) }} — {{ $finance->funded_cents >= $finance->platform_subsidy_cents ? 'funded' : 'funding pending' }}</p>
                     @if($actor->isCommerceAdmin() && $finance->funded_cents < $finance->platform_subsidy_cents)
@@ -38,14 +41,19 @@
                     <form method="POST" action="{{ route('finance.remittance.verify', $finance->order) }}" data-decision="finance.remittance.verify" data-decision-title="Verify COD remittance?" data-decision-message="Verify the amount and evidence against the cash received before confirming." data-decision-label="Verify remittance" data-decision-tone="normal" onsubmit="return window.eziDecisionReady ? true : window.confirm(this.dataset.decisionMessage)">@csrf<label>Receipt verification notes<textarea name="reason" required minlength="5" maxlength="500"></textarea></label><button class="dash-btn-sm" type="submit">Verify cash received</button></form>
                 @endif
                 @if($actor->role === 'seller' && $finance->order->status === 'COMPLETED' && $finance->remittance_status === 'VERIFIED')
-                    <p>Seller payable: ₱{{ number_format($finance->seller_payable_cents / 100, 2) }} after commission.</p>
-                    <form method="POST" action="{{ route('finance.payout.request', $finance->order) }}" data-decision="finance.payout.request" data-decision-title="Request seller payout?" data-decision-message="Review the order and payout details before submitting the request." data-decision-label="Request payout" data-decision-tone="normal" onsubmit="return window.eziDecisionReady ? true : window.confirm(this.dataset.decisionMessage)">@csrf<button class="dash-btn-sm" type="submit">Request seller payout</button></form>
+                    @if($finance->order->payout)
+                        <p>Seller proceeds: ₱{{ number_format($finance->seller_payable_cents / 100, 2) }}. Payout status: {{ str_replace('_', ' ', strtolower($finance->order->payout->status)) }}.</p>
+                        @if(in_array($finance->order->payout->status, ['REQUESTED', 'APPROVED'], true))<p>Available to request from this order: PHP 0.00. The existing request for PHP {{ number_format($finance->order->payout->amount_cents / 100, 2) }} cannot be reserved again.</p>@endif
+                    @else
+                        <p>Available to request: ₱{{ number_format($finance->seller_payable_cents / 100, 2) }} after commission.</p>
+                        <form method="POST" action="{{ route('finance.payout.request', $finance->order) }}" data-decision="finance.payout.request" data-decision-title="Request seller payout?" data-decision-message="This reserves the eligible proceeds once while administration reviews the payout. Review the amount before submitting." data-decision-label="Request payout" data-decision-tone="normal" onsubmit="return window.eziDecisionReady ? true : window.confirm(this.dataset.decisionMessage)">@csrf<button class="dash-btn-sm" type="submit">Request seller payout</button></form>
+                    @endif
                 @endif
             </td>
         </tr>@empty<tr><td colspan="5">No financial records available.</td></tr>@endforelse
         </tbody></table></div>{{ $finances->links() }}
     </section>
-    <section class="dash-panel" id="finance-refunds"><h2>Refunds</h2><p>Authorization records a decision. Execution records an external refund supported by a transaction reference and proof.</p>
+    <section class="dash-panel" id="finance-refunds"><h2>Refunds</h2><p>Authorization records a decision. Wallet execution credits the buyer balance and records its ledger reference. External COD refunds require their separate payment reference and proof.</p>
         @forelse($refunds as $refund)<article><h3>{{ $refund->order->order_number }} — ₱{{ number_format($refund->amount_cents / 100, 2) }}</h3><p>{{ $refund->status }} {{ $refund->reference }}</p>
             @if($refund->evidence_path && ($actor->isCommerceAdmin() || $actor->role === 'buyer'))<a href="{{ route('finance.evidence', ['refund', $refund->id]) }}">Refund proof</a>@endif
             @if($actor->isCommerceAdmin() && $refund->status === 'AUTHORIZED' && $refund->order->payment_method === 'WALLET')<form method="POST" action="{{ route('finance.refund.wallet', $refund) }}">@csrf<label>Wallet refund reason<input name="reason" required minlength="5" maxlength="500"></label><button type="submit" class="dash-btn-sm">Credit approved wallet refund</button></form>@endif
@@ -55,6 +63,7 @@
         </article>@empty<p>No refund records.</p>@endforelse{{ $refunds->links() }}
     </section>
     <section class="dash-panel" id="finance-payouts"><h2>Seller payouts</h2>
+        <p>A request is not an immediate payment. Completion, the seven-day delivery hold, verified remittance, funded subsidies and dispute/refund checks still apply. Repeating the same order request returns its existing payout record; it does not create another liability. Settled wallet funds can be withdrawn through the separate wallet request process.</p>
         @forelse($payouts as $payout)<article><h3>{{ $payout->order->order_number }} — ₱{{ number_format($payout->amount_cents / 100, 2) }}</h3><p>{{ $payout->status }} {{ $payout->reference }}</p>
             @if($actor->isCommerceAdmin() && $payout->status === 'APPROVED' && $payout->order->financial_version === 1)<form method="POST" action="{{ route('finance.payout.wallet', $payout) }}">@csrf<label>Wallet settlement reason<input name="reason" required minlength="5" maxlength="500"></label><button type="submit" class="dash-btn-sm">Credit seller available balance</button></form>@endif
             @if($payout->evidence_path)<a href="{{ route('finance.evidence', ['payout', $payout->id]) }}">Settlement proof</a>@endif

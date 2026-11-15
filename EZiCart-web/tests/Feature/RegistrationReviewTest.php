@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
@@ -16,6 +17,33 @@ class RegistrationReviewTest extends TestCase
         parent::setUp();
         $this->withoutVite();
         Storage::fake('private');
+    }
+
+    public function test_dashboard_rejection_form_provides_the_required_reason_and_document_review_link(): void
+    {
+        Notification::fake();
+        $applicant = $this->user('seller', ['status' => 'pending']);
+        $response = $this->actingAs($this->user('ecommerce_admin'))->get(route('admin.dashboard'));
+        $response->assertOk()->assertSee(route('admin.registrations.show', $applicant), false);
+
+        $document = new \DOMDocument;
+        $document->loadHTML($response->getContent(), LIBXML_NOERROR | LIBXML_NOWARNING);
+        $xpath = new \DOMXPath($document);
+        /** @var \DOMElement $form */
+        $form = $xpath->query('//form[@action="'.route('admin.registrations.reject', $applicant).'"]')->item(0);
+        $this->assertInstanceOf(\DOMElement::class, $form);
+        /** @var \DOMElement $reason */
+        $reason = $xpath->query('.//input[@name="reason"]', $form)->item(0);
+        $this->assertInstanceOf(\DOMElement::class, $reason);
+        $this->assertTrue($reason->hasAttribute('required'));
+        $this->assertSame('5', $reason->getAttribute('minlength'));
+        $this->assertSame('1000', $reason->getAttribute('maxlength'));
+        $this->assertSame(1, $xpath->query('//label[@for="'.$reason->getAttribute('id').'"]')->length);
+
+        $this->post(route('admin.registrations.reject', $applicant), ['reason' => 'Submitted documents are not legible.'])
+            ->assertRedirect()->assertSessionHasNoErrors();
+        $this->assertSame('rejected', $applicant->fresh()->status);
+        $this->assertSame('Submitted documents are not legible.', $applicant->fresh()->rejection_reason);
     }
 
     public function test_marketplace_admin_can_open_seller_details_and_legacy_document_fields(): void

@@ -30,7 +30,7 @@ class LogisticsAdminController extends Controller
             ->when($data['application_search'] ?? null, fn ($query, $search) => $query->where(fn ($q) => $q->where('email', 'like', '%'.$search.'%')->orWhere('first_name', 'like', '%'.$search.'%')->orWhere('last_name', 'like', '%'.$search.'%')->orWhere('business_name', 'like', '%'.$search.'%')))
             ->oldest()->orderBy('id')->paginate(25, ['*'], 'applications_page')->withQueryString();
         $centers = User::query()->where('role', 'sorting_center')->where('status', 'approved')->orderBy('business_name')->get();
-        $riders = User::query()->where('role', 'courier')->where('status', 'approved')->where('hub_transfer_only', false)->orderBy('first_name')->limit(100)->get();
+        $riders = User::query()->availableForNewWork()->where('hub_transfer_only', false)->orderBy('first_name')->limit(100)->get();
         $managedUsers = User::query()->whereIn('role', ['courier', 'sorting_center'])->whereIn('status', ['approved', 'suspended'])
             ->withCount(['finalDeliveries as active_parcels_count' => fn ($query) => $query->whereIn('status', ['ASSIGNED_TO_RIDER', 'OUT_FOR_DELIVERY', 'DELIVERY_FAILED', 'RETURN_IN_TRANSIT'])])
             ->latest('id')->paginate(25, ['*'], 'users_page')->withQueryString();
@@ -72,7 +72,7 @@ class LogisticsAdminController extends Controller
             abort_unless($rider->role === 'courier' && $rider->status === 'approved' && $rider->id !== $locked->pickup_courier_id, 422, 'Choose a different approved rider.');
             $origin = $areas->findForAddress($locked->seller->province, $locked->seller->municipality);
             abort_unless($origin && $rider->serviceAreas()->where('areas.id', $origin->id)->exists(), 422, 'The rider must serve the seller pickup area.');
-            app(ParcelLoadService::class)->assertFits($locked, $rider);
+            app(ParcelLoadService::class)->assertFits($locked, $rider, newWork: true);
             $locked->forceFill(['pickup_courier_id' => $rider->id, 'pickup_claimed_at' => null])->save();
             $audits->record($request->user(), $locked, 'control_tower_pickup_reassigned', ['rider_id' => $previous?->id], ['rider_id' => $rider->id], $data['reason']);
             ParcelTrackingEvent::create(['order_id' => $locked->id, 'actor_id' => $request->user()->id, 'event_type' => 'pickup_reassigned', 'status' => $locked->status, 'notes' => $data['reason']]);

@@ -215,7 +215,7 @@ class ProductApiController extends Controller
             ->withSum('orderItems as sales_count', 'quantity')
             ->find($id);
 
-        if (! $product || $product->compliance_status !== 'approved' || $product->is_archived || $product->stock <= 0) {
+        if (! $product || ! $product->isListingVisible() || $product->stock <= 0) {
             return response()->json([
                 'success' => false,
                 'message' => 'Product is not available.',

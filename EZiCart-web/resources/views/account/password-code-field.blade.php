@@ -1,0 +1,1 @@
+<div class="form-group"><label for="password-change-code" class="form-label">Email verification code</label><input id="password-change-code" name="password_code" class="form-control" type="text" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="one-time-code" required>@error('password_code')<p role="alert">{{ $message }}</p>@enderror</div>

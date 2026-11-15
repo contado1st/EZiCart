@@ -7,6 +7,7 @@ use App\Models\User;
 use App\Notifications\OrderWorkflowNotification;
 use App\Notifications\WebOperationsNotification;
 use App\Services\AdministrativeAuditService;
+use App\Services\DispatchOfferService;
 use App\Services\ParcelLoadService;
 use App\Services\TransactionAwareNotificationSender;
 use Illuminate\Http\Request;
@@ -26,6 +27,7 @@ class ParcelWeightController extends Controller
             $hub = $actor->role === 'sorting_center' && $locked->sorting_center_id === $actor->id && in_array($locked->status, ['AT_SORTING_CENTER', 'SORTED', 'ASSIGNED_TO_RIDER'], true) && $locked->hub_released_at === null;
             abort_unless(($seller || $hub) && ! $locked->activeTransfer()->exists(), 422, 'Weigh the parcel only while it is physically held by the seller before handover or by its current sorting hub before release.');
             $previous = $locked->only(['parcel_weight_grams', 'weight_recorded_by', 'weight_recorded_at']);
+            DispatchOfferService::withdrawForOrder($locked, 'Parcel weight changed; review load capacity before a new automatic cycle.');
             $locked->forceFill(['parcel_weight_grams' => ParcelLoadService::grams($data['parcel_weight_kg']), 'weight_recorded_by' => $actor->id, 'weight_recorded_at' => now()])->save();
             $audits->record($actor, $locked, 'parcel_weight_recorded', $previous, $locked->only(['parcel_weight_grams', 'weight_recorded_by', 'weight_recorded_at']), $data['reason']);
             $notifications->send(collect([$locked->seller, $locked->pickupCourier, $locked->deliveryCourier, $locked->sortingCenter])->filter()->unique('id'), new OrderWorkflowNotification($locked, 'parcel_weight_recorded', 'Actual packed parcel weight recorded: '.ParcelLoadService::kg($locked->parcel_weight_grams).'. Vehicle capacity is checked again before movement.'));

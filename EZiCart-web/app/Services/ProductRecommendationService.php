@@ -30,7 +30,7 @@ class ProductRecommendationService
             $scores[$category] = ($scores[$category] ?? 0) + $score * 3;
         }
         $query = Product::query()->availableForMarketplace()->whereHas('seller', fn ($q) => $q->where('status', 'approved'))
-            ->with('seller')->withAvg('reviews as catalog_rating', 'rating')->withCount('reviews as catalog_review_count');
+            ->with('seller')->withVariantPrices()->withAvg('reviews as catalog_rating', 'rating')->withCount('reviews as catalog_review_count');
         if ($scores->isNotEmpty()) {
             $parts = [];
             $bindings = [];

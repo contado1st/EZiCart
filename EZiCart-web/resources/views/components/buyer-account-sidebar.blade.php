@@ -28,6 +28,7 @@
         <p class="buyer-account-nav-heading">My EZiCart</p>
         <a class="{{ $activeSection === 'purchases' ? 'is-active' : '' }}" href="{{ route('buyer.dashboard') }}" @if ($activeSection === 'purchases') aria-current="page" @endif>My purchases</a>
         <a href="{{ route('cart.index') }}">My cart</a>
+        <a href="{{ route('buyer.wishlist.index') }}">My wishlist</a>
     </nav>
 
     <form action="{{ route('logout') }}" method="POST" class="buyer-account-sidebar-logout" data-decision="logout" data-decision-title="Sign out?" data-decision-message="You will leave your current session. You can sign in again when you are ready." data-decision-label="Sign out" data-decision-tone="normal" onsubmit="return window.eziDecisionReady ? true : window.confirm(this.dataset.decisionMessage)">

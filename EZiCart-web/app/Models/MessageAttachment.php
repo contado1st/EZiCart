@@ -11,6 +11,11 @@ class MessageAttachment extends Model
 
     protected $hidden = ['path'];
 
+    protected function casts(): array
+    {
+        return ['unsent_at' => 'datetime'];
+    }
+
     public function message(): BelongsTo
     {
         return $this->belongsTo(DirectMessage::class, 'direct_message_id');

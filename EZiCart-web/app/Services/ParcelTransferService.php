@@ -21,6 +21,8 @@ class ParcelTransferService
 
         return DB::transaction(function () use ($order, $actor, $destination, $reason): ParcelTransfer {
             $locked = Order::query()->whereKey($order->id)->lockForUpdate()->firstOrFail();
+            ParcelIncidentService::assertClear($locked);
+            DispatchOfferService::assertNoOffer($locked);
             abort_unless(in_array($locked->status, ['AT_SORTING_CENTER', 'SORTED'], true) && $locked->sorting_center_id !== null, 422, 'Transfer only a parcel physically received at a hub and not assigned to a rider.');
             abort_unless($destination->role === 'sorting_center' && $destination->status === 'approved' && $destination->id !== $locked->sorting_center_id, 422, 'Choose a different approved destination hub.');
             abort_unless($locked->destinationArea?->sorting_center_id === $destination->id, 422, 'The destination hub must own the parcel service area.');
@@ -42,6 +44,7 @@ class ParcelTransferService
                 $carrier = app(ParcelLoadService::class)->lockVehicle($carrier->id);
             }
             $order = Order::query()->whereKey($transfer->order_id)->lockForUpdate()->firstOrFail();
+            ParcelIncidentService::assertClear($order);
             $locked = ParcelTransfer::query()->whereKey($transfer->id)->lockForUpdate()->firstOrFail();
             abort_unless($actor->role === 'sorting_center' && $actor->status === 'approved' && $actor->id === $locked->source_hub_id, 403);
             abort_unless($locked->status === 'PLANNED' && $order->sorting_center_id === $actor->id && in_array($order->status, ['AT_SORTING_CENTER', 'SORTED'], true), 422, 'This transfer is not awaiting source release.');
@@ -51,7 +54,8 @@ class ParcelTransferService
                 throw ValidationException::withMessages(['carrier_rider_id' => 'Select the registered transport driver and verified vehicle before hub transfer release.']);
             }
             abort_unless((int) $carrier->logistics_owner_id === $actor->id || $carrier->serviceAreas()->where('sorting_center_id', $actor->id)->exists(), 403, 'Select a carrier belonging to the source hub.');
-            app(ParcelLoadService::class)->assertFits($order, $carrier, hubTransfer: true);
+            app(ParcelLoadService::class)->assertFits($order, $carrier, hubTransfer: true, newWork: true);
+            app(DeliveryRetryService::class)->supersedeForTransfer($order, $actor, $locked->id);
             $locked->forceFill(['carrier_rider_id' => $carrier->id, 'status' => 'IN_TRANSIT', 'released_by' => $actor->id, 'released_at' => now(), 'transport_reference' => $transport])->save();
             ParcelTrackingEvent::create(['order_id' => $order->id, 'actor_id' => $actor->id, 'event_type' => 'hub_transfer_released', 'status' => $order->status, 'notes' => 'Released for hub transfer. Transport manifest: '.$transport]);
             $this->audits->record($actor, $locked, 'hub_transfer_released', ['status' => 'PLANNED'], ['status' => 'IN_TRANSIT', 'transport_reference' => $transport, 'carrier_rider_id' => $carrier->id, 'parcel_weight_grams' => $order->parcel_weight_grams, 'vehicle_capacity_grams' => $carrier->vehicle_capacity_grams], 'Parcel label scanned at source hub.');
@@ -68,13 +72,14 @@ class ParcelTransferService
         DB::transaction(function () use ($transfer, $actor, $replacement, $reference, $reason): void {
             $replacement = app(ParcelLoadService::class)->lockVehicle($replacement->id);
             $order = Order::whereKey($transfer->order_id)->lockForUpdate()->firstOrFail();
+            ParcelIncidentService::assertClear($order);
             $locked = ParcelTransfer::whereKey($transfer->id)->lockForUpdate()->firstOrFail();
             abort_unless($locked->status === 'IN_TRANSIT' && $locked->active_order_id === $order->id, 422, 'Only an active in-transit transfer can change carrier.');
             $previous = $locked->carrier;
             abort_unless($previous && $previous->status === 'suspended' && $replacement->id !== $previous->id, 422, 'Recovery requires a suspended carrier and a different replacement driver.');
             abort_unless(hash_equals('EZP:'.$order->parcel_code, $reference), 422, 'Scan the parcel label at the physical replacement handover.');
             abort_unless((int) $replacement->logistics_owner_id === (int) $locked->source_hub_id || $replacement->serviceAreas()->where('sorting_center_id', $locked->source_hub_id)->exists(), 422, 'The replacement driver must belong to the source hub.');
-            app(ParcelLoadService::class)->assertFits($order, $replacement, hubTransfer: true);
+            app(ParcelLoadService::class)->assertFits($order, $replacement, hubTransfer: true, newWork: true);
             $locked->forceFill(['carrier_rider_id' => $replacement->id])->save();
             ParcelTrackingEvent::create(['order_id' => $order->id, 'actor_id' => $actor->id, 'event_type' => 'hub_carrier_recovered', 'status' => $order->status, 'notes' => 'Physical handover from driver #'.$previous->id.' to #'.$replacement->id.'. '.$reason]);
             $this->audits->record($actor, $locked, 'hub_carrier_recovered', ['carrier_rider_id' => $previous->id], ['carrier_rider_id' => $replacement->id], $reason);
