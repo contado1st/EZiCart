@@ -62,6 +62,15 @@ class CartItemModel {
       );
     }
 
+    List<ProductVariation> allVariations = [];
+    if (json['variations'] is List) {
+      allVariations = (json['variations'] as List)
+          .map((v) => ProductVariation.fromJson(v as Map<String, dynamic>))
+          .toList();
+    } else if (variation != null) {
+      allVariations = [variation];
+    }
+
     final product = ProductModel(
       id: prodId,
       name: json['name']?.toString() ?? 'Product #$prodId',
@@ -72,7 +81,7 @@ class CartItemModel {
       imagePath: json['image_path'] as String?,
       sellerId: json['seller_id'] != null ? parseInt(json['seller_id']) : null,
       sellerName: json['seller_name']?.toString() ?? 'Shop',
-      variations: variation != null ? [variation] : [],
+      variations: allVariations,
     );
 
     return CartItemModel(

@@ -1,11 +1,11 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 import '../../config/api_config.dart';
 import '../../config/theme.dart';
 import '../../models/notification_model.dart';
 import '../../models/product_model.dart';
 import '../../services/api_service.dart';
+import '../../utils/philippine_time.dart';
 import 'messages_page.dart';
 import 'order_details_page.dart';
 import 'product_details_page.dart';
@@ -172,12 +172,7 @@ class _NotificationsPageState extends State<NotificationsPage> with SingleTicker
   }
 
   String _formatTimestamp(String ts) {
-    try {
-      final dt = DateTime.parse(ts).toLocal();
-      return DateFormat('MMM d, h:mm a').format(dt);
-    } catch (_) {
-      return ts;
-    }
+    return PhilippineTime.format(ts, pattern: 'MMM d, h:mm a');
   }
 
   @override

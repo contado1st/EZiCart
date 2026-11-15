@@ -47,6 +47,10 @@
 			</array>
 		</dict>
 	</dict>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>EZiCart needs access to your photo library to attach photos in chat messages.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>EZiCart needs access to your camera to take and send photos in chat messages.</string>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
 	<key>UILaunchStoryboardName</key>

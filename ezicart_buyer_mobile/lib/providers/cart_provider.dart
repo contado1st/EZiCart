@@ -191,19 +191,15 @@ class CartProvider extends ChangeNotifier {
     }
   }
 
-  /// Update item quantity, syncing with web database
+  /// Update item quantity, syncing with web database. Never drops below 1; removal is explicit via removeItem().
   Future<void> updateQuantity(String cartKey, int quantity) async {
     if (_items.containsKey(cartKey)) {
       final item = _items[cartKey]!;
       final maxStock = item.availableStock;
       final limit = maxStock > 0 ? (maxStock < 20 ? maxStock : 20) : 1;
+      final clamped = quantity.clamp(1, limit);
 
-      if (quantity <= 0) {
-        _items.remove(cartKey);
-        _selectedKeys.remove(cartKey);
-      } else {
-        _items[cartKey]!.quantity = quantity.clamp(1, limit);
-      }
+      _items[cartKey]!.quantity = clamped;
       _recalculateLocalTotals();
       notifyListeners();
       Future.microtask(() => fetchAuthoritativeQuote());
@@ -213,13 +209,59 @@ class CartProvider extends ChangeNotifier {
       if (token != null && token.isNotEmpty) {
         try {
           final url = ApiConfig.cartItemEndpoint(cartKey);
-          if (quantity <= 0) {
-            await ApiService.delete(url);
-          } else {
-            await ApiService.patch(url, {'quantity': quantity.clamp(1, limit)});
-          }
+          await ApiService.patch(url, {'quantity': clamped});
         } catch (_) {}
       }
+    }
+  }
+
+  /// Change variation for an existing cart item
+  Future<void> changeVariation(String oldCartKey, ProductVariation newVariation) async {
+    if (!_items.containsKey(oldCartKey)) return;
+    final oldItem = _items[oldCartKey]!;
+    if (oldItem.variation?.id == newVariation.id) return;
+
+    final newKey = '${oldItem.product.id}_${newVariation.id}';
+    final wasSelected = _selectedKeys.contains(oldCartKey);
+
+    final maxStock = newVariation.stock;
+    final limit = maxStock > 0 ? (maxStock < 20 ? maxStock : 20) : 1;
+    final newQuantity = oldItem.quantity.clamp(1, limit);
+
+    // If newKey already exists, merge quantities
+    if (_items.containsKey(newKey)) {
+      _items[newKey]!.quantity = (_items[newKey]!.quantity + newQuantity).clamp(1, limit);
+    } else {
+      _items[newKey] = CartItemModel(
+        product: oldItem.product,
+        variation: newVariation,
+        quantity: newQuantity,
+        available: newVariation.stock > 0,
+      );
+    }
+
+    _items.remove(oldCartKey);
+    _selectedKeys.remove(oldCartKey);
+    if (wasSelected) {
+      _selectedKeys.add(newKey);
+    }
+
+    _recalculateLocalTotals();
+    notifyListeners();
+    Future.microtask(() => fetchAuthoritativeQuote());
+
+    // Synchronize with persistent web database
+    final token = await ApiService.getToken();
+    if (token != null && token.isNotEmpty) {
+      try {
+        await ApiService.delete(ApiConfig.cartItemEndpoint(oldCartKey));
+        await ApiService.post(ApiConfig.cartItemsEndpoint, {
+          'product_id': oldItem.product.id,
+          'variation_id': newVariation.id,
+          'quantity': newQuantity,
+        });
+        await fetchCart();
+      } catch (_) {}
     }
   }
 

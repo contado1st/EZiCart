@@ -41,6 +41,15 @@ class CartApiController extends Controller
                 'available' => (bool) $line['available'],
                 'unavailable_reason' => $line['unavailable_reason'],
                 'max_quantity' => (int) $line['max_quantity'],
+                'variations' => collect($line['variations'] ?? [])->map(fn ($v) => [
+                    'id' => (int) (is_array($v) ? ($v['id'] ?? 0) : ($v->id ?? 0)),
+                    'product_id' => (int) (is_array($v) ? ($v['product_id'] ?? 0) : ($v->product_id ?? 0)),
+                    'type' => (string) (is_array($v) ? ($v['type'] ?? '') : ($v->type ?? '')),
+                    'value' => (string) (is_array($v) ? ($v['value'] ?? '') : ($v->value ?? '')),
+                    'price_adjustment' => (float) (is_array($v) ? ($v['price_adjustment'] ?? 0) : ($v->price_adjustment ?? 0)),
+                    'stock' => (int) (is_array($v) ? ($v['stock'] ?? 0) : ($v->stock ?? 0)),
+                    'image_path' => is_array($v) ? ($v['image_path'] ?? null) : ($v->image_path ?? null),
+                ])->values()->all(),
             ];
         }
 

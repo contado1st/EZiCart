@@ -448,67 +448,39 @@ class _BuyerDashboardState extends State<BuyerDashboard> {
               padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
               child: InkWell(
                 onTap: () => _navigateToSearch(),
-                borderRadius: BorderRadius.circular(24),
+                borderRadius: BorderRadius.circular(8),
                 child: Container(
                   height: 44,
                   padding: const EdgeInsets.symmetric(horizontal: 14),
                   decoration: BoxDecoration(
                     color: Colors.white,
-                    borderRadius: BorderRadius.circular(24),
-                    border: Border.all(color: const Color(0xFFFFD1DC)),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: const Color(0xFFDCE0E8)),
                     boxShadow: [
                       BoxShadow(
-                        color: const Color(0xFFBE2854).withValues(alpha: 0.04),
-                        blurRadius: 6,
-                        offset: const Offset(0, 2),
+                        color: Colors.black.withValues(alpha: 0.03),
+                        blurRadius: 4,
+                        offset: const Offset(0, 1),
                       ),
                     ],
                   ),
-                  child: Row(
+                  child: const Row(
                     children: [
-                      const Icon(
+                      Icon(
                         Icons.search,
                         size: 22,
                         color: AppTheme.primary,
                       ),
-                      const SizedBox(width: 10),
-                      const Expanded(
+                      SizedBox(width: 10),
+                      Expanded(
                         child: Text(
-                          'Search products, shops, Laguna merchants...',
-                          style: TextStyle(color: AppTheme.muted, fontSize: 13),
+                          'Search products and stores',
+                          style: TextStyle(
+                            color: AppTheme.muted,
+                            fontSize: 13,
+                          ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 5,
-                        ),
-                        decoration: BoxDecoration(
-                          gradient: const LinearGradient(
-                            colors: [Color(0xFFD63363), Color(0xFFBE2854)],
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                          ),
-                          borderRadius: BorderRadius.circular(14),
-                          boxShadow: [
-                            BoxShadow(
-                              color: const Color(
-                                0xFFBE2854,
-                              ).withValues(alpha: 0.25),
-                              blurRadius: 4,
-                              offset: const Offset(0, 1),
-                            ),
-                          ],
-                        ),
-                        child: const Text(
-                          'Search',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 11,
-                            fontWeight: FontWeight.bold,
-                          ),
                         ),
                       ),
                     ],
@@ -1161,45 +1133,15 @@ class _BuyerDashboardState extends State<BuyerDashboard> {
         backgroundColor: Colors.transparent,
         elevation: 0,
         scrolledUnderElevation: 0,
-        title: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(4),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(8),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.1),
-                    blurRadius: 4,
-                    offset: const Offset(0, 1),
-                  ),
-                ],
-              ),
-              child: Image.asset(
-                'assets/images/ezicart-logo.png',
-                height: 24,
-                width: 24,
-                fit: BoxFit.contain,
-                errorBuilder: (_, __, ___) => const Icon(
-                  Icons.shopping_bag_outlined,
-                  color: Color(0xFFBE2854),
-                  size: 20,
-                ),
-              ),
-            ),
-            const SizedBox(width: 8),
-            const Text(
-              'EZiCart',
-              style: TextStyle(
-                fontFamily: 'Instrument Sans',
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
-                fontSize: 19,
-                letterSpacing: -0.3,
-              ),
-            ),
-          ],
+        title: const Text(
+          'EZiCart',
+          style: TextStyle(
+            fontFamily: 'Instrument Sans',
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+            fontSize: 22,
+            letterSpacing: -0.3,
+          ),
         ),
         actions: [
           Stack(
@@ -1208,6 +1150,7 @@ class _BuyerDashboardState extends State<BuyerDashboard> {
                 icon: const Icon(
                   Icons.notifications_outlined,
                   color: Colors.white,
+                  size: 27,
                 ),
                 onPressed: () async {
                   await Navigator.of(context).push(
@@ -1220,8 +1163,8 @@ class _BuyerDashboardState extends State<BuyerDashboard> {
               ),
               if (_unreadNotificationCount > 0)
                 Positioned(
-                  right: 8,
-                  top: 8,
+                  right: 6,
+                  top: 6,
                   child: Container(
                     padding: const EdgeInsets.all(3.5),
                     decoration: BoxDecoration(
@@ -1235,7 +1178,7 @@ class _BuyerDashboardState extends State<BuyerDashboard> {
                     child: Text(
                       '$_unreadNotificationCount',
                       style: const TextStyle(
-                        fontSize: 9,
+                        fontSize: 9.5,
                         color: Color(0xFFBE2854),
                         fontWeight: FontWeight.bold,
                       ),
@@ -1250,6 +1193,7 @@ class _BuyerDashboardState extends State<BuyerDashboard> {
                 icon: const Icon(
                   Icons.shopping_cart_outlined,
                   color: Colors.white,
+                  size: 27,
                 ),
                 onPressed: () {
                   Navigator.of(
@@ -1259,8 +1203,8 @@ class _BuyerDashboardState extends State<BuyerDashboard> {
               ),
               if (cart.itemCount > 0)
                 Positioned(
-                  right: 8,
-                  top: 8,
+                  right: 6,
+                  top: 6,
                   child: Container(
                     padding: const EdgeInsets.all(3.5),
                     decoration: BoxDecoration(
@@ -1274,7 +1218,7 @@ class _BuyerDashboardState extends State<BuyerDashboard> {
                     child: Text(
                       '${cart.itemCount}',
                       style: const TextStyle(
-                        fontSize: 9,
+                        fontSize: 9.5,
                         color: Color(0xFFBE2854),
                         fontWeight: FontWeight.bold,
                       ),
@@ -1283,6 +1227,7 @@ class _BuyerDashboardState extends State<BuyerDashboard> {
                 ),
             ],
           ),
+          const SizedBox(width: 4),
           const SizedBox(width: 4),
         ],
       ),

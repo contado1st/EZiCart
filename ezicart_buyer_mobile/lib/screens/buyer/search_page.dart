@@ -390,7 +390,7 @@ class _SearchPageState extends State<SearchPage> {
               height: 42,
               decoration: BoxDecoration(
                 color: Colors.grey.shade100,
-                borderRadius: BorderRadius.circular(22),
+                borderRadius: BorderRadius.circular(8),
                 border: Border.all(color: AppTheme.line),
               ),
               child: TextField(
@@ -399,7 +399,7 @@ class _SearchPageState extends State<SearchPage> {
                 textInputAction: TextInputAction.search,
                 style: const TextStyle(fontSize: 14, color: AppTheme.ink),
                 decoration: InputDecoration(
-                  hintText: 'Search products or shops...',
+                  hintText: 'Search products and stores',
                   hintStyle: const TextStyle(color: AppTheme.muted, fontSize: 13),
                   prefixIcon: const Icon(Icons.search, size: 20, color: AppTheme.muted),
                   suffixIcon: _searchCtrl.text.isNotEmpty
@@ -425,7 +425,7 @@ class _SearchPageState extends State<SearchPage> {
               backgroundColor: AppTheme.primary,
               foregroundColor: Colors.white,
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
               minimumSize: Size.zero,
               tapTargetSize: MaterialTapTargetSize.shrinkWrap,
             ),

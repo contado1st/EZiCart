@@ -132,6 +132,7 @@ $defineApiRoutes = function () {
         Route::get('/chat/{conversation}', [ChatApiController::class, 'show'])->whereNumber('conversation');
         Route::post('/chat/{conversation}/messages', [ChatApiController::class, 'sendMessage'])->whereNumber('conversation');
         Route::post('/chat/start/{sellerId}', [ChatApiController::class, 'start'])->whereNumber('sellerId');
+        Route::get('/chat/attachments/{attachment}', [ChatApiController::class, 'attachment'])->whereNumber('attachment');
     });
 
     // Authenticated Driver & Courier Routes

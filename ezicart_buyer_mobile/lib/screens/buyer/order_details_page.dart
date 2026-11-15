@@ -7,6 +7,7 @@ import '../../config/api_config.dart';
 import '../../config/theme.dart';
 import '../../models/order_model.dart';
 import '../../services/api_service.dart';
+import '../../utils/philippine_time.dart';
 import 'create_dispute_page.dart';
 import 'messages_page.dart';
 import 'shop_page.dart';
@@ -368,7 +369,7 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        'Placed on: ${_order!.createdAt}',
+                        'Placed on: ${PhilippineTime.format(_order!.createdAt)}',
                         style: const TextStyle(fontSize: 12, color: AppTheme.muted),
                       ),
                     ],

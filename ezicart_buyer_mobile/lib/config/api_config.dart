@@ -147,6 +147,7 @@ class ApiConfig {
   static String chatConversationEndpoint(int id) => '$baseUrl/chat/$id';
   static String chatSendMessageEndpoint(int id) => '$baseUrl/chat/$id/messages';
   static String chatStartEndpoint(int sellerId) => '$baseUrl/chat/start/$sellerId';
+  static String chatAttachmentEndpoint(int id) => '$baseUrl/chat/attachments/$id';
 
   // Account endpoints
   static String get updateProfileEndpoint => '$baseUrl/account/profile';

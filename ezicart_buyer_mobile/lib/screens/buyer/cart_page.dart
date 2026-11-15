@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
@@ -5,7 +6,9 @@ import 'package:provider/provider.dart';
 import '../../config/api_config.dart';
 import '../../config/theme.dart';
 import '../../models/cart_item_model.dart';
+import '../../models/product_model.dart';
 import '../../providers/cart_provider.dart';
+import '../../services/api_service.dart';
 import 'checkout_page.dart';
 
 class CartPage extends StatefulWidget {
@@ -279,6 +282,7 @@ class _CartPageState extends State<CartPage> {
                               final canIncrement =
                                   item.quantity < item.availableStock &&
                                   item.quantity < 20;
+                              final canDecrement = item.quantity > 1;
 
                               return Padding(
                                 padding: const EdgeInsets.all(10),
@@ -371,27 +375,57 @@ class _CartPageState extends State<CartPage> {
                                               fontSize: 13,
                                             ),
                                           ),
-                                          if (item.variation != null) ...[
+                                          if (item.variation != null ||
+                                              item.product.variations.isNotEmpty) ...[
                                             const SizedBox(height: 3),
-                                            Container(
-                                              padding:
-                                                  const EdgeInsets.symmetric(
-                                                    horizontal: 6,
-                                                    vertical: 2,
-                                                  ),
-                                              decoration: BoxDecoration(
-                                                color: Colors.grey.shade100,
-                                                borderRadius:
-                                                    BorderRadius.circular(4),
-                                                border: Border.all(
-                                                  color: Colors.grey.shade300,
-                                                ),
+                                            InkWell(
+                                              onTap: () => _showVariationPicker(
+                                                item,
+                                                key,
                                               ),
-                                              child: Text(
-                                                '${item.variation!.type}: ${item.variation!.value}',
-                                                style: const TextStyle(
-                                                  fontSize: 10.5,
-                                                  color: AppTheme.muted,
+                                              borderRadius:
+                                                  BorderRadius.circular(4),
+                                              child: Container(
+                                                padding:
+                                                    const EdgeInsets.symmetric(
+                                                      horizontal: 6,
+                                                      vertical: 2.5,
+                                                    ),
+                                                decoration: BoxDecoration(
+                                                  color: Colors.grey.shade100,
+                                                  borderRadius:
+                                                      BorderRadius.circular(4),
+                                                  border: Border.all(
+                                                    color: Colors.grey.shade300,
+                                                  ),
+                                                ),
+                                                child: Row(
+                                                  mainAxisSize:
+                                                      MainAxisSize.min,
+                                                  children: [
+                                                    Flexible(
+                                                      child: Text(
+                                                        item.variation != null
+                                                            ? '${item.variation!.type}: ${item.variation!.value}'
+                                                            : 'Select variation',
+                                                        style: const TextStyle(
+                                                          fontSize: 10.5,
+                                                          color: AppTheme.ink,
+                                                          fontWeight:
+                                                              FontWeight.w500,
+                                                        ),
+                                                        maxLines: 1,
+                                                        overflow:
+                                                            TextOverflow.ellipsis,
+                                                      ),
+                                                    ),
+                                                    const SizedBox(width: 3),
+                                                    const Icon(
+                                                      Icons.keyboard_arrow_down,
+                                                      size: 14,
+                                                      color: AppTheme.muted,
+                                                    ),
+                                                  ],
                                                 ),
                                               ),
                                             ),
@@ -437,19 +471,24 @@ class _CartPageState extends State<CartPage> {
                                           child: Row(
                                             children: [
                                               InkWell(
-                                                onTap: () =>
-                                                    cart.updateQuantity(
-                                                      key,
-                                                      item.quantity - 1,
-                                                    ),
-                                                child: const Padding(
-                                                  padding: EdgeInsets.symmetric(
+                                                onTap: canDecrement
+                                                    ? () =>
+                                                        cart.updateQuantity(
+                                                          key,
+                                                          item.quantity - 1,
+                                                        )
+                                                    : null,
+                                                child: Padding(
+                                                  padding: const EdgeInsets.symmetric(
                                                     horizontal: 6,
                                                     vertical: 2,
                                                   ),
                                                   child: Icon(
                                                     Icons.remove,
                                                     size: 14,
+                                                    color: canDecrement
+                                                        ? AppTheme.ink
+                                                        : Colors.grey.shade300,
                                                   ),
                                                 ),
                                               ),
@@ -606,6 +645,251 @@ class _CartPageState extends State<CartPage> {
           ],
         ),
       ),
+    );
+  }
+
+  Future<void> _showVariationPicker(
+    CartItemModel item,
+    String key,
+  ) async {
+    final currency = NumberFormat.currency(symbol: '₱', decimalDigits: 2);
+    final cart = context.read<CartProvider>();
+
+    // If item.product.variations has only 1 or 0 variations, attempt to fetch the complete variations from product API
+    List<ProductVariation> availableVariations = List.from(item.product.variations);
+    if (availableVariations.length <= 1) {
+      try {
+        final res = await ApiService.get('${ApiConfig.productsEndpoint}/${item.product.id}');
+        if (res.statusCode == 200) {
+          final body = jsonDecode(res.body);
+          if (body['product'] != null) {
+            final fullProduct = ProductModel.fromJson(body['product'] as Map<String, dynamic>);
+            if (fullProduct.variations.isNotEmpty) {
+              availableVariations = fullProduct.variations;
+            }
+          }
+        }
+      } catch (_) {}
+    }
+
+    if (!mounted) return;
+
+    if (availableVariations.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('No other variations available for this product'),
+          duration: Duration(seconds: 2),
+        ),
+      );
+      return;
+    }
+
+    ProductVariation? currentSelected = item.variation;
+    if (currentSelected != null) {
+      final match = availableVariations.where((v) => v.id == currentSelected!.id);
+      if (match.isNotEmpty) {
+        currentSelected = match.first;
+      }
+    }
+
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (modalCtx, setModalState) {
+            final currentPrice = item.product.price + (currentSelected?.priceAdjustment ?? 0.0);
+            final currentStock = currentSelected?.stock ?? item.product.stock;
+            final isSameVariation = currentSelected?.id == item.variation?.id;
+            final selectedImg = (currentSelected?.imagePath != null &&
+                    currentSelected!.imagePath!.trim().isNotEmpty)
+                ? currentSelected!.imagePath
+                : item.displayImage;
+            final resolvedImg = ApiConfig.resolveImageUrl(selectedImg);
+
+            return Container(
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+              ),
+              padding: EdgeInsets.fromLTRB(
+                16,
+                16,
+                16,
+                MediaQuery.of(modalCtx).viewInsets.bottom + 20,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Header
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: Container(
+                          width: 68,
+                          height: 68,
+                          color: Colors.grey.shade100,
+                          child: resolvedImg != null
+                              ? CachedNetworkImage(
+                                  imageUrl: resolvedImg,
+                                  fit: BoxFit.cover,
+                                  errorWidget: (_, __, ___) => const Icon(
+                                    Icons.inventory_2_outlined,
+                                    color: AppTheme.muted,
+                                  ),
+                                )
+                              : const Icon(
+                                  Icons.inventory_2_outlined,
+                                  color: AppTheme.muted,
+                                ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              item.product.name,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 14,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              currency.format(currentPrice),
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 16,
+                                color: AppTheme.primary,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              currentStock > 0
+                                  ? 'Stock: $currentStock available'
+                                  : 'Out of stock',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: currentStock > 0 ? AppTheme.muted : Colors.red,
+                                fontWeight: currentStock > 0 ? FontWeight.normal : FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.close, size: 20),
+                        onPressed: () => Navigator.pop(ctx),
+                      ),
+                    ],
+                  ),
+                  const Divider(height: 24),
+
+                  // Variation chips
+                  const Text(
+                    'Choose Variation',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13,
+                      color: AppTheme.ink,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: availableVariations.map((v) {
+                      final isSelected = currentSelected?.id == v.id;
+                      final isOutOfStock = v.stock <= 0;
+
+                      return ChoiceChip(
+                        label: Text(
+                          '${v.type}: ${v.value}${v.priceAdjustment != 0 ? " (+${currency.format(v.priceAdjustment)})" : ""}${isOutOfStock ? " (Out of stock)" : ""}',
+                          style: TextStyle(
+                            color: isSelected
+                                ? Colors.white
+                                : (isOutOfStock ? AppTheme.muted : AppTheme.ink),
+                            fontSize: 12,
+                            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                            decoration: isOutOfStock ? TextDecoration.lineThrough : null,
+                          ),
+                        ),
+                        selected: isSelected,
+                        selectedColor: AppTheme.primary,
+                        backgroundColor: AppTheme.surface,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(7),
+                          side: BorderSide(
+                            color: isSelected ? AppTheme.primary : AppTheme.line,
+                          ),
+                        ),
+                        onSelected: isOutOfStock
+                            ? null
+                            : (_) {
+                                setModalState(() {
+                                  currentSelected = v;
+                                });
+                              },
+                      );
+                    }).toList(),
+                  ),
+                  const SizedBox(height: 20),
+
+                  // Confirm button
+                  SizedBox(
+                    width: double.infinity,
+                    height: 44,
+                    child: ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppTheme.primary,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                      onPressed: (currentSelected != null && !isSameVariation && currentSelected!.stock > 0)
+                          ? () async {
+                              final chosen = currentSelected!;
+                              Navigator.pop(ctx);
+                              await cart.changeVariation(key, chosen);
+                              if (mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text('Variation updated to ${chosen.value}'),
+                                    backgroundColor: AppTheme.primary,
+                                    duration: const Duration(seconds: 2),
+                                  ),
+                                );
+                              }
+                            }
+                          : null,
+                      child: Text(
+                        isSameVariation
+                            ? 'Currently Selected'
+                            : (currentSelected != null && currentSelected!.stock <= 0
+                                ? 'Selected Variation Out of Stock'
+                                : 'Confirm Variation'),
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
     );
   }
 }

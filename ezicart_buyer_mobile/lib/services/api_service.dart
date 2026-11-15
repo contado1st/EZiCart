@@ -139,4 +139,32 @@ class ApiService {
       rethrow;
     }
   }
+
+  static Future<http.Response> postMultipart(
+    String url, {
+    Map<String, String>? fields,
+    List<http.MultipartFile>? files,
+  }) async {
+    try {
+      final token = await getToken();
+      final request = http.MultipartRequest('POST', Uri.parse(url));
+      request.headers['Accept'] = 'application/json';
+      if (token != null && token.isNotEmpty) {
+        request.headers['Authorization'] = 'Bearer $token';
+      }
+      if (fields != null) {
+        request.fields.addAll(fields);
+      }
+      if (files != null) {
+        request.files.addAll(files);
+      }
+      final streamed = await request.send().timeout(const Duration(seconds: 30));
+      final res = await http.Response.fromStream(streamed);
+      _checkUnauthorized(res);
+      return res;
+    } catch (e) {
+      _handleNetworkError(e, url);
+      rethrow;
+    }
+  }
 }
