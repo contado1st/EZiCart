@@ -9,6 +9,7 @@ import '../../providers/auth_provider.dart';
 import '../../services/api_service.dart';
 import 'addresses_page.dart';
 import 'shop_page.dart';
+import 'wallet_page.dart';
 import 'wishlist_page.dart';
 
 class ProfilePage extends StatefulWidget {
@@ -1141,6 +1142,70 @@ class _ProfilePageState extends State<ProfilePage> {
                       ),
                     ),
                 ],
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            // Finance & Wallet Navigation Card
+            InkWell(
+              onTap: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const WalletPage()),
+                );
+              },
+              borderRadius: BorderRadius.circular(16),
+              child: Container(
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: const Color(0xFFEAECEF)),
+                ),
+                padding: const EdgeInsets.all(16),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: Colors.green.shade50,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Icon(
+                        Icons.account_balance_wallet,
+                        color: Colors.green.shade700,
+                        size: 24,
+                      ),
+                    ),
+                    const SizedBox(width: 14),
+                    const Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Finance & Wallet',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 14.5,
+                              color: AppTheme.ink,
+                            ),
+                          ),
+                          SizedBox(height: 2),
+                          Text(
+                            'Manage demo balance, view transactions, funding and records.',
+                            style: TextStyle(
+                              fontSize: 11.5,
+                              color: AppTheme.muted,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const Icon(
+                      Icons.chevron_right,
+                      color: AppTheme.muted,
+                      size: 20,
+                    ),
+                  ],
+                ),
               ),
             ),
             const SizedBox(height: 16),

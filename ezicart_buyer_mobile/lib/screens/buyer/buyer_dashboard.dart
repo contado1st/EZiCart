@@ -19,6 +19,7 @@ import 'product_details_page.dart';
 import 'profile_page.dart';
 import 'search_page.dart';
 import 'vouchers_page.dart';
+import 'wallet_page.dart';
 import 'notifications_page.dart';
 import 'wishlist_page.dart';
 
@@ -499,6 +500,51 @@ class _BuyerDashboardState extends State<BuyerDashboard> {
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
+                    Expanded(
+                      child: InkWell(
+                        onTap: () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => const WalletPage(),
+                            ),
+                          );
+                        },
+                        borderRadius: BorderRadius.circular(10),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            vertical: 10,
+                            horizontal: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.purple.shade50,
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: Colors.purple.shade100),
+                          ),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.account_balance_wallet_outlined,
+                                color: Colors.purple.shade800,
+                                size: 22,
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                'Wallet',
+                                textAlign: TextAlign.center,
+                                maxLines: 2,
+                                style: TextStyle(
+                                  fontSize: 10.5,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.purple.shade900,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
                     Expanded(
                       child: InkWell(
                         onTap: () {

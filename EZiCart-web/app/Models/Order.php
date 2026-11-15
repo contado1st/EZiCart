@@ -31,6 +31,13 @@ class Order extends Model
         return $this->activeIncident?->kind ?? $this->status;
     }
 
+    protected $appends = ['is_awaiting_wallet_payment'];
+
+    public function getIsAwaitingWalletPaymentAttribute(): bool
+    {
+        return $this->isAwaitingWalletPayment();
+    }
+
     protected $hidden = ['parcel_weight_grams', 'weight_recorded_by', 'weight_recorded_at'];
 
     use HasFactory;

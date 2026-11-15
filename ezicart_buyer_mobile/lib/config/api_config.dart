@@ -161,4 +161,13 @@ class ApiConfig {
   static String get updateProfileEndpoint => '$baseUrl/account/profile';
   static String get updatePasswordEndpoint => '$baseUrl/account/password';
   static String get updateAppearanceEndpoint => '$baseUrl/account/appearance';
+
+  // Wallet & Finance endpoints
+  static String get walletEndpoint => '$baseUrl/wallet';
+  static String get walletDemoFundingEndpoint => '$baseUrl/wallet/demo-funding';
+  static String walletEvidenceEndpoint(int id) => '$baseUrl/wallet/demo-funding/$id/evidence';
+  static String get walletWithdrawEndpoint => '$baseUrl/wallet/withdraw';
+  static String get financeRecordsEndpoint => '$baseUrl/finance/records';
+  static String orderWalletPayEndpoint(int id) => '$baseUrl/orders/$id/wallet-pay';
+  static String orderWalletCancelEndpoint(int id) => '$baseUrl/orders/$id/wallet-cancel';
 }

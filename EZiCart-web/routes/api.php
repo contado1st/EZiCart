@@ -13,6 +13,7 @@ use App\Http\Controllers\Api\ProductApiController;
 use App\Http\Controllers\Api\ProfileApiController;
 use App\Http\Controllers\Api\ShopApiController;
 use App\Http\Controllers\Api\VoucherApiController;
+use App\Http\Controllers\Api\WalletApiController;
 use App\Http\Controllers\Api\WishlistApiController;
 use App\Http\Controllers\FinancialOperationsController;
 use App\Http\Controllers\PsgcAddressController;
@@ -111,6 +112,15 @@ $defineApiRoutes = function () {
         Route::post('/orders/{id}/cancel', [OrderApiController::class, 'cancel'])->whereNumber('id');
         Route::post('/orders/{id}/delivery-code/refresh', [OrderApiController::class, 'refreshDeliveryCode'])->whereNumber('id');
         Route::post('/orders/{id}/review', [OrderApiController::class, 'review'])->whereNumber('id');
+        Route::post('/orders/{id}/wallet-pay', [WalletApiController::class, 'payOrder'])->whereNumber('id')->middleware('throttle:operational-action');
+        Route::post('/orders/{id}/wallet-cancel', [WalletApiController::class, 'cancelOrder'])->whereNumber('id')->middleware('throttle:operational-action');
+
+        // Buyer Wallet & Financial Records (synchronized with Web)
+        Route::get('/wallet', [WalletApiController::class, 'wallet']);
+        Route::post('/wallet/demo-funding', [WalletApiController::class, 'demoFunding'])->middleware('throttle:operational-action');
+        Route::get('/wallet/demo-funding/{id}/evidence', [WalletApiController::class, 'evidence'])->whereNumber('id');
+        Route::post('/wallet/withdraw', [WalletApiController::class, 'withdraw'])->middleware('throttle:operational-action');
+        Route::get('/finance/records', [WalletApiController::class, 'records']);
 
         // Order Disputes & Returns
         Route::get('/disputes', [OrderApiController::class, 'disputesList']);

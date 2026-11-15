@@ -9,9 +9,12 @@ import '../../services/api_service.dart';
 import 'disputes_list_page.dart';
 import 'order_details_page.dart';
 import 'shop_page.dart';
+import 'wallet_payment_dialog.dart';
 
 class OrdersPage extends StatefulWidget {
-  const OrdersPage({super.key});
+  final int initialTabIndex;
+
+  const OrdersPage({super.key, this.initialTabIndex = 0});
 
   @override
   State<OrdersPage> createState() => _OrdersPageState();
@@ -19,8 +22,8 @@ class OrdersPage extends StatefulWidget {
 
 class _OrdersPageState extends State<OrdersPage> with SingleTickerProviderStateMixin {
   late TabController _tabController;
-  final List<String> _tabs = ['all', 'to_ship', 'to_receive', 'completed', 'cancelled'];
-  final List<String> _tabLabels = ['All', 'To Ship', 'To Receive', 'Completed', 'Cancelled'];
+  final List<String> _tabs = ['all', 'to_pay', 'to_ship', 'to_receive', 'completed', 'cancelled'];
+  final List<String> _tabLabels = ['All', 'To Pay', 'To Ship', 'To Receive', 'Completed', 'Cancelled'];
 
   List<OrderModel> _orders = [];
   Map<String, int> _counts = {};
@@ -29,7 +32,11 @@ class _OrdersPageState extends State<OrdersPage> with SingleTickerProviderStateM
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: _tabs.length, vsync: this);
+    _tabController = TabController(
+      length: _tabs.length,
+      vsync: this,
+      initialIndex: widget.initialTabIndex.clamp(0, _tabs.length - 1),
+    );
     _tabController.addListener(() {
       if (!_tabController.indexIsChanging) {
         _fetchOrders();
@@ -342,8 +349,10 @@ class _OrdersPageState extends State<OrdersPage> with SingleTickerProviderStateM
                       separatorBuilder: (_, __) => const SizedBox(height: 12),
                       itemBuilder: (context, i) {
                         final order = _orders[i];
-                        final statusColor = _getStatusColor(order.status);
-                        final statusIcon = _getStatusIcon(order.status);
+                        final isAwaitingWallet = order.isAwaitingWalletPayment;
+                        final statusColor = isAwaitingWallet ? const Color(0xFFD97706) : _getStatusColor(order.status);
+                        final statusIcon = isAwaitingWallet ? Icons.hourglass_top : _getStatusIcon(order.status);
+                        final displayStatusLabel = isAwaitingWallet ? 'AWAITING WALLET PAYMENT' : order.statusLabel.toUpperCase();
                         final totalQuantity = order.items.fold<int>(0, (sum, item) => sum + item.quantity);
 
                         return Container(
@@ -417,7 +426,7 @@ class _OrdersPageState extends State<OrdersPage> with SingleTickerProviderStateM
                                             Icon(statusIcon, size: 12, color: statusColor),
                                             const SizedBox(width: 4),
                                             Text(
-                                              order.statusLabel.toUpperCase(),
+                                              displayStatusLabel,
                                               style: TextStyle(
                                                 color: statusColor,
                                                 fontSize: 10,
@@ -585,6 +594,30 @@ class _OrdersPageState extends State<OrdersPage> with SingleTickerProviderStateM
                                       const Spacer(),
 
                                       // Actions
+                                      if (order.isAwaitingWalletPayment)
+                                        Padding(
+                                          padding: const EdgeInsets.only(right: 8),
+                                          child: ElevatedButton.icon(
+                                            style: ElevatedButton.styleFrom(
+                                              backgroundColor: AppTheme.primary,
+                                              foregroundColor: Colors.white,
+                                              minimumSize: const Size(96, 34),
+                                              padding: const EdgeInsets.symmetric(horizontal: 10),
+                                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                              elevation: 0,
+                                            ),
+                                            icon: const Icon(Icons.account_balance_wallet, size: 14),
+                                            label: const Text('Pay with Wallet', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                                            onPressed: () {
+                                              WalletPaymentDialog.show(
+                                                context,
+                                                order: order,
+                                                onPaymentSuccess: () => _fetchOrders(),
+                                              );
+                                            },
+                                          ),
+                                        ),
+
                                       if (order.status == 'DELIVERED')
                                         Padding(
                                           padding: const EdgeInsets.only(right: 8),

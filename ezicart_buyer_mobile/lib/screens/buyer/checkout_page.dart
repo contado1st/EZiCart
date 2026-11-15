@@ -5,9 +5,12 @@ import 'package:provider/provider.dart';
 import '../../config/api_config.dart';
 import '../../config/theme.dart';
 import '../../models/address_model.dart';
+import '../../models/wallet_model.dart';
 import '../../providers/cart_provider.dart';
 import '../../services/api_service.dart';
 import 'addresses_page.dart';
+import 'orders_page.dart';
+import 'wallet_page.dart';
 import 'vouchers_page.dart';
 
 class CheckoutPage extends StatefulWidget {
@@ -24,6 +27,11 @@ class _CheckoutPageState extends State<CheckoutPage> {
   bool _isSubmitting = false;
   bool _isApplyingVoucher = false;
 
+  String _paymentMethod = 'COD'; // 'COD' or 'WALLET'
+  bool _walletPayLater = false;
+  WalletBalances _walletBalances = WalletBalances();
+  bool _isLoadingWallet = false;
+
   final _notesCtrl = TextEditingController();
   final _voucherCtrl = TextEditingController();
 
@@ -31,6 +39,28 @@ class _CheckoutPageState extends State<CheckoutPage> {
   void initState() {
     super.initState();
     _loadAddresses();
+    _loadWalletBalance();
+  }
+
+  Future<void> _loadWalletBalance() async {
+    setState(() => _isLoadingWallet = true);
+    try {
+      final res = await ApiService.get(ApiConfig.walletEndpoint);
+      if (res.statusCode == 200) {
+        final body = jsonDecode(res.body);
+        if (body['success'] == true && body['data']?['balances'] is Map<String, dynamic>) {
+          if (mounted) {
+            setState(() {
+              _walletBalances = WalletBalances.fromJson(
+                body['data']['balances'] as Map<String, dynamic>,
+                demoEnabled: body['data']['demo_enabled'] == true,
+              );
+            });
+          }
+        }
+      }
+    } catch (_) {}
+    if (mounted) setState(() => _isLoadingWallet = false);
   }
 
   @override
@@ -169,12 +199,33 @@ class _CheckoutPageState extends State<CheckoutPage> {
       }
     }
 
+    if (_paymentMethod == 'WALLET' && !_walletPayLater) {
+      if (_walletBalances.isFrozen) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Your wallet is on hold. Spending is frozen.'), backgroundColor: Colors.red),
+        );
+        return;
+      }
+      if (_walletBalances.available < cart.total) {
+        final diff = cart.total - _walletBalances.available;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Insufficient demo wallet balance. Need PHP ${diff.toStringAsFixed(2)} more. Select "Reserve now" to pay later or add demo funds.'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 4),
+          ),
+        );
+        return;
+      }
+    }
+
     setState(() => _isSubmitting = true);
 
     final payload = <String, dynamic>{
       'checkout_token': cart.checkoutToken,
       'quote_hash': cart.quoteHash,
-      'payment_method': 'COD',
+      'payment_method': _paymentMethod,
+      if (_paymentMethod == 'WALLET') 'wallet_payment_timing': _walletPayLater ? 'later' : 'now',
       'cart': cart.checkoutItems.map((i) => i.toLineMap()).toList(),
       'saved_address_id': addr.id,
       if (cart.voucherId != null) 'voucher_id': cart.voucherId,
@@ -215,20 +266,52 @@ class _CheckoutPageState extends State<CheckoutPage> {
         cart.removePurchasedItems();
 
         if (!mounted) return;
+
+        final isDeferred = body['defer_wallet_payment'] == true || _walletPayLater;
+        final isWallet = _paymentMethod == 'WALLET';
+
         showDialog(
           context: context,
           barrierDismissible: false,
           builder: (ctx) => AlertDialog(
-            title: const Row(
+            title: Row(
               children: [
-                Icon(Icons.check_circle, color: Colors.green),
-                SizedBox(width: 8),
-                Text('Order Placed!'),
+                Icon(
+                  isDeferred ? Icons.schedule : Icons.check_circle,
+                  color: isDeferred ? Colors.orange : Colors.green,
+                ),
+                const SizedBox(width: 8),
+                Text(isDeferred ? 'Order Reserved!' : (isWallet ? 'Order Paid & Placed!' : 'Order Placed!')),
               ],
             ),
-            content: Text(body['message'] ?? 'Your order has been recorded. Sellers will prepare your shipment.'),
+            content: Text(
+              isDeferred
+                  ? (body['message'] ?? 'Order reserved! Please complete your demo wallet payment from To Pay within 30 minutes before stock reservation expires.')
+                  : (body['message'] ?? 'Your order has been recorded. Sellers will prepare your shipment.'),
+            ),
             actions: [
-              ElevatedButton(
+              if (isDeferred)
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primary),
+                  onPressed: () {
+                    Navigator.pop(ctx);
+                    Navigator.of(context).pushReplacement(
+                      MaterialPageRoute(builder: (_) => const OrdersPage(initialTabIndex: 1)),
+                    );
+                  },
+                  child: const Text('Go to To Pay'),
+                )
+              else
+                ElevatedButton(
+                  onPressed: () {
+                    Navigator.pop(ctx);
+                    Navigator.of(context).pushReplacement(
+                      MaterialPageRoute(builder: (_) => const OrdersPage(initialTabIndex: 0)),
+                    );
+                  },
+                  child: const Text('View Orders'),
+                ),
+              TextButton(
                 onPressed: () {
                   Navigator.pop(ctx);
                   Navigator.of(context).popUntil((route) => route.isFirst);
@@ -387,11 +470,229 @@ class _CheckoutPageState extends State<CheckoutPage> {
                   borderRadius: BorderRadius.circular(10),
                   side: const BorderSide(color: AppTheme.line),
                 ),
-                child: const ListTile(
-                  leading: Icon(Icons.payments_outlined, color: Colors.green),
-                  title: Text('Cash on Delivery (COD)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                  subtitle: Text('Pay cash upon delivery.', style: TextStyle(fontSize: 12, color: AppTheme.muted)),
-                  trailing: Icon(Icons.check_circle, color: Colors.green),
+                child: Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text(
+                            'Payment Method',
+                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                          ),
+                          if (_paymentMethod == 'WALLET')
+                            InkWell(
+                              onTap: () async {
+                                await Navigator.push(
+                                  context,
+                                  MaterialPageRoute(builder: (_) => const WalletPage()),
+                                );
+                                _loadWalletBalance();
+                              },
+                              child: const Text(
+                                'View Balance & Funding',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: AppTheme.primary,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+
+                      // COD Option
+                      InkWell(
+                        onTap: () => setState(() => _paymentMethod = 'COD'),
+                        borderRadius: BorderRadius.circular(8),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                          decoration: BoxDecoration(
+                            color: _paymentMethod == 'COD' ? Colors.green.shade50 : Colors.transparent,
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(
+                              color: _paymentMethod == 'COD' ? Colors.green : Colors.grey.shade300,
+                              width: _paymentMethod == 'COD' ? 1.5 : 1,
+                            ),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(
+                                Icons.payments_outlined,
+                                color: _paymentMethod == 'COD' ? Colors.green.shade700 : AppTheme.muted,
+                                size: 22,
+                              ),
+                              const SizedBox(width: 10),
+                              const Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text('Cash on Delivery (COD)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                                    Text('Pay your courier upon parcel delivery.', style: TextStyle(fontSize: 11, color: AppTheme.muted)),
+                                  ],
+                                ),
+                              ),
+                              Icon(
+                                _paymentMethod == 'COD' ? Icons.radio_button_checked : Icons.radio_button_unchecked,
+                                color: _paymentMethod == 'COD' ? Colors.green : Colors.grey.shade400,
+                                size: 22,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+
+                      // WALLET Option
+                      InkWell(
+                        onTap: () => setState(() => _paymentMethod = 'WALLET'),
+                        borderRadius: BorderRadius.circular(8),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                          decoration: BoxDecoration(
+                            color: _paymentMethod == 'WALLET' ? AppTheme.primary.withAlpha(20) : Colors.transparent,
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(
+                              color: _paymentMethod == 'WALLET' ? AppTheme.primary : Colors.grey.shade300,
+                              width: _paymentMethod == 'WALLET' ? 1.5 : 1,
+                            ),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(
+                                Icons.account_balance_wallet_outlined,
+                                color: _paymentMethod == 'WALLET' ? AppTheme.primary : AppTheme.muted,
+                                size: 22,
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        const Text('EZiCart Wallet', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                                        const SizedBox(width: 6),
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                                          decoration: BoxDecoration(
+                                            color: AppTheme.primary.withAlpha(30),
+                                            borderRadius: BorderRadius.circular(4),
+                                          ),
+                                          child: const Text('demo', style: TextStyle(fontSize: 10, color: AppTheme.primary, fontWeight: FontWeight.bold)),
+                                        ),
+                                      ],
+                                    ),
+                                    Text(
+                                      _isLoadingWallet
+                                          ? 'Loading balance...'
+                                          : 'Available: PHP ${_walletBalances.available.toStringAsFixed(2)}',
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w600,
+                                        color: _walletBalances.available >= cart.total ? Colors.green.shade800 : Colors.red.shade700,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              Icon(
+                                _paymentMethod == 'WALLET' ? Icons.radio_button_checked : Icons.radio_button_unchecked,
+                                color: _paymentMethod == 'WALLET' ? AppTheme.primary : Colors.grey.shade400,
+                                size: 22,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+
+                      // Extra wallet options if Wallet is selected
+                      if (_paymentMethod == 'WALLET') ...[
+                        const SizedBox(height: 10),
+                        if (_walletBalances.isFrozen)
+                          Container(
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              color: Colors.red.shade50,
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: Colors.red.shade200),
+                            ),
+                            child: const Text(
+                              'Your wallet is frozen. Spending is on hold.',
+                              style: TextStyle(color: Colors.red, fontSize: 12, fontWeight: FontWeight.bold),
+                            ),
+                          )
+                        else if (_walletBalances.available < cart.total)
+                          Container(
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              color: Colors.amber.shade50,
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: Colors.amber.shade200),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    Icon(Icons.warning_amber_rounded, size: 16, color: Colors.amber.shade900),
+                                    const SizedBox(width: 6),
+                                    Expanded(
+                                      child: Text(
+                                        'Short by PHP ${(cart.total - _walletBalances.available).toStringAsFixed(2)}. You can reserve now and pay within 30 minutes from To Pay.',
+                                        style: TextStyle(fontSize: 11, color: Colors.amber.shade900, fontWeight: FontWeight.w600),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 6),
+                                Row(
+                                  children: [
+                                    OutlinedButton.icon(
+                                      style: OutlinedButton.styleFrom(
+                                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                        minimumSize: Size.zero,
+                                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                      ),
+                                      icon: const Icon(Icons.add, size: 14),
+                                      label: const Text('Request Demo Funds', style: TextStyle(fontSize: 11)),
+                                      onPressed: () async {
+                                        await Navigator.push(
+                                          context,
+                                          MaterialPageRoute(builder: (_) => const WalletPage(initialTabIndex: 1)),
+                                        );
+                                        _loadWalletBalance();
+                                      },
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+
+                        const SizedBox(height: 8),
+                        CheckboxListTile(
+                          contentPadding: EdgeInsets.zero,
+                          dense: true,
+                          value: _walletPayLater,
+                          activeColor: AppTheme.primary,
+                          title: const Text(
+                            'Reserve now and pay from To Pay within 30 minutes',
+                            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                          ),
+                          subtitle: const Text(
+                            'Stock and vouchers are held. The seller prepares only after payment.',
+                            style: TextStyle(fontSize: 11, color: AppTheme.muted),
+                          ),
+                          onChanged: (val) => setState(() => _walletPayLater = val ?? false),
+                          controlAffinity: ListTileControlAffinity.leading,
+                        ),
+                      ],
+                    ],
+                  ),
                 ),
               ),
               const SizedBox(height: 12),
@@ -605,11 +906,25 @@ class _CheckoutPageState extends State<CheckoutPage> {
               const SizedBox(height: 24),
 
               ElevatedButton(
-                style: ElevatedButton.styleFrom(minimumSize: const Size(double.infinity, 48)),
-                onPressed: _isSubmitting ? null : _placeOrder,
+                style: ElevatedButton.styleFrom(
+                  minimumSize: const Size(double.infinity, 48),
+                  backgroundColor: _paymentMethod == 'WALLET' ? AppTheme.primary : AppTheme.primary,
+                ),
+                onPressed: _isSubmitting ||
+                        (_paymentMethod == 'WALLET' &&
+                            !_walletPayLater &&
+                            (_walletBalances.isFrozen || _walletBalances.available < cart.total))
+                    ? null
+                    : _placeOrder,
                 child: _isSubmitting
                     ? const SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                    : const Text('Place Order (COD)'),
+                    : Text(
+                        _paymentMethod == 'WALLET'
+                            ? (_walletPayLater
+                                ? 'Reserve Order (Pay within 30m)'
+                                : 'Pay with Wallet (${currency.format(cart.total)})')
+                            : 'Place Order (COD) · ${currency.format(cart.total)}',
+                      ),
               ),
             ],
           ),

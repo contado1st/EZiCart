@@ -73,6 +73,10 @@ class OrderModel {
   final double shippingFee;
   final double discount;
   final String paymentMethod;
+  final bool isAwaitingWalletPayment;
+  final DateTime? walletPaymentDueAt;
+  final int? walletPaidCents;
+  final int? walletTransactionId;
   final String? deliveryCode;
   final String? deliveryQrPayload;
   final String? recipientName;
@@ -100,6 +104,10 @@ class OrderModel {
     this.shippingFee = 0.0,
     this.discount = 0.0,
     this.paymentMethod = 'COD',
+    this.isAwaitingWalletPayment = false,
+    this.walletPaymentDueAt,
+    this.walletPaidCents,
+    this.walletTransactionId,
     this.deliveryCode,
     this.deliveryQrPayload,
     this.recipientName,
@@ -147,6 +155,16 @@ class OrderModel {
       discount: parseDouble(json['discount'],
           json['discount_cents'] != null ? parseDouble(json['discount_cents']) / 100 : 0.0),
       paymentMethod: json['payment_method']?.toString() ?? 'COD',
+      isAwaitingWalletPayment: json['is_awaiting_wallet_payment'] == true ||
+          (json['payment_method'] == 'WALLET' &&
+              rawStatus == 'PLACED' &&
+              json['wallet_payment_due_at'] != null &&
+              json['wallet_transaction_id'] == null),
+      walletPaymentDueAt: json['wallet_payment_due_at'] != null
+          ? DateTime.tryParse(json['wallet_payment_due_at'].toString())
+          : null,
+      walletPaidCents: parseNullableInt(json['wallet_paid_cents']),
+      walletTransactionId: parseNullableInt(json['wallet_transaction_id']),
       deliveryCode: json['delivery_code'] as String?,
       deliveryQrPayload: json['delivery_qr_payload'] as String?,
       recipientName: json['recipient_name'] as String?,
@@ -165,4 +183,6 @@ class OrderModel {
       dispute: json['dispute'] is Map ? DisputeModel.fromJson(json['dispute'] as Map<String, dynamic>) : null,
     );
   }
+
+  bool get canPayWithWallet => paymentMethod == 'WALLET' && isAwaitingWalletPayment;
 }
