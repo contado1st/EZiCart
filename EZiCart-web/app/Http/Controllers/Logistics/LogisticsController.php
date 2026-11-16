@@ -54,7 +54,7 @@ class LogisticsController extends Controller
 
     private const MOBILE_DUPLICATE_ERROR = 'This mobile number is already in use.';
 
-    public function storeRider(Request $request, RegistrationIdentityService $identity): RedirectResponse
+    public function storeRider(Request $request, RegistrationIdentityService $identity, AdministrativeAuditService $audits): RedirectResponse
     {
         $operator = $this->authenticatedUser();
         abort_unless($operator->role === 'sorting_center' && $operator->status === 'approved', 403);
@@ -82,6 +82,7 @@ class LogisticsController extends Controller
             'canonical_license_number' => ['required', 'size:13', 'unique:users,canonical_license_number'],
             'license_expires_at' => ['required', 'date', 'after_or_equal:today'],
             'vehicle_type' => ['required', Rule::in(array_keys(config('rider-vehicles.types')))],
+            'hub_transfer_only' => ['required', 'boolean'],
             'plate_number' => ['required', 'string', 'min:2', 'max:20'],
             'canonical_plate' => ['required', 'string', 'min:2', 'max:20', 'unique:users,canonical_plate'],
             'license_document' => ['required', 'file', 'mimes:jpg,jpeg,png,pdf', 'max:5120'],
@@ -89,6 +90,8 @@ class LogisticsController extends Controller
         ], [
             'contact_no.regex' => self::MOBILE_FORMAT_ERROR,
             'contact_no.unique' => self::MOBILE_DUPLICATE_ERROR,
+            'hub_transfer_only.required' => 'Choose the rider’s assigned duty before creating the account.',
+            'hub_transfer_only.boolean' => 'Choose parcel pickup and delivery or hub-to-hub transport.',
         ]);
 
         $duplicateEmail = User::query()->where('canonical_email', $email)->orWhereRaw('LOWER(TRIM(email)) = ?', [$email])->exists();
@@ -106,7 +109,7 @@ class LogisticsController extends Controller
         ];
 
         try {
-            $rider = DB::transaction(function () use ($validated, $operator, $storedPaths): User {
+            $rider = DB::transaction(function () use ($validated, $operator, $storedPaths, $audits): User {
                 $rider = User::query()->forceCreate([
                     'first_name' => trim($validated['first_name']),
                     'last_name' => trim($validated['last_name']),
@@ -129,11 +132,19 @@ class LogisticsController extends Controller
                     'role' => 'courier',
                     'status' => 'pending_activation',
                     'logistics_owner_id' => $operator->id,
+                    'hub_transfer_only' => (bool) $validated['hub_transfer_only'],
                     'province' => $operator->province,
                     'municipality' => $operator->municipality,
                     'barangay' => $operator->barangay,
                     'street_address' => $operator->street_address,
                 ]);
+
+                $audits->record($operator, $rider, 'rider_account_created', [], [
+                    'role' => $rider->role, 'status' => $rider->status,
+                    'logistics_owner_id' => $rider->logistics_owner_id,
+                    'hub_transfer_only' => $rider->hub_transfer_only,
+                    'assigned_duty' => $rider->riderDutyLabel(),
+                ], 'Sorting center selected the rider duty and home hub at account creation. Activation and vehicle-capacity verification remain separate.');
 
                 return $rider;
             });
@@ -162,7 +173,7 @@ class LogisticsController extends Controller
             return back()->with('error', 'The rider account was created, but the activation email could not be sent. Use Resend activation to try again.');
         }
 
-        return back()->with('success', "{$rider->first_name} {$rider->last_name} was added. An activation link was sent to {$rider->email}.");
+        return back()->with('success', "{$rider->first_name} {$rider->last_name} was added as {$rider->riderDutyLabel()}. An activation link was sent to {$rider->email}.");
     }
 
     public function resendRiderActivation(User $user): RedirectResponse

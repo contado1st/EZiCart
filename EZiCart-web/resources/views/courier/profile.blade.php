@@ -16,7 +16,7 @@
             <div><dt class="ops-muted">Email</dt><dd class="break-all">{{ $courier->email }}</dd></div>
             <div><dt class="ops-muted">Account state</dt><dd>{{ ucfirst($courier->status) }}</dd></div>
             <div><dt class="ops-muted">Assigned logistics hub</dt><dd>{{ $courier->logisticsOwner?->business_name ?: ($courier->logisticsOwner?->first_name ?: 'No owning hub recorded') }}</dd></div>
-            <div><dt class="ops-muted">Work type</dt><dd>{{ $courier->hub_transfer_only ? 'Dedicated hub-transfer driver' : 'Local pickup and delivery rider' }}</dd></div>
+            <div><dt class="ops-muted">Assigned duty</dt><dd>{{ $courier->riderDutyLabel() }}</dd></div>
             <div class="sm:col-span-2"><dt class="ops-muted">Address</dt><dd>{{ collect([$courier->street_address, $courier->barangay, $courier->municipality, $courier->province])->filter()->implode(', ') ?: 'Not recorded' }}</dd></div>
         </dl>
         <h3>Assigned service areas</h3>

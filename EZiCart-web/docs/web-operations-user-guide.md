@@ -273,6 +273,19 @@ From a product, choose **Chat now**. The composer identifies the selected produc
 
 After sending, replies use the normal composer without automatically repeating the card. Historical cards retain their original title/price/image reference after listing changes. Ordinary chat uploads remain private to the conversation; product images are the listing's marketing images, accessed through the participant-checked message view. Order-related chat, files and unread notifications continue as before. A product from a different seller or a hidden listing cannot be substituted into the enquiry.
 
+## Assigned rider duty at account creation — 16 November 2026
+
+In the sorting-center dashboard, open **Rider roster → Add a rider**. Choose **Assigned duty** before creating the account:
+
+- **Parcel pickup and delivery courier:** collects seller parcels and performs local buyer deliveries. Service-area coverage is still required for local work.
+- **Hub-to-hub transport courier:** transports released parcels between sorting centers and works from **Assigned hub transfers**.
+
+There is no preselected duty. The account is created under the sorting center that submits the form; a submitted alternative owner cannot override that home hub. The activation email and valid activation page show the selected duty and home hub. Activating the account sets the rider's password and does not let the rider change the assigned duty. The roster, rider profile, staff ID and rider workspace display the same duty label. A hub-to-hub rider opening the courier dashboard is directed to **Assigned hub transfers**.
+
+Duty assignment does not verify the vehicle's cargo capacity or set the rider Available. Activation, required documents, licence validity, verified capacity, availability, area coverage and physical scans remain separate checks. Later duty changes remain with logistics administration through the existing audited capacity/duty review; reserved loads must first be completed or released. Existing accounts retain their current duty. No new account role or mobile API field is introduced; the existing `courier` role and `hub_transfer_only` field remain in use.
+
+See the [assigned-duty implementation audit](rider-duty-at-creation-audit.md).
+
 ## Rider work availability and hub reactivation — 14 November 2026
 
 Riders, including dedicated hub-transfer drivers, open **Work availability** in navigation. Local riders can also expand **New work** on the dashboard. Choose **Available for new work** or **Unavailable for new work**, then save. This is your willingness to accept new jobs, separate from login presence, account approval, licence expiry and verified cargo capacity. A conflicting change in another tab requires a refresh. Saving does not change your official profile or another rider's choice.
