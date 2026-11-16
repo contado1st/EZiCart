@@ -238,23 +238,39 @@
                                                     {!! $assignedRider->badge_qr !!}
                                                 </div>
                                             @endif
-                                            <form method="POST" action="{{ route('logistics.orders.releaseToRider', $order) }}" data-decision="logistics.orders.releaseToRider" data-decision-title="Release parcel to rider?" data-decision-message="Continue only after verifying the assigned rider and physically handing over the parcel." data-decision-label="Confirm release" data-decision-tone="normal" onsubmit="return window.eziDecisionReady ? true : window.confirm(this.dataset.decisionMessage)">
+                                            <form method="POST" action="{{ route('logistics.orders.releaseToRider', $order) }}" data-qr-auto-submit="false" data-decision="logistics.orders.releaseToRider" data-decision-title="Release parcel to rider?" data-decision-message="Continue only after verifying the assigned rider and physically handing over the parcel." data-decision-label="Confirm release" data-decision-tone="normal" onsubmit="return window.eziDecisionReady ? true : window.confirm(this.dataset.decisionMessage)">
                                                 @csrf
-                                                <div class="ops-field">
+                                                <div class="ops-field" data-qr-scanner>
                                                     <label for="rider-badge-{{ $order->id }}">Scan assigned rider badge QR/code</label>
                                                     <input id="rider-badge-{{ $order->id }}"
                                                         name="rider_badge"
+                                                        data-qr-input
                                                         required
+                                                        maxlength="100"
                                                         placeholder="EZR:…"
                                                         autocomplete="off">
+                                                    <div class="flex flex-wrap items-center gap-2">
+                                                        <button class="ops-btn" type="button" data-qr-start>Scan rider badge with camera</button>
+                                                        <button class="ops-btn ops-btn--danger" type="button" data-qr-stop hidden>Stop badge camera</button>
+                                                    </div>
+                                                    <video data-qr-video playsinline muted hidden></video>
+                                                    <p class="ops-scan-status" data-qr-status role="status" aria-live="polite">Scan the assigned rider’s badge, or enter its code manually.</p>
                                                 </div>
-                                                <div class="ops-field">
+                                                <div class="ops-field" data-qr-scanner>
                                                     <label for="parcel-reference-{{ $order->id }}">Scan parcel label QR/code</label>
                                                     <input id="parcel-reference-{{ $order->id }}"
                                                         name="parcel_reference"
+                                                        data-qr-input
                                                         required
+                                                        maxlength="100"
                                                         placeholder="EZP:…"
                                                         autocomplete="off">
+                                                    <div class="flex flex-wrap items-center gap-2">
+                                                        <button class="ops-btn" type="button" data-qr-start>Scan parcel label with camera</button>
+                                                        <button class="ops-btn ops-btn--danger" type="button" data-qr-stop hidden>Stop parcel camera</button>
+                                                    </div>
+                                                    <video data-qr-video playsinline muted hidden></video>
+                                                    <p class="ops-scan-status" data-qr-status role="status" aria-live="polite">Scan this parcel’s label, or enter its code manually.</p>
                                                 </div>
                                                 <input type="hidden" name="method" value="manual">
                                                 <button class="ops-btn ops-btn--primary" type="submit">Confirm scanned hub handoff</button>

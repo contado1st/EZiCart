@@ -265,6 +265,34 @@ class LogisticsWorkflowTest extends TestCase
         $this->assertNotNull($order->fresh()->hub_released_at);
     }
 
+    public function test_each_dispatch_handoff_has_separate_badge_and_parcel_camera_controls(): void
+    {
+        $center = $this->user('sorting_center', 'approved');
+        $rider = $this->user('courier', 'approved');
+        $orders = collect([1, 2])->map(fn () => $this->order([
+            'status' => 'ASSIGNED_TO_RIDER',
+            'sorting_center_id' => $center->id,
+            'delivery_courier_id' => $rider->id,
+        ]));
+
+        $response = $this->actingAsUser($center)->get(route('logistics.dispatch'))->assertOk();
+        $dom = new \DOMDocument;
+        @$dom->loadHTML($response->getContent());
+        $xpath = new \DOMXPath($dom);
+        foreach ($orders as $order) {
+            $form = '//form[.//input[@id="rider-badge-'.$order->id.'"]]';
+            $this->assertCount(1, $xpath->query($form.'[@data-qr-auto-submit="false"]'));
+            foreach (['rider_badge', 'parcel_reference'] as $field) {
+                $scope = $form.'//*[@data-qr-scanner][input[@name="'.$field.'" and @data-qr-input]]';
+                $this->assertCount(1, $xpath->query($scope.'//button[@data-qr-start and @type="button"]'));
+                $this->assertCount(1, $xpath->query($scope.'//button[@data-qr-stop and @type="button"]'));
+                $this->assertCount(1, $xpath->query($scope.'//video[@data-qr-video]'));
+                $this->assertCount(1, $xpath->query($scope.'//*[@data-qr-status and @role="status"]'));
+            }
+            $this->assertNull($order->fresh()->hub_released_at);
+        }
+    }
+
     public function test_batch_dispatch_releases_only_the_exact_scanned_manifest_for_one_rider(): void
     {
         $center = $this->user('sorting_center', 'approved');

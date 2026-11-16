@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
+use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -33,7 +34,7 @@ class RiderActivationController extends Controller
             ]);
         }
 
-        $rider = \App\Models\User::query()->find($activation->user_id);
+        $rider = User::query()->find($activation->user_id);
         if (! $rider || $rider->role !== 'courier' || $rider->status !== 'pending_activation') {
             return view('auth.activate-rider', [
                 'token' => null,
@@ -41,7 +42,9 @@ class RiderActivationController extends Controller
             ]);
         }
 
-        return view('auth.activate-rider', ['token' => $token, 'activationError' => null]);
+        $rider->load('logisticsOwner');
+
+        return view('auth.activate-rider', ['token' => $token, 'activationError' => null, 'rider' => $rider]);
     }
 
     public function activate(Request $request): RedirectResponse
@@ -61,7 +64,7 @@ class RiderActivationController extends Controller
                 throw ValidationException::withMessages(['token' => 'This activation link has expired or was already used. Ask your logistics company to send a new one.']);
             }
 
-            $rider = \App\Models\User::query()->whereKey($activation->user_id)->lockForUpdate()->first();
+            $rider = User::query()->whereKey($activation->user_id)->lockForUpdate()->first();
             if (! $rider || $rider->role !== 'courier' || $rider->status !== 'pending_activation') {
                 throw ValidationException::withMessages(['token' => 'This rider activation link is no longer active. Ask your logistics company for help.']);
             }

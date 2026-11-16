@@ -7,6 +7,7 @@
 @section('content')
     <div class="ops-shell" data-ops-shell>
         <main class="ops-main">
+            <p class="ops-muted">Assigned duty: <strong>{{ auth()->user()->riderDutyLabel() }}</strong></p>
             @if (session('success'))
                 <div class="ops-alert" role="status">{{ session('success') }}</div>
             @endif

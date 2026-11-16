@@ -17,6 +17,9 @@ class ParcelTransferController extends Controller
     {
         $actor = $request->user();
         abort_if($actor->role === 'courier' && ! $actor->hub_transfer_only, 403);
+        if ($actor->role === 'courier') {
+            $actor->loadMissing('logisticsOwner');
+        }
         $transfers = ParcelTransfer::query()->with(['order', 'sourceHub', 'destinationHub', 'carrier'])
             ->when($actor->role === 'courier', fn ($query) => $query->where('carrier_rider_id', $actor->id))
             ->when($actor->role === 'sorting_center', fn ($query) => $query->where(fn ($q) => $q->where('source_hub_id', $actor->id)->orWhere('destination_hub_id', $actor->id)))

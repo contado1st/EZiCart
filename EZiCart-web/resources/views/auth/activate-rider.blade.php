@@ -19,6 +19,9 @@
                 @if ($activationError)
                     <div class="auth-message auth-message--error" role="alert">{{ $activationError }}</div>
                 @else
+                <p class="auth-help"><strong>Assigned duty:</strong> {{ $rider->riderDutyLabel() }}</p>
+                <p class="auth-help"><strong>Home hub:</strong> {{ $rider->logisticsOwner?->business_name ?: ($rider->logisticsOwner?->first_name ?: 'Not recorded') }}</p>
+                <p class="auth-help">Your sorting center set this assignment when creating your account. Contact logistics administration if it needs correction.</p>
                 @if ($errors->any())<div class="auth-message auth-message--error" role="alert">{{ $errors->first() }}</div>@endif
                 <form action="{{ route('rider.activation.store') }}" method="POST" class="auth-form" data-auth-submit>
                     @csrf<input type="hidden" name="token" value="{{ $token }}">

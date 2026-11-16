@@ -19,10 +19,21 @@
     @endif
 
     <p class="ops-muted">{{ config('rider-work.enforce_availability') ? 'New-work availability rules are active. Approved riders must choose Available before they can receive work; Not chosen and Unavailable riders are excluded. Accepted parcels stay assigned when a rider becomes unavailable.' : 'Preparation mode: rider choices are being collected. Existing assignment rules continue until activation.' }} Availability is separate from account approval and online presence.</p>
-    <details class="ops-panel">
+    <details class="ops-panel" @if($errors->any()) open @endif>
         <summary><strong>Add a rider</strong><span class="ops-muted">Create a roster entry and email a one-use activation link.</span></summary>
         <form method="POST" action="{{ route('logistics.riders.store') }}" enctype="multipart/form-data" class="ops-rider-form">
             @csrf
+            <div class="col-span-full">
+                <label for="rider-duty">Assigned duty</label>
+                <select id="rider-duty" name="hub_transfer_only" aria-describedby="rider-duty-help" required>
+                    <option value="">Choose the rider’s duty</option>
+                    @foreach (\App\Models\User::RIDER_DUTIES as $duty => $label)
+                        <option value="{{ $duty }}" @selected((string) old('hub_transfer_only') === (string) $duty)>{{ $label }}</option>
+                    @endforeach
+                </select>
+                <small class="ops-muted" id="rider-duty-help">Parcel couriers collect from sellers and deliver to buyers. Hub-to-hub couriers transport parcels between sorting centers. Logistics administration reviews later duty changes.</small>
+                @error('hub_transfer_only')<span role="alert">{{ $message }}</span>@enderror
+            </div>
             <div><label for="rider-first-name">First name</label><input id="rider-first-name" name="first_name" value="{{ old('first_name') }}" required minlength="2" pattern="[\p{L}\p{M} .\x27-]{2,50}" title="Use 2 to 50 letters, spaces, apostrophes, periods, or hyphens."></div>
             <div><label for="rider-last-name">Last name</label><input id="rider-last-name" name="last_name" value="{{ old('last_name') }}" required minlength="2" pattern="[\p{L}\p{M} .\x27-]{2,50}" title="Use 2 to 50 letters, spaces, apostrophes, periods, or hyphens."></div>
             <div><label for="rider-birthday">Date of birth</label><input id="rider-birthday" type="date" name="birthday" value="{{ old('birthday') }}" max="{{ now()->subYearsNoOverflow(18)->toDateString() }}" required></div>
@@ -34,7 +45,7 @@
             <div><label for="rider-plate">Plate number</label><input id="rider-plate" name="plate_number" value="{{ old('plate_number') }}" required minlength="2" maxlength="20"></div>
             <div><label for="rider-license-file">Driver’s license document</label><input id="rider-license-file" type="file" name="license_document" accept=".jpg,.jpeg,.png,.pdf" required></div>
             <div><label for="rider-orcr-file">Vehicle OR/CR</label><input id="rider-orcr-file" type="file" name="or_cr_document" accept=".jpg,.jpeg,.png,.pdf" required></div>
-            <p class="ops-muted">Documents must be JPG, PNG, or PDF and no larger than 5 MB. The rider will set their own password from the activation email.</p>
+            <p class="ops-muted">Home hub: <strong>{{ auth()->user()->business_name ?: trim(auth()->user()->first_name.' '.auth()->user()->last_name) }}</strong>. This sorting center owns the new account. Documents must be JPG, PNG, or PDF and no larger than 5 MB. The rider will see their assigned duty and set their own password from the activation email. Vehicle cargo capacity still needs logistics-admin verification.</p>
             <button class="ops-btn ops-btn--primary" type="submit">Add rider and send activation</button>
         </form>
     </details>
@@ -43,7 +54,7 @@
         <div class="ops-heading">
             <div>
                 <h2>Roster records</h2>
-                <p class="ops-muted">Riders must be assigned to at least one hub service area to view full profiles and verify documents.</p>
+                <p class="ops-muted">Assigned duty is set at account creation. Local parcel couriers also need service-area coverage; hub-to-hub couriers work from their owning hub and assigned transfer destinations.</p>
             </div>
         </div>
 
@@ -67,6 +78,7 @@
                                 <strong>{{ $rider->first_name }} {{ $rider->last_name }}</strong>
                                 @if ($rider->assigned_to_hub)
                                     <div class="ops-muted">{{ $rider->email }}</div>
+                                    <div class="ops-muted">Assigned duty: <strong>{{ $rider->riderDutyLabel() }}</strong></div>
                                     <div class="ops-mono">EZR:{{ $rider->badge_code }}</div>
                                     <div class="logistics-badge-qr" role="img" aria-label="QR badge for {{ $rider->first_name }}">
                                         {!! $rider->badge_qr !!}

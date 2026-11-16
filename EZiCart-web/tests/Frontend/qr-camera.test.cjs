@@ -16,15 +16,21 @@ class Element {
     focus() {}
 }
 
-async function setup({acquire, result = null, batch = false, secure = true} = {}) {
+async function setup({acquire, result = null, batch = false, secure = true, multiple = false, manualConfirm = false} = {}) {
     const elements = Object.fromEntries(['start','stop','video','status','method'].map(name => [name, new Element()]));
     elements.video.play = async () => {};
+    const secondElements = Object.fromEntries(['start','stop','video','status'].map(name => [name, new Element()]));
+    secondElements.video.play = async () => {};
+    const controls = group => ({querySelector: selector => group[selector.match(/-(start|stop|video|status)\]/)?.[1]]});
+    const firstScope = controls(elements);
+    const secondScope = controls(secondElements);
     let submits = 0;
     const form = {querySelector: selector => selector === '[name="method"]' ? elements.method : elements[selector.match(/-(start|stop|video|status)\]/)?.[1]], closest: () => null,
-        addEventListener() {}, requestSubmit: () => submits++};
-    const input = new Element(); input.closest = () => form;
+        dataset: {qrAutoSubmit: manualConfirm ? 'false' : 'true'}, addEventListener() {}, requestSubmit: () => submits++};
+    const input = new Element(); input.closest = selector => selector === 'form' ? form : (multiple ? firstScope : null);
+    const secondInput = new Element(); secondInput.closest = selector => selector === 'form' ? form : secondScope;
     const doc = new Element(); doc.hidden = false;
-    doc.querySelectorAll = selector => selector === (batch ? '[data-qr-batch]' : '[data-qr-input]') ? [input] : [];
+    doc.querySelectorAll = selector => selector === (batch ? '[data-qr-batch]' : '[data-qr-input]') ? (multiple ? [input, secondInput] : [input]) : [];
     doc.createElement = () => new Element();
     const tracks = [];
     const calls = [];
@@ -36,9 +42,9 @@ async function setup({acquire, result = null, batch = false, secure = true} = {}
     }, enumerateDevices: async () => ['built-in','usb'].map(deviceId => ({kind:'videoinput',deviceId,label:deviceId}))};
     const browser = new Element(); browser.isSecureContext = secure;
     browser.setTimeout = callback => {browser.nextScan = callback; return 1;}; browser.clearTimeout = () => {browser.nextScan = null;};
-    browser.BarcodeDetector = class {async detect() {return result ? [{rawValue: result}] : [];}};
+    browser.BarcodeDetector = class {async detect() {const code = typeof result === 'function' ? result() : result; return code ? [{rawValue: code}] : [];}};
     (await camera).initQrScanners(doc, browser, {mediaDevices: media});
-    return {elements, input, tracks, calls, doc, browser, media, submitted: () => submits};
+    return {elements, input, secondElements, secondInput, tracks, calls, doc, browser, media, submitted: () => submits};
 }
 
 test('webcam constraints prefer a rear camera but retry with any webcam when unsupported', async () => {
@@ -113,6 +119,35 @@ test('a captured single QR fills the form, releases the webcam, and submits thro
     assert.equal(h.elements.method.value, 'camera');
     assert.equal(h.tracks[0].stopped, true);
     assert.equal(h.submitted(), 1);
+});
+
+test('badge and parcel cameras fill their own fields without submitting the physical handoff', async () => {
+    const codes = ['EZR:RIDER', 'EZP:PARCEL'];
+    const h = await setup({multiple: true, manualConfirm: true, result: () => codes.shift()});
+    await h.elements.start.fire('click'); await flush();
+    assert.equal(h.input.value, 'EZR:RIDER');
+    assert.equal(h.secondInput.value, '');
+    assert.equal(h.tracks[0].stopped, true);
+    assert.equal(h.submitted(), 0);
+
+    await h.secondElements.start.fire('click'); await flush();
+    assert.equal(h.input.value, 'EZR:RIDER');
+    assert.equal(h.secondInput.value, 'EZP:PARCEL');
+    assert.equal(h.tracks[1].stopped, true);
+    assert.equal(h.elements.method.value, 'camera');
+    assert.match(h.secondElements.status.textContent, /confirmation button/);
+    assert.equal(h.submitted(), 0);
+});
+
+test('starting the other field camera releases the previous webcam stream', async () => {
+    const h = await setup({multiple: true, manualConfirm: true});
+    await h.elements.start.fire('click'); await flush();
+    assert.equal(h.tracks[0].stopped, false);
+    await h.secondElements.start.fire('click'); await flush();
+    assert.equal(h.tracks[0].stopped, true);
+    assert.equal(h.tracks[1].stopped, false);
+    await h.browser.fire('pagehide');
+    assert.equal(h.tracks[1].stopped, true);
 });
 
 test('batch scanning keeps existing lines and does not add the same parcel twice', async () => {

@@ -16,6 +16,16 @@ use Illuminate\Notifications\Notifiable;
 
 class User extends Authenticatable implements AuthenticatableContract
 {
+    public const RIDER_DUTIES = [
+        0 => 'Parcel pickup and delivery courier',
+        1 => 'Hub-to-hub transport courier',
+    ];
+
+    public function riderDutyLabel(): string
+    {
+        return self::RIDER_DUTIES[(int) $this->hub_transfer_only];
+    }
+
     public function scopeAvailableForNewWork(Builder $query): Builder
     {
         return app(RiderWorkAvailabilityService::class)->availableRiders($query);

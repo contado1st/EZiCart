@@ -19,6 +19,7 @@
         <div><dt>Operating area</dt><dd>{{ collect([$staff->municipality, $staff->province])->filter()->join(', ') ?: 'Not recorded' }}</dd></div>
         <div><dt>Assigned hub</dt><dd>{{ $staff->logisticsOwner?->business_name ?: $staff->logisticsOwner?->first_name ?: ($staff->role === 'sorting_center' ? ($staff->business_name ?: 'This sorting center') : 'Not assigned') }}</dd></div>
         @if($staff->role === 'courier')
+            <div><dt>Assigned duty</dt><dd>{{ $staff->riderDutyLabel() }}</dd></div>
             <div><dt>Vehicle / plate</dt><dd>{{ $staff->vehicle_type ?: 'Not recorded' }} · {{ $staff->plate_number ?: 'Not recorded' }}</dd></div>
             <div><dt>License expires</dt><dd>{{ $staff->license_expires_at?->format('d M Y') ?: 'Not recorded' }}</dd></div>
         @elseif($staff->business_name)
@@ -27,7 +28,12 @@
     </dl>
     <figure class="staff-id-qr">
         {!! $qrSvg !!}
-        <figcaption>Profile QR · authorized viewing only</figcaption>
-        <p>This identifies the profile. Rider handovers use the existing rider badge.</p>
+        @if($staff->role === 'courier')
+            <figcaption>Rider badge QR · authorized use only</figcaption>
+            <p>Matches the rider badge in the sorting center and courier dashboards.</p>
+        @else
+            <figcaption>Profile QR · authorized viewing only</figcaption>
+            <p>This identifies the profile.</p>
+        @endif
     </figure>
 </article>
