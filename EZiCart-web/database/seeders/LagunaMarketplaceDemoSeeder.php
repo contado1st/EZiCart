@@ -267,7 +267,7 @@ class LagunaMarketplaceDemoSeeder extends Seeder
     private function export(array $report): void
     {
         $rows = [];
-        $markdown = "# Fictional Laguna demo accounts\n\nSchool testing only. All identities, addresses within the named barangays, phone numbers, TINs, licenses, plates and documents are synthetic. Do not contact these numbers or treat the images as legal documents. No external email was sent.\n\nDefault password for newly created accounts: `".self::PASSWORD."`. Existing passwords are never reset.\n\n| Municipality | Role / category / duty | Email | Password | Home hub |\n| --- | --- | --- | --- | --- |\n";
+        $markdown = "# Fictional Laguna demo accounts\n\nSchool testing only. All identities, addresses within the named barangays, phone numbers, TINs, licenses, plates and documents are synthetic. Do not contact these numbers or treat the images as legal documents. No external email was sent.\n\nDefault password for newly created accounts: `".self::PASSWORD."`. Existing passwords are never reset.\n\n";
         foreach ($report['accounts'] as $user) {
             $user->loadMissing('logisticsOwner');
             $password = Hash::check(self::PASSWORD, $user->password) ? self::PASSWORD : 'Existing password retained';
@@ -276,7 +276,16 @@ class LagunaMarketplaceDemoSeeder extends Seeder
             $rows[] = ['id' => $user->id, 'role' => $user->role, 'municipality' => $user->municipality, 'category_or_duty' => $description,
                 'email' => $user->email, 'password' => $password, 'home_hub_id' => $user->logistics_owner_id,
                 'home_hub' => $hub, 'status' => $user->status];
-            $markdown .= '| '.$user->municipality.' | '.$description.' | '.$user->email.' | '.$password.' | '.$hub." |\n";
+        }
+        $table = [['Municipality', 'Role / category / duty', 'Email', 'Password', 'Home hub']];
+        foreach ($rows as $row) {
+            $table[] = [$row['municipality'], $row['category_or_duty'], '`'.$row['email'].'`', $row['password'], $row['home_hub']];
+        }
+        $widths = array_map(fn ($column) => max(3, ...array_map(mb_strlen(...), array_column($table, $column))), range(0, 4));
+        $formatRow = fn ($cells) => '| '.implode(' | ', array_map(fn ($cell, $column) => $cell.str_repeat(' ', $widths[$column] - mb_strlen($cell)), $cells, array_keys($cells)))." |\n";
+        $markdown .= $formatRow($table[0]).$formatRow(array_map(fn ($width) => str_repeat('-', $width), $widths));
+        foreach (array_slice($table, 1) as $cells) {
+            $markdown .= $formatRow($cells);
         }
         $markdown .= "\nMajayjay's existing primary route and existing barangay assignments are preserved. Its parcel riders serve the existing primary hub; its new demo hub has a dedicated transport driver with source-hub coverage at both Majayjay hubs. Liliw and Magdalena use the new demo hubs only where no earlier municipality route exists.\n\nAll required sample files are in private storage and can be viewed through the normal authorized staff/application document pages. Vehicle capacities are demo verification fixtures, not manufacturer specifications. No orders, payments or balances were created.\n";
         if (! Storage::disk('private')->put(self::MANIFEST, json_encode(['accounts' => $rows, 'network' => $report['network'], 'address_source' => $report['address_source']], JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR))
