@@ -46,16 +46,20 @@ class DeliveryPricingService
 
     public function quote(User $seller, array $lines, array $address = [], string $payment = 'COD'): array
     {
+        $versioned = $this->enabled();
         $weight = 0;
         $length = $width = $height = 0;
         foreach ($lines as $line) {
             $product = $line['product'];
+            if ($versioned && (int) $product->weight_grams < 1) {
+                throw ValidationException::withMessages(['shipping' => 'Every selected product needs a positive unit weight before delivery can be quoted. Ask the seller to update the product weight.']);
+            }
             $weight += (int) $product->weight_grams * $line['quantity'];
             $length = max($length, (int) $product->length_mm);
             $width = max($width, (int) $product->width_mm);
             $height += (int) $product->height_mm * $line['quantity'];
         }
-        if (! $this->enabled()) {
+        if (! $versioned) {
             $legacy = (int) (DB::table('commerce_settings')->where('key', 'shipping_per_seller_cents')->value('value') ?? config('commerce.shipping_per_seller_cents'));
 
             return ['model' => 'legacy', 'rate_version_id' => null, 'total_cents' => $legacy, 'actual_grams' => $weight, 'components' => [], 'allocation_status' => 'UNCONFIGURED'];

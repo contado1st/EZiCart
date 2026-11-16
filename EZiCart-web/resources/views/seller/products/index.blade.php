@@ -18,6 +18,10 @@
             </div>
 
             @include('components.feature-feedback')
+            @if($missingWeights)
+                <section class="feature-panel" role="status"><h2>Product weights need attention</h2><p>{{ $missingWeights }} product(s) need a positive unit weight. Delivery quotes require a weight for every selected product. Edit each product and record its measured weight.</p><a class="dash-btn-outline" href="{{ route('seller.products.index', ['needs_weight' => 1]) }}">Review products missing weight</a></section>
+            @endif
+            @if(request()->boolean('needs_weight'))<p><a href="{{ route('seller.products.index') }}">Show all products</a></p>@endif
             <div class="web-actions"><a class="dash-btn-outline" href="{{ route('seller.categories.index') }}">Store categories</a><a class="dash-btn-outline" href="{{ route('seller.sales.index') }}">Sales and purchase limits</a><a class="dash-btn-outline" href="{{ route('seller.reviews.index') }}">Customer reviews</a></div>
             @if(session('catalog_results'))<section class="feature-panel" role="status"><h2>Bulk action results</h2><ul>@foreach(session('catalog_results') as $result)<li>{{ $result['name'] }} (#{{ $result['product_id'] }}): {{ $result['outcome'] }}</li>@endforeach</ul></section>@endif
             <form id="catalog-bulk" method="POST" action="{{ route('seller.products.bulk') }}" class="feature-panel feature-form" data-decision="catalog-bulk" data-decision-title="Apply this inventory action?" data-decision-message="Selected products will be paused or removed. Products with unfinished orders are skipped when deleting; historical records are preserved." onsubmit="return window.eziDecisionReady ? true : window.confirm(this.dataset.decisionMessage)">@csrf
@@ -60,6 +64,7 @@
                                     </span>
                                 </td>
                                 <td>
+                                    @if((int) $product->weight_grams < 1)<p class="profile-field-error">Unit weight required</p>@endif
                                     @if (! $product->is_seller_active)
                                         <span class="dash-badge dash-badge-archived">Seller inactive</span>
                                     @endif

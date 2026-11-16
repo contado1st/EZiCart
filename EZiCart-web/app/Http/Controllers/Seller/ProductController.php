@@ -26,9 +26,12 @@ class ProductController extends Controller
 
     public function index()
     {
-        $products = $this->authenticatedUser()->products()->with('variations')->latest()->paginate(25);
+        $query = $this->authenticatedUser()->products();
+        $missingWeights = (clone $query)->where('is_archived', false)->where(fn ($q) => $q->whereNull('weight_grams')->orWhere('weight_grams', '<', 1))->count();
+        $products = $query->when(request()->boolean('needs_weight'), fn ($q) => $q->where('is_archived', false)->where(fn ($w) => $w->whereNull('weight_grams')->orWhere('weight_grams', '<', 1)))
+            ->with('variations')->latest()->paginate(25)->withQueryString();
 
-        return view('seller.products.index', compact('products'));
+        return view('seller.products.index', compact('products', 'missingWeights'));
     }
 
     public function create()

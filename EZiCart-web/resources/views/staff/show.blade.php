@@ -8,6 +8,8 @@
 <x-staff-id-card :staff="$staff" :qr-svg="$qrSvg" />
 <section class="dash-panel"><h2>Verified profile information</h2>
 @if($staff->role === 'courier')
+    @if(! $staff->license_expires_at)<p class="profile-field-error" role="status">License expiry date missing. Ask this rider to submit the current license details through profile review.</p>
+    @elseif($staff->license_expires_at->lt(today()))<p class="profile-field-error" role="status">License expired. New assignments and outgoing dispatch are blocked until the renewed license is approved.</p>@endif
     <x-vehicle-capacity :rider="$staff" />
     @if(auth()->user()->isLogisticsAdmin())
         <form class="web-form" method="POST" action="{{ route('logistics-admin.riders.capacity', $staff) }}" data-decision="vehicle-capacity" data-decision-title="Verify this cargo capacity?" data-decision-message="Confirm the maximum cargo payload for this specific current vehicle. Unknown or overweight loads will be blocked." data-decision-label="Verify capacity" onsubmit="return window.eziDecisionReady ? true : window.confirm(this.dataset.decisionMessage)">@csrf @method('PATCH')
@@ -20,5 +22,12 @@
 <x-user-activity :user="$staff" />
 <dl class="web-form"><div><dt>Service areas</dt><dd>{{ $staff->serviceAreas->pluck('name')->join(', ') ?: 'Not assigned' }}</dd></div>
 @if($staff->role === 'courier')<div><dt>Vehicle description</dt><dd>{{ $staff->vehicle_description ?: 'Not recorded' }}</dd></div>@endif</dl><p>{{ $staff->profile_bio }}</p></section>
+@if($documents)
+<section class="dash-panel"><h2>Submitted documents</h2><p>Restore unavailable original files from a verified backup or obtain replacement papers for administrator review. Account approval does not replace the original papers.</p><ul>
+@foreach($documents as $document)<li>{{ $document['label'] }}:
+@if($document['available'])<a href="{{ route(auth()->user()->isCommerceAdmin() ? 'admin.users.documents.show' : 'logistics-admin.users.documents', ['user' => $staff, 'type' => $document['type'], 'preview' => 1]) }}" target="_blank" rel="noopener">View submitted document</a>
+@else<span class="profile-field-error">{{ $document['submitted'] ? 'File unavailable; resubmission required' : 'Not submitted' }}</span>@endif
+</li>@endforeach</ul></section>
+@endif
 @if($canViewHistory)<section class="dash-panel"><h2>Update history</h2>@forelse($revisions as $revision)<article class="web-section"><strong>{{ ucfirst($revision->status) }}</strong> · {{ $revision->created_at->format('d M Y H:i') }}<p>{{ $revision->reason }}</p><p class="web-muted">Reviewer: {{ $revision->reviewer?->first_name ?: 'Awaiting review' }} @if($revision->reviewed_at) · {{ $revision->reviewed_at->format('d M Y H:i') }}@endif</p><dl>@foreach($revision->proposed_values as $field => $value)@if($field !== 'profile_avatar_path')<div><dt>{{ \Illuminate\Support\Str::headline($field) }}</dt><dd>{{ $revision->previous_values[$field] ?? 'Not recorded' }} → {{ $value ?: 'Not specified' }}</dd></div>@else<div>Profile photo change</div>@endif @endforeach</dl></article>@empty<p>No profile updates submitted.</p>@endforelse{{ $revisions->links() }}</section>@endif
 </main>@endsection

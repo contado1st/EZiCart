@@ -7,6 +7,7 @@ use App\Models\User;
 use App\Services\QrCodeService;
 use App\Services\RiderBadgeService;
 use App\Services\StaffProfileService;
+use App\Services\UserDocumentService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 
@@ -33,8 +34,10 @@ class StaffProfileController extends Controller
             ? 'EZR:'.$badges->ensure($staff)
             : url('/staff/'.$staff->id);
         $qrSvg = app(QrCodeService::class)->svg($qrPayload);
+        $documents = ($request->user()->isCommerceAdmin() || $request->user()->isLogisticsAdmin())
+            ? app(UserDocumentService::class)->submittedForReview($staff) : [];
 
-        return view('staff.show', compact('staff', 'revisions', 'canViewHistory', 'qrSvg'));
+        return view('staff.show', compact('staff', 'revisions', 'canViewHistory', 'qrSvg', 'documents'));
     }
 
     public function reviews(Request $request)

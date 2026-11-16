@@ -1,0 +1,419 @@
+{
+    "source": "https://psgc.cloud/api/v2 (the application PSGC provider)",
+    "reference": "https://psa.gov.ph/classification/psgc/municipalities",
+    "postal_source": "https://phlpost.gov.ph/zip-code-locator/",
+    "fetched_on": "2026-11-16",
+    "region": "Region IV-A (CALABARZON)",
+    "province": "Laguna",
+    "municipalities": {
+        "majayjay": {
+            "name": "Majayjay",
+            "code": "0403416000",
+            "postal_code": "4005",
+            "barangays": [
+                {
+                    "code": "0403416001",
+                    "name": "Amonoy"
+                },
+                {
+                    "code": "0403416002",
+                    "name": "Bakia"
+                },
+                {
+                    "code": "0403416004",
+                    "name": "Balanac"
+                },
+                {
+                    "code": "0403416005",
+                    "name": "Balayong"
+                },
+                {
+                    "code": "0403416007",
+                    "name": "Banilad"
+                },
+                {
+                    "code": "0403416008",
+                    "name": "Banti"
+                },
+                {
+                    "code": "0403416010",
+                    "name": "Bitaoy"
+                },
+                {
+                    "code": "0403416011",
+                    "name": "Botocan"
+                },
+                {
+                    "code": "0403416003",
+                    "name": "Bukal"
+                },
+                {
+                    "code": "0403416012",
+                    "name": "Burgos"
+                },
+                {
+                    "code": "0403416013",
+                    "name": "Burol"
+                },
+                {
+                    "code": "0403416014",
+                    "name": "Coralao"
+                },
+                {
+                    "code": "0403416015",
+                    "name": "Gagalot"
+                },
+                {
+                    "code": "0403416016",
+                    "name": "Ibabang Banga"
+                },
+                {
+                    "code": "0403416017",
+                    "name": "Ibabang Bayucain"
+                },
+                {
+                    "code": "0403416018",
+                    "name": "Ilayang Banga"
+                },
+                {
+                    "code": "0403416019",
+                    "name": "Ilayang Bayucain"
+                },
+                {
+                    "code": "0403416020",
+                    "name": "Isabang"
+                },
+                {
+                    "code": "0403416021",
+                    "name": "Malinao"
+                },
+                {
+                    "code": "0403416022",
+                    "name": "May-It"
+                },
+                {
+                    "code": "0403416023",
+                    "name": "Munting Kawayan"
+                },
+                {
+                    "code": "0403416025",
+                    "name": "Olla"
+                },
+                {
+                    "code": "0403416024",
+                    "name": "Oobi"
+                },
+                {
+                    "code": "0403416026",
+                    "name": "Origuel "
+                },
+                {
+                    "code": "0403416027",
+                    "name": "Panalaban"
+                },
+                {
+                    "code": "0403416029",
+                    "name": "Pangil"
+                },
+                {
+                    "code": "0403416028",
+                    "name": "Panglan"
+                },
+                {
+                    "code": "0403416030",
+                    "name": "Piit"
+                },
+                {
+                    "code": "0403416031",
+                    "name": "Pook"
+                },
+                {
+                    "code": "0403416032",
+                    "name": "Rizal"
+                },
+                {
+                    "code": "0403416033",
+                    "name": "San Francisco "
+                },
+                {
+                    "code": "0403416034",
+                    "name": "San Isidro"
+                },
+                {
+                    "code": "0403416035",
+                    "name": "San Miguel "
+                },
+                {
+                    "code": "0403416036",
+                    "name": "San Roque"
+                },
+                {
+                    "code": "0403416037",
+                    "name": "Santa Catalina "
+                },
+                {
+                    "code": "0403416038",
+                    "name": "Suba"
+                },
+                {
+                    "code": "0403416041",
+                    "name": "Talortor"
+                },
+                {
+                    "code": "0403416039",
+                    "name": "Tanawan"
+                },
+                {
+                    "code": "0403416040",
+                    "name": "Taytay"
+                },
+                {
+                    "code": "0403416042",
+                    "name": "Villa Nogales"
+                }
+            ]
+        },
+        "liliw": {
+            "name": "Liliw",
+            "code": "0403410000",
+            "postal_code": "4004",
+            "barangays": [
+                {
+                    "code": "0403410002",
+                    "name": "Bagong Anyo "
+                },
+                {
+                    "code": "0403410003",
+                    "name": "Bayate"
+                },
+                {
+                    "code": "0403410005",
+                    "name": "Bongkol"
+                },
+                {
+                    "code": "0403410004",
+                    "name": "Bubukal"
+                },
+                {
+                    "code": "0403410007",
+                    "name": "Cabuyew"
+                },
+                {
+                    "code": "0403410008",
+                    "name": "Calumpang"
+                },
+                {
+                    "code": "0403410009",
+                    "name": "Culoy"
+                },
+                {
+                    "code": "0403410010",
+                    "name": "Dagatan"
+                },
+                {
+                    "code": "0403410011",
+                    "name": "Daniw"
+                },
+                {
+                    "code": "0403410012",
+                    "name": "Dita"
+                },
+                {
+                    "code": "0403410013",
+                    "name": "Ibabang Palina"
+                },
+                {
+                    "code": "0403410014",
+                    "name": "Ibabang San Roque"
+                },
+                {
+                    "code": "0403410015",
+                    "name": "Ibabang Sungi"
+                },
+                {
+                    "code": "0403410016",
+                    "name": "Ibabang Taykin"
+                },
+                {
+                    "code": "0403410018",
+                    "name": "Ilayang Palina"
+                },
+                {
+                    "code": "0403410019",
+                    "name": "Ilayang San Roque"
+                },
+                {
+                    "code": "0403410020",
+                    "name": "Ilayang Sungi"
+                },
+                {
+                    "code": "0403410021",
+                    "name": "Ilayang Taykin"
+                },
+                {
+                    "code": "0403410022",
+                    "name": "Kanlurang Bukal"
+                },
+                {
+                    "code": "0403410023",
+                    "name": "Laguan"
+                },
+                {
+                    "code": "0403410025",
+                    "name": "Luquin"
+                },
+                {
+                    "code": "0403410026",
+                    "name": "Malabo-Kalantukan"
+                },
+                {
+                    "code": "0403410027",
+                    "name": "Masikap "
+                },
+                {
+                    "code": "0403410028",
+                    "name": "Maslun "
+                },
+                {
+                    "code": "0403410029",
+                    "name": "Mojon"
+                },
+                {
+                    "code": "0403410030",
+                    "name": "Novaliches"
+                },
+                {
+                    "code": "0403410031",
+                    "name": "Oples"
+                },
+                {
+                    "code": "0403410032",
+                    "name": "Pag-Asa "
+                },
+                {
+                    "code": "0403410033",
+                    "name": "Palayan"
+                },
+                {
+                    "code": "0403410024",
+                    "name": "Rizal "
+                },
+                {
+                    "code": "0403410034",
+                    "name": "San Isidro"
+                },
+                {
+                    "code": "0403410035",
+                    "name": "Silangang Bukal"
+                },
+                {
+                    "code": "0403410037",
+                    "name": "Tuy-Baanan"
+                }
+            ]
+        },
+        "magdalena": {
+            "name": "Magdalena",
+            "code": "0403415000",
+            "postal_code": "4007",
+            "barangays": [
+                {
+                    "code": "0403415001",
+                    "name": "Alipit"
+                },
+                {
+                    "code": "0403415004",
+                    "name": "Baanan"
+                },
+                {
+                    "code": "0403415005",
+                    "name": "Balanac"
+                },
+                {
+                    "code": "0403415006",
+                    "name": "Bucal"
+                },
+                {
+                    "code": "0403415007",
+                    "name": "Buenavista"
+                },
+                {
+                    "code": "0403415008",
+                    "name": "Bungkol"
+                },
+                {
+                    "code": "0403415009",
+                    "name": "Buo"
+                },
+                {
+                    "code": "0403415010",
+                    "name": "Burlungan"
+                },
+                {
+                    "code": "0403415011",
+                    "name": "Cigaras"
+                },
+                {
+                    "code": "0403415024",
+                    "name": "Halayhayin"
+                },
+                {
+                    "code": "0403415012",
+                    "name": "Ibabang Atingay"
+                },
+                {
+                    "code": "0403415013",
+                    "name": "Ibabang Butnong"
+                },
+                {
+                    "code": "0403415014",
+                    "name": "Ilayang Atingay"
+                },
+                {
+                    "code": "0403415015",
+                    "name": "Ilayang Butnong"
+                },
+                {
+                    "code": "0403415016",
+                    "name": "Ilog"
+                },
+                {
+                    "code": "0403415002",
+                    "name": "Malaking Ambling"
+                },
+                {
+                    "code": "0403415017",
+                    "name": "Malinao"
+                },
+                {
+                    "code": "0403415018",
+                    "name": "Maravilla"
+                },
+                {
+                    "code": "0403415003",
+                    "name": "Munting Ambling"
+                },
+                {
+                    "code": "0403415019",
+                    "name": "Poblacion"
+                },
+                {
+                    "code": "0403415020",
+                    "name": "Sabang"
+                },
+                {
+                    "code": "0403415021",
+                    "name": "Salasad"
+                },
+                {
+                    "code": "0403415022",
+                    "name": "Tanawan"
+                },
+                {
+                    "code": "0403415023",
+                    "name": "Tipunan"
+                }
+            ]
+        }
+    }
+}

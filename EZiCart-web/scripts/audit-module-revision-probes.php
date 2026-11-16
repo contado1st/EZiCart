@@ -16,7 +16,6 @@ use App\Models\Review;
 use App\Models\User;
 use App\Services\AnalyticsService;
 use App\Services\CheckoutPricingService;
-use App\Services\DeliveryCodeService;
 use App\Services\DirectMessagingService;
 use App\Services\LogisticsExceptionService;
 use App\Services\OrderAreaService;
@@ -25,7 +24,6 @@ use App\Services\OrderTransitionService;
 use App\Services\ParcelLoadService;
 use App\Services\ParcelTransferService;
 use App\Services\PlacePurchaseService;
-use App\Services\QrCodeService;
 use App\Services\ReturnPickupService;
 use Illuminate\Contracts\Console\Kernel;
 use Illuminate\Http\Request;
@@ -45,12 +43,15 @@ if (in_array('--help', $argv, true)) {
     exit(0);
 }
 $results = [];
-set_exception_handler(function (Throwable $exception) use (&$results): void {
+$reportProbeError = function (Throwable $exception) use (&$results): void {
     echo json_encode(['database' => 'isolated SQLite :memory:', 'incomplete' => true, 'probe_error' => ['type' => class_basename($exception), 'message' => $exception->getMessage()], 'results' => $results], JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR).PHP_EOL;
     exit(2);
-});
+};
+set_exception_handler($reportProbeError);
 $app = require dirname(__DIR__).'/bootstrap/app.php';
 $app->make(Kernel::class)->bootstrap();
+// Console bootstrap installs Laravel's handler; standalone probes must still fail nonzero.
+set_exception_handler($reportProbeError);
 config([
     'database.default' => 'sqlite', 'database.connections.sqlite.database' => ':memory:', 'database.connections.sqlite.url' => null,
     'mail.default' => 'array', 'queue.default' => 'sync', 'cache.default' => 'array', 'session.driver' => 'array',
@@ -75,8 +76,8 @@ $admin = $user('logistics_admin');
 $commerce = $user('ecommerce_admin');
 $seller = $user('seller');
 $buyer = $user('buyer');
-$local = $user('courier', ['logistics_owner_id' => $source->id]);
-$driver = $user('courier', ['logistics_owner_id' => $source->id, 'hub_transfer_only' => true, 'vehicle_capacity_grams' => 100000, 'vehicle_capacity_verified_at' => now(), 'vehicle_capacity_verified_by' => $admin->id]);
+$local = $user('courier', ['logistics_owner_id' => $source->id, 'work_availability' => 'available']);
+$driver = $user('courier', ['logistics_owner_id' => $source->id, 'work_availability' => 'available', 'hub_transfer_only' => true, 'vehicle_capacity_grams' => 100000, 'vehicle_capacity_verified_at' => now(), 'vehicle_capacity_verified_by' => $admin->id]);
 $area = Area::create(['name' => 'Audit destination', 'code' => 'AUDIT-DEST', 'is_active' => true, 'sorting_center_id' => $destination->id]);
 $sourceArea = Area::create(['name' => 'Audit source', 'code' => 'AUDIT-SRC', 'is_active' => true, 'sorting_center_id' => $source->id]);
 $driver->serviceAreas()->attach($sourceArea->id, ['is_active' => true, 'is_primary' => true]);
@@ -110,7 +111,7 @@ $results['driver_analytics'] = ['assigned_transfer_visible' => $app->make(Analyt
 $driver->forceFill(['status' => 'suspended'])->save();
 $app->make(LogisticsExceptionService::class)->openForRiderSuspension($driver, $admin, 'Audit suspended hub driver.');
 $results['suspended_hub_driver'] = ['transfer_status' => $transfer->fresh()->status, 'recovery_exceptions' => DB::table('logistics_exceptions')->where('order_id', $parcel->id)->count()];
-$replacement = $user('courier', ['logistics_owner_id' => $source->id, 'hub_transfer_only' => true, 'vehicle_capacity_grams' => 100000, 'vehicle_capacity_verified_at' => now()]);
+$replacement = $user('courier', ['logistics_owner_id' => $source->id, 'work_availability' => 'available', 'hub_transfer_only' => true, 'vehicle_capacity_grams' => 100000, 'vehicle_capacity_verified_at' => now()]);
 try {
     $transfers->replaceCarrier($transfer, $admin, $replacement, 'EZP:'.$parcel->parcel_code, 'Audit physical replacement handover.');
     $results['suspended_hub_driver']['replacement_recorded'] = $transfer->fresh()->carrier_rider_id === $replacement->id;
@@ -136,7 +137,7 @@ $request->setUserResolver(fn () => $commerce);
 $app->make(AdminDisputeController::class)->resolve($request, $dispute, $app->make(OrderTransitionService::class), $app->make(OrderFinancialService::class));
 $results['return_approval'] = ['order_status_after_approval' => $delivered->fresh()->status, 'vehicle_verified' => $returnRider->vehicle_capacity_verified_at !== null, 'reserved_parcels' => $app->make(ParcelLoadService::class)->summary($returnRider)['count'], 'refund_status' => $delivered->refundExecutions()->first()?->status];
 try {
-    $pickupRider = $user('courier', ['logistics_owner_id' => $source->id, 'vehicle_capacity_grams' => 100000, 'vehicle_capacity_verified_at' => now()]);
+    $pickupRider = $user('courier', ['logistics_owner_id' => $source->id, 'work_availability' => 'available', 'vehicle_capacity_grams' => 100000, 'vehicle_capacity_verified_at' => now()]);
     $returns = $app->make(ReturnPickupService::class);
     $returns->assign($delivered, $admin, $pickupRider);
     $returns->accept($delivered, $pickupRider);
@@ -152,7 +153,7 @@ $apiRequest->setUserResolver(fn () => $buyer);
 $completed->items()->create(['product_id' => $product->id, 'product_name' => 'Purchased audit item', 'unit_price' => 50, 'quantity' => 2, 'item_total' => 100]);
 ParcelTrackingEvent::create(['order_id' => $completed->id, 'actor_id' => $seller->id, 'event_type' => 'audit_note', 'status' => $completed->status, 'notes' => 'Preserved audit tracking note.']);
 try {
-    $response = $app->make(OrderApiController::class)->show($completed->id, $apiRequest, $app->make(DeliveryCodeService::class), $app->make(QrCodeService::class));
+    $response = $app->call([$app->make(OrderApiController::class), 'show'], ['id' => $completed->id, 'request' => $apiRequest]);
     $detail = $response->getData(true)['data'];
     $results['buyer_api_order_detail'] = ['http_status' => $response->getStatusCode(), 'discount' => $detail['discount'], 'item_price' => $detail['items'][0]['price'], 'item_total' => $detail['items'][0]['total'], 'item_name' => $detail['items'][0]['name'], 'tracking_note' => $detail['tracking_timeline'][0]['description']];
 } catch (Throwable $exception) {
