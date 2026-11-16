@@ -96,7 +96,9 @@ $defineApiRoutes = function () {
 
         // Profile & Security Management
         Route::put('/account/profile', [ProfileApiController::class, 'updateProfile']);
+        Route::post('/account/password/code', [ProfileApiController::class, 'requestPasswordCode'])->middleware('throttle:operational-action');
         Route::put('/account/password', [ProfileApiController::class, 'updatePassword']);
+        Route::patch('/account/password', [ProfileApiController::class, 'updatePassword']);
         Route::post('/account/appearance', [ProfileApiController::class, 'updateAppearance']);
         Route::get('/account/profile/media/{type}', [ProfileApiController::class, 'media']);
 

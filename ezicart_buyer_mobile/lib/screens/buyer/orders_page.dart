@@ -402,9 +402,16 @@ class _OrdersPageState extends State<OrdersPage> with SingleTickerProviderStateM
                       itemBuilder: (context, i) {
                         final order = _orders[i];
                         final isAwaitingWallet = order.isAwaitingWalletPayment;
-                        final statusColor = isAwaitingWallet ? const Color(0xFFD97706) : _getStatusColor(order.status);
-                        final statusIcon = isAwaitingWallet ? Icons.hourglass_top : _getStatusIcon(order.status);
-                        final displayStatusLabel = isAwaitingWallet ? 'AWAITING WALLET PAYMENT' : order.statusLabel.toUpperCase();
+                        final hasPendingCancel = order.hasPendingCancellation;
+                        final statusColor = hasPendingCancel
+                            ? const Color(0xFFDC2626)
+                            : (isAwaitingWallet ? const Color(0xFFD97706) : _getStatusColor(order.status));
+                        final statusIcon = hasPendingCancel
+                            ? Icons.hourglass_top_outlined
+                            : (isAwaitingWallet ? Icons.hourglass_top : _getStatusIcon(order.status));
+                        final displayStatusLabel = hasPendingCancel
+                            ? 'CANCELLATION PENDING'
+                            : (isAwaitingWallet ? 'AWAITING WALLET PAYMENT' : order.statusLabel.toUpperCase());
                         final totalQuantity = order.items.fold<int>(0, (sum, item) => sum + item.quantity);
 
                         return Container(
@@ -528,6 +535,32 @@ class _OrdersPageState extends State<OrdersPage> with SingleTickerProviderStateM
                                             const Icon(Icons.chevron_right, size: 14, color: Color(0xFFDC2626)),
                                           ],
                                         ),
+                                      ),
+                                    ),
+                                  ],
+
+                                  // Cancellation Pending Alert Banner
+                                  if (order.hasPendingCancellation) ...[
+                                    const SizedBox(height: 8),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFFFEF2F2),
+                                        borderRadius: BorderRadius.circular(8),
+                                        border: Border.all(color: const Color(0xFFFECACA)),
+                                      ),
+                                      child: const Row(
+                                        children: [
+                                          Icon(Icons.hourglass_top_outlined, size: 14, color: Color(0xFFDC2626)),
+                                          SizedBox(width: 6),
+                                          Expanded(
+                                            child: Text(
+                                              'Cancellation pending seller approval. Fulfillment is paused.',
+                                              style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Color(0xFF991B1B)),
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                          ),
+                                        ],
                                       ),
                                     ),
                                   ],
@@ -665,162 +698,176 @@ class _OrdersPageState extends State<OrdersPage> with SingleTickerProviderStateM
 
                                   // Footer: Total Amount & Action Buttons
                                   Row(
-                                    crossAxisAlignment: CrossAxisAlignment.end,
+                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    crossAxisAlignment: CrossAxisAlignment.center,
                                     children: [
-                                      Expanded(
-                                        child: Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
-                                          children: [
-                                            Text(
-                                              '$totalQuantity item${totalQuantity > 1 ? "s" : ""}, Order Total:',
-                                              style: const TextStyle(fontSize: 11, color: AppTheme.muted),
-                                              overflow: TextOverflow.ellipsis,
-                                            ),
-                                            Text(
-                                              currency.format(order.totalAmount),
-                                              style: const TextStyle(
-                                                fontWeight: FontWeight.bold,
-                                                fontSize: 15.5,
-                                                color: AppTheme.primary,
-                                              ),
-                                            ),
-                                          ],
-                                        ),
+                                      Text(
+                                        '$totalQuantity item${totalQuantity > 1 ? "s" : ""}',
+                                        style: const TextStyle(fontSize: 11.5, color: AppTheme.muted),
                                       ),
-                                      const SizedBox(width: 8),
-                                      Wrap(
-                                        spacing: 6,
-                                        runSpacing: 6,
-                                        alignment: WrapAlignment.end,
+                                      Row(
+                                        mainAxisSize: MainAxisSize.min,
                                         children: [
-                                          OutlinedButton.icon(
-                                            style: OutlinedButton.styleFrom(
-                                              foregroundColor: AppTheme.primary,
-                                              side: const BorderSide(color: Color(0xFFFBCFE8)),
-                                              minimumSize: const Size(0, 32),
-                                              padding: const EdgeInsets.symmetric(horizontal: 8),
-                                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                                            ),
-                                            icon: const Icon(Icons.timeline, size: 13),
-                                            label: const Text('Journey', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
-                                            onPressed: () {
-                                              Navigator.of(context).push(
-                                                MaterialPageRoute(
-                                                  builder: (_) => ParcelEvidencePage(orderId: order.id),
-                                                ),
-                                              );
-                                            },
+                                          const Text(
+                                            'Order Total: ',
+                                            style: TextStyle(fontSize: 11.5, color: AppTheme.muted),
                                           ),
-                                          if (order.isAwaitingWalletPayment)
-                                            ElevatedButton.icon(
-                                              style: ElevatedButton.styleFrom(
-                                                backgroundColor: AppTheme.primary,
-                                                foregroundColor: Colors.white,
-                                                minimumSize: const Size(0, 32),
-                                                padding: const EdgeInsets.symmetric(horizontal: 9),
-                                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                                                elevation: 0,
-                                              ),
-                                              icon: const Icon(Icons.account_balance_wallet, size: 13),
-                                              label: const Text('Pay', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
-                                              onPressed: () {
-                                                WalletPaymentDialog.show(
-                                                  context,
-                                                  order: order,
-                                                  onPaymentSuccess: () => _fetchOrders(),
-                                                );
-                                              },
+                                          Text(
+                                            currency.format(order.totalAmount),
+                                            style: const TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 15.5,
+                                              color: AppTheme.primary,
                                             ),
-                                          if (order.status == 'DELIVERED')
-                                            ElevatedButton.icon(
-                                              style: ElevatedButton.styleFrom(
-                                                backgroundColor: const Color(0xFF16A34A),
-                                                foregroundColor: Colors.white,
-                                                minimumSize: const Size(0, 32),
-                                                padding: const EdgeInsets.symmetric(horizontal: 9),
-                                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                                                elevation: 0,
-                                              ),
-                                              icon: const Icon(Icons.check, size: 14),
-                                              label: const Text('Received', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
-                                              onPressed: () => _confirmReceipt(order),
-                                            ),
-                                          if (order.dispute != null)
-                                            Container(
-                                              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 5),
-                                              decoration: BoxDecoration(
-                                                color: const Color(0xFFEFF6FF),
-                                                borderRadius: BorderRadius.circular(6),
-                                              ),
-                                              child: Text(
-                                                'Dispute: ${order.dispute!.status.replaceAll('_', ' ')}',
-                                                style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: Color(0xFF1D4ED8)),
-                                              ),
-                                            ),
-                                          if (order.returnPickup != null ||
-                                              (order.dispute != null &&
-                                                  ['REFUND_APPROVED', 'REPLACEMENT_APPROVED'].contains(order.dispute!.status)))
-                                            OutlinedButton.icon(
-                                              style: OutlinedButton.styleFrom(
-                                                foregroundColor: const Color(0xFF16A34A),
-                                                side: const BorderSide(color: Color(0xFF86EFAC)),
-                                                minimumSize: const Size(0, 32),
-                                                padding: const EdgeInsets.symmetric(horizontal: 8),
-                                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                                              ),
-                                              icon: const Icon(Icons.assignment_return_outlined, size: 13),
-                                              label: const Text('Return Pickup', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
-                                              onPressed: () {
-                                                Navigator.of(context).push(
-                                                  MaterialPageRoute(builder: (_) => const ReturnPickupsPage()),
-                                                );
-                                              },
-                                            ),
-                                          if (order.hasPendingCancellation)
-                                            Container(
-                                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-                                              decoration: BoxDecoration(
-                                                color: const Color(0xFFFEF2F2),
-                                                borderRadius: BorderRadius.circular(8),
-                                                border: Border.all(color: const Color(0xFFFECACA)),
-                                              ),
-                                              child: const Text(
-                                                'Cancellation pending',
-                                                style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF991B1B)),
-                                              ),
-                                            )
-                                          else if (!order.isAwaitingWalletPayment && ['PLACED', 'CONFIRMED', 'PREPARING'].contains(order.status))
-                                            OutlinedButton(
-                                              style: OutlinedButton.styleFrom(
-                                                foregroundColor: const Color(0xFFDC2626),
-                                                side: const BorderSide(color: Color(0xFFFCA5A5)),
-                                                minimumSize: const Size(0, 32),
-                                                padding: const EdgeInsets.symmetric(horizontal: 9),
-                                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                                              ),
-                                              onPressed: () => _cancelOrder(order),
-                                              child: const Text('Cancel', style: TextStyle(fontSize: 11.5)),
-                                            ),
-                                          OutlinedButton(
-                                            style: OutlinedButton.styleFrom(
-                                              foregroundColor: AppTheme.ink,
-                                              side: const BorderSide(color: Color(0xFFD1D5DB)),
-                                              minimumSize: const Size(0, 32),
-                                              padding: const EdgeInsets.symmetric(horizontal: 9),
-                                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                                            ),
-                                            onPressed: () {
-                                              Navigator.of(context).push(
-                                                MaterialPageRoute(
-                                                  builder: (_) => OrderDetailsPage(orderId: order.id),
-                                                ),
-                                              ).then((_) => _fetchOrders());
-                                            },
-                                            child: const Text('Details', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600)),
                                           ),
                                         ],
                                       ),
                                     ],
+                                  ),
+                                  const SizedBox(height: 10),
+                                  Align(
+                                    alignment: Alignment.centerRight,
+                                    child: Wrap(
+                                      spacing: 6,
+                                      runSpacing: 6,
+                                      alignment: WrapAlignment.end,
+                                      crossAxisAlignment: WrapCrossAlignment.center,
+                                      children: [
+                                        OutlinedButton.icon(
+                                          style: OutlinedButton.styleFrom(
+                                            foregroundColor: AppTheme.primary,
+                                            side: const BorderSide(color: Color(0xFFFBCFE8)),
+                                            minimumSize: const Size(0, 32),
+                                            padding: const EdgeInsets.symmetric(horizontal: 8),
+                                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                          ),
+                                          icon: const Icon(Icons.timeline, size: 13),
+                                          label: const Text('Journey', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
+                                          onPressed: () {
+                                            Navigator.of(context).push(
+                                              MaterialPageRoute(
+                                                builder: (_) => ParcelEvidencePage(orderId: order.id),
+                                              ),
+                                            );
+                                          },
+                                        ),
+                                        if (order.isAwaitingWalletPayment)
+                                          ElevatedButton.icon(
+                                            style: ElevatedButton.styleFrom(
+                                              backgroundColor: AppTheme.primary,
+                                              foregroundColor: Colors.white,
+                                              minimumSize: const Size(0, 32),
+                                              padding: const EdgeInsets.symmetric(horizontal: 9),
+                                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                              elevation: 0,
+                                            ),
+                                            icon: const Icon(Icons.account_balance_wallet, size: 13),
+                                            label: const Text('Pay', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
+                                            onPressed: () {
+                                              WalletPaymentDialog.show(
+                                                context,
+                                                order: order,
+                                                onPaymentSuccess: () => _fetchOrders(),
+                                              );
+                                            },
+                                          ),
+                                        if (order.status == 'DELIVERED')
+                                          ElevatedButton.icon(
+                                            style: ElevatedButton.styleFrom(
+                                              backgroundColor: const Color(0xFF16A34A),
+                                              foregroundColor: Colors.white,
+                                              minimumSize: const Size(0, 32),
+                                              padding: const EdgeInsets.symmetric(horizontal: 9),
+                                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                              elevation: 0,
+                                            ),
+                                            icon: const Icon(Icons.check, size: 14),
+                                            label: const Text('Received', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
+                                            onPressed: () => _confirmReceipt(order),
+                                          ),
+                                        if (order.dispute != null)
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                                            decoration: BoxDecoration(
+                                              color: const Color(0xFFEFF6FF),
+                                              borderRadius: BorderRadius.circular(8),
+                                              border: Border.all(color: const Color(0xFFBFDBFE)),
+                                            ),
+                                            child: Text(
+                                              'Dispute: ${order.dispute!.status.replaceAll('_', ' ')}',
+                                              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF1D4ED8)),
+                                            ),
+                                          ),
+                                        if (order.returnPickup != null ||
+                                            (order.dispute != null &&
+                                                ['REFUND_APPROVED', 'REPLACEMENT_APPROVED'].contains(order.dispute!.status)))
+                                          OutlinedButton.icon(
+                                            style: OutlinedButton.styleFrom(
+                                              foregroundColor: const Color(0xFF16A34A),
+                                              side: const BorderSide(color: Color(0xFF86EFAC)),
+                                              minimumSize: const Size(0, 32),
+                                              padding: const EdgeInsets.symmetric(horizontal: 8),
+                                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                            ),
+                                            icon: const Icon(Icons.assignment_return_outlined, size: 13),
+                                            label: const Text('Return Pickup', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
+                                            onPressed: () {
+                                              Navigator.of(context).push(
+                                                MaterialPageRoute(builder: (_) => const ReturnPickupsPage()),
+                                              );
+                                            },
+                                          ),
+                                        if (order.hasPendingCancellation)
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                                            decoration: BoxDecoration(
+                                              color: const Color(0xFFFEF2F2),
+                                              borderRadius: BorderRadius.circular(8),
+                                              border: Border.all(color: const Color(0xFFFECACA)),
+                                            ),
+                                            child: const Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                Icon(Icons.hourglass_top_outlined, size: 12, color: Color(0xFF991B1B)),
+                                                SizedBox(width: 4),
+                                                Text(
+                                                  'Cancellation Pending',
+                                                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFF991B1B)),
+                                                ),
+                                              ],
+                                            ),
+                                          )
+                                        else if (!order.isAwaitingWalletPayment && ['PLACED', 'CONFIRMED', 'PREPARING'].contains(order.status))
+                                          OutlinedButton(
+                                            style: OutlinedButton.styleFrom(
+                                              foregroundColor: const Color(0xFFDC2626),
+                                              side: const BorderSide(color: Color(0xFFFCA5A5)),
+                                              minimumSize: const Size(0, 32),
+                                              padding: const EdgeInsets.symmetric(horizontal: 9),
+                                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                            ),
+                                            onPressed: () => _cancelOrder(order),
+                                            child: const Text('Cancel', style: TextStyle(fontSize: 11.5)),
+                                          ),
+                                        OutlinedButton(
+                                          style: OutlinedButton.styleFrom(
+                                            foregroundColor: AppTheme.ink,
+                                            side: const BorderSide(color: Color(0xFFD1D5DB)),
+                                            minimumSize: const Size(0, 32),
+                                            padding: const EdgeInsets.symmetric(horizontal: 9),
+                                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                          ),
+                                          onPressed: () {
+                                            Navigator.of(context).push(
+                                              MaterialPageRoute(
+                                                builder: (_) => OrderDetailsPage(orderId: order.id),
+                                              ),
+                                            ).then((_) => _fetchOrders());
+                                          },
+                                          child: const Text('Details', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600)),
+                                        ),
+                                      ],
+                                    ),
                                   ),
                                 ],
                               ),

@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use App\Services\BuyerAddressService;
+use App\Services\PasswordChangeService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -130,35 +131,77 @@ class ProfileApiController extends Controller
     }
 
     /**
-     * Update password
+     * Request a password verification code via email
      */
-    public function updatePassword(Request $request): JsonResponse
+    public function requestPasswordCode(Request $request, PasswordChangeService $passwordService): JsonResponse
+    {
+        /** @var User $user */
+        $user = $request->user();
+
+        $validated = $request->validate([
+            'current_password' => ['required', 'string'],
+        ]);
+
+        try {
+            $passwordService->request($user, $validated['current_password']);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => collect($e->errors())->flatten()->first() ?: 'Failed to send verification code.',
+                'errors' => $e->errors(),
+            ], 422);
+        } catch (\Throwable $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Unable to send verification code: ' . $e->getMessage(),
+            ], 500);
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'A password verification code was sent to your registered email address (' . $user->email . ').',
+        ]);
+    }
+
+    /**
+     * Update password with email verification code
+     */
+    public function updatePassword(Request $request, PasswordChangeService $passwordService): JsonResponse
     {
         /** @var User $buyer */
         $buyer = $request->user();
 
         $validated = $request->validate([
             'current_password' => ['required', 'string'],
-            'password' => ['required', 'string', PasswordRule::min(8)->max(128)->mixedCase()->numbers()->symbols(), 'confirmed'],
+            'password_code' => ['required', 'string', 'digits:6'],
+            'password' => [
+                'bail',
+                'required',
+                'string',
+                'confirmed',
+                PasswordRule::min(8)->max(128)->mixedCase()->numbers()->symbols(),
+                function (string $attribute, mixed $value, \Closure $fail) use ($buyer): void {
+                    if (is_string($value) && Hash::check($value, $buyer->password)) {
+                        $fail('Choose a password different from your current password.');
+                    }
+                },
+            ],
         ]);
 
-        if (! Hash::check($validated['current_password'], $buyer->password)) {
+        try {
+            $passwordService->change($buyer, $validated['password_code'], $validated['current_password'], $validated['password']);
+        } catch (\Illuminate\Validation\ValidationException $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'The provided current password does not match our records.',
+                'message' => collect($e->errors())->flatten()->first() ?: 'Failed to update password.',
+                'errors' => $e->errors(),
             ], 422);
-        }
-
-        if (Hash::check($validated['password'], $buyer->password)) {
+        } catch (\Throwable $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'New password must be different from your current password.',
-            ], 422);
+                'message' => 'An unexpected error occurred while updating password: ' . $e->getMessage(),
+            ], 500);
         }
-
-        $buyer->forceFill([
-            'password' => Hash::make($validated['password']),
-        ])->save();
 
         // Revoke other active sessions on other devices
         $currentToken = \App\Models\ApiToken::findByPlainTextToken($request->bearerToken());
@@ -168,7 +211,7 @@ class ProfileApiController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => 'Password updated successfully.',
+            'message' => 'Your password has been changed successfully.',
         ]);
     }
 }

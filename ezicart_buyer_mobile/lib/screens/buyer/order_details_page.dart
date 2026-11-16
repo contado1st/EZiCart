@@ -444,11 +444,15 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
                               vertical: 3,
                             ),
                             decoration: BoxDecoration(
-                              color: AppTheme.primary,
+                              color: _order!.hasPendingCancellation
+                                  ? const Color(0xFFDC2626)
+                                  : AppTheme.primary,
                               borderRadius: BorderRadius.circular(6),
                             ),
                             child: Text(
-                              _order!.statusLabel.toUpperCase(),
+                              _order!.hasPendingCancellation
+                                  ? 'CANCELLATION PENDING'
+                                  : _order!.statusLabel.toUpperCase(),
                               style: const TextStyle(
                                 color: Colors.white,
                                 fontSize: 11,
