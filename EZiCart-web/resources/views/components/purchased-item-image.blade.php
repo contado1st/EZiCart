@@ -1,6 +1,8 @@
 @props(['item'])
-@if($item->purchased_image_path)
-    <x-product-thumbnail :path="$item->purchased_image_path" :label="$item->product_name.' at purchase'" missing-label="Purchase image not recorded" />
-@else
-    <x-product-thumbnail :label="$item->product_name" missing-label="Purchase image not recorded" />
-@endif
+@php
+    $purchasePath = $item->purchased_image_path;
+    $catalogPath = $item->relationLoaded('product') ? $item->getRelation('product')?->image_path : null;
+    $displayPath = $purchasePath ?: $catalogPath;
+    $imageLabel = $item->product_name.($purchasePath ? ' at purchase' : ($catalogPath ? ' — current catalog image' : ''));
+@endphp
+<x-product-thumbnail :path="$displayPath" :label="$imageLabel" missing-label="Purchase image not recorded" />

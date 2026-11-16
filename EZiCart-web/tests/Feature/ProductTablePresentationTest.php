@@ -79,6 +79,37 @@ class ProductTablePresentationTest extends TestCase
         $this->actingAs($this->user('seller'))->get($url)->assertNotFound();
     }
 
+    public function test_buyer_and_seller_order_history_cards_preview_each_item_and_label_legacy_photos(): void
+    {
+        $seller = $this->user('seller');
+        $buyer = $this->user('buyer');
+        $currentPath = UploadedFile::fake()->image('current.jpg')->storeAs('products', 'current.jpg', 'public');
+        $purchasePath = UploadedFile::fake()->image('purchased.jpg')->storeAs('products', 'purchased.jpg', 'public');
+        $product = Product::forceCreate(['user_id' => $seller->id, 'name' => 'Current catalog name', 'category' => 'Home and Garden', 'price' => 100, 'stock' => 5, 'image_path' => $currentPath]);
+        $order = Order::forceCreate(['order_number' => 'HISTORY-'.Str::random(10), 'buyer_id' => $buyer->id, 'seller_id' => $seller->id,
+            'status' => 'CANCELLED', 'recipient_name' => 'History buyer', 'recipient_contact' => '09123456789', 'province' => 'Laguna', 'municipality' => 'Majayjay', 'barangay' => 'Poblacion', 'street_address' => 'Synthetic test address',
+            'subtotal' => 300, 'shipping_fee' => 50, 'total_amount' => 350, 'payment_method' => 'COD']);
+        foreach ([['Purchased item', $purchasePath, $product->id], ['Legacy item', null, $product->id], ['Retired item', null, null]] as [$name, $image, $productId]) {
+            OrderItem::create(['order_id' => $order->id, 'product_id' => $productId, 'product_name' => $name, 'variation_info' => 'Blue / Large', 'quantity' => 1, 'unit_price' => 100, 'item_total' => 100, 'purchased_image_path' => $image]);
+        }
+        foreach ([[$buyer, 'buyer.dashboard'], [$seller, 'seller.orders.index']] as [$actor, $route]) {
+            $this->flushSession();
+            Auth::forgetGuards();
+            $response = $this->actingAs($actor)->get(route($route))->assertOk()
+                ->assertSee(asset('storage/'.$purchasePath), false)->assertSee(asset('storage/'.$currentPath), false)
+                ->assertSee('Current catalog photo')->assertSee('Purchase image not recorded: Retired item')
+                ->assertSee('Blue / Large')->assertSee('Qty 1');
+            $dom = new \DOMDocument;
+            @$dom->loadHTML($response->getContent());
+            $xpath = new \DOMXPath($dom);
+            $this->assertCount(3, $xpath->query('//div[contains(@class,"order-item-row")]//span[contains(@class,"product-table-thumbnail")]'));
+            $this->assertCount(2, $xpath->query('//div[contains(@class,"order-item-row")]//img[@data-product-table-image]'));
+            $items = $response->viewData('orders')->first()->items;
+            $this->assertTrue($items->every(fn (OrderItem $item) => $item->relationLoaded('product')));
+        }
+        $this->assertNull($order->items()->where('product_name', 'Legacy item')->first()->purchased_image_path);
+    }
+
     private function user(string $role): User
     {
         return User::forceCreate(['first_name' => 'Example', 'last_name' => ucfirst($role), 'role' => $role, 'status' => 'approved',

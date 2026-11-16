@@ -76,15 +76,8 @@
                         <div class="order-item-listing">
                             @foreach ($order->items as $item)
                                 <div class="order-item-row" style="font-variant-numeric: tabular-nums;">
-                                    <div>
-                                        <strong>{{ $item->product_name }}</strong>
-                                        @if ($item->variation_info)
-                                            <span style="color: var(--dash-text-muted); font-size: 0.8125rem;">({{ $item->variation_info }})</span>
-                                        @endif
-                                        <span style="color: var(--dash-text-muted); font-size: 0.8125rem;">&times;
-                                            {{ $item->quantity }}</span>
-                                    </div>
-                                    <div style="font-weight: 600;">₱{{ number_format($item->item_total, 2) }}</div>
+                                    <x-order-item-preview :item="$item" />
+                                    <div class="order-item-line-total">₱{{ number_format($item->item_total, 2) }}</div>
                                 </div>
 
                                 <!-- Review Form for Completed Orders -->

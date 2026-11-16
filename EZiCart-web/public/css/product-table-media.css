@@ -10,5 +10,9 @@
 .order-table-products { display: grid; gap: 10px; margin-block: 10px 2px; max-width: 340px; }
 .order-table-products summary { cursor: pointer; font-size: 12px; }
 .ops-mono .product-table-item { font-family: var(--font-sans, sans-serif); }
+.order-item-row:has(> .order-item-preview) { gap: 16px; align-items: center; flex-wrap: wrap; }
+.order-item-row > .order-item-preview { flex: 1 1 200px; min-width: 0; }
+.order-item-line-total { margin-inline-start: auto; flex: 0 0 auto; font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.order-item-preview .order-item-image-note { color: var(--dash-text-muted, #657084); font-size: 11px; }
 @media (max-width: 600px) { .product-table-item { gap: 8px; } }
 @media print { .product-table-thumbnail { break-inside: avoid; print-color-adjust: exact; } }
