@@ -19,6 +19,20 @@ class UserModel {
   final bool hubTransferOnly;
   final String? municipality;
   final String? province;
+  final String? region;
+  final String? barangay;
+  final String? streetAddress;
+  final String? houseNumber;
+  final String? postalCode;
+  final String workAvailability;
+  final int workAvailabilityVersion;
+  final String? workAvailabilityChangedAt;
+  final int? logisticsOwnerId;
+  final String? profileDisplayName;
+  final String? profileBio;
+  final String? profileTheme;
+  final String? avatarUrl;
+  final bool hasAvatar;
 
   UserModel({
     required this.id,
@@ -39,6 +53,20 @@ class UserModel {
     this.hubTransferOnly = false,
     this.municipality,
     this.province,
+    this.region,
+    this.barangay,
+    this.streetAddress,
+    this.houseNumber,
+    this.postalCode,
+    this.workAvailability = 'available',
+    this.workAvailabilityVersion = 0,
+    this.workAvailabilityChangedAt,
+    this.logisticsOwnerId,
+    this.profileDisplayName,
+    this.profileBio,
+    this.profileTheme,
+    this.avatarUrl,
+    this.hasAvatar = false,
   });
 
   factory UserModel.fromJson(Map<String, dynamic> json) {
@@ -65,9 +93,29 @@ class UserModel {
       hubTransferOnly: json['hub_transfer_only'] == true || json['hub_transfer_only'] == 1,
       municipality: json['municipality']?.toString(),
       province: json['province']?.toString(),
+      region: json['region']?.toString(),
+      barangay: json['barangay']?.toString(),
+      streetAddress: json['street_address']?.toString(),
+      houseNumber: json['house_number']?.toString(),
+      postalCode: json['postal_code']?.toString(),
+      workAvailability: json['work_availability']?.toString() ?? 'available',
+      workAvailabilityVersion: parseInt(json['work_availability_version'], 0),
+      workAvailabilityChangedAt: json['work_availability_changed_at']?.toString(),
+      logisticsOwnerId: parseNullableInt(json['logistics_owner_id']),
+      profileDisplayName: json['profile_display_name']?.toString(),
+      profileBio: json['profile_bio']?.toString(),
+      profileTheme: json['profile_theme']?.toString(),
+      avatarUrl: json['avatar_url']?.toString(),
+      hasAvatar: json['has_avatar'] == true,
     );
   }
 
   String get fullName => name;
   bool get isApproved => status.toLowerCase() == 'approved';
+  bool get isAvailable => workAvailability.toLowerCase() == 'available';
+
+  String get vehicleCapacityKgFormatted {
+    if (vehicleCapacityGrams == null || vehicleCapacityGrams! <= 0) return 'Not recorded';
+    return '${(vehicleCapacityGrams! / 1000).toStringAsFixed(2)} kg';
+  }
 }

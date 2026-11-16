@@ -251,6 +251,56 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
+  Future<bool> refreshUser() async {
+    try {
+      final res = await ApiService.get(ApiConfig.meEndpoint);
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body);
+        if (data['user'] != null) {
+          _user = UserModel.fromJson(data['user']);
+          _badgeCode = _user?.badgeCode;
+          notifyListeners();
+          return true;
+        }
+      }
+    } catch (_) {}
+    return false;
+  }
+
+  Future<bool> updateWorkAvailability(String state, int version) async {
+    _isLoading = true;
+    _errorMessage = null;
+    notifyListeners();
+
+    try {
+      final res = await ApiService.post(ApiConfig.courierWorkAvailabilityEndpoint, {
+        'state': state,
+        'version': version,
+      });
+
+      dynamic data;
+      try {
+        data = jsonDecode(res.body);
+      } catch (_) {}
+      _isLoading = false;
+
+      if (res.statusCode == 200 && data is Map && data['success'] == true) {
+        await refreshUser();
+        notifyListeners();
+        return true;
+      } else {
+        _errorMessage = _extractErrorMessage(data, 'Could not update work availability.');
+        notifyListeners();
+        return false;
+      }
+    } catch (e) {
+      _isLoading = false;
+      _errorMessage = e.toString();
+      notifyListeners();
+      return false;
+    }
+  }
+
   Future<bool> rotateBadge() async {
     _isLoading = true;
     notifyListeners();

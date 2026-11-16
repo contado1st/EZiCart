@@ -6,23 +6,33 @@ use App\Enums\OrderStatus;
 use App\Http\Controllers\Controller;
 use App\Models\DeliveryAssignment;
 use App\Models\DeliveryAttempt;
+use App\Models\DispatchLocation;
+use App\Models\DispatchOffer;
 use App\Models\Order;
 use App\Models\OrderFinance;
 use App\Models\ParcelTrackingEvent;
+use App\Models\RemittanceBatch;
+use App\Models\StaffProfileRevision;
 use App\Models\User;
 use App\Notifications\OrderWorkflowNotification;
 use App\Services\AdministrativeAuditService;
 use App\Services\CheckoutPricingService;
 use App\Services\DeliveryCodeService;
 use App\Services\DirectMessagingService;
+use App\Services\DispatchLocationService;
+use App\Services\DispatchOfferService;
 use App\Services\FinancialLedgerService;
 use App\Services\LogisticsHubNotificationService;
 use App\Services\OrderFinancialService;
 use App\Services\OrderTransitionService;
 use App\Services\OrderWalletService;
 use App\Services\ParcelLoadService;
+use App\Services\RemittanceBatchService;
+use App\Services\ReturnPickupService;
 use App\Services\RiderBadgeService;
+use App\Services\RiderWorkAvailabilityService;
 use App\Services\TransactionAwareNotificationSender;
+use App\Services\UserDocumentService;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
@@ -983,6 +993,466 @@ class CourierApiController extends Controller
     }
 
     /**
+     * Get Courier Work Availability
+     */
+    public function workAvailability(Request $request): JsonResponse
+    {
+        /** @var User $courier */
+        $courier = $request->user();
+        $service = app(RiderWorkAvailabilityService::class);
+
+        return response()->json([
+            'success' => true,
+            'work_availability' => $courier->work_availability ?? 'available',
+            'version' => (int) ($courier->work_availability_version ?? 0),
+            'enforced' => $service->enforced(),
+            'changed_at' => $courier->work_availability_changed_at?->toIso8601String(),
+        ]);
+    }
+
+    /**
+     * Update Courier Work Availability
+     */
+    public function updateWorkAvailability(Request $request, RiderWorkAvailabilityService $availability): JsonResponse
+    {
+        $data = $request->validate([
+            'state' => ['required', 'in:available,unavailable'],
+            'version' => ['required', 'integer', 'min:0'],
+        ]);
+
+        /** @var User $courier */
+        $courier = $request->user();
+
+        try {
+            $released = $availability->choose($courier, $data['state'], (int) $data['version']);
+            $courier->refresh();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Work availability updated to ' . $data['state'] . '.',
+                'work_availability' => $courier->work_availability,
+                'version' => (int) $courier->work_availability_version,
+                'released' => $released,
+                'enforced' => $availability->enforced(),
+            ]);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage(),
+                'errors' => $e->errors(),
+            ], 422);
+        }
+    }
+
+    /**
+     * Get Weight & Load Planning for Courier
+     */
+    public function loadPlanning(Request $request, ParcelLoadService $loads): JsonResponse
+    {
+        /** @var User $courier */
+        $courier = $request->user();
+        $summary = $loads->summary($courier);
+
+        $orders = $loads->activeLoads($courier->id)
+            ->whereNotIn('status', ['CANCELLED', 'COMPLETED', 'DELIVERED', 'RETURNED_TO_SELLER'])
+            ->with(['seller', 'buyer', 'items'])
+            ->latest('id')
+            ->get()
+            ->map(fn (Order $o) => $this->formatOrder($o));
+
+        return response()->json([
+            'success' => true,
+            'summary' => [
+                'count' => $summary['count'],
+                'grams' => $summary['grams'],
+                'kg_formatted' => number_format($summary['grams'] / 1000, 2) . ' kg',
+                'capacity_grams' => $summary['capacity'],
+                'capacity_kg_formatted' => $summary['capacity'] ? number_format($summary['capacity'] / 1000, 2) . ' kg' : 'Unset',
+                'remaining_grams' => $summary['remaining'],
+                'remaining_kg_formatted' => $summary['remaining'] !== null ? number_format($summary['remaining'] / 1000, 2) . ' kg' : null,
+                'overweight' => (bool) $summary['overweight'],
+                'unknown_weight_count' => $summary['unknown'],
+                'offer_count' => $summary['offer_count'] ?? 0,
+                'offer_grams' => $summary['offer_grams'] ?? 0,
+                'hub_transfer_only' => (bool) $courier->hub_transfer_only,
+                'vehicle_type' => $courier->vehicle_type,
+                'plate_number' => $courier->plate_number,
+            ],
+            'orders' => $orders,
+        ]);
+    }
+
+    /**
+     * Get Automatic Dispatch Offers for Courier
+     */
+    public function dispatchOffers(Request $request): JsonResponse
+    {
+        /** @var User $courier */
+        $courier = $request->user();
+
+        $offers = DispatchOffer::where('rider_id', $courier->id)
+            ->with(['order.seller', 'order.buyer', 'cycle.hub'])
+            ->latest('id')
+            ->paginate(25);
+
+        $point = DispatchLocation::where('user_id', $courier->id)->first();
+
+        $formattedOffers = collect($offers->items())->map(function (DispatchOffer $offer) {
+            $isExpired = $offer->expires_at && $offer->expires_at->isPast();
+            return [
+                'id' => $offer->id,
+                'cycle_id' => $offer->dispatch_cycle_id,
+                'order_id' => $offer->order_id,
+                'order_number' => $offer->order?->order_number,
+                'order_status' => $offer->order?->status,
+                'status' => $offer->status,
+                'is_active' => $offer->status === 'PENDING' && ! $isExpired,
+                'is_expired' => $isExpired,
+                'weight_grams' => $offer->weight_grams,
+                'weight_kg' => number_format($offer->weight_grams / 1000, 2) . ' kg',
+                'payout_cents' => $offer->payout_cents,
+                'payout_pesos' => number_format($offer->payout_cents / 100, 2),
+                'expires_at' => $offer->expires_at?->toIso8601String(),
+                'response_reason' => $offer->response_reason,
+                'hub_name' => $offer->cycle?->hub?->business_name ?? $offer->cycle?->hub?->name,
+                'seller_name' => $offer->order?->seller?->business_name ?? $offer->order?->seller?->name,
+                'seller_address' => $offer->order?->seller?->municipality,
+                'delivery_area' => $offer->order?->delivery_area ?? $offer->order?->municipality,
+                'created_at' => $offer->created_at->toIso8601String(),
+            ];
+        });
+
+        return response()->json([
+            'success' => true,
+            'offers' => $formattedOffers,
+            'location_point' => $point ? [
+                'latitude' => $point->latitude,
+                'longitude' => $point->longitude,
+                'accuracy_meters' => $point->accuracy_meters,
+                'captured_at' => $point->captured_at?->toIso8601String(),
+            ] : null,
+            'pagination' => [
+                'current_page' => $offers->currentPage(),
+                'last_page' => $offers->lastPage(),
+                'total' => $offers->total(),
+            ],
+        ]);
+    }
+
+    /**
+     * Update Courier Device Position for Automatic Dispatch
+     */
+    public function updateDispatchPosition(Request $request, DispatchLocationService $locations): JsonResponse
+    {
+        $data = $request->validate([
+            'latitude' => ['required', 'numeric'],
+            'longitude' => ['required', 'numeric'],
+            'accuracy_meters' => ['required', 'numeric'],
+            'captured_at' => ['required', 'date'],
+        ]);
+
+        $locations->rider($request->user(), $data);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Device-reported position updated for automatic dispatch offers.',
+        ]);
+    }
+
+    /**
+     * Accept or Decline Dispatch Offer
+     */
+    public function respondDispatchOffer(Request $request, int $offerId, DispatchOfferService $offers): JsonResponse
+    {
+        $data = $request->validate([
+            'decision' => ['required', 'in:accept,decline'],
+            'reason' => ['nullable', 'string', 'max:500'],
+        ]);
+
+        $offer = DispatchOffer::findOrFail($offerId);
+        $result = $offers->respond($offer, $request->user(), $data['decision'] === 'accept', $data['reason'] ?? null);
+
+        return response()->json([
+            'success' => true,
+            'decision' => $data['decision'],
+            'result' => $result,
+            'message' => "Offer {$result}. Check your workboard for updated assignments.",
+        ]);
+    }
+
+    /**
+     * List Approved Return Pickups for Courier
+     */
+    public function returnPickups(Request $request): JsonResponse
+    {
+        /** @var User $courier */
+        $courier = $request->user();
+
+        $orders = Order::whereHas('dispute', fn ($query) => $query->whereIn('status', ['REFUND_APPROVED', 'REPLACEMENT_APPROVED']))
+            ->whereIn('status', ['DELIVERED', 'COMPLETED', 'RETURN_IN_TRANSIT', 'RETURNED_TO_SELLER'])
+            ->where(fn ($q) => $q->whereHas('returnPickupAssignment', fn ($assignment) => $assignment->where('rider_id', $courier->id))
+                ->orWhere(fn ($return) => $return->where('status', 'RETURN_IN_TRANSIT')->where('delivery_courier_id', $courier->id)))
+            ->with(['buyer', 'seller', 'dispute', 'returnPickupAssignment.rider', 'trackingEvents'])
+            ->latest('id')
+            ->paginate(20);
+
+        $data = collect($orders->items())->map(function (Order $order) use ($courier) {
+            $assignment = $order->returnPickupAssignment;
+            $handedOver = $assignment && $order->trackingEvents->where('event_type', 'return_buyer_handover')->where('actor_id', $order->buyer_id)->where('notes', 'Return pickup assignment #'.$assignment->id)->isNotEmpty();
+            $canAccept = $assignment && $assignment->rider_id === $courier->id && $assignment->accepted_at === null;
+            $canCollect = $assignment && $assignment->rider_id === $courier->id && $assignment->accepted_at !== null && $handedOver && in_array($order->status, ['DELIVERED', 'COMPLETED'], true);
+            $canReturnHandover = $order->status === 'RETURN_IN_TRANSIT' && $order->delivery_courier_id === $courier->id && ! $order->return_handed_to_seller_at;
+
+            return [
+                'id' => $order->id,
+                'order_number' => $order->order_number,
+                'parcel_code' => $order->parcel_code,
+                'status' => $order->status,
+                'operational_status' => $order->operational_status,
+                'total_amount' => (float) $order->total_amount,
+                'seller' => [
+                    'id' => $order->seller?->id,
+                    'name' => $order->seller?->business_name ?? $order->seller?->first_name,
+                    'contact_no' => $order->seller?->contact_no,
+                    'address' => trim(($order->seller?->house_number ? $order->seller->house_number . ' ' : '') . ($order->seller?->street_address ?? '')),
+                    'municipality' => $order->seller?->municipality,
+                    'barangay' => $order->seller?->barangay,
+                ],
+                'buyer' => [
+                    'id' => $order->buyer?->id,
+                    'name' => trim("{$order->buyer?->first_name} {$order->buyer?->last_name}"),
+                    'contact_no' => $order->buyer?->contact_no,
+                    'address' => trim(($order->house_number ? $order->house_number . ' ' : '') . ($order->street_address ?? '')),
+                    'municipality' => $order->municipality,
+                    'barangay' => $order->barangay,
+                ],
+                'dispute_status' => $order->dispute?->status,
+                'dispute_reason' => $order->dispute?->reason,
+                'dispute_resolution' => $order->dispute?->resolution,
+                'is_accepted' => $assignment?->accepted_at !== null,
+                'accepted_at' => $assignment?->accepted_at?->toIso8601String(),
+                'is_handed_over' => $handedOver,
+                'can_accept' => $canAccept,
+                'can_collect' => $canCollect,
+                'can_return_handover' => $canReturnHandover,
+            ];
+        });
+
+        return response()->json([
+            'success' => true,
+            'data' => $data,
+            'current_page' => $orders->currentPage(),
+            'last_page' => $orders->lastPage(),
+            'total' => $orders->total(),
+        ]);
+    }
+
+    /**
+     * Accept Return Pickup Assignment
+     */
+    public function acceptReturnPickup(Request $request, int $orderId, ReturnPickupService $service): JsonResponse
+    {
+        $order = Order::findOrFail($orderId);
+        $service->accept($order, $request->user());
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Return pickup accepted. Wait for buyer handover confirmation before collection.',
+        ]);
+    }
+
+    /**
+     * Collect Return Parcel by Scanning Reference
+     */
+    public function collectReturnPickup(Request $request, int $orderId, ReturnPickupService $service): JsonResponse
+    {
+        $data = $request->validate([
+            'parcel_reference' => ['required', 'string', 'max:100'],
+        ]);
+
+        $order = Order::findOrFail($orderId);
+        $ref = trim($data['parcel_reference']);
+        if (! str_starts_with($ref, 'EZP:')) {
+            $ref = 'EZP:' . $ref;
+        }
+
+        $service->collect($order, $request->user(), $ref);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Return parcel collected. It is now in transit to the merchant.',
+        ]);
+    }
+
+    /**
+     * Get Remittance Batches and Pending Collections
+     */
+    public function remittanceBatches(Request $request): JsonResponse
+    {
+        /** @var User $courier */
+        $courier = $request->user();
+
+        $batches = RemittanceBatch::where('rider_id', $courier->id)
+            ->with(['hub', 'items.orderFinance.order'])
+            ->latest('id')
+            ->paginate(20);
+
+        $pendingCollections = OrderFinance::where('remittance_status', 'COLLECTED')
+            ->where('collector_id', $courier->id)
+            ->with('order')
+            ->oldest('id')
+            ->get()
+            ->map(fn (OrderFinance $f) => [
+                'id' => $f->id,
+                'order_id' => $f->order_id,
+                'order_number' => $f->order?->order_number,
+                'collected_cents' => $f->collected_cents,
+                'collected_pesos' => number_format($f->collected_cents / 100, 2),
+                'collected_at' => $f->collected_at?->toIso8601String(),
+                'hub_id' => $f->order?->sorting_center_id,
+            ]);
+
+        $hubs = User::where('role', 'sorting_center')
+            ->where('status', 'approved')
+            ->select('id', 'first_name', 'last_name', 'business_name', 'municipality')
+            ->get()
+            ->map(fn (User $h) => [
+                'id' => $h->id,
+                'name' => $h->business_name ?: trim("{$h->first_name} {$h->last_name}"),
+                'municipality' => $h->municipality,
+            ]);
+
+        $formattedBatches = collect($batches->items())->map(fn (RemittanceBatch $b) => [
+            'id' => $b->id,
+            'batch_reference' => $b->batch_reference ?? ('BATCH-' . $b->id),
+            'hub_name' => $b->hub?->business_name ?? $b->hub?->name,
+            'expected_cents' => $b->expected_cents,
+            'expected_pesos' => number_format($b->expected_cents / 100, 2),
+            'submitted_cents' => $b->submitted_cents,
+            'submitted_pesos' => number_format($b->submitted_cents / 100, 2),
+            'received_cents' => $b->received_cents,
+            'received_pesos' => $b->received_cents ? number_format($b->received_cents / 100, 2) : null,
+            'status' => $b->status,
+            'has_evidence' => ! empty($b->evidence_path),
+            'has_receipt' => ! empty($b->receipt_path),
+            'notes' => $b->submission_notes,
+            'items_count' => $b->items->count(),
+            'created_at' => $b->created_at->toIso8601String(),
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'batches' => $formattedBatches,
+            'pending_collections' => $pendingCollections,
+            'hubs' => $hubs,
+            'pagination' => [
+                'current_page' => $batches->currentPage(),
+                'last_page' => $batches->lastPage(),
+                'total' => $batches->total(),
+            ],
+        ]);
+    }
+
+    /**
+     * Submit Remittance Batch
+     */
+    public function submitRemittanceBatch(Request $request, RemittanceBatchService $service): JsonResponse
+    {
+        $data = $request->validate([
+            'hub_id' => ['required', 'integer', 'exists:users,id'],
+            'finance_ids' => ['required', 'array', 'min:1', 'max:100'],
+            'finance_ids.*' => ['integer', 'distinct'],
+            'amount' => ['required', 'numeric', 'min:0', 'decimal:0,2'],
+            'reason' => ['required', 'string', 'min:5', 'max:500'],
+            'evidence' => ['required', 'file', 'mimes:jpg,jpeg,png,pdf', 'max:5120'],
+        ]);
+
+        $path = $request->file('evidence')->store('finance-evidence', 'private');
+
+        $hub = User::findOrFail($data['hub_id']);
+        $batch = $service->submit(
+            $request->user(),
+            $hub,
+            $data['finance_ids'],
+            CheckoutPricingService::cents($data['amount']),
+            $path,
+            $data['reason']
+        );
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Remittance batch submitted successfully. Awaiting hub physical receipt.',
+            'batch_id' => $batch->id,
+        ]);
+    }
+
+    /**
+     * Get Complete Rider Profile
+     */
+    public function riderProfile(Request $request, UserDocumentService $documents): JsonResponse
+    {
+        /** @var User $courier */
+        $courier = $request->user()->load(['serviceAreas', 'logisticsOwner']);
+        $submittedDocuments = $documents->submittedForReview($courier);
+        $pendingProfile = StaffProfileRevision::where('pending_user_id', $courier->id)
+            ->where('status', 'pending')
+            ->latest()
+            ->first();
+
+        return response()->json([
+            'success' => true,
+            'courier' => [
+                'id' => $courier->id,
+                'first_name' => $courier->first_name,
+                'middle_name' => $courier->middle_name,
+                'last_name' => $courier->last_name,
+                'name' => trim("{$courier->first_name} {$courier->last_name}"),
+                'email' => $courier->email,
+                'contact_no' => $courier->contact_no,
+                'role' => $courier->role,
+                'status' => $courier->status,
+                'badge_code' => $courier->badge_code,
+                'vehicle_type' => $courier->vehicle_type,
+                'plate_number' => $courier->plate_number,
+                'vehicle_category' => $courier->vehicle_category,
+                'vehicle_description' => $courier->vehicle_description,
+                'vehicle_capacity_grams' => $courier->vehicle_capacity_grams,
+                'vehicle_capacity_kg' => $courier->vehicle_capacity_grams ? number_format($courier->vehicle_capacity_grams / 1000, 2) . ' kg' : 'Unset',
+                'vehicle_capacity_verified_at' => $courier->vehicle_capacity_verified_at?->toIso8601String(),
+                'hub_transfer_only' => (bool) $courier->hub_transfer_only,
+                'work_availability' => $courier->work_availability ?? 'available',
+                'work_availability_version' => (int) ($courier->work_availability_version ?? 0),
+                'work_availability_changed_at' => $courier->work_availability_changed_at?->toIso8601String(),
+                'municipality' => $courier->municipality,
+                'province' => $courier->province,
+                'region' => $courier->region,
+                'barangay' => $courier->barangay,
+                'street_address' => $courier->street_address,
+                'house_number' => $courier->house_number,
+                'postal_code' => $courier->postal_code,
+                'logistics_owner' => $courier->logisticsOwner ? [
+                    'id' => $courier->logisticsOwner->id,
+                    'name' => $courier->logisticsOwner->business_name ?? trim("{$courier->logisticsOwner->first_name} {$courier->logisticsOwner->last_name}"),
+                    'contact_no' => $courier->logisticsOwner->contact_no,
+                ] : null,
+                'service_areas' => $courier->serviceAreas->map(fn ($area) => [
+                    'id' => $area->id,
+                    'name' => $area->name,
+                    'province' => $area->province,
+                    'municipality' => $area->municipality,
+                ]),
+                'submitted_documents' => $submittedDocuments,
+                'has_pending_profile_update' => $pendingProfile !== null,
+                'profile_display_name' => $courier->profile_display_name,
+                'profile_bio' => $courier->profile_bio,
+                'profile_theme' => $courier->profile_theme ?: 'rose',
+                'has_avatar' => !empty($courier->profile_avatar_path),
+                'avatar_url' => $courier->profile_avatar_path ? url('/api/account/profile/media/avatar?v='.($courier->updated_at?->timestamp ?? time())) : null,
+            ],
+        ]);
+    }
+
+    /**
      * Format Order Helper for JSON Responses
      */
     private function formatOrder(Order $order, bool $withTimeline = false): array
@@ -1014,7 +1484,9 @@ class CourierApiController extends Controller
             'total_amount_formatted' => number_format((float) $order->total_amount, 2),
             'notes' => $order->notes,
             'parcel_code' => $order->parcel_code,
-            'weight_grams' => $order->weight_grams,
+            'parcel_weight_grams' => $order->parcel_weight_grams ?? $order->weight_grams,
+            'weight_grams' => $order->parcel_weight_grams ?? $order->weight_grams,
+            'weight_kg' => ($order->parcel_weight_grams ?? $order->weight_grams) ? number_format(($order->parcel_weight_grams ?? $order->weight_grams) / 1000, 2) . ' kg' : 'Not recorded',
             'recipient_name' => $order->recipient_name ?? ($buyer ? trim("{$buyer->first_name} {$buyer->last_name}") : 'Recipient'),
             'recipient_contact' => $order->recipient_contact ?? $buyer?->contact_no,
             'delivery_area' => $order->delivery_area,

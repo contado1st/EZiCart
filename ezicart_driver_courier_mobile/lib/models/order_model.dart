@@ -100,6 +100,7 @@ class OrderModel {
   final String? notes;
   final String? parcelCode;
   final int? weightGrams;
+  final int? parcelWeightGrams;
 
   final String recipientName;
   final String? recipientContact;
@@ -140,6 +141,7 @@ class OrderModel {
     this.notes,
     this.parcelCode,
     this.weightGrams,
+    this.parcelWeightGrams,
     required this.recipientName,
     this.recipientContact,
     this.deliveryArea,
@@ -168,6 +170,12 @@ class OrderModel {
   });
 
   bool get isCod => paymentMethod.toUpperCase() == 'COD';
+
+  String get weightKgFormatted {
+    final g = parcelWeightGrams ?? weightGrams;
+    if (g == null || g <= 0) return 'Not recorded';
+    return '${(g / 1000).toStringAsFixed(2)} kg';
+  }
 
   factory OrderModel.fromJson(Map<String, dynamic> json) {
     final sellerMap = json['seller'] is Map ? json['seller'] as Map : {};
@@ -204,6 +212,7 @@ class OrderModel {
       notes: json['notes']?.toString(),
       parcelCode: json['parcel_code']?.toString(),
       weightGrams: parseNullableInt(json['weight_grams']),
+      parcelWeightGrams: parseNullableInt(json['parcel_weight_grams'] ?? json['weight_grams']),
       recipientName: json['recipient_name']?.toString() ?? 'Recipient',
       recipientContact: json['recipient_contact']?.toString(),
       deliveryArea: json['delivery_area']?.toString(),

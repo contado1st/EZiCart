@@ -64,6 +64,58 @@ $defineApiRoutes = function () {
     // Cart Quote (Public or Authenticated)
     Route::post('/cart/quote', [CartApiController::class, 'quote']);
 
+    // Shared Authenticated Routes (Buyer & Courier)
+    Route::middleware('auth.api:buyer,courier')->group(function () {
+        // Current User Profile & Logout
+        Route::get('/me', [AuthApiController::class, 'me']);
+        Route::get('/auth/me', [AuthApiController::class, 'me']);
+        Route::post('/logout', [AuthApiController::class, 'logout']);
+        Route::post('/auth/logout', [AuthApiController::class, 'logout']);
+
+        // Profile & Security Management
+        Route::put('/account/profile', [ProfileApiController::class, 'updateProfile']);
+        Route::post('/account/password/code', [ProfileApiController::class, 'requestPasswordCode'])->middleware('throttle:operational-action');
+        Route::put('/account/password', [ProfileApiController::class, 'updatePassword']);
+        Route::patch('/account/password', [ProfileApiController::class, 'updatePassword']);
+        Route::post('/account/appearance', [ProfileApiController::class, 'updateAppearance']);
+        Route::get('/account/profile/media/{type}', [ProfileApiController::class, 'media']);
+
+        // Notifications & Preferences
+        Route::get('/notifications', [NotificationApiController::class, 'index']);
+        Route::get('/notifications/unread-count', [NotificationApiController::class, 'unreadCount']);
+        Route::post('/notifications/read-all', [NotificationApiController::class, 'markAllRead']);
+        Route::post('/notifications/{id}/read', [NotificationApiController::class, 'markRead']);
+        Route::get('/notifications/preferences', [NotificationApiController::class, 'getPreferences']);
+        Route::patch('/notifications/preferences', [NotificationApiController::class, 'updatePreferences']);
+
+        // Wallet & Financial Records (synchronized with Web)
+        Route::get('/wallet', [WalletApiController::class, 'wallet']);
+        Route::post('/wallet/demo-funding', [WalletApiController::class, 'demoFunding'])->middleware('throttle:operational-action');
+        Route::get('/wallet/demo-funding/{id}/evidence', [WalletApiController::class, 'evidence'])->whereNumber('id');
+        Route::post('/wallet/withdraw', [WalletApiController::class, 'withdraw'])->middleware('throttle:operational-action');
+        Route::get('/finance/records', [WalletApiController::class, 'records']);
+
+        // Parcel Records - Synchronized with Web (Journey & Evidence, Incidents & Claims, Approved Return Pickups)
+        Route::get('/parcel-evidence', [ParcelRecordApiController::class, 'evidenceIndex']);
+        Route::get('/orders/{id}/evidence', [ParcelRecordApiController::class, 'evidenceShow'])->whereNumber('id');
+        Route::post('/orders/{id}/evidence', [ParcelRecordApiController::class, 'evidenceStore'])->whereNumber('id')->middleware('throttle:operational-action');
+        Route::get('/parcel-evidence/{id}/photo', [ParcelRecordApiController::class, 'evidencePhoto'])->whereNumber('id');
+        Route::get('/parcel-incidents', [ParcelRecordApiController::class, 'incidentsIndex']);
+        Route::get('/parcel-incidents/{id}', [ParcelRecordApiController::class, 'incidentShow'])->whereNumber('id');
+        Route::get('/parcel-incidents/{id}/evidence/{which}', [ParcelRecordApiController::class, 'incidentEvidence'])->whereNumber('id');
+        Route::get('/return-pickups', [ParcelRecordApiController::class, 'returnPickupsIndex']);
+        Route::post('/return-pickups/{id}/handover', [ParcelRecordApiController::class, 'returnPickupHandover'])->whereNumber('id')->middleware('throttle:operational-action');
+
+        // Chat & Messaging
+        Route::get('/chat/threads', [ChatApiController::class, 'threads']);
+        Route::get('/chat/{conversation}', [ChatApiController::class, 'show'])->whereNumber('conversation');
+        Route::post('/chat/{conversation}/messages', [ChatApiController::class, 'sendMessage'])->whereNumber('conversation')->middleware('throttle:operational-action');
+        Route::delete('/chat/{conversation}/messages/{message}', [ChatApiController::class, 'unsendMessage'])->whereNumber(['conversation', 'message'])->middleware('throttle:operational-action');
+        Route::delete('/chat/{conversation}/attachments/{attachment}', [ChatApiController::class, 'unsendAttachment'])->whereNumber(['conversation', 'attachment'])->middleware('throttle:operational-action');
+        Route::post('/chat/start/{sellerId}', [ChatApiController::class, 'start'])->whereNumber('sellerId')->middleware('throttle:operational-action');
+        Route::get('/chat/attachments/{attachment}', [ChatApiController::class, 'attachment'])->whereNumber('attachment');
+    });
+
     // Authenticated Buyer Only Routes
     Route::middleware('auth.api:buyer')->group(function () {
         // Persistent Buyer Cart (synchronized with Web database)
@@ -81,31 +133,9 @@ $defineApiRoutes = function () {
         Route::post('/wishlist/{product}', [WishlistApiController::class, 'store'])->whereNumber('product')->middleware('throttle:operational-action');
         Route::delete('/wishlist/{product}', [WishlistApiController::class, 'destroy'])->whereNumber('product')->middleware('throttle:operational-action');
 
-        // Current User Profile & Logout
-        Route::get('/me', [AuthApiController::class, 'me']);
-        Route::get('/auth/me', [AuthApiController::class, 'me']);
-        Route::post('/logout', [AuthApiController::class, 'logout']);
-        Route::post('/auth/logout', [AuthApiController::class, 'logout']);
-
-        // Profile & Security Management
-        Route::put('/account/profile', [ProfileApiController::class, 'updateProfile']);
-        Route::post('/account/password/code', [ProfileApiController::class, 'requestPasswordCode'])->middleware('throttle:operational-action');
-        Route::put('/account/password', [ProfileApiController::class, 'updatePassword']);
-        Route::patch('/account/password', [ProfileApiController::class, 'updatePassword']);
-        Route::post('/account/appearance', [ProfileApiController::class, 'updateAppearance']);
-        Route::get('/account/profile/media/{type}', [ProfileApiController::class, 'media']);
-
         // Seller Shop Following
         Route::post('/shops/{id}/follow', [ShopApiController::class, 'follow'])->whereNumber('id')->middleware('throttle:operational-action');
         Route::get('/buyer/followed-shops', [ShopApiController::class, 'followedShops']);
-
-        // Notifications & Preferences
-        Route::get('/notifications', [NotificationApiController::class, 'index']);
-        Route::get('/notifications/unread-count', [NotificationApiController::class, 'unreadCount']);
-        Route::post('/notifications/read-all', [NotificationApiController::class, 'markAllRead']);
-        Route::post('/notifications/{id}/read', [NotificationApiController::class, 'markRead']);
-        Route::get('/notifications/preferences', [NotificationApiController::class, 'getPreferences']);
-        Route::patch('/notifications/preferences', [NotificationApiController::class, 'updatePreferences']);
 
         // Checkout & Orders
         Route::post('/checkout', [CheckoutApiController::class, 'checkout'])->middleware('throttle:operational-action');
@@ -118,28 +148,10 @@ $defineApiRoutes = function () {
         Route::post('/orders/{id}/wallet-pay', [WalletApiController::class, 'payOrder'])->whereNumber('id')->middleware('throttle:operational-action');
         Route::post('/orders/{id}/wallet-cancel', [WalletApiController::class, 'cancelOrder'])->whereNumber('id')->middleware('throttle:operational-action');
 
-        // Buyer Wallet & Financial Records (synchronized with Web)
-        Route::get('/wallet', [WalletApiController::class, 'wallet']);
-        Route::post('/wallet/demo-funding', [WalletApiController::class, 'demoFunding'])->middleware('throttle:operational-action');
-        Route::get('/wallet/demo-funding/{id}/evidence', [WalletApiController::class, 'evidence'])->whereNumber('id');
-        Route::post('/wallet/withdraw', [WalletApiController::class, 'withdraw'])->middleware('throttle:operational-action');
-        Route::get('/finance/records', [WalletApiController::class, 'records']);
-
         // Order Disputes & Returns
         Route::get('/disputes', [OrderApiController::class, 'disputesList']);
         Route::get('/orders/{id}/dispute', [OrderApiController::class, 'getDispute'])->whereNumber('id');
         Route::post('/orders/{id}/dispute', [OrderApiController::class, 'createDispute'])->whereNumber('id');
-
-        // Parcel Records - Synchronized with Web (Journey & Evidence, Incidents & Claims, Approved Return Pickups)
-        Route::get('/parcel-evidence', [ParcelRecordApiController::class, 'evidenceIndex']);
-        Route::get('/orders/{id}/evidence', [ParcelRecordApiController::class, 'evidenceShow'])->whereNumber('id');
-        Route::post('/orders/{id}/evidence', [ParcelRecordApiController::class, 'evidenceStore'])->whereNumber('id')->middleware('throttle:operational-action');
-        Route::get('/parcel-evidence/{id}/photo', [ParcelRecordApiController::class, 'evidencePhoto'])->whereNumber('id');
-        Route::get('/parcel-incidents', [ParcelRecordApiController::class, 'incidentsIndex']);
-        Route::get('/parcel-incidents/{id}', [ParcelRecordApiController::class, 'incidentShow'])->whereNumber('id');
-        Route::get('/parcel-incidents/{id}/evidence/{which}', [ParcelRecordApiController::class, 'incidentEvidence'])->whereNumber('id');
-        Route::get('/return-pickups', [ParcelRecordApiController::class, 'returnPickupsIndex']);
-        Route::post('/return-pickups/{id}/handover', [ParcelRecordApiController::class, 'returnPickupHandover'])->whereNumber('id')->middleware('throttle:operational-action');
 
         // Vouchers & Claims
         Route::get('/vouchers', [VoucherApiController::class, 'index']);
@@ -158,15 +170,6 @@ $defineApiRoutes = function () {
         Route::put('/addresses/{id}', [AddressApiController::class, 'update'])->whereNumber('id');
         Route::delete('/addresses/{id}', [AddressApiController::class, 'destroy'])->whereNumber('id');
         Route::patch('/addresses/{id}/default', [AddressApiController::class, 'makeDefault'])->whereNumber('id');
-
-        // Chat & Messaging
-        Route::get('/chat/threads', [ChatApiController::class, 'threads']);
-        Route::get('/chat/{conversation}', [ChatApiController::class, 'show'])->whereNumber('conversation');
-        Route::post('/chat/{conversation}/messages', [ChatApiController::class, 'sendMessage'])->whereNumber('conversation')->middleware('throttle:operational-action');
-        Route::delete('/chat/{conversation}/messages/{message}', [ChatApiController::class, 'unsendMessage'])->whereNumber(['conversation', 'message'])->middleware('throttle:operational-action');
-        Route::delete('/chat/{conversation}/attachments/{attachment}', [ChatApiController::class, 'unsendAttachment'])->whereNumber(['conversation', 'attachment'])->middleware('throttle:operational-action');
-        Route::post('/chat/start/{sellerId}', [ChatApiController::class, 'start'])->whereNumber('sellerId')->middleware('throttle:operational-action');
-        Route::get('/chat/attachments/{attachment}', [ChatApiController::class, 'attachment'])->whereNumber('attachment');
     });
 
     // Authenticated Driver & Courier Routes
@@ -177,6 +180,29 @@ $defineApiRoutes = function () {
         Route::post('/auth/logout', [AuthApiController::class, 'logout']);
         Route::put('/password', [ProfileApiController::class, 'updatePassword']);
         Route::put('/account/password', [ProfileApiController::class, 'updatePassword']);
+        Route::get('/profile', [CourierApiController::class, 'riderProfile']);
+
+        // Work Availability
+        Route::get('/work-availability', [CourierApiController::class, 'workAvailability']);
+        Route::patch('/work-availability', [CourierApiController::class, 'updateWorkAvailability'])->middleware('throttle:operational-action');
+        Route::post('/work-availability', [CourierApiController::class, 'updateWorkAvailability'])->middleware('throttle:operational-action');
+
+        // Weight & Load Planning
+        Route::get('/load-planning', [CourierApiController::class, 'loadPlanning']);
+
+        // Automatic Dispatch Offers & GPS Position Reporting
+        Route::get('/dispatch-offers', [CourierApiController::class, 'dispatchOffers']);
+        Route::post('/dispatch-offers/position', [CourierApiController::class, 'updateDispatchPosition'])->middleware('throttle:10,1');
+        Route::post('/dispatch-offers/{offer}/respond', [CourierApiController::class, 'respondDispatchOffer'])->whereNumber('offer')->middleware('throttle:operational-action');
+
+        // Approved Return Pickups (Courier side)
+        Route::get('/return-pickups', [CourierApiController::class, 'returnPickups']);
+        Route::post('/return-pickups/{id}/accept', [CourierApiController::class, 'acceptReturnPickup'])->whereNumber('id')->middleware('throttle:operational-action');
+        Route::post('/return-pickups/{id}/collect', [CourierApiController::class, 'collectReturnPickup'])->whereNumber('id')->middleware('throttle:operational-action');
+
+        // Finance & Remittance Batches
+        Route::get('/finance/remittance-batches', [CourierApiController::class, 'remittanceBatches']);
+        Route::post('/finance/remittance-batches', [CourierApiController::class, 'submitRemittanceBatch'])->middleware('throttle:operational-action');
 
         Route::get('/dashboard', [CourierApiController::class, 'dashboard']);
         Route::post('/badge/rotate', [CourierApiController::class, 'rotateBadge']);

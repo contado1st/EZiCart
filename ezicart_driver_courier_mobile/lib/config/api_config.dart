@@ -104,4 +104,62 @@ class ApiConfig {
   static String get earningsEndpoint => '$baseUrl/courier/earnings';
   static String remittanceEndpoint(int id) => '$baseUrl/courier/orders/$id/remittance';
   static String orderMessagesEndpoint(int id) => '$baseUrl/courier/orders/$id/messages';
+
+  // Work Availability
+  static String get courierWorkAvailabilityEndpoint => '$baseUrl/courier/work-availability';
+
+  // Weight & Load Planning
+  static String get courierLoadPlanningEndpoint => '$baseUrl/courier/load-planning';
+
+  // Automatic Dispatch
+  static String get courierDispatchOffersEndpoint => '$baseUrl/courier/dispatch-offers';
+  static String get courierDispatchPositionEndpoint => '$baseUrl/courier/dispatch-offers/position';
+  static String courierRespondDispatchOfferEndpoint(int offerId) => '$baseUrl/courier/dispatch-offers/$offerId/respond';
+
+  // Approved Return Pickups
+  static String get courierReturnPickupsEndpoint => '$baseUrl/courier/return-pickups';
+  static String courierAcceptReturnPickupEndpoint(int orderId) => '$baseUrl/courier/return-pickups/$orderId/accept';
+  static String courierCollectReturnPickupEndpoint(int orderId) => '$baseUrl/courier/return-pickups/$orderId/collect';
+
+  // Finance & Remittance Batches
+  static String get courierRemittanceBatchesEndpoint => '$baseUrl/courier/finance/remittance-batches';
+  static String get courierSubmitRemittanceBatchEndpoint => '$baseUrl/courier/finance/remittance-batches';
+
+  // Profile & Appearance
+  static String get courierProfileEndpoint => '$baseUrl/courier/profile';
+  static String get updateProfileEndpoint => '$baseUrl/account/profile';
+  static String get updateAppearanceEndpoint => '$baseUrl/account/appearance';
+  static String profileMediaEndpoint(String type) => '$baseUrl/account/profile/media/$type';
+
+  // Notifications
+  static String get notificationsEndpoint => '$baseUrl/notifications';
+  static String get notificationsUnreadCountEndpoint => '$baseUrl/notifications/unread-count';
+  static String get markAllNotificationsReadEndpoint => '$baseUrl/notifications/read-all';
+  static String markNotificationReadEndpoint(String id) => '$baseUrl/notifications/$id/read';
+  static String get notificationPreferencesEndpoint => '$baseUrl/notifications/preferences';
+
+  // Parcel Records (Journey & Evidence, Incidents & Claims)
+  static String get parcelEvidenceEndpoint => '$baseUrl/parcel-evidence';
+  static String orderEvidenceEndpoint(int id) => '$baseUrl/orders/$id/evidence';
+  static String parcelEvidencePhotoEndpoint(int id) => '$baseUrl/parcel-evidence/$id/photo';
+  static String get parcelIncidentsEndpoint => '$baseUrl/parcel-incidents';
+  static String parcelIncidentDetailEndpoint(int id) => '$baseUrl/parcel-incidents/$id';
+  static String parcelIncidentEvidenceEndpoint(int id, String which) => '$baseUrl/parcel-incidents/$id/evidence/$which';
+  static String get returnPickupsEndpoint => '$baseUrl/return-pickups';
+  static String returnPickupHandoverEndpoint(int id) => '$baseUrl/return-pickups/$id/handover';
+
+  // Finance & Wallet
+  static String get walletEndpoint => '$baseUrl/wallet';
+  static String get walletDemoFundingEndpoint => '$baseUrl/wallet/demo-funding';
+  static String get walletWithdrawEndpoint => '$baseUrl/wallet/withdraw';
+  static String get financeRecordsEndpoint => '$baseUrl/finance/records';
+
+  // Chat & Messaging
+  static String get chatThreadsEndpoint => '$baseUrl/chat/threads';
+  static String chatConversationEndpoint(int id) => '$baseUrl/chat/$id';
+  static String chatSendMessageEndpoint(int id) => '$baseUrl/chat/$id/messages';
+  static String chatUnsendMessageEndpoint(int conversationId, int messageId) => '$baseUrl/chat/$conversationId/messages/$messageId';
+  static String chatUnsendAttachmentEndpoint(int conversationId, int attachmentId) => '$baseUrl/chat/$conversationId/attachments/$attachmentId';
+  static String chatStartEndpoint(int userId) => '$baseUrl/chat/start/$userId';
+  static String chatAttachmentEndpoint(int id) => '$baseUrl/chat/attachments/$id';
 }

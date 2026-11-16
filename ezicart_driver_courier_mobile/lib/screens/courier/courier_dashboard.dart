@@ -1,15 +1,29 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
+import '../../config/api_config.dart';
 import '../../config/theme.dart';
+import '../../models/user_model.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/courier_provider.dart';
+import '../../services/api_service.dart';
+import 'automatic_dispatch_page.dart';
 import 'change_password_page.dart';
 import 'earnings_page.dart';
 import 'history_page.dart';
+import 'load_planning_page.dart';
+import 'messages_page.dart';
+import 'notifications_page.dart';
 import 'order_details_page.dart';
+import 'parcel_evidence_page.dart';
+import 'parcel_incidents_page.dart';
+import 'return_pickups_page.dart';
 import 'rider_badge_page.dart';
+import 'rider_profile_page.dart';
 import 'tracking_page.dart';
+import 'wallet_page.dart';
+import 'work_availability_page.dart';
 import 'widgets/action_scan_dialog.dart';
 import 'widgets/complete_delivery_dialog.dart';
 import 'widgets/fail_delivery_dialog.dart';
@@ -25,13 +39,14 @@ class CourierDashboard extends StatefulWidget {
 
 class _CourierDashboardState extends State<CourierDashboard> with SingleTickerProviderStateMixin {
   late final TabController _tabController;
+  int _unreadNotifications = 0;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 6, vsync: this);
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<CourierProvider>().fetchDashboard();
+      _refresh();
     });
   }
 
@@ -41,8 +56,26 @@ class _CourierDashboardState extends State<CourierDashboard> with SingleTickerPr
     super.dispose();
   }
 
+  Future<void> _fetchUnreadNotifications() async {
+    try {
+      final res = await ApiService.get(ApiConfig.notificationsUnreadCountEndpoint);
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body);
+        if (mounted) {
+          setState(() {
+            _unreadNotifications = (data['unread_count'] as num?)?.toInt() ?? 0;
+          });
+        }
+      }
+    } catch (_) {}
+  }
+
   Future<void> _refresh() async {
-    await context.read<CourierProvider>().fetchDashboard();
+    await Future.wait([
+      context.read<CourierProvider>().fetchDashboard(),
+      context.read<AuthProvider>().refreshUser(),
+      _fetchUnreadNotifications(),
+    ]);
   }
 
   @override
@@ -52,26 +85,123 @@ class _CourierDashboardState extends State<CourierDashboard> with SingleTickerPr
     final user = auth.user;
     final stats = courierProv.stats;
 
-    final dateString = DateFormat('EEE, d MMM yyyy').format(DateTime.now());
+    final dateString = DateFormat('EEE, d MMM').format(DateTime.now());
+    final isAvailable = user?.workAvailability == 'available';
+    final dutyLabel = (user?.workAvailability ?? 'OFF DUTY').toUpperCase();
 
     return Scaffold(
       appBar: AppBar(
+        titleSpacing: 0,
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
               user?.name ?? 'Courier Dispatch Board',
-              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+              overflow: TextOverflow.ellipsis,
             ),
-            Text(
-              dateString,
-              style: const TextStyle(fontSize: 11, color: AppTheme.muted, fontWeight: FontWeight.normal),
+            Row(
+              children: [
+                Text(
+                  dateString,
+                  style: const TextStyle(fontSize: 10, color: AppTheme.muted, fontWeight: FontWeight.normal),
+                ),
+                const SizedBox(width: 6),
+                InkWell(
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const WorkAvailabilityPage()),
+                    ).then((_) => _refresh());
+                  },
+                  borderRadius: BorderRadius.circular(4),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                    decoration: BoxDecoration(
+                      color: (isAvailable ? AppTheme.success : Colors.orange).withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          width: 5,
+                          height: 5,
+                          decoration: BoxDecoration(
+                            color: isAvailable ? AppTheme.success : Colors.orange,
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          isAvailable ? 'ON DUTY' : dutyLabel,
+                          style: TextStyle(
+                            fontSize: 9,
+                            fontWeight: FontWeight.bold,
+                            color: isAvailable ? AppTheme.success : Colors.orange.shade800,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
             ),
           ],
         ),
         actions: [
+          // Messages icon
           IconButton(
-            icon: const Icon(Icons.qr_code_2_rounded, color: AppTheme.primary),
+            icon: const Icon(Icons.chat_bubble_outline_rounded, size: 20),
+            tooltip: 'Messages',
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const MessagesPage()),
+              );
+            },
+          ),
+          // Notifications with badge
+          Stack(
+            alignment: Alignment.center,
+            children: [
+              IconButton(
+                icon: const Icon(Icons.notifications_outlined, size: 22),
+                tooltip: 'Notifications',
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const NotificationsPage()),
+                  ).then((_) => _fetchUnreadNotifications());
+                },
+              ),
+              if (_unreadNotifications > 0)
+                Positioned(
+                  top: 8,
+                  right: 8,
+                  child: Container(
+                    padding: const EdgeInsets.all(4),
+                    decoration: const BoxDecoration(
+                      color: AppTheme.danger,
+                      shape: BoxShape.circle,
+                    ),
+                    constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
+                    child: Text(
+                      _unreadNotifications > 99 ? '99+' : _unreadNotifications.toString(),
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 9,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          // Rider Badge
+          IconButton(
+            icon: const Icon(Icons.qr_code_2_rounded, color: AppTheme.primary, size: 22),
             tooltip: 'My Rider Badge',
             onPressed: () {
               Navigator.of(context).push(
@@ -80,7 +210,7 @@ class _CourierDashboardState extends State<CourierDashboard> with SingleTickerPr
             },
           ),
           IconButton(
-            icon: const Icon(Icons.refresh_rounded),
+            icon: const Icon(Icons.refresh_rounded, size: 22),
             onPressed: _refresh,
           ),
         ],
@@ -740,7 +870,8 @@ class _CourierDashboardState extends State<CourierDashboard> with SingleTickerPr
     );
   }
 
-  Widget _buildDrawer(BuildContext context, AuthProvider auth, dynamic user) {
+  Widget _buildDrawer(BuildContext context, AuthProvider auth, UserModel? user) {
+    final drawerDuty = (user?.workAvailability ?? 'AVAILABLE').toUpperCase();
     return Drawer(
       child: ListView(
         padding: EdgeInsets.zero,
@@ -755,66 +886,262 @@ class _CourierDashboardState extends State<CourierDashboard> with SingleTickerPr
               user?.name ?? 'Courier Rider',
               style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
             ),
-            accountEmail: Text(user?.email ?? 'rider@ezicart.trade'),
+            accountEmail: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(user?.email ?? 'rider@ezicart.trade', style: const TextStyle(fontSize: 12)),
+                const SizedBox(height: 2),
+                Text(
+                  'Badge: ${user?.badgeCode ?? 'N/A'} • $drawerDuty',
+                  style: const TextStyle(fontSize: 11, color: Colors.white70),
+                ),
+              ],
+            ),
             currentAccountPicture: CircleAvatar(
               backgroundColor: Colors.white,
-              child: Text(
-                user?.name != null && user!.name.isNotEmpty ? user.name[0].toUpperCase() : 'C',
-                style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: AppTheme.primary),
-              ),
+              backgroundImage: user?.avatarUrl != null ? NetworkImage(user!.avatarUrl!) : null,
+              child: user?.avatarUrl == null
+                  ? Text(
+                      user?.name != null && user!.name.isNotEmpty ? user.name[0].toUpperCase() : 'C',
+                      style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: AppTheme.primary),
+                    )
+                  : null,
             ),
           ),
-          ListTile(
-            leading: const Icon(Icons.qr_code_2_rounded, color: AppTheme.primary),
-            title: const Text('My Rider Badge'),
-            onTap: () {
-              Navigator.of(context).pop();
-              Navigator.of(context).push(MaterialPageRoute(builder: (_) => const RiderBadgePage()));
-            },
+
+          // SECTION A: DELIVERY OPERATIONS
+          _buildDrawerSectionHeader('Delivery Operations'),
+          _buildDrawerItem(
+            icon: Icons.dashboard_outlined,
+            title: 'Workboard',
+            isSelected: true,
+            onTap: () => Navigator.of(context).pop(),
           ),
-          ListTile(
-            leading: const Icon(Icons.history_rounded, color: AppTheme.primary),
-            title: const Text('Delivery History'),
-            onTap: () {
-              Navigator.of(context).pop();
-              Navigator.of(context).push(MaterialPageRoute(builder: (_) => const HistoryPage()));
-            },
-          ),
-          ListTile(
-            leading: const Icon(Icons.radar_rounded, color: AppTheme.primary),
-            title: const Text('Active Parcels Tracking'),
+          _buildDrawerItem(
+            icon: Icons.radar_rounded,
+            title: 'Active Parcels',
             onTap: () {
               Navigator.of(context).pop();
               Navigator.of(context).push(MaterialPageRoute(builder: (_) => const TrackingPage()));
             },
           ),
-          ListTile(
-            leading: const Icon(Icons.account_balance_wallet_outlined, color: AppTheme.primary),
-            title: const Text('Earnings & Statements'),
+          _buildDrawerItem(
+            icon: Icons.history_rounded,
+            title: 'Delivery History',
+            onTap: () {
+              Navigator.of(context).pop();
+              Navigator.of(context).push(MaterialPageRoute(builder: (_) => const HistoryPage()));
+            },
+          ),
+          _buildDrawerItem(
+            icon: Icons.paid_outlined,
+            title: 'Earnings & Statements',
             onTap: () {
               Navigator.of(context).pop();
               Navigator.of(context).push(MaterialPageRoute(builder: (_) => const EarningsPage()));
             },
           ),
-          ListTile(
-            leading: const Icon(Icons.lock_reset_rounded, color: AppTheme.primary),
-            title: const Text('Change Password'),
+          _buildDrawerItem(
+            icon: Icons.badge_outlined,
+            title: 'My Rider Profile',
+            onTap: () {
+              Navigator.of(context).pop();
+              Navigator.of(context).push(MaterialPageRoute(builder: (_) => const RiderProfilePage())).then((_) => _refresh());
+            },
+          ),
+          _buildDrawerItem(
+            icon: Icons.tune_rounded,
+            title: 'Work Availability',
+            trailing: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              decoration: BoxDecoration(
+                color: (user?.workAvailability == 'available' ? AppTheme.success : Colors.orange).withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: Text(
+                drawerDuty,
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                  color: user?.workAvailability == 'available' ? AppTheme.success : Colors.orange.shade800,
+                ),
+              ),
+            ),
+            onTap: () {
+              Navigator.of(context).pop();
+              Navigator.of(context).push(MaterialPageRoute(builder: (_) => const WorkAvailabilityPage())).then((_) => _refresh());
+            },
+          ),
+
+          const Divider(height: 16),
+
+          // SECTION B: PARCEL RECORDS
+          _buildDrawerSectionHeader('Parcel Records'),
+          _buildDrawerItem(
+            icon: Icons.fact_check_outlined,
+            title: 'Journey & Evidence',
+            onTap: () {
+              Navigator.of(context).pop();
+              Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ParcelEvidencePage()));
+            },
+          ),
+          _buildDrawerItem(
+            icon: Icons.report_problem_outlined,
+            title: 'Parcel Incidents & Claims',
+            onTap: () {
+              Navigator.of(context).pop();
+              Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ParcelIncidentsPage()));
+            },
+          ),
+          _buildDrawerItem(
+            icon: Icons.electric_moped_outlined,
+            title: 'Automatic Dispatch',
+            onTap: () {
+              Navigator.of(context).pop();
+              Navigator.of(context).push(MaterialPageRoute(builder: (_) => const AutomaticDispatchPage()));
+            },
+          ),
+          _buildDrawerItem(
+            icon: Icons.assignment_return_outlined,
+            title: 'Approved Return Pickups',
+            onTap: () {
+              Navigator.of(context).pop();
+              Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ReturnPickupsPage()));
+            },
+          ),
+
+          const Divider(height: 16),
+
+          // SECTION C: PLANNING
+          _buildDrawerSectionHeader('Planning'),
+          _buildDrawerItem(
+            icon: Icons.scale_outlined,
+            title: 'Weight & Load Planning',
+            onTap: () {
+              Navigator.of(context).pop();
+              Navigator.of(context).push(MaterialPageRoute(builder: (_) => const LoadPlanningPage()));
+            },
+          ),
+
+          const Divider(height: 16),
+
+          // SECTION D: ACCOUNT
+          _buildDrawerSectionHeader('Account'),
+          _buildDrawerItem(
+            icon: Icons.notifications_outlined,
+            title: 'Notifications',
+            trailing: _unreadNotifications > 0
+                ? Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: AppTheme.danger,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Text(
+                      '$_unreadNotifications',
+                      style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                    ),
+                  )
+                : null,
+            onTap: () {
+              Navigator.of(context).pop();
+              Navigator.of(context).push(MaterialPageRoute(builder: (_) => const NotificationsPage())).then((_) => _fetchUnreadNotifications());
+            },
+          ),
+          _buildDrawerItem(
+            icon: Icons.account_balance_wallet_outlined,
+            title: 'Finance & Wallet',
+            onTap: () {
+              Navigator.of(context).pop();
+              Navigator.of(context).push(MaterialPageRoute(builder: (_) => const WalletPage()));
+            },
+          ),
+          _buildDrawerItem(
+            icon: Icons.qr_code_2_rounded,
+            title: 'My Rider Badge & QR',
+            onTap: () {
+              Navigator.of(context).pop();
+              Navigator.of(context).push(MaterialPageRoute(builder: (_) => const RiderBadgePage()));
+            },
+          ),
+          _buildDrawerItem(
+            icon: Icons.lock_reset_rounded,
+            title: 'Change Password',
             onTap: () {
               Navigator.of(context).pop();
               Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ChangePasswordPage()));
             },
           ),
-          const Divider(),
+
+          const Divider(height: 16),
+
+          // SECTION E: MESSAGES
+          _buildDrawerSectionHeader('Messages'),
+          _buildDrawerItem(
+            icon: Icons.chat_bubble_outline_rounded,
+            title: 'Direct Messages',
+            onTap: () {
+              Navigator.of(context).pop();
+              Navigator.of(context).push(MaterialPageRoute(builder: (_) => const MessagesPage()));
+            },
+          ),
+
+          const Divider(height: 24),
+
+          // SIGN OUT
           ListTile(
-            leading: const Icon(Icons.logout_rounded, color: AppTheme.danger),
-            title: const Text('Sign Out', style: TextStyle(color: AppTheme.danger)),
+            dense: true,
+            leading: const Icon(Icons.logout_rounded, color: AppTheme.danger, size: 20),
+            title: const Text('Sign Out', style: TextStyle(color: AppTheme.danger, fontWeight: FontWeight.bold, fontSize: 13)),
             onTap: () async {
               Navigator.of(context).pop();
               await auth.logout();
             },
           ),
+          const SizedBox(height: 16),
         ],
       ),
+    );
+  }
+
+  Widget _buildDrawerSectionHeader(String title) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+      child: Text(
+        title.toUpperCase(),
+        style: TextStyle(
+          fontSize: 10,
+          fontWeight: FontWeight.w700,
+          color: Colors.grey.shade600,
+          letterSpacing: 0.6,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDrawerItem({
+    required IconData icon,
+    required String title,
+    required VoidCallback onTap,
+    Widget? trailing,
+    bool isSelected = false,
+  }) {
+    return ListTile(
+      dense: true,
+      visualDensity: VisualDensity.compact,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
+      leading: Icon(icon, color: isSelected ? AppTheme.primary : Colors.grey.shade700, size: 20),
+      title: Text(
+        title,
+        style: TextStyle(
+          fontSize: 13,
+          fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+          color: isSelected ? AppTheme.primary : AppTheme.ink,
+        ),
+      ),
+      trailing: trailing,
+      selected: isSelected,
+      onTap: onTap,
     );
   }
 }
