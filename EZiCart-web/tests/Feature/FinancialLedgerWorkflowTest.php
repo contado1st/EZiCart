@@ -325,6 +325,55 @@ class FinancialLedgerWorkflowTest extends TestCase
         $this->assertSame(4100, $cash['total_cents']);
     }
 
+    public function test_sandbox_tariff_setup_is_repeatable_and_quotes_the_documented_route_and_weight_shares(): void
+    {
+        $maker = $this->user('logistics_admin');
+        $reviewer = $this->user('logistics_admin');
+        $this->artisan('finance:sandbox', ['action' => 'tariffs', '--actor' => $maker->id])->assertSuccessful();
+        $this->artisan('finance:sandbox', ['action' => 'tariffs', '--actor' => $maker->id])->assertSuccessful();
+        $this->assertDatabaseCount('delivery_rate_versions', 4);
+        $rates = app(DeliveryRateManagementService::class);
+        foreach (DeliveryRateVersion::all() as $rate) {
+            $this->assertSame('DRAFT', $rate->status);
+            $this->assertTrue($rate->sandbox);
+            $rates->approve($rate, $reviewer, 'Demonstration approval of the documented sandbox compensation schedule.');
+        }
+        $rates->activate($reviewer, 'Activate the documented sandbox compensation schedule.');
+
+        $pricing = app(DeliveryPricingService::class);
+        $this->assertTrue($pricing->enabled());
+        $product = $this->product(['length_mm' => 0, 'width_mm' => 0, 'height_mm' => 0]);
+        $destinations = [
+            'same_barangay' => ['province' => 'Laguna', 'municipality' => 'Majayjay', 'barangay' => 'San Isidro'],
+            'same_municipality' => ['province' => 'Laguna', 'municipality' => 'Majayjay', 'barangay' => 'Other barangay'],
+            'inter_municipality' => ['province' => 'Laguna', 'municipality' => 'Santa Cruz', 'barangay' => 'Poblacion'],
+            'inter_province' => ['province' => 'Quezon', 'municipality' => 'Lucban', 'barangay' => 'Poblacion'],
+        ];
+        foreach ($destinations as $route => $address) {
+            $interHub = in_array($route, ['inter_municipality', 'inter_province'], true);
+            foreach ([1000 => [7000, 10300, 2500], 5000 => [8000, 11300, 3500], 20000 => [10500, 13800, 6000]] as $grams => [$localTotal, $interTotal, $deliveryShare]) {
+                $product->forceFill(['weight_grams' => $grams]);
+                $lines = [['product' => $product, 'quantity' => 1]];
+                $cod = $pricing->quote($this->seller, $lines, $address, 'COD');
+                $wallet = $pricing->quote($this->seller, $lines, $address, 'WALLET');
+                $this->assertSame($route, $cod['route_class']);
+                $this->assertSame($interHub ? $interTotal : $localTotal, $cod['total_cents']);
+                $this->assertSame($cod['total_cents'] - 400, $wallet['total_cents']);
+                $this->assertSame(2000, $cod['components']['pickup']);
+                $this->assertSame(800, $cod['components']['origin_hub']);
+                $this->assertSame($interHub ? 2500 : 0, $cod['components']['linehaul']);
+                $this->assertSame($interHub ? 800 : 0, $cod['components']['destination_hub']);
+                $this->assertSame($deliveryShare, $cod['components']['last_mile']);
+                $this->assertSame(2000, $cod['contingent_rts_cents']);
+                $this->assertSame(0, $cod['components']['return_to_sender']);
+            }
+        }
+
+        $product->forceFill(['weight_grams' => 20001]);
+        $this->expectException(ValidationException::class);
+        $pricing->quote($this->seller, [['product' => $product, 'quantity' => 1]], $destinations['inter_province'], 'COD');
+    }
+
     public function test_financial_pages_and_statements_are_role_scoped_and_render_successfully(): void
     {
         $this->fund($this->buyer, 10000);

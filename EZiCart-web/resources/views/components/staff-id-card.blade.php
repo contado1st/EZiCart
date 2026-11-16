@@ -27,7 +27,12 @@
     </dl>
     <figure class="staff-id-qr">
         {!! $qrSvg !!}
-        <figcaption>Profile QR · authorized viewing only</figcaption>
-        <p>This identifies the profile. Rider handovers use the existing rider badge.</p>
+        @if($staff->role === 'courier')
+            <figcaption>Rider badge QR · authorized use only</figcaption>
+            <p>Matches the rider badge in the sorting center and courier dashboards.</p>
+        @else
+            <figcaption>Profile QR · authorized viewing only</figcaption>
+            <p>This identifies the profile.</p>
+        @endif
     </figure>
 </article>

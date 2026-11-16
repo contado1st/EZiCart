@@ -63,12 +63,13 @@ export function initQrScanners(doc = document, browser = window, nav = navigator
 
     const attach = (input, batch) => {
         const form = input.closest('form');
+        const scope = input.closest('[data-qr-scanner]') || form;
         const prefix = batch ? 'data-qr-batch' : 'data-qr';
-        const start = form?.querySelector(`[${prefix}-start]`);
-        const close = form?.querySelector(`[${prefix}-stop]`);
-        const video = form?.querySelector(`[${prefix}-video]`);
-        const status = form?.querySelector(`[${prefix}-status]`);
-        const viewport = batch ? null : form?.querySelector('[data-qr-video-container]');
+        const start = scope?.querySelector(`[${prefix}-start]`);
+        const close = scope?.querySelector(`[${prefix}-stop]`);
+        const video = scope?.querySelector(`[${prefix}-video]`);
+        const status = scope?.querySelector(`[${prefix}-status]`);
+        const viewport = batch ? null : scope?.querySelector('[data-qr-video-container]');
         const method = form?.querySelector('[name="method"]');
         if (!form || !start || !close || !video || !status) return;
 
@@ -183,8 +184,12 @@ export function initQrScanners(doc = document, browser = window, nav = navigator
                                 input.value = code;
                                 input.dispatchEvent(new Event('input', {bubbles: true}));
                                 stop();
-                                status.textContent = 'QR code captured. Check the remaining fields and confirm verification if prompted.';
-                                form.requestSubmit();
+                                if (form.dataset?.qrAutoSubmit === 'false') {
+                                    status.textContent = 'QR code captured. Review the details, then select the confirmation button.';
+                                } else {
+                                    status.textContent = 'QR code captured. Check the remaining fields and confirm verification if prompted.';
+                                    form.requestSubmit();
+                                }
                                 return;
                             }
                         }

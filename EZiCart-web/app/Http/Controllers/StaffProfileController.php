@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\StaffProfileRevision;
 use App\Models\User;
 use App\Services\QrCodeService;
+use App\Services\RiderBadgeService;
 use App\Services\StaffProfileService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -21,15 +22,17 @@ class StaffProfileController extends Controller
         return view('staff.index', compact('staff'));
     }
 
-    public function show(Request $request, User $staff, StaffProfileService $profiles)
+    public function show(Request $request, User $staff, StaffProfileService $profiles, RiderBadgeService $badges)
     {
         abort_unless($profiles->canView($request->user(), $staff), 403);
         $staff->load('serviceAreas', 'logisticsOwner');
         $canViewHistory = $profiles->canViewHistory($request->user(), $staff);
         $revisions = $canViewHistory ? StaffProfileRevision::where('user_id', $staff->id)->with('reviewer')->latest()->paginate(25) : null;
 
-        // A profile link identifies the record; it carries no session or handover credential.
-        $qrSvg = app(QrCodeService::class)->svg(url('/staff/'.$staff->id));
+        $qrPayload = $staff->role === 'courier'
+            ? 'EZR:'.$badges->ensure($staff)
+            : url('/staff/'.$staff->id);
+        $qrSvg = app(QrCodeService::class)->svg($qrPayload);
 
         return view('staff.show', compact('staff', 'revisions', 'canViewHistory', 'qrSvg'));
     }

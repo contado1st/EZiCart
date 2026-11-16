@@ -1,5 +1,6 @@
 /* Keep the existing photo cards; only their arrangement and controls change. */
 [data-category-carousel] .buyer-category-grid {
+    --category-edge-fade: clamp(16px, 3vw, 40px);
     display: grid;
     grid-template-columns: none;
     grid-auto-flow: column;
@@ -13,6 +14,13 @@
     scrollbar-width: thin;
     scrollbar-color: #dc9eb7 #fff;
     padding: 4px 4px 12px;
+    -webkit-mask-image: linear-gradient(to right, transparent, #000 var(--category-edge-fade), #000 calc(100% - var(--category-edge-fade)), transparent);
+    mask-image: linear-gradient(to right, transparent, #000 var(--category-edge-fade), #000 calc(100% - var(--category-edge-fade)), transparent);
+}
+/* Keep keyboard-focused cards and their focus rings fully visible. */
+[data-category-carousel] .buyer-category-grid:is(:focus-visible, :focus-within) {
+    -webkit-mask-image: none;
+    mask-image: none;
 }
 [data-category-carousel] .buyer-category-tile { scroll-snap-align: none; }
 .category-carousel-controls { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 8px; margin: 0 0 12px; }
