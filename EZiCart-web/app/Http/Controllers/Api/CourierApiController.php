@@ -11,6 +11,7 @@ use App\Models\DispatchOffer;
 use App\Models\Order;
 use App\Models\OrderFinance;
 use App\Models\ParcelTrackingEvent;
+use App\Models\ParcelTransfer;
 use App\Models\RemittanceBatch;
 use App\Models\StaffProfileRevision;
 use App\Models\User;
@@ -394,6 +395,45 @@ class CourierApiController extends Controller
                 'message' => $e->getMessage(),
             ], 422);
         }
+    }
+
+    /**
+     * Direct Parcel Scan Intake & Confirmation (Auto-matches assigned order by parcel code/order number)
+     */
+    public function scanPickup(Request $request, OrderTransitionService $transitions, TransactionAwareNotificationSender $notifications): JsonResponse
+    {
+        /** @var User $courier */
+        $courier = $request->user();
+
+        $validated = $request->validate([
+            'parcel_reference' => ['required', 'string', 'max:100'],
+            'method' => ['nullable', 'in:camera,handheld,manual'],
+        ]);
+        $scannedReference = trim($validated['parcel_reference']);
+        $scannedCode = str_starts_with($scannedReference, 'EZP:') ? substr($scannedReference, 4) : $scannedReference;
+
+        // Auto-match claimed pickup or assigned order for this courier
+        $order = Order::query()
+            ->where(function ($q) use ($courier) {
+                $q->where('pickup_courier_id', $courier->id)
+                  ->orWhere('delivery_courier_id', $courier->id);
+            })
+            ->where(function ($q) use ($scannedCode, $scannedReference) {
+                $q->where('parcel_code', $scannedCode)
+                  ->orWhere('parcel_code', $scannedReference)
+                  ->orWhere('order_number', $scannedCode)
+                  ->orWhere('order_number', $scannedReference);
+            })
+            ->first();
+
+        if (! $order) {
+            return response()->json([
+                'success' => false,
+                'message' => "No assigned pickup found matching parcel reference '{$scannedReference}'.",
+            ], 404);
+        }
+
+        return $this->confirmPickup($request, $order->id, $transitions, $notifications);
     }
 
     /**
@@ -1459,7 +1499,9 @@ class CourierApiController extends Controller
                 'id' => $courier->id,
                 'first_name' => $courier->first_name,
                 'middle_name' => $courier->middle_name,
+                'middle_initial' => $courier->middle_initial,
                 'last_name' => $courier->last_name,
+                'suffix' => $courier->suffix,
                 'name' => trim("{$courier->first_name} {$courier->last_name}"),
                 'email' => $courier->email,
                 'contact_no' => $courier->contact_no,
@@ -1470,6 +1512,8 @@ class CourierApiController extends Controller
                 'plate_number' => $courier->plate_number,
                 'vehicle_category' => $courier->vehicle_category,
                 'vehicle_description' => $courier->vehicle_description,
+                'license_number' => $courier->license_number,
+                'license_expires_at' => $courier->license_expires_at?->format('Y-m-d'),
                 'vehicle_capacity_grams' => $courier->vehicle_capacity_grams,
                 'vehicle_capacity_kg' => $courier->vehicle_capacity_grams ? number_format($courier->vehicle_capacity_grams / 1000, 2) . ' kg' : 'Unset',
                 'vehicle_capacity_verified_at' => $courier->vehicle_capacity_verified_at?->toIso8601String(),
@@ -1668,6 +1712,31 @@ class CourierApiController extends Controller
             'attempt_no' => ((int) DeliveryAttempt::query()->where('order_id', $order->id)->max('attempt_no')) + 1,
             'outcome' => $outcome,
             'attempted_at' => now(),
+        ]);
+    }
+
+    /**
+     * Inter-hub Parcel Transfers for Cross-hub Courier Riders
+     */
+    public function parcelTransfers(Request $request): JsonResponse
+    {
+        /** @var User $courier */
+        $courier = $request->user();
+
+        $transfers = ParcelTransfer::query()
+            ->with(['order:id,order_number,status,parcel_code', 'sourceHub:id,business_name,name,municipality,province', 'destinationHub:id,business_name,name,municipality,province'])
+            ->where('carrier_rider_id', $courier->id)
+            ->latest('id')
+            ->paginate(20);
+
+        return response()->json([
+            'success' => true,
+            'transfers' => $transfers->items(),
+            'pagination' => [
+                'current_page' => $transfers->currentPage(),
+                'last_page' => $transfers->lastPage(),
+                'total' => $transfers->total(),
+            ],
         ]);
     }
 }

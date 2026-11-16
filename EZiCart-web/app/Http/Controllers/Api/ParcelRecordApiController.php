@@ -151,13 +151,13 @@ class ParcelRecordApiController extends Controller
             $nextAction = 'Return approved, awaiting physical collection. Open Approved return pickups for assignment, acceptance and buyer handover.';
         }
 
-        $progress = $progressService->forViewer($order, $buyer);
+        $progress = $progressService->forViewer($order, $user);
 
         $eventsData = $events->map(function ($e) use ($photos) {
             $key = 'tracking:'.$e->id;
             $eventPhotos = ($photos->get($key) ?? collect())->map(fn ($p) => [
                 'id' => $p->id,
-                'url' => url('/api/v1/parcel-evidence/'.$p->id.'/photo'),
+                'url' => url('/api/parcel-evidence/'.$p->id.'/photo'),
                 'created_at' => $p->created_at->toIso8601String(),
             ]);
 
@@ -177,7 +177,7 @@ class ParcelRecordApiController extends Controller
             $key = 'scan:'.$s->id;
             $scanPhotos = ($photos->get($key) ?? collect())->map(fn ($p) => [
                 'id' => $p->id,
-                'url' => url('/api/v1/parcel-evidence/'.$p->id.'/photo'),
+                'url' => url('/api/parcel-evidence/'.$p->id.'/photo'),
                 'created_at' => $p->created_at->toIso8601String(),
             ]);
 
@@ -238,11 +238,17 @@ class ParcelRecordApiController extends Controller
      */
     public function evidencePhoto(int $id, Request $request, DirectMessagingService $access): StreamedResponse|JsonResponse
     {
-        $buyer = $request->user();
+        $user = $request->user();
         $evidence = ParcelEvidence::with('order')->find($id);
 
-        if (! $evidence || $evidence->order->buyer_id !== $buyer->id) {
+        if (! $evidence) {
             return response()->json(['success' => false, 'message' => 'Evidence photo not found.'], 404);
+        }
+
+        try {
+            $access->authorizeOrder($evidence->order, $user);
+        } catch (\Throwable $e) {
+            return response()->json(['success' => false, 'message' => 'Unauthorized to view this photo.'], 403);
         }
 
         if (! Storage::disk('private')->exists($evidence->path)) {
@@ -305,7 +311,7 @@ class ParcelRecordApiController extends Controller
                     $stored[] = $path;
                     ParcelEvidence::create([
                         'order_id' => $order->id,
-                        'actor_id' => $buyer->id,
+                        'actor_id' => $user->id,
                         'scan_event_id' => $data['event_type'] === 'scan' ? $event->id : null,
                         'tracking_event_id' => $data['event_type'] === 'tracking' ? $event->id : null,
                         'event_key' => $key,
@@ -316,7 +322,7 @@ class ParcelRecordApiController extends Controller
                     ]);
                 }
 
-                app(AdministrativeAuditService::class)->record($buyer, $order, 'parcel_event_evidence_saved', [], ['event' => $key], 'Private photos linked to parcel event from mobile.');
+                app(AdministrativeAuditService::class)->record($user, $order, 'parcel_event_evidence_saved', [], ['event' => $key], 'Private photos linked to parcel event from mobile.');
             }, 3);
         } catch (\Throwable $e) {
             Storage::disk('private')->delete($stored);

@@ -214,6 +214,7 @@ $defineApiRoutes = function () {
         Route::post('/orders/{id}/decline-pickup', [CourierApiController::class, 'declinePickup'])->whereNumber('id');
         Route::post('/orders/{id}/arrive', [CourierApiController::class, 'arriveAtPickup'])->whereNumber('id');
         Route::post('/orders/{id}/confirm-pickup', [CourierApiController::class, 'confirmPickup'])->whereNumber('id');
+        Route::post('/orders/scan-pickup', [CourierApiController::class, 'scanPickup']);
         Route::post('/orders/{id}/accept-assignment', [CourierApiController::class, 'acceptDeliveryAssignment'])->whereNumber('id');
         Route::post('/orders/{id}/start-delivery', [CourierApiController::class, 'startDelivery'])->whereNumber('id');
         Route::post('/orders/{id}/decline-delivery-assignment', [CourierApiController::class, 'declineDeliveryAssignment'])->whereNumber('id');
@@ -229,6 +230,7 @@ $defineApiRoutes = function () {
         Route::get('/orders/{id}/messages', [CourierApiController::class, 'orderMessages'])->whereNumber('id');
         Route::post('/orders/{id}/messages', [CourierApiController::class, 'sendOrderMessage'])->whereNumber('id');
         Route::post('/orders/{id}/retry-proposals', [CourierApiController::class, 'storeRetryProposal'])->whereNumber('id')->middleware('throttle:operational-action');
+        Route::get('/parcel-transfers', [CourierApiController::class, 'parcelTransfers']);
     });
 };
 

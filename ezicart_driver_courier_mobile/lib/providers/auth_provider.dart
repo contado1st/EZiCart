@@ -267,6 +267,46 @@ class AuthProvider extends ChangeNotifier {
     return false;
   }
 
+  Future<bool> updateProfile(Map<String, dynamic> data) async {
+    _isLoading = true;
+    _errorMessage = null;
+    notifyListeners();
+
+    try {
+      final res = await ApiService.put(ApiConfig.updateProfileEndpoint, data);
+      dynamic resData;
+      try {
+        resData = jsonDecode(res.body);
+      } catch (_) {}
+      _isLoading = false;
+
+      if (res.statusCode == 200 && resData is Map && resData['success'] == true) {
+        if (resData['user'] != null) {
+          _user = UserModel.fromJson(resData['user']);
+          _badgeCode = _user?.badgeCode;
+        } else {
+          await refreshUser();
+        }
+        notifyListeners();
+        return true;
+      } else {
+        _errorMessage = _extractErrorMessage(resData, 'Failed to update profile.');
+        notifyListeners();
+        return false;
+      }
+    } on ApiException catch (e) {
+      _isLoading = false;
+      _errorMessage = e.message;
+      notifyListeners();
+      return false;
+    } catch (e) {
+      _isLoading = false;
+      _errorMessage = e.toString();
+      notifyListeners();
+      return false;
+    }
+  }
+
   Future<bool> updateWorkAvailability(String state, int version) async {
     _isLoading = true;
     _errorMessage = null;

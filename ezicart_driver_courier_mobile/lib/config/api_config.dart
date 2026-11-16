@@ -3,6 +3,10 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 class ApiConfig {
   static String get defaultBaseUrl {
+    const envUrl = String.fromEnvironment('API_BASE_URL');
+    if (envUrl.isNotEmpty) {
+      return envUrl;
+    }
     if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
       // Android emulator reaches host machine localhost at 10.0.2.2
       return 'http://10.0.2.2:8000/api';
@@ -93,6 +97,7 @@ class ApiConfig {
   static String declinePickupEndpoint(int id) => '$baseUrl/courier/orders/$id/decline-pickup';
   static String arrivePickupEndpoint(int id) => '$baseUrl/courier/orders/$id/arrive';
   static String confirmPickupEndpoint(int id) => '$baseUrl/courier/orders/$id/confirm-pickup';
+  static String get scanPickupEndpoint => '$baseUrl/courier/orders/scan-pickup';
   static String acceptDeliveryAssignmentEndpoint(int id) => '$baseUrl/courier/orders/$id/accept-assignment';
   static String startDeliveryEndpoint(int id) => '$baseUrl/courier/orders/$id/start-delivery';
   static String declineDeliveryAssignmentEndpoint(int id) => '$baseUrl/courier/orders/$id/decline-delivery-assignment';
@@ -102,6 +107,7 @@ class ApiConfig {
   static String confirmReturnDeliveryEndpoint(int id) => '$baseUrl/courier/orders/$id/confirm-return-delivery';
   static String get historyEndpoint => '$baseUrl/courier/history';
   static String get trackingEndpoint => '$baseUrl/courier/tracking';
+  static String get parcelTransfersEndpoint => '$baseUrl/courier/parcel-transfers';
   static String get earningsEndpoint => '$baseUrl/courier/earnings';
   static String remittanceEndpoint(int id) => '$baseUrl/courier/orders/$id/remittance';
   static String orderMessagesEndpoint(int id) => '$baseUrl/courier/orders/$id/messages';

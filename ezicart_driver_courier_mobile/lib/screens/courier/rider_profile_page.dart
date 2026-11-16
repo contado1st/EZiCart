@@ -8,6 +8,7 @@ import '../../providers/auth_provider.dart';
 import '../../services/api_service.dart';
 import 'addresses_page.dart';
 import 'change_password_page.dart';
+import 'settings_page.dart';
 import 'work_availability_page.dart';
 
 class RiderProfilePage extends StatefulWidget {
@@ -23,22 +24,10 @@ class _RiderProfilePageState extends State<RiderProfilePage> {
   String? _errorMessage;
   Map<String, dynamic>? _courierData;
 
-  final _displayNameCtrl = TextEditingController();
-  final _bioCtrl = TextEditingController();
-  String _selectedTheme = 'rose';
-  bool _isSavingAppearance = false;
-
   @override
   void initState() {
     super.initState();
     _loadProfile();
-  }
-
-  @override
-  void dispose() {
-    _displayNameCtrl.dispose();
-    _bioCtrl.dispose();
-    super.dispose();
   }
 
   Future<void> _loadProfile() async {
@@ -53,9 +42,6 @@ class _RiderProfilePageState extends State<RiderProfilePage> {
         final data = jsonDecode(res.body);
         if (data['courier'] is Map) {
           _courierData = Map<String, dynamic>.from(data['courier'] as Map);
-          _displayNameCtrl.text = _courierData?['profile_display_name']?.toString() ?? '';
-          _bioCtrl.text = _courierData?['profile_bio']?.toString() ?? '';
-          _selectedTheme = _courierData?['profile_theme']?.toString() ?? 'rose';
         }
       } else {
         _errorMessage = 'Failed to load profile details (${res.statusCode})';
@@ -69,27 +55,28 @@ class _RiderProfilePageState extends State<RiderProfilePage> {
 
   Future<void> _pickAndUploadAvatar() async {
     final picker = ImagePicker();
-    final picked = await picker.pickImage(source: ImageSource.gallery, maxWidth: 800, imageQuality: 85);
+    final picked = await picker.pickImage(
+      source: ImageSource.gallery,
+      maxWidth: 800,
+      imageQuality: 85,
+    );
     if (picked == null || !mounted) return;
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Uploading avatar...')),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('Uploading avatar...')));
 
     try {
       final res = await ApiService.multipartPost(
         url: ApiConfig.updateAppearanceEndpoint,
-        fields: {
-          'profile_display_name': _displayNameCtrl.text.trim(),
-          'profile_bio': _bioCtrl.text.trim(),
-          'profile_theme': _selectedTheme,
-        },
+        fields: {},
         fileField: 'avatar',
         filePath: picked.path,
       );
 
       final body = jsonDecode(res.body);
-      if (res.statusCode == 200 && (body['success'] == true || body['status'] == 'success')) {
+      if (res.statusCode == 200 &&
+          (body['success'] == true || body['status'] == 'success')) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
@@ -111,49 +98,12 @@ class _RiderProfilePageState extends State<RiderProfilePage> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e'), backgroundColor: AppTheme.danger),
+          SnackBar(
+            content: Text('Error: $e'),
+            backgroundColor: AppTheme.danger,
+          ),
         );
       }
-    }
-  }
-
-  Future<void> _saveAppearance() async {
-    setState(() => _isSavingAppearance = true);
-    try {
-      final res = await ApiService.post(ApiConfig.updateAppearanceEndpoint, {
-        'profile_display_name': _displayNameCtrl.text.trim(),
-        'profile_bio': _bioCtrl.text.trim(),
-        'profile_theme': _selectedTheme,
-      });
-
-      final body = jsonDecode(res.body);
-      if (res.statusCode == 200 && (body['success'] == true || body['status'] == 'success')) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Profile appearance saved!'),
-              backgroundColor: AppTheme.success,
-            ),
-          );
-          context.read<AuthProvider>().refreshUser();
-          _loadProfile();
-        }
-      } else {
-        final msg = body['message'] ?? 'Failed to update appearance.';
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(msg), backgroundColor: AppTheme.danger),
-          );
-        }
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e'), backgroundColor: AppTheme.danger),
-        );
-      }
-    } finally {
-      if (mounted) setState(() => _isSavingAppearance = false);
     }
   }
 
@@ -166,53 +116,72 @@ class _RiderProfilePageState extends State<RiderProfilePage> {
               title: const Text('My Rider Profile'),
               actions: [
                 IconButton(
+                  icon: const Icon(Icons.settings_outlined),
+                  tooltip: 'Account Settings',
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const CourierSettingsPage(),
+                      ),
+                    ).then((_) => _loadProfile());
+                  },
+                ),
+                IconButton(
                   icon: const Icon(Icons.refresh),
                   onPressed: _loadProfile,
                 ),
               ],
             ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator(color: AppTheme.primary))
+          ? const Center(
+              child: CircularProgressIndicator(color: AppTheme.primary),
+            )
           : _errorMessage != null
-              ? Center(
-                  child: Padding(
-                    padding: const EdgeInsets.all(24),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Icon(Icons.error_outline, size: 48, color: AppTheme.danger),
-                        const SizedBox(height: 12),
-                        Text(_errorMessage!, textAlign: TextAlign.center),
-                        const SizedBox(height: 16),
-                        ElevatedButton(onPressed: _loadProfile, child: const Text('Retry')),
-                      ],
+          ? Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(
+                      Icons.error_outline,
+                      size: 48,
+                      color: AppTheme.danger,
                     ),
-                  ),
-                )
-              : RefreshIndicator(
-                  onRefresh: _loadProfile,
-                  child: SingleChildScrollView(
-                    physics: const AlwaysScrollableScrollPhysics(),
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        _buildIdentityCard(),
-                        const SizedBox(height: 16),
-                        _buildAddressCard(),
-                        const SizedBox(height: 16),
-                        _buildVehicleCard(),
-                        const SizedBox(height: 16),
-                        _buildLogisticsAndServiceCard(),
-                        const SizedBox(height: 16),
-                        _buildAppearanceCard(),
-                        const SizedBox(height: 16),
-                        _buildSecurityCard(),
-                        const SizedBox(height: 24),
-                      ],
+                    const SizedBox(height: 12),
+                    Text(_errorMessage!, textAlign: TextAlign.center),
+                    const SizedBox(height: 16),
+                    ElevatedButton(
+                      onPressed: _loadProfile,
+                      child: const Text('Retry'),
                     ),
-                  ),
+                  ],
                 ),
+              ),
+            )
+          : RefreshIndicator(
+              onRefresh: _loadProfile,
+              child: SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    _buildIdentityCard(),
+                    const SizedBox(height: 16),
+                    _buildAddressCard(),
+                    const SizedBox(height: 16),
+                    _buildVehicleCard(),
+                    const SizedBox(height: 16),
+                    _buildLogisticsAndServiceCard(),
+                    const SizedBox(height: 16),
+                    _buildSecurityCard(),
+                    const SizedBox(height: 24),
+                  ],
+                ),
+              ),
+            ),
     );
   }
 
@@ -243,11 +212,17 @@ class _RiderProfilePageState extends State<RiderProfilePage> {
                     CircleAvatar(
                       radius: 36,
                       backgroundColor: AppTheme.primary.withValues(alpha: 0.15),
-                      backgroundImage: avatarUrl != null ? NetworkImage(avatarUrl) : null,
+                      backgroundImage: avatarUrl != null
+                          ? NetworkImage(avatarUrl)
+                          : null,
                       child: avatarUrl == null
                           ? Text(
                               name.isNotEmpty ? name[0].toUpperCase() : 'C',
-                              style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: AppTheme.primary),
+                              style: const TextStyle(
+                                fontSize: 28,
+                                fontWeight: FontWeight.bold,
+                                color: AppTheme.primary,
+                              ),
                             )
                           : null,
                     ),
@@ -262,7 +237,11 @@ class _RiderProfilePageState extends State<RiderProfilePage> {
                             color: AppTheme.primary,
                             shape: BoxShape.circle,
                           ),
-                          child: const Icon(Icons.camera_alt, size: 14, color: Colors.white),
+                          child: const Icon(
+                            Icons.camera_alt,
+                            size: 14,
+                            color: Colors.white,
+                          ),
                         ),
                       ),
                     ),
@@ -273,35 +252,67 @@ class _RiderProfilePageState extends State<RiderProfilePage> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(name, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                      Text(
+                        name,
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
                       const SizedBox(height: 2),
-                      Text(email, style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
-                      Text(contact, style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+                      Text(
+                        email,
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey.shade600,
+                        ),
+                      ),
+                      Text(
+                        contact,
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey.shade600,
+                        ),
+                      ),
                       const SizedBox(height: 6),
                       Wrap(
                         spacing: 6,
                         runSpacing: 4,
                         children: [
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 3,
+                            ),
                             decoration: BoxDecoration(
                               color: AppTheme.primary.withValues(alpha: 0.12),
                               borderRadius: BorderRadius.circular(6),
                             ),
                             child: Text(
                               'BADGE: $badgeCode',
-                              style: const TextStyle(color: AppTheme.primary, fontWeight: FontWeight.bold, fontSize: 11),
+                              style: const TextStyle(
+                                color: AppTheme.primary,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 11,
+                              ),
                             ),
                           ),
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 3,
+                            ),
                             decoration: BoxDecoration(
                               color: availColor.withValues(alpha: 0.12),
                               borderRadius: BorderRadius.circular(6),
                             ),
                             child: Text(
                               workAvail.toString().toUpperCase(),
-                              style: TextStyle(color: availColor, fontWeight: FontWeight.bold, fontSize: 11),
+                              style: TextStyle(
+                                color: availColor,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 11,
+                              ),
                             ),
                           ),
                         ],
@@ -313,18 +324,67 @@ class _RiderProfilePageState extends State<RiderProfilePage> {
             ),
             const Divider(height: 24),
             Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AppTheme.primary,
+                      side: const BorderSide(color: AppTheme.primary),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 9,
+                      ),
+                    ),
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const CourierSettingsPage(),
+                        ),
+                      ).then((_) => _loadProfile());
+                    },
+                    icon: const Icon(Icons.edit_note, size: 18),
+                    label: const Text(
+                      'Edit Profile & Contact Details',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text('Duty & Work Status:', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                const Expanded(
+                  child: Text(
+                    'Duty & Work Status:',
+                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
                 TextButton.icon(
+                  style: TextButton.styleFrom(
+                    visualDensity: VisualDensity.compact,
+                    padding: const EdgeInsets.symmetric(horizontal: 6),
+                  ),
                   onPressed: () {
                     Navigator.push(
                       context,
-                      MaterialPageRoute(builder: (_) => const WorkAvailabilityPage()),
+                      MaterialPageRoute(
+                        builder: (_) => const WorkAvailabilityPage(),
+                      ),
                     ).then((_) => _loadProfile());
                   },
                   icon: const Icon(Icons.tune, size: 16),
-                  label: const Text('Change Duty Status'),
+                  label: const Text('Change Status'),
                 ),
               ],
             ),
@@ -336,12 +396,15 @@ class _RiderProfilePageState extends State<RiderProfilePage> {
 
   Widget _buildAddressCard() {
     final address = _courierData?['address'] as Map?;
-    final addressText = [
-      address?['street_address'],
-      address?['barangay'],
-      address?['municipality'],
-      address?['province'],
-    ].where((part) => part != null && part.toString().trim().isNotEmpty).join(', ');
+    final addressText =
+        [
+              address?['street_address'],
+              address?['barangay'],
+              address?['municipality'],
+              address?['province'],
+            ]
+            .where((part) => part != null && part.toString().trim().isNotEmpty)
+            .join(', ');
 
     return Card(
       elevation: 1,
@@ -355,11 +418,14 @@ class _RiderProfilePageState extends State<RiderProfilePage> {
               children: [
                 const Icon(Icons.location_on_outlined, color: AppTheme.primary),
                 const SizedBox(width: 8),
-                const Text(
-                  'Address & Location Book',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                const Expanded(
+                  child: Text(
+                    'Address & Location Book',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
-                const Spacer(),
                 TextButton(
                   onPressed: () {
                     Navigator.push(
@@ -367,14 +433,22 @@ class _RiderProfilePageState extends State<RiderProfilePage> {
                       MaterialPageRoute(builder: (_) => const AddressesPage()),
                     ).then((_) => _loadProfile());
                   },
-                  child: const Text('Manage', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                  child: const Text(
+                    'Manage',
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                  ),
                 ),
               ],
             ),
             const SizedBox(height: 8),
             Text(
-              addressText.isNotEmpty ? addressText : 'Official address recorded with logistics administration.',
-              style: TextStyle(fontSize: 13, color: addressText.isNotEmpty ? AppTheme.ink : AppTheme.muted),
+              addressText.isNotEmpty
+                  ? addressText
+                  : 'Official address recorded with logistics administration.',
+              style: TextStyle(
+                fontSize: 13,
+                color: addressText.isNotEmpty ? AppTheme.ink : AppTheme.muted,
+              ),
             ),
           ],
         ),
@@ -402,21 +476,33 @@ class _RiderProfilePageState extends State<RiderProfilePage> {
               children: [
                 const Icon(Icons.two_wheeler, color: AppTheme.primary),
                 const SizedBox(width: 8),
-                const Text(
-                  'Vehicle & Load Rating',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                const Expanded(
+                  child: Text(
+                    'Vehicle & Load Rating',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
-                const Spacer(),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 3,
+                  ),
                   decoration: BoxDecoration(
-                    color: isVerified ? AppTheme.success.withValues(alpha: 0.12) : Colors.orange.withValues(alpha: 0.12),
+                    color: isVerified
+                        ? AppTheme.success.withValues(alpha: 0.12)
+                        : Colors.orange.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(6),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(isVerified ? Icons.verified : Icons.warning_amber, size: 12, color: isVerified ? AppTheme.success : Colors.orange),
+                      Icon(
+                        isVerified ? Icons.verified : Icons.warning_amber,
+                        size: 12,
+                        color: isVerified ? AppTheme.success : Colors.orange,
+                      ),
                       const SizedBox(width: 4),
                       Text(
                         isVerified ? 'VERIFIED' : 'UNVERIFIED',
@@ -438,7 +524,9 @@ class _RiderProfilePageState extends State<RiderProfilePage> {
             _buildInfoRow('Cargo Weight Capacity', vehicleCapacityKg),
             _buildInfoRow(
               'Delivery Scope',
-              isHubTransfer ? 'Cross-Hub Transfer Only' : 'Door-to-Door & Hub Delivery',
+              isHubTransfer
+                  ? 'Cross-Hub Transfer Only'
+                  : 'Door-to-Door & Hub Delivery',
             ),
           ],
         ),
@@ -448,8 +536,12 @@ class _RiderProfilePageState extends State<RiderProfilePage> {
 
   Widget _buildLogisticsAndServiceCard() {
     final logisticsOwner = _courierData?['logistics_owner'] as Map?;
-    final ownerName = logisticsOwner != null ? logisticsOwner['name']?.toString() : 'Independent Courier';
-    final ownerContact = logisticsOwner != null ? logisticsOwner['contact_no']?.toString() : null;
+    final ownerName = logisticsOwner != null
+        ? logisticsOwner['name']?.toString()
+        : 'Independent Courier';
+    final ownerContact = logisticsOwner != null
+        ? logisticsOwner['contact_no']?.toString()
+        : null;
     final serviceAreas = _courierData?['service_areas'] as List? ?? [];
 
     return Card(
@@ -464,28 +556,44 @@ class _RiderProfilePageState extends State<RiderProfilePage> {
               children: [
                 Icon(Icons.business, color: AppTheme.primary),
                 SizedBox(width: 8),
-                Text(
-                  'Logistics Operator & Service Areas',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                Expanded(
+                  child: Text(
+                    'Logistics Operator & Service Areas',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
               ],
             ),
             const SizedBox(height: 12),
             _buildInfoRow('Assigned Logistics Owner', ownerName ?? 'None'),
-            if (ownerContact != null) _buildInfoRow('Operator Hotline', ownerContact),
+            if (ownerContact != null)
+              _buildInfoRow('Operator Hotline', ownerContact),
             const SizedBox(height: 12),
-            const Text('Covered Service Areas', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+            const Text(
+              'Covered Service Areas',
+              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+            ),
             const SizedBox(height: 6),
             if (serviceAreas.isEmpty)
-              const Text('No designated service areas restricted. Flexible coverage.', style: TextStyle(fontSize: 12, color: Colors.grey))
+              const Text(
+                'No designated service areas restricted. Flexible coverage.',
+                style: TextStyle(fontSize: 12, color: Colors.grey),
+              )
             else
               Wrap(
                 spacing: 6,
                 runSpacing: 6,
                 children: serviceAreas.map((area) {
-                  final name = area['name'] ?? '${area['municipality']}, ${area['province']}';
+                  final name =
+                      area['name'] ??
+                      '${area['municipality']}, ${area['province']}';
                   return Chip(
-                    label: Text(name.toString(), style: const TextStyle(fontSize: 11)),
+                    label: Text(
+                      name.toString(),
+                      style: const TextStyle(fontSize: 11),
+                    ),
                     backgroundColor: Colors.grey.shade100,
                     materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                     padding: EdgeInsets.zero,
@@ -498,109 +606,50 @@ class _RiderProfilePageState extends State<RiderProfilePage> {
     );
   }
 
-  Widget _buildAppearanceCard() {
-    return Card(
-      elevation: 1,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Row(
-              children: [
-                Icon(Icons.palette_outlined, color: AppTheme.primary),
-                SizedBox(width: 8),
-                Text(
-                  'Profile Appearance & Bio',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            const Text('Display Name', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
-            const SizedBox(height: 6),
-            TextField(
-              controller: _displayNameCtrl,
-              decoration: InputDecoration(
-                hintText: 'e.g. Kuya Alex Delivery',
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              ),
-            ),
-            const SizedBox(height: 12),
-            const Text('Bio / Rider Note', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
-            const SizedBox(height: 6),
-            TextField(
-              controller: _bioCtrl,
-              maxLines: 2,
-              decoration: InputDecoration(
-                hintText: 'Short rider bio or greeting',
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              ),
-            ),
-            const SizedBox(height: 14),
-            const Text('Color Theme', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
-            const SizedBox(height: 6),
-            Wrap(
-              spacing: 8,
-              children: [
-                _buildThemeChip('rose', 'Rose', const Color(0xFFD63363)),
-                _buildThemeChip('indigo', 'Indigo', Colors.indigo),
-                _buildThemeChip('emerald', 'Emerald', Colors.teal),
-                _buildThemeChip('amber', 'Amber', Colors.amber.shade800),
-              ],
-            ),
-            const SizedBox(height: 16),
-            ElevatedButton(
-              onPressed: _isSavingAppearance ? null : _saveAppearance,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.primary,
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-              ),
-              child: _isSavingAppearance
-                  ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                  : const Text('Save Appearance'),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildThemeChip(String id, String label, Color color) {
-    final isSelected = _selectedTheme == id;
-    return ChoiceChip(
-      label: Text(label, style: TextStyle(color: isSelected ? Colors.white : Colors.black87, fontSize: 12)),
-      selected: isSelected,
-      selectedColor: color,
-      backgroundColor: color.withValues(alpha: 0.15),
-      onSelected: (val) {
-        if (val) setState(() => _selectedTheme = id);
-      },
-    );
-  }
-
   Widget _buildSecurityCard() {
     return Card(
       elevation: 1,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: ListTile(
-        leading: const CircleAvatar(
-          backgroundColor: Colors.blueGrey,
-          child: Icon(Icons.lock_outline, color: Colors.white),
-        ),
-        title: const Text('Security & Password', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-        subtitle: const Text('Update your login password and credentials'),
-        trailing: const Icon(Icons.arrow_forward_ios, size: 14),
-        onTap: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (_) => const ChangePasswordPage()),
-          );
-        },
+      child: Column(
+        children: [
+          ListTile(
+            leading: const CircleAvatar(
+              backgroundColor: AppTheme.primary,
+              child: Icon(Icons.settings_outlined, color: Colors.white, size: 20),
+            ),
+            title: const Text(
+              'Account Settings & Details',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+            ),
+            subtitle: const Text('Edit legal name, contact number, vehicle & base address'),
+            trailing: const Icon(Icons.arrow_forward_ios, size: 14),
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const CourierSettingsPage()),
+              ).then((_) => _loadProfile());
+            },
+          ),
+          const Divider(height: 1),
+          ListTile(
+            leading: const CircleAvatar(
+              backgroundColor: Colors.blueGrey,
+              child: Icon(Icons.lock_outline, color: Colors.white, size: 20),
+            ),
+            title: const Text(
+              'Security & Password',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+            ),
+            subtitle: const Text('Update your login password and credentials'),
+            trailing: const Icon(Icons.arrow_forward_ios, size: 14),
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const ChangePasswordPage()),
+              );
+            },
+          ),
+        ],
       ),
     );
   }
@@ -610,9 +659,20 @@ class _RiderProfilePageState extends State<RiderProfilePage> {
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(label, style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
-          Text(value, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+          Text(
+            label,
+            style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+          ),
+          const SizedBox(width: 12),
+          Flexible(
+            child: Text(
+              value,
+              textAlign: TextAlign.end,
+              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+            ),
+          ),
         ],
       ),
     );

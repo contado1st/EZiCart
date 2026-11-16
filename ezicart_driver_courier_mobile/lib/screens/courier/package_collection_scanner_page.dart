@@ -31,47 +31,65 @@ class _PackageCollectionScannerPageState
   bool _isSubmitting = false;
   String? _feedbackMessage;
   bool _isSuccessFeedback = false;
-  MobileScannerController? _cameraCtrl;
+  late final MobileScannerController _cameraCtrl;
   bool _isTorchOn = false;
+  DateTime? _lastScanTime;
 
   @override
   void initState() {
     super.initState();
+    _cameraCtrl = MobileScannerController(
+      detectionSpeed: DetectionSpeed.normal,
+      facing: CameraFacing.back,
+      torchEnabled: false,
+    );
+
     if (widget.expectedParcelCode != null &&
         widget.expectedParcelCode!.isNotEmpty) {
       _codeCtrl.text = widget.expectedParcelCode!;
       _scanMethod = 'manual';
     } else {
-      _initCamera();
+      _scanMethod = 'camera';
     }
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        context.read<CourierProvider>().fetchDashboard();
+      }
+    });
   }
 
-  void _initCamera() {
-    _cameraCtrl ??= MobileScannerController(
-      detectionSpeed: DetectionSpeed.normal,
-      facing: CameraFacing.back,
-      torchEnabled: false,
-    );
-  }
-
-  void _disposeCamera() {
-    _cameraCtrl?.dispose();
-    _cameraCtrl = null;
-    _isTorchOn = false;
+  void _setScanMethod(String method) {
+    if (_scanMethod == method) return;
+    setState(() {
+      _scanMethod = method;
+    });
+    if (method == 'camera') {
+      _cameraCtrl.start();
+    } else {
+      _cameraCtrl.stop();
+    }
   }
 
   @override
   void dispose() {
-    _disposeCamera();
+    _cameraCtrl.dispose();
     _codeCtrl.dispose();
     super.dispose();
   }
 
   void _onDetect(BarcodeCapture capture) {
     if (_isSubmitting) return;
+    final now = DateTime.now();
+    if (_lastScanTime != null &&
+        now.difference(_lastScanTime!).inMilliseconds < 2000) {
+      return;
+    }
+
     for (final barcode in capture.barcodes) {
       final raw = barcode.rawValue?.trim();
       if (raw != null && raw.isNotEmpty) {
+        _lastScanTime = now;
         setState(() {
           _codeCtrl.text = raw;
           _scanMethod = 'camera';
@@ -175,12 +193,28 @@ class _PackageCollectionScannerPageState
         });
       }
     } else {
+      // 3. Fallback to direct backend scan matching
+      final success = await courierProv.scanPickup(rawCode, method: _scanMethod);
+
+      if (!mounted) return;
       setState(() {
         _isSubmitting = false;
-        _isSuccessFeedback = false;
-        _feedbackMessage =
-            'No matching accepted pickup found for "$rawCode". Please check the code or review your accepted pickups list below.';
+        if (success) {
+          _isSuccessFeedback = true;
+          _feedbackMessage = courierProv.successMessage ??
+              'Confirmed collection for parcel "$rawCode"!';
+        } else {
+          _isSuccessFeedback = false;
+          _feedbackMessage = courierProv.errorMessage ??
+              'No matching assigned pickup found for "$rawCode". Please review your assignments.';
+        }
       });
+
+      if (success) {
+        Future.delayed(const Duration(milliseconds: 1400), () {
+          if (mounted) Navigator.of(context).pop(true);
+        });
+      }
     }
   }
 
@@ -373,12 +407,7 @@ class _PackageCollectionScannerPageState
                       children: [
                         Expanded(
                           child: InkWell(
-                            onTap: () {
-                              setState(() {
-                                _scanMethod = 'camera';
-                                _initCamera();
-                              });
-                            },
+                            onTap: () => _setScanMethod('camera'),
                             child: Container(
                               padding: const EdgeInsets.symmetric(vertical: 8),
                               decoration: BoxDecoration(
@@ -424,12 +453,7 @@ class _PackageCollectionScannerPageState
                         ),
                         Expanded(
                           child: InkWell(
-                            onTap: () {
-                              setState(() {
-                                _scanMethod = 'manual';
-                                _disposeCamera();
-                              });
-                            },
+                            onTap: () => _setScanMethod('manual'),
                             child: Container(
                               padding: const EdgeInsets.symmetric(vertical: 8),
                               decoration: BoxDecoration(
@@ -479,7 +503,7 @@ class _PackageCollectionScannerPageState
                   const SizedBox(height: 16),
 
                   // Embedded Live Camera Viewfinder when camera selected
-                  if (_scanMethod == 'camera' && _cameraCtrl != null) ...[
+                  if (_scanMethod == 'camera') ...[
                     Container(
                       height: 230,
                       decoration: BoxDecoration(
@@ -493,7 +517,7 @@ class _PackageCollectionScannerPageState
                           alignment: Alignment.center,
                           children: [
                             MobileScanner(
-                              controller: _cameraCtrl!,
+                              controller: _cameraCtrl,
                               onDetect: _onDetect,
                               errorBuilder: (context, error) {
                                 return Center(
@@ -516,12 +540,7 @@ class _PackageCollectionScannerPageState
                                           ),
                                         ),
                                         TextButton(
-                                          onPressed: () {
-                                            setState(() {
-                                              _scanMethod = 'manual';
-                                              _disposeCamera();
-                                            });
-                                          },
+                                          onPressed: () => _setScanMethod('manual'),
                                           child: const Text('Use Manual Entry'),
                                         ),
                                       ],
@@ -565,7 +584,7 @@ class _PackageCollectionScannerPageState
                                             : Colors.white,
                                       ),
                                       onPressed: () async {
-                                        await _cameraCtrl?.toggleTorch();
+                                        await _cameraCtrl.toggleTorch();
                                         setState(() {
                                           _isTorchOn = !_isTorchOn;
                                         });
@@ -585,7 +604,7 @@ class _PackageCollectionScannerPageState
                                         color: Colors.white,
                                       ),
                                       onPressed: () =>
-                                          _cameraCtrl?.switchCamera(),
+                                          _cameraCtrl.switchCamera(),
                                     ),
                                   ),
                                 ],

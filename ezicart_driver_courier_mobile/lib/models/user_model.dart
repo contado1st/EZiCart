@@ -4,7 +4,9 @@ class UserModel {
   final int id;
   final String firstName;
   final String? middleName;
+  final String? middleInitial;
   final String lastName;
+  final String? suffix;
   final String name;
   final String email;
   final String? contactNo;
@@ -15,6 +17,8 @@ class UserModel {
   final String? plateNumber;
   final String? vehicleCategory;
   final String? vehicleDescription;
+  final String? licenseNumber;
+  final String? licenseExpiresAt;
   final int? vehicleCapacityGrams;
   final bool hubTransferOnly;
   final String? municipality;
@@ -38,7 +42,9 @@ class UserModel {
     required this.id,
     required this.firstName,
     this.middleName,
+    this.middleInitial,
     required this.lastName,
+    this.suffix,
     required this.name,
     required this.email,
     this.contactNo,
@@ -49,6 +55,8 @@ class UserModel {
     this.plateNumber,
     this.vehicleCategory,
     this.vehicleDescription,
+    this.licenseNumber,
+    this.licenseExpiresAt,
     this.vehicleCapacityGrams,
     this.hubTransferOnly = false,
     this.municipality,
@@ -78,7 +86,9 @@ class UserModel {
       id: parseInt(json['id']),
       firstName: first,
       middleName: json['middle_name']?.toString(),
+      middleInitial: json['middle_initial']?.toString(),
       lastName: last,
+      suffix: json['suffix']?.toString(),
       name: computedName.isNotEmpty ? computedName : 'Courier',
       email: json['email']?.toString() ?? '',
       contactNo: json['contact_no']?.toString(),
@@ -89,6 +99,8 @@ class UserModel {
       plateNumber: json['plate_number']?.toString(),
       vehicleCategory: json['vehicle_category']?.toString(),
       vehicleDescription: json['vehicle_description']?.toString(),
+      licenseNumber: json['license_number']?.toString(),
+      licenseExpiresAt: json['license_expires_at']?.toString(),
       vehicleCapacityGrams: parseNullableInt(json['vehicle_capacity_grams']),
       hubTransferOnly: json['hub_transfer_only'] == true || json['hub_transfer_only'] == 1,
       municipality: json['municipality']?.toString(),

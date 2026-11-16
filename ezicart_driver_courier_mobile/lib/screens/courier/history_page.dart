@@ -85,6 +85,7 @@ class _HistoryPageState extends State<HistoryPage> {
                     Expanded(
                       child: DropdownButtonFormField<String?>(
                         initialValue: _selectedStatus,
+                        isExpanded: true,
                         decoration: const InputDecoration(
                           contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                           isDense: true,

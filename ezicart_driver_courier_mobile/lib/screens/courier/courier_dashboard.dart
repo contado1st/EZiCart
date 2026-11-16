@@ -23,6 +23,7 @@ import 'parcel_incidents_page.dart';
 import 'return_pickups_page.dart';
 import 'rider_badge_page.dart';
 import 'rider_profile_page.dart';
+import 'settings_page.dart';
 import 'tracking_page.dart';
 import 'wallet_page.dart';
 import 'work_availability_page.dart';
@@ -138,12 +139,16 @@ class _CourierDashboardState extends State<CourierDashboard>
             ),
             Row(
               children: [
-                Text(
-                  dateString,
-                  style: const TextStyle(
-                    fontSize: 10,
-                    color: Colors.white70,
-                    fontWeight: FontWeight.normal,
+                Flexible(
+                  child: Text(
+                    dateString,
+                    style: const TextStyle(
+                      fontSize: 10,
+                      color: Colors.white70,
+                      fontWeight: FontWeight.normal,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
                 if (_bottomNavIndex == 0) ...[
@@ -1814,6 +1819,20 @@ class _CourierDashboardState extends State<CourierDashboard>
                         .push(
                           MaterialPageRoute(
                             builder: (_) => const RiderProfilePage(),
+                          ),
+                        )
+                        .then((_) => _refresh());
+                  },
+                ),
+                _buildDrawerItem(
+                  icon: Icons.settings_outlined,
+                  title: 'Settings & Profile Details',
+                  onTap: () {
+                    Navigator.of(context).pop();
+                    Navigator.of(context)
+                        .push(
+                          MaterialPageRoute(
+                            builder: (_) => const CourierSettingsPage(),
                           ),
                         )
                         .then((_) => _refresh());

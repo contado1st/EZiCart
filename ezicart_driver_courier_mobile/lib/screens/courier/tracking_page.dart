@@ -73,10 +73,15 @@ class _TrackingPageState extends State<TrackingPage> {
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                Text(
-                                  order.orderNumber,
-                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.ink),
+                                Expanded(
+                                  child: Text(
+                                    order.orderNumber,
+                                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.ink),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
                                 ),
+                                const SizedBox(width: 8),
                                 Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                                   decoration: BoxDecoration(

@@ -252,6 +252,34 @@ class CourierProvider extends ChangeNotifier {
     return false;
   }
 
+  Future<bool> scanPickup(String parcelReference, {String method = 'camera'}) async {
+    _isLoading = true;
+    _errorMessage = null;
+    notifyListeners();
+
+    try {
+      final res = await ApiService.post(ApiConfig.scanPickupEndpoint, {
+        'parcel_reference': parcelReference.trim(),
+        'method': method,
+      });
+      _isLoading = false;
+      final data = jsonDecode(res.body);
+
+      if (res.statusCode == 200 && data['success'] == true) {
+        _successMessage = data['message'] ?? 'Pickup confirmed.';
+        await fetchDashboard();
+        return true;
+      } else {
+        _errorMessage = _extractErrorMessage(data, 'Could not confirm pickup.');
+      }
+    } catch (e) {
+      _isLoading = false;
+      _errorMessage = e.toString();
+    }
+    notifyListeners();
+    return false;
+  }
+
   Future<bool> acceptDeliveryAssignment(int orderId) async {
     _isLoading = true;
     _errorMessage = null;
