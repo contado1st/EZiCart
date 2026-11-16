@@ -62,13 +62,13 @@ class CourierController extends Controller
         $todayStart = today()->startOfDay();
         $tomorrowStart = today()->addDay()->startOfDay();
         $availablePickups = Order::where('status', 'READY_FOR_PICKUP')->where('pickup_courier_id', $courier->id)->whereNull('pickup_claimed_at')->with(['seller', 'items'])->latest()->orderByDesc('id')->paginate(25, ['*'], 'pickups')->withQueryString();
-        $claimedPickups = Order::where('pickup_courier_id', $courier->id)->where('status', 'READY_FOR_PICKUP')->whereNotNull('pickup_claimed_at')->with('seller')->latest()->orderByDesc('id')->paginate(25, ['*'], 'claimed_page')->withQueryString();
-        $myActivePickups = Order::where('pickup_courier_id', $courier->id)->where('status', 'PICKED_UP')->with('seller')->latest()->orderByDesc('id')->paginate(25, ['*'], 'hub_page')->withQueryString();
+        $claimedPickups = Order::where('pickup_courier_id', $courier->id)->where('status', 'READY_FOR_PICKUP')->whereNotNull('pickup_claimed_at')->with(['seller', 'items'])->latest()->orderByDesc('id')->paginate(25, ['*'], 'claimed_page')->withQueryString();
+        $myActivePickups = Order::where('pickup_courier_id', $courier->id)->where('status', 'PICKED_UP')->with(['seller', 'items'])->latest()->orderByDesc('id')->paginate(25, ['*'], 'hub_page')->withQueryString();
         $myReturns = Order::query()
             ->where('delivery_courier_id', $courier->id)
             ->where('status', OrderStatus::ReturnInTransit->value)
             ->whereNull('return_handed_to_seller_at')
-            ->with('seller')
+            ->with(['seller', 'items'])
             ->latest('failed_at')
             ->orderByDesc('id')->paginate(25, ['*'], 'returns_page')->withQueryString();
         $myDeliveryAssignments = Order::where('delivery_courier_id', $courier->id)
@@ -77,7 +77,7 @@ class CourierController extends Controller
             ->orderBy('delivery_area')
             ->orderBy('assigned_at')
             ->orderBy('id')->paginate(25, ['*'], 'deliveries')->withQueryString();
-        $myFailedDeliveries = Order::where('delivery_courier_id', $courier->id)->where('status', 'DELIVERY_FAILED')->with('deliveryAttempts')->latest('failed_at')->orderByDesc('id')->paginate(25, ['*'], 'failed_page')->withQueryString();
+        $myFailedDeliveries = Order::where('delivery_courier_id', $courier->id)->where('status', 'DELIVERY_FAILED')->with(['deliveryAttempts', 'items'])->latest('failed_at')->orderByDesc('id')->paginate(25, ['*'], 'failed_page')->withQueryString();
         $stats = [
             'claimed_pickups' => $claimedPickups->total(),
             'in_transit_hub' => $myActivePickups->total(),
@@ -560,7 +560,7 @@ class CourierController extends Controller
                 [$this->orderNumberSearchPattern($validated['search'])],
             ))
             ->when(filled($validated['status'] ?? null), fn (Builder $query) => $query->where('status', $validated['status']))
-            ->latest('updated_at')->orderByDesc('id')->paginate(20)->withQueryString();
+            ->with('items')->latest('updated_at')->orderByDesc('id')->paginate(20)->withQueryString();
         $workSummaries = $compensation->summaries($orders->getCollection(), $courier);
         $pageSettledCents = array_sum(array_column($workSummaries, 'settled_cents'));
         $retryContexts = app(DeliveryRetryService::class)->contexts($orders->getCollection(), $courier);

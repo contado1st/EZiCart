@@ -6,6 +6,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Waybill - {{ $order->order_number }}</title>
     @vite('resources/css/seller/waybill.css')
+    <link rel="stylesheet" href="{{ asset('css/product-table-media.css') }}?v={{ filemtime(public_path('css/product-table-media.css')) }}">
+    <script src="{{ asset('js/product-table-media.js') }}?v={{ filemtime(public_path('js/product-table-media.js')) }}" defer></script>
     <link rel="stylesheet" href="{{ asset('css/interaction-feedback.css') }}?v={{ filemtime(public_path('css/interaction-feedback.css')) }}">
     @vite('resources/js/app.js')
 </head>
@@ -91,7 +93,7 @@
                 <tbody>
                     @foreach ($order->items as $item)
                         <tr>
-                            <td>{{ $item->product_name }}</td>
+                            <td><x-product-table-item :name="$item->product_name" :image="$item->purchased_image_path" missing-label="Purchase image not recorded" /></td>
                             <td class="u-extracted-72a68ac344">{{ $item->quantity }}</td>
                             <td class="u-extracted-13cbe03b9a">₱{{ number_format($item->item_total, 2) }}</td>
                         </tr>

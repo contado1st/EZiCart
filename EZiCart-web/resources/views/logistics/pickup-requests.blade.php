@@ -33,7 +33,7 @@
                     @forelse ($orders as $order)
                         <tr>
                             <td class="ops-mono">
-                                <strong>{{ $order->order_number }}</strong><x-parcel-weight :order="$order" compact />
+                                <strong>{{ $order->order_number }}</strong><x-parcel-weight :order="$order" compact /><x-order-table-products :items="$order->items" />
                                 <div class="ops-muted">
                                     {{ $order->pickup_scheduled_for?->format('d M Y, h:i A') ?? 'Immediate dispatch' }}
                                     @if ($order->pickup_window)

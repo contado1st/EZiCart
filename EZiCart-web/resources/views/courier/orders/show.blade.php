@@ -93,7 +93,7 @@
         <div class="ops-panel">
             <h2>Parcel contents</h2>
             @forelse($order->items as $item)
-                <p><strong>{{ $item->product_name }}</strong> × {{ $item->quantity }}</p>
+                <x-product-table-item :name="$item->product_name" :image="$item->purchased_image_path" missing-label="Purchase image not recorded"><small>{{ $item->variation_info }} &middot; Qty {{ $item->quantity }}</small></x-product-table-item>
             @empty
                 <p class="ops-muted">No item summary recorded.</p>
             @endforelse

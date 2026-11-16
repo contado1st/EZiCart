@@ -33,8 +33,6 @@ use App\Services\RiderBadgeService;
 use App\Services\RiderWorkAvailabilityService;
 use App\Services\TransactionAwareNotificationSender;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Database\Eloquent\ModelNotFoundException;
-use Illuminate\Database\Query\Builder as QueryBuilder;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -215,10 +213,10 @@ class LogisticsController extends Controller
         ];
         $updatedAt = now();
         $queues = [
-            'inbound' => $queueService->filter($this->hubOrders($operator)->with(['seller', 'pickupCourier']), 'inbound')->latest()->orderByDesc('id')->paginate(25, ['*'], 'inbound_page')->withQueryString(),
-            'sorting' => $queueService->filter($this->hubOrders($operator)->with('buyer'), 'at_center')->latest()->orderByDesc('id')->paginate(25, ['*'], 'sorting_page')->withQueryString(),
-            'dispatch' => $queueService->filter($this->hubOrders($operator)->with(['buyer', 'deliveryCourier']), 'sorted')->latest()->orderByDesc('id')->paginate(25, ['*'], 'dispatch_page')->withQueryString(),
-            'failed' => $queueService->filter($this->hubOrders($operator)->with(['buyer', 'deliveryCourier']), 'failed')->latest()->orderByDesc('id')->paginate(25, ['*'], 'failed_page')->withQueryString(),
+            'inbound' => $queueService->filter($this->hubOrders($operator)->with(['seller', 'pickupCourier', 'items']), 'inbound')->latest()->orderByDesc('id')->paginate(25, ['*'], 'inbound_page')->withQueryString(),
+            'sorting' => $queueService->filter($this->hubOrders($operator)->with(['buyer', 'items']), 'at_center')->latest()->orderByDesc('id')->paginate(25, ['*'], 'sorting_page')->withQueryString(),
+            'dispatch' => $queueService->filter($this->hubOrders($operator)->with(['buyer', 'deliveryCourier', 'items']), 'sorted')->latest()->orderByDesc('id')->paginate(25, ['*'], 'dispatch_page')->withQueryString(),
+            'failed' => $queueService->filter($this->hubOrders($operator)->with(['buyer', 'deliveryCourier', 'items']), 'failed')->latest()->orderByDesc('id')->paginate(25, ['*'], 'failed_page')->withQueryString(),
         ];
         $exceptions = DB::table('logistics_exceptions')
             ->join('orders', 'orders.id', '=', 'logistics_exceptions.order_id')
@@ -239,7 +237,7 @@ class LogisticsController extends Controller
 
     public function intake(Request $request): View
     {
-        $parcels = $this->hubOrders($this->authenticatedUser())->with(['seller', 'pickupCourier'])
+        $parcels = $this->hubOrders($this->authenticatedUser())->with(['seller', 'pickupCourier', 'items'])
             ->where('status', 'PICKED_UP')
             ->when($request->filled('search'), function (Builder $query) use ($request): void {
                 $query->whereRaw("order_number LIKE ? ESCAPE '!'", [$this->orderNumberSearchPattern($request->string('search')->toString())]);
@@ -488,7 +486,7 @@ class LogisticsController extends Controller
     public function sorting(): View
     {
         $parcels = $this->hubOrders($this->authenticatedUser())->where('status', 'AT_SORTING_CENTER')
-            ->with(['buyer', 'trackingEvents'])->latest()->paginate(25);
+            ->with(['buyer', 'trackingEvents', 'items'])->latest()->paginate(25);
 
         return view('logistics.sorting', compact('parcels'));
     }
@@ -513,12 +511,12 @@ class LogisticsController extends Controller
         $singleHub = ! $this->isMultiHubOperation();
         $retryRequests = DeliveryRetryRequest::where('hub_id', $operator->id)->where('status', 'PENDING')
             ->whereHas('order', fn (Builder $q) => $q->where('sorting_center_id', $operator->id))
-            ->with(['order', 'rider', 'failedAttempt'])->oldest('id')->paginate(25, ['*'], 'retry_requests_page')->withQueryString();
+            ->with(['order.items', 'rider', 'failedAttempt'])->oldest('id')->paginate(25, ['*'], 'retry_requests_page')->withQueryString();
         $returnRequired = $this->hubOrders($operator)->whereIn('status', ['DELIVERY_FAILED', 'SORTED', 'ASSIGNED_TO_RIDER', 'OUT_FOR_DELIVERY'])
             ->whereHas('deliveryAttempts', fn (Builder $q) => $q->where('outcome', 'failed'), '>=', max(1, (int) config('logistics.maximum_delivery_attempts', 3)))
-            ->with('deliveryAttempts')->orderBy('id')->paginate(25, ['*'], 'return_required_page')->withQueryString();
+            ->with(['deliveryAttempts', 'items'])->orderBy('id')->paginate(25, ['*'], 'return_required_page')->withQueryString();
         $parcels = $this->hubOrders($operator)->whereIn('status', ['SORTED', 'ASSIGNED_TO_RIDER', 'OUT_FOR_DELIVERY', 'DELIVERY_FAILED', 'RETURN_IN_TRANSIT'])
-            ->with(['buyer', 'deliveryCourier', 'destinationArea', 'deliveryAttempts'])->latest()->paginate(25);
+            ->with(['buyer', 'deliveryCourier', 'destinationArea', 'deliveryAttempts', 'items'])->latest()->paginate(25);
         $pageAreaIds = $parcels->getCollection()->pluck('destination_area_id')->merge($retryRequests->getCollection()->pluck('order.destination_area_id'))->filter()->unique()->all();
         $riders = User::query()->availableForNewWork()
             ->where('hub_transfer_only', false)

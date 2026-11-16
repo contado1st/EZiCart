@@ -47,16 +47,10 @@
                 <h2 class="courier-section-title">Items</h2>
                 @foreach ($order->items as $item)
                     <div class="order-item-row">
-                        <x-purchased-item-image :item="$item" />
-                        <div>
-                            <strong>{{ $item->product_name }}</strong>
-                            @if ($item->variation_info)
-                                <span>({{ $item->variation_info }})</span>
-                            @endif
-                            <span>&times; {{ $item->quantity }}</span>
+                        <x-order-item-preview :item="$item">
                             <x-item-price-note :item="$item" />
-                        </div>
-                        <div>{{ number_format($item->item_total, 2) }}</div>
+                        </x-order-item-preview>
+                        <div class="order-item-line-total">{{ number_format($item->item_total, 2) }}</div>
                     </div>
                 @endforeach
 

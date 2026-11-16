@@ -42,13 +42,7 @@
                                 <td>
                                     <label><input type="checkbox" name="products[]" form="catalog-bulk" value="{{ $product->id }}" aria-label="Select {{ $product->name }}"></label>
                                     <div class="u-extracted-2f29807bdf">
-                                        @if ($product->image_path)
-                                            <img src="{{ asset('storage/' . $product->image_path) }}"
-                                                alt="{{ $product->name }}" class="u-extracted-aac99b4b41">
-                                        @else
-                                            <div class="u-extracted-c70ac6556c">
-                                                <x-shop-icon name="package1" /></div>
-                                        @endif
+                                        <x-product-thumbnail :path="$product->image_path" :label="$product->name" />
                                         <div>
                                             <div class="u-extracted-8fa6b099d3">
                                                 {{ $product->name }}</div>

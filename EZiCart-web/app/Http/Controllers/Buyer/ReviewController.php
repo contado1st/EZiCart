@@ -43,7 +43,7 @@ class ReviewController extends Controller
     public function edit(Request $request, Review $review, ReviewService $reviews)
     {
         $reviews->authorizeOwner($review, $request->user());
-        $review->load(['photos', 'order.items']);
+        $review->load(['photos', 'order.items.product']);
         $history = $review->revisions()->paginate(25)->withQueryString();
         $historyPhotoIds = $history->getCollection()->flatMap(fn ($revision) => $revision->snapshot['photo_ids'] ?? []);
         $historyPhotos = ReviewPhoto::where('review_id', $review->id)->whereIn('id', $historyPhotoIds)->get()->keyBy('id');

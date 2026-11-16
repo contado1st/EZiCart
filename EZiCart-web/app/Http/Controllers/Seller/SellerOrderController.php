@@ -58,7 +58,7 @@ class SellerOrderController extends Controller
         if (filled($filters['status'] ?? null)) {
             $filters['status'] === 'PREPARING' ? $query->whereIn('status', ['CONFIRMED', 'PREPARING']) : $query->where('status', $filters['status']);
         }
-        $orders = $query->with(['buyer', 'items', 'pendingCancellation'])->latest('created_at')->latest('id')->paginate(25)->withQueryString();
+        $orders = $query->with(['buyer', 'items.product', 'pendingCancellation'])->latest('created_at')->latest('id')->paginate(25)->withQueryString();
 
         return view('seller.orders.index', compact('orders', 'counts', 'filters'));
     }

@@ -16,7 +16,7 @@ class FlashBundleController extends Controller
     {
         $products = Product::where('user_id', $request->user()->id)->where('is_archived', false)->orderBy('name')->get(['id', 'name']);
         $slots = FlashSale::where('seller_id', $request->user()->id)->with('product')->latest()->paginate(25, ['*'], 'slots_page')->withQueryString();
-        $deals = BundleDeal::where('seller_id', $request->user()->id)->with('products')->latest()->paginate(25, ['*'], 'deals_page')->withQueryString();
+        $deals = BundleDeal::where('seller_id', $request->user()->id)->with(['products', 'gift'])->latest()->paginate(25, ['*'], 'deals_page')->withQueryString();
 
         return view('seller.sales.flash-bundles', compact('products', 'slots', 'deals'));
     }

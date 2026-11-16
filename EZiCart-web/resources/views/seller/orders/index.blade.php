@@ -86,11 +86,8 @@
                     <div class="order-item-listing">
                         @foreach ($order->items as $item)
                             <div class="order-item-row">
-                                <div>
-                                    <strong>{{ $item->product_name }}</strong>
-                                    <span class="u-extracted-1c2d63da9b">x{{ $item->quantity }}</span>
-                                </div>
-                                <div>₱{{ number_format($item->item_total, 2) }}</div>
+                                <x-order-item-preview :item="$item" />
+                                <div class="order-item-line-total">₱{{ number_format($item->item_total, 2) }}</div>
                             </div>
                         @endforeach
                     </div>
