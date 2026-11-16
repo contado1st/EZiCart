@@ -3,6 +3,10 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 class ApiConfig {
   static String get defaultBaseUrl {
+    const envUrl = String.fromEnvironment('API_BASE_URL');
+    if (envUrl.isNotEmpty) {
+      return envUrl;
+    }
     if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
       // Android emulator reaches host machine localhost at 10.0.2.2
       return 'http://10.0.2.2:8000/api';

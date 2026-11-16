@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../config/theme.dart';
+import 'live_qr_scanner_dialog.dart';
 
 class ActionScanDialog extends StatefulWidget {
   final String title;
@@ -41,6 +42,21 @@ class _ActionScanDialogState extends State<ActionScanDialog> {
     super.dispose();
   }
 
+  Future<void> _startLiveScan() async {
+    final scanned = await LiveQrScannerDialog.scan(
+      context,
+      title: widget.title,
+      subtitle: 'Align the parcel QR code or barcode to scan',
+      expectedPrefix: 'EZP:',
+    );
+    if (scanned != null && scanned.isNotEmpty && mounted) {
+      setState(() {
+        _codeCtrl.text = scanned;
+        _method = 'camera';
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
@@ -68,9 +84,20 @@ class _ActionScanDialogState extends State<ActionScanDialog> {
                 labelText: 'Parcel QR / Code',
                 hintText: widget.hint,
                 prefixIcon: const Icon(Icons.qr_code_scanner_rounded),
-                suffixIcon: IconButton(
-                  icon: const Icon(Icons.clear_rounded, size: 18),
-                  onPressed: () => _codeCtrl.clear(),
+                suffixIcon: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (_codeCtrl.text.isNotEmpty)
+                      IconButton(
+                        icon: const Icon(Icons.clear_rounded, size: 18),
+                        onPressed: () => setState(() => _codeCtrl.clear()),
+                      ),
+                    IconButton(
+                      tooltip: 'Open Live QR Scanner',
+                      icon: const Icon(Icons.camera_alt_rounded, color: AppTheme.primary, size: 20),
+                      onPressed: _startLiveScan,
+                    ),
+                  ],
                 ),
               ),
             ),
@@ -89,14 +116,14 @@ class _ActionScanDialogState extends State<ActionScanDialog> {
                 ),
                 const SizedBox(width: 8),
                 ActionChip(
-                  avatar: Icon(
-                    Icons.qr_code_2_rounded,
+                  avatar: const Icon(
+                    Icons.qr_code_scanner_rounded,
                     size: 16,
-                    color: _method == 'camera' ? AppTheme.primary : AppTheme.muted,
+                    color: AppTheme.primary,
                   ),
-                  label: const Text('Scanner Mode', style: TextStyle(fontSize: 11)),
-                  backgroundColor: _method == 'camera' ? AppTheme.primarySoft : const Color(0xFFF1F5F9),
-                  onPressed: () => setState(() => _method = 'camera'),
+                  label: const Text('Live Camera Scan', style: TextStyle(fontSize: 11)),
+                  backgroundColor: AppTheme.primarySoft,
+                  onPressed: _startLiveScan,
                 ),
               ],
             ),

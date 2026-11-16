@@ -27,7 +27,7 @@ class ParcelRecordApiController extends Controller
      */
     public function evidenceIndex(Request $request): JsonResponse
     {
-        $buyer = $request->user();
+        $user = $request->user();
         $reference = $request->input('reference');
 
         if (filled($reference)) {
@@ -36,8 +36,14 @@ class ParcelRecordApiController extends Controller
                 $q->where('parcel_code', $cleanRef)->orWhere('order_number', $cleanRef);
             })->first();
 
-            if (! $order || $order->buyer_id !== $buyer->id) {
+            if (! $order) {
                 return response()->json(['success' => false, 'message' => 'Parcel reference not found.'], 404);
+            }
+
+            try {
+                app(DirectMessagingService::class)->authorizeOrder($order, $user);
+            } catch (\Throwable $e) {
+                return response()->json(['success' => false, 'message' => 'You do not have permission to view this parcel.'], 403);
             }
 
             return response()->json([
@@ -46,7 +52,19 @@ class ParcelRecordApiController extends Controller
             ]);
         }
 
-        $orders = $buyer->buyerOrders()
+        $query = Order::query();
+        if ($user->role === 'buyer') {
+            $query->where('buyer_id', $user->id);
+        } elseif ($user->role === 'courier') {
+            $query->where(function ($q) use ($user) {
+                $q->where('pickup_courier_id', $user->id)
+                    ->orWhere('delivery_courier_id', $user->id)
+                    ->orWhereHas('returnPickupAssignment', fn ($a) => $a->where('rider_id', $user->id))
+                    ->orWhereHas('transfers', fn ($t) => $t->where('carrier_rider_id', $user->id));
+            });
+        }
+
+        $orders = $query
             ->with(['seller:id,business_name', 'trackingEvents' => fn ($q) => $q->latest('id')])
             ->latest('id')
             ->paginate(20);
@@ -88,12 +106,18 @@ class ParcelRecordApiController extends Controller
      */
     public function evidenceShow(int $id, Request $request, DirectMessagingService $access, OrderProgressService $progressService): JsonResponse
     {
-        $buyer = $request->user();
-        $order = Order::with(['seller', 'pickupCourier', 'deliveryCourier', 'sortingCenter', 'dispute', 'activeIncident'])
+        $user = $request->user();
+        $order = Order::with(['seller', 'buyer', 'pickupCourier', 'deliveryCourier', 'sortingCenter', 'dispute', 'activeIncident'])
             ->find($id);
 
-        if (! $order || $order->buyer_id !== $buyer->id) {
+        if (! $order) {
             return response()->json(['success' => false, 'message' => 'Order not found.'], 404);
+        }
+
+        try {
+            $access->authorizeOrder($order, $user);
+        } catch (\Throwable $e) {
+            return response()->json(['success' => false, 'message' => 'You do not have permission to access this parcel.'], 403);
         }
 
         $events = ParcelTrackingEvent::where('order_id', $order->id)->with('actor')->orderBy('id')->get();
@@ -127,13 +151,13 @@ class ParcelRecordApiController extends Controller
             $nextAction = 'Return approved, awaiting physical collection. Open Approved return pickups for assignment, acceptance and buyer handover.';
         }
 
-        $progress = $progressService->forViewer($order, $buyer);
+        $progress = $progressService->forViewer($order, $user);
 
         $eventsData = $events->map(function ($e) use ($photos) {
             $key = 'tracking:'.$e->id;
             $eventPhotos = ($photos->get($key) ?? collect())->map(fn ($p) => [
                 'id' => $p->id,
-                'url' => url('/api/v1/parcel-evidence/'.$p->id.'/photo'),
+                'url' => url('/api/parcel-evidence/'.$p->id.'/photo'),
                 'created_at' => $p->created_at->toIso8601String(),
             ]);
 
@@ -153,7 +177,7 @@ class ParcelRecordApiController extends Controller
             $key = 'scan:'.$s->id;
             $scanPhotos = ($photos->get($key) ?? collect())->map(fn ($p) => [
                 'id' => $p->id,
-                'url' => url('/api/v1/parcel-evidence/'.$p->id.'/photo'),
+                'url' => url('/api/parcel-evidence/'.$p->id.'/photo'),
                 'created_at' => $p->created_at->toIso8601String(),
             ]);
 
@@ -214,11 +238,17 @@ class ParcelRecordApiController extends Controller
      */
     public function evidencePhoto(int $id, Request $request, DirectMessagingService $access): StreamedResponse|JsonResponse
     {
-        $buyer = $request->user();
+        $user = $request->user();
         $evidence = ParcelEvidence::with('order')->find($id);
 
-        if (! $evidence || $evidence->order->buyer_id !== $buyer->id) {
+        if (! $evidence) {
             return response()->json(['success' => false, 'message' => 'Evidence photo not found.'], 404);
+        }
+
+        try {
+            $access->authorizeOrder($evidence->order, $user);
+        } catch (\Throwable $e) {
+            return response()->json(['success' => false, 'message' => 'Unauthorized to view this photo.'], 403);
         }
 
         if (! Storage::disk('private')->exists($evidence->path)) {
@@ -236,11 +266,17 @@ class ParcelRecordApiController extends Controller
      */
     public function evidenceStore(int $id, Request $request): JsonResponse
     {
-        $buyer = $request->user();
+        $user = $request->user();
         $order = Order::find($id);
 
-        if (! $order || $order->buyer_id !== $buyer->id) {
+        if (! $order) {
             return response()->json(['success' => false, 'message' => 'Order not found.'], 404);
+        }
+
+        try {
+            app(DirectMessagingService::class)->authorizeOrder($order, $user);
+        } catch (\Throwable $e) {
+            return response()->json(['success' => false, 'message' => 'Unauthorized evidence upload.'], 403);
         }
 
         $data = $request->validate([
@@ -252,7 +288,7 @@ class ParcelRecordApiController extends Controller
 
         $stored = [];
         try {
-            DB::transaction(function () use ($request, $order, $data, $buyer, &$stored) {
+            DB::transaction(function () use ($request, $order, $data, $user, &$stored) {
                 Order::whereKey($order->id)->lockForUpdate()->firstOrFail();
                 $event = DB::table($data['event_type'] === 'scan' ? 'scan_events' : 'parcel_tracking_events')
                     ->where('id', $data['event_id'])
@@ -275,7 +311,7 @@ class ParcelRecordApiController extends Controller
                     $stored[] = $path;
                     ParcelEvidence::create([
                         'order_id' => $order->id,
-                        'actor_id' => $buyer->id,
+                        'actor_id' => $user->id,
                         'scan_event_id' => $data['event_type'] === 'scan' ? $event->id : null,
                         'tracking_event_id' => $data['event_type'] === 'tracking' ? $event->id : null,
                         'event_key' => $key,
@@ -286,7 +322,7 @@ class ParcelRecordApiController extends Controller
                     ]);
                 }
 
-                app(AdministrativeAuditService::class)->record($buyer, $order, 'parcel_event_evidence_saved', [], ['event' => $key], 'Private photos linked to parcel event from mobile.');
+                app(AdministrativeAuditService::class)->record($user, $order, 'parcel_event_evidence_saved', [], ['event' => $key], 'Private photos linked to parcel event from mobile.');
             }, 3);
         } catch (\Throwable $e) {
             Storage::disk('private')->delete($stored);
@@ -416,17 +452,19 @@ class ParcelRecordApiController extends Controller
     }
 
     /**
-     * List approved return pickups for buyer
+     * List approved return pickups for buyer and courier
      */
     public function returnPickupsIndex(Request $request): JsonResponse
     {
-        $buyer = $request->user();
+        $user = $request->user();
 
         $orders = Order::whereHas('dispute', fn ($query) => $query->whereIn('status', ['REFUND_APPROVED', 'REPLACEMENT_APPROVED']))
             ->whereIn('status', ['DELIVERED', 'COMPLETED', 'RETURN_IN_TRANSIT', 'RETURNED_TO_SELLER'])
-            ->where('buyer_id', $buyer->id)
-            ->with(['seller:id,business_name', 'dispute', 'returnPickupAssignment.rider:id,first_name,last_name,contact_no,plate_number', 'trackingEvents'])
-            ->oldest('id')
+            ->when($user->role === 'buyer', fn ($query) => $query->where('buyer_id', $user->id))
+            ->when($user->role === 'courier', fn ($query) => $query->where(fn ($q) => $q->whereHas('returnPickupAssignment', fn ($assignment) => $assignment->where('rider_id', $user->id))
+                ->orWhere(fn ($return) => $return->where('status', 'RETURN_IN_TRANSIT')->where('delivery_courier_id', $user->id))))
+            ->with(['seller:id,business_name', 'buyer', 'dispute', 'returnPickupAssignment.rider:id,first_name,last_name,contact_no,plate_number', 'trackingEvents'])
+            ->latest('id')
             ->paginate(20);
 
         $data = collect($orders->items())->map(function (Order $order) {

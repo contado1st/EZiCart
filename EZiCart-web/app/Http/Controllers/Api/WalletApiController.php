@@ -301,16 +301,23 @@ class WalletApiController extends Controller
     public function records(Request $request): JsonResponse
     {
         $actor = $request->user();
+        $isCourier = $actor->role === 'courier';
 
         $finances = OrderFinance::query()
             ->with(['order.seller:id,business_name'])
-            ->whereHas('order', fn ($order) => $order->where('buyer_id', $actor->id))
+            ->whereHas('order', fn ($order) => $isCourier
+                ? $order->where('delivery_courier_id', $actor->id)
+                : $order->where('buyer_id', $actor->id)
+            )
             ->latest('id')
             ->paginate(20);
 
         $refunds = RefundExecution::query()
             ->with(['order'])
-            ->whereHas('order', fn ($order) => $order->where('buyer_id', $actor->id))
+            ->whereHas('order', fn ($order) => $isCourier
+                ? $order->where('delivery_courier_id', $actor->id)
+                : $order->where('buyer_id', $actor->id)
+            )
             ->latest('id')
             ->paginate(20);
 

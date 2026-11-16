@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../../config/theme.dart';
 import '../../../models/order_model.dart';
+import 'live_qr_scanner_dialog.dart';
 
 class CompleteDeliveryDialog extends StatefulWidget {
   final OrderModel order;
@@ -116,13 +117,50 @@ class _CompleteDeliveryDialogState extends State<CompleteDeliveryDialog> {
                 // Buyer Delivery Code
                 TextFormField(
                   controller: _codeCtrl,
-                  keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(
+                  decoration: InputDecoration(
                     labelText: 'Buyer Delivery Code *',
-                    hintText: '6-digit OTP from recipient',
-                    prefixIcon: Icon(Icons.lock_clock_outlined),
+                    hintText: '6-digit OTP or Scan Buyer QR',
+                    prefixIcon: const Icon(Icons.lock_clock_outlined),
+                    suffixIcon: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (_codeCtrl.text.isNotEmpty)
+                          IconButton(
+                            icon: const Icon(Icons.clear_rounded, size: 18),
+                            onPressed: () => setState(() => _codeCtrl.clear()),
+                          ),
+                        IconButton(
+                          tooltip: 'Scan Buyer QR Code',
+                          icon: const Icon(
+                            Icons.qr_code_scanner_rounded,
+                            color: AppTheme.primary,
+                          ),
+                          onPressed: () async {
+                            final scanned = await LiveQrScannerDialog.scan(
+                              context,
+                              title: 'Scan Buyer Delivery QR',
+                              subtitle:
+                                  'Scan the delivery QR code on the buyer\'s phone',
+                              expectedPrefix: 'EZD:',
+                            );
+                            if (scanned != null &&
+                                scanned.isNotEmpty &&
+                                mounted) {
+                              setState(() {
+                                final clean = scanned.startsWith('EZD:')
+                                    ? scanned.substring(4)
+                                    : scanned;
+                                _codeCtrl.text = clean.trim();
+                              });
+                            }
+                          },
+                        ),
+                      ],
+                    ),
                   ),
-                  validator: (v) => (v == null || v.trim().isEmpty) ? 'Buyer delivery code is required' : null,
+                  validator: (v) => (v == null || v.trim().isEmpty)
+                      ? 'Buyer delivery code is required'
+                      : null,
                 ),
                 const SizedBox(height: 12),
 

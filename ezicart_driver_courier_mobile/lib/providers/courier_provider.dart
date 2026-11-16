@@ -252,6 +252,34 @@ class CourierProvider extends ChangeNotifier {
     return false;
   }
 
+  Future<bool> scanPickup(String parcelReference, {String method = 'camera'}) async {
+    _isLoading = true;
+    _errorMessage = null;
+    notifyListeners();
+
+    try {
+      final res = await ApiService.post(ApiConfig.scanPickupEndpoint, {
+        'parcel_reference': parcelReference.trim(),
+        'method': method,
+      });
+      _isLoading = false;
+      final data = jsonDecode(res.body);
+
+      if (res.statusCode == 200 && data['success'] == true) {
+        _successMessage = data['message'] ?? 'Pickup confirmed.';
+        await fetchDashboard();
+        return true;
+      } else {
+        _errorMessage = _extractErrorMessage(data, 'Could not confirm pickup.');
+      }
+    } catch (e) {
+      _isLoading = false;
+      _errorMessage = e.toString();
+    }
+    notifyListeners();
+    return false;
+  }
+
   Future<bool> acceptDeliveryAssignment(int orderId) async {
     _isLoading = true;
     _errorMessage = null;
@@ -405,6 +433,40 @@ class CourierProvider extends ChangeNotifier {
         return true;
       } else {
         _errorMessage = _extractErrorMessage(data, 'Could not record delivery failure.');
+      }
+    } catch (e) {
+      _isLoading = false;
+      _errorMessage = e.toString();
+    }
+    notifyListeners();
+    return false;
+  }
+
+  Future<bool> submitRetryProposal({
+    required int orderId,
+    required int failedAttemptId,
+    required DateTime proposedFor,
+    required String reason,
+  }) async {
+    _isLoading = true;
+    _errorMessage = null;
+    notifyListeners();
+
+    try {
+      final res = await ApiService.post(ApiConfig.orderRetryProposalEndpoint(orderId), {
+        'failed_attempt_id': failedAttemptId,
+        'proposed_for': proposedFor.toIso8601String(),
+        'reason': reason.trim(),
+      });
+      _isLoading = false;
+      final data = jsonDecode(res.body);
+
+      if (res.statusCode == 200 && data['success'] == true) {
+        _successMessage = data['message'] ?? 'Retry proposal submitted successfully.';
+        await fetchDashboard();
+        return true;
+      } else {
+        _errorMessage = _extractErrorMessage(data, 'Could not submit retry proposal.');
       }
     } catch (e) {
       _isLoading = false;

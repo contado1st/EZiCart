@@ -24,11 +24,11 @@ class _EarningsPageState extends State<EarningsPage> {
     final courierProv = context.watch<CourierProvider>();
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Courier Earnings & Allocations'),
-      ),
+      appBar: AppBar(title: const Text('Courier Earnings & Allocations')),
       body: courierProv.isLoading
-          ? const Center(child: CircularProgressIndicator(color: AppTheme.primary))
+          ? const Center(
+              child: CircularProgressIndicator(color: AppTheme.primary),
+            )
           : RefreshIndicator(
               onRefresh: () => courierProv.fetchEarnings(),
               child: SingleChildScrollView(
@@ -61,19 +61,35 @@ class _EarningsPageState extends State<EarningsPage> {
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              const Text(
-                                'Available Financial Balance',
-                                style: TextStyle(color: Colors.white70, fontSize: 13, fontWeight: FontWeight.w500),
+                              const Expanded(
+                                child: Text(
+                                  'Available Financial Balance',
+                                  style: TextStyle(
+                                    color: Colors.white70,
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
                               ),
+                              const SizedBox(width: 8),
                               Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 3,
+                                ),
                                 decoration: BoxDecoration(
                                   color: Colors.white24,
                                   borderRadius: BorderRadius.circular(6),
                                 ),
                                 child: const Text(
                                   'SETTLED',
-                                  style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.bold,
+                                  ),
                                 ),
                               ),
                             ],
@@ -91,7 +107,10 @@ class _EarningsPageState extends State<EarningsPage> {
                           const SizedBox(height: 8),
                           const Text(
                             'Earnings are credited from approved tariff components after verified work and eligible settlement.',
-                            style: TextStyle(color: Colors.white70, fontSize: 11),
+                            style: TextStyle(
+                              color: Colors.white70,
+                              fontSize: 11,
+                            ),
                           ),
                         ],
                       ),
@@ -101,7 +120,11 @@ class _EarningsPageState extends State<EarningsPage> {
                     // Allocations List
                     const Text(
                       'Logistics Compensation History',
-                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.ink),
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: AppTheme.ink,
+                      ),
                     ),
                     const SizedBox(height: 10),
 
@@ -116,17 +139,27 @@ class _EarningsPageState extends State<EarningsPage> {
                         child: const Center(
                           child: Column(
                             children: [
-                              Icon(Icons.receipt_outlined, size: 40, color: AppTheme.muted),
+                              Icon(
+                                Icons.receipt_outlined,
+                                size: 40,
+                                color: AppTheme.muted,
+                              ),
                               SizedBox(height: 10),
                               Text(
                                 'No settled logistics earnings yet.',
-                                style: TextStyle(fontWeight: FontWeight.bold, color: AppTheme.ink),
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  color: AppTheme.ink,
+                                ),
                               ),
                               SizedBox(height: 4),
                               Text(
                                 'Allocations will show here once completed deliveries are verified.',
                                 textAlign: TextAlign.center,
-                                style: TextStyle(fontSize: 12, color: AppTheme.muted),
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: AppTheme.muted,
+                                ),
                               ),
                             ],
                           ),
@@ -155,18 +188,29 @@ class _EarningsPageState extends State<EarningsPage> {
                                   children: [
                                     Text(
                                       a.orderNumber,
-                                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.ink),
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 14,
+                                        color: AppTheme.ink,
+                                      ),
                                     ),
                                     const SizedBox(height: 2),
                                     Text(
                                       a.component.toUpperCase(),
-                                      style: const TextStyle(fontSize: 11, color: AppTheme.muted, fontWeight: FontWeight.w600),
+                                      style: const TextStyle(
+                                        fontSize: 11,
+                                        color: AppTheme.muted,
+                                        fontWeight: FontWeight.w600,
+                                      ),
                                     ),
                                     if (a.createdAt != null) ...[
                                       const SizedBox(height: 2),
                                       Text(
                                         a.createdAt!,
-                                        style: const TextStyle(fontSize: 10, color: AppTheme.muted),
+                                        style: const TextStyle(
+                                          fontSize: 10,
+                                          color: AppTheme.muted,
+                                        ),
                                       ),
                                     ],
                                   ],

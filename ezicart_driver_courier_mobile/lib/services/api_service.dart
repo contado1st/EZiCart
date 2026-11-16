@@ -128,6 +128,18 @@ class ApiService {
     }
   }
 
+  static Future<http.Response> delete(String url) async {
+    try {
+      final headers = await _headers();
+      final res = await http.delete(Uri.parse(url), headers: headers).timeout(_timeoutDuration);
+      _checkUnauthorized(res);
+      return res;
+    } catch (e) {
+      _handleNetworkError(e, url);
+      rethrow;
+    }
+  }
+
   static Future<http.Response> multipartPost({
     required String url,
     required Map<String, String> fields,

@@ -621,7 +621,178 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
       );
     }
 
+    // 7. Delivery Failed -> Propose Redelivery / Retry
+    if (order.status == 'DELIVERY_FAILED' && order.deliveryAttempts.isNotEmpty) {
+      final latestAttempt = order.deliveryAttempts.last;
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: const Color(0xFFFFF1F2),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: const Color(0xFFFECDD3)),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.info_outline, color: AppTheme.danger, size: 20),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Delivery attempt was recorded as failed. You can propose a new delivery schedule for Logistics review.',
+                    style: TextStyle(color: Colors.red.shade900, fontSize: 12),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 10),
+          ElevatedButton.icon(
+            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primary),
+            icon: const Icon(Icons.schedule_send_rounded),
+            label: const Text('Propose Redelivery Schedule'),
+            onPressed: () => _showRetryProposalDialog(order, latestAttempt.id),
+          ),
+        ],
+      );
+    }
+
     return const SizedBox.shrink();
+  }
+
+  void _showRetryProposalDialog(OrderModel order, int attemptId) {
+    DateTime selectedDate = DateTime.now().add(const Duration(days: 1));
+    TimeOfDay selectedTime = const TimeOfDay(hour: 10, minute: 0);
+    final reasonCtrl = TextEditingController();
+    bool isSubmitting = false;
+    String? dialogError;
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setDialogState) {
+          return AlertDialog(
+            title: const Text('Propose Delivery Retry', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Propose a specific date and time for another delivery attempt. Logistics will review and confirm.',
+                    style: TextStyle(fontSize: 12, color: AppTheme.muted),
+                  ),
+                  const SizedBox(height: 12),
+                  if (dialogError != null) ...[
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Colors.red.shade50,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(dialogError!, style: TextStyle(color: Colors.red.shade900, fontSize: 12)),
+                    ),
+                    const SizedBox(height: 12),
+                  ],
+                  ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: const Icon(Icons.calendar_today_rounded, color: AppTheme.primary),
+                    title: const Text('Proposed Date', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                    subtitle: Text('${selectedDate.year}-${selectedDate.month.toString().padLeft(2, '0')}-${selectedDate.day.toString().padLeft(2, '0')}'),
+                    trailing: const Icon(Icons.chevron_right_rounded),
+                    onTap: () async {
+                      final picked = await showDatePicker(
+                        context: context,
+                        initialDate: selectedDate,
+                        firstDate: DateTime.now(),
+                        lastDate: DateTime.now().add(const Duration(days: 30)),
+                      );
+                      if (picked != null) {
+                        setDialogState(() => selectedDate = picked);
+                      }
+                    },
+                  ),
+                  ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: const Icon(Icons.access_time_rounded, color: AppTheme.primary),
+                    title: const Text('Proposed Time', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                    subtitle: Text(selectedTime.format(context)),
+                    trailing: const Icon(Icons.chevron_right_rounded),
+                    onTap: () async {
+                      final picked = await showTimePicker(
+                        context: context,
+                        initialTime: selectedTime,
+                      );
+                      if (picked != null) {
+                        setDialogState(() => selectedTime = picked);
+                      }
+                    },
+                  ),
+                  const SizedBox(height: 10),
+                  TextField(
+                    controller: reasonCtrl,
+                    maxLines: 3,
+                    maxLength: 500,
+                    decoration: const InputDecoration(
+                      labelText: 'Reason for Retry Proposal *',
+                      hintText: 'e.g. Buyer requested delivery after 2 PM tomorrow...',
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: isSubmitting ? null : () => Navigator.pop(ctx),
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton(
+                onPressed: isSubmitting
+                    ? null
+                    : () async {
+                        final reason = reasonCtrl.text.trim();
+                        if (reason.length < 5) {
+                          setDialogState(() => dialogError = 'Please provide a reason with at least 5 characters.');
+                          return;
+                        }
+                        setDialogState(() {
+                          isSubmitting = true;
+                          dialogError = null;
+                        });
+                        final proposedDateTime = DateTime(
+                          selectedDate.year,
+                          selectedDate.month,
+                          selectedDate.day,
+                          selectedTime.hour,
+                          selectedTime.minute,
+                        );
+                        final courierProv = context.read<CourierProvider>();
+                        final ok = await courierProv.submitRetryProposal(
+                          orderId: order.id,
+                          failedAttemptId: attemptId,
+                          proposedFor: proposedDateTime,
+                          reason: reason,
+                        );
+                        if (ok) {
+                          if (ctx.mounted) Navigator.pop(ctx);
+                          _loadOrder();
+                        } else {
+                          setDialogState(() {
+                            isSubmitting = false;
+                            dialogError = courierProv.errorMessage ?? 'Failed to submit proposal.';
+                          });
+                        }
+                      },
+                child: isSubmitting
+                    ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                    : const Text('Submit Proposal'),
+              ),
+            ],
+          );
+        },
+      ),
+    );
   }
 
   Widget _buildSectionCard({
@@ -661,14 +832,19 @@ class _OrderDetailsPageState extends State<OrderDetailsPage> {
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(label, style: const TextStyle(fontSize: 13, color: AppTheme.muted)),
-          Text(
-            value,
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: isHighlight ? FontWeight.bold : FontWeight.w600,
-              color: highlightColor ?? AppTheme.ink,
+          const SizedBox(width: 12),
+          Flexible(
+            child: Text(
+              value,
+              textAlign: TextAlign.end,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: isHighlight ? FontWeight.bold : FontWeight.w600,
+                color: highlightColor ?? AppTheme.ink,
+              ),
             ),
           ),
         ],

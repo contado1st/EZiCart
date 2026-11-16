@@ -3,6 +3,8 @@ import 'package:ezicart_driver_courier_mobile/config/api_config.dart';
 import 'package:ezicart_driver_courier_mobile/models/user_model.dart';
 import 'package:ezicart_driver_courier_mobile/models/order_model.dart';
 import 'package:ezicart_driver_courier_mobile/models/allocation_model.dart';
+import 'package:ezicart_driver_courier_mobile/models/address_model.dart';
+import 'package:ezicart_driver_courier_mobile/models/psgc_location_model.dart';
 import 'package:ezicart_driver_courier_mobile/main.dart';
 
 void main() {
@@ -27,12 +29,46 @@ void main() {
 
     final emptyUrl = ApiConfig.resolveImageUrl(null);
     expect(emptyUrl, isNull);
+
+    expect(ApiConfig.addressesEndpoint, contains('/addresses'));
+    expect(ApiConfig.psgcAddressesEndpoint, contains('/psgc-addresses'));
+    expect(ApiConfig.orderRetryProposalEndpoint(42), contains('/courier/orders/42/retry-proposals'));
+  });
+
+  test('AddressModel and PsgcLocationModel serialization test', () {
+    final psgc = PsgcLocationModel.fromJson({
+      'code': '1300000000',
+      'name': 'National Capital Region',
+    });
+    expect(psgc.code, '1300000000');
+    expect(psgc.name, 'National Capital Region');
+
+    final addr = AddressModel.fromJson({
+      'id': 1,
+      'label': 'Hub Station',
+      'recipient_name': 'Courier Rider',
+      'recipient_contact': '09123456789',
+      'region': 'NCR',
+      'province': 'Metro Manila',
+      'municipality': 'City of Manila',
+      'barangay': 'Barangay 1',
+      'street_address': 'Rizal Avenue',
+      'house_number': '123',
+      'postal_code': '1000',
+      'is_default': true,
+    });
+    expect(addr.id, 1);
+    expect(addr.label, 'Hub Station');
+    expect(addr.recipientName, 'Courier Rider');
+    expect(addr.isDefault, true);
+    expect(addr.fullAddress, contains('Rizal Avenue'));
   });
 
   test('UserModel courier deserialization test', () {
     final json = {
       'id': '99',
       'first_name': 'Rider',
+      'middle_initial': 'A',
       'last_name': 'One',
       'email': 'rider@ezicart.trade',
       'role': 'courier',
@@ -40,15 +76,24 @@ void main() {
       'badge_code': 'BADGE-XYZ-789',
       'vehicle_type': 'Motorcycle',
       'plate_number': 'ABC 1234',
+      'vehicle_category': '2-wheels',
+      'vehicle_description': 'Honda Click 125i',
+      'license_number': 'N01-12-345678',
+      'license_expires_at': '2028-12-31',
       'vehicle_capacity_grams': '15000',
       'hub_transfer_only': false,
     };
     final user = UserModel.fromJson(json);
     expect(user.id, 99);
     expect(user.fullName, 'Rider One');
+    expect(user.middleInitial, 'A');
     expect(user.badgeCode, 'BADGE-XYZ-789');
     expect(user.vehicleType, 'Motorcycle');
     expect(user.plateNumber, 'ABC 1234');
+    expect(user.vehicleCategory, '2-wheels');
+    expect(user.vehicleDescription, 'Honda Click 125i');
+    expect(user.licenseNumber, 'N01-12-345678');
+    expect(user.licenseExpiresAt, '2028-12-31');
     expect(user.vehicleCapacityGrams, 15000);
     expect(user.isApproved, true);
   });
