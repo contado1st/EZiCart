@@ -120,7 +120,7 @@ class CommunicationCenterTest extends TestCase
         $this->signIn($order->seller)->post(route('chat.store', $conversation), ['body' => 'Please confirm the delivery details.'])->assertRedirect();
         $this->notification($order->buyer, 'An order status update');
         $this->signIn($order->buyer)->get(route('communications.counts'))->assertExactJson(['messages' => 1, 'notifications' => 2]);
-        $this->get(route('chat.index'))->assertOk()->assertSee('aria-label="Messages, 1 unread"', false);
+        $this->get(route('chat.index'))->assertOk()->assertSee('aria-label="Chat, 1 unread"', false);
         $this->post(route('notifications.read-all'))->assertRedirect();
         $this->get(route('communications.counts'))->assertExactJson(['messages' => 1, 'notifications' => 0]);
         $this->get(route('chat.show', [$conversation, 'panel' => 1]))->assertOk();

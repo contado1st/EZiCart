@@ -145,7 +145,7 @@ class PartialSellerReportingTest extends TestCase
         $funding->simulate($intent, $this->user('ecommerce_admin'), 'paid');
         $ledger = app(FinancialLedgerService::class);
         $key = (string) Str::uuid();
-        $payload = ['amount' => '100.00', 'destination' => 'Synthetic payout destination', 'request_key' => $key];
+        $payload = ['wallet_form' => 'withdrawal', 'amount' => '100.00', 'destination' => 'Synthetic payout destination', 'request_key' => $key];
         $this->actingAs($seller)->from(route('finance.wallet'))->post(route('finance.wallet.withdraw'), [...$payload, 'amount' => 'invalid'])
             ->assertSessionHasErrors('amount');
         $this->get(route('finance.wallet'))->assertOk()->assertSee($key);
