@@ -3,6 +3,8 @@ import 'package:ezicart_driver_courier_mobile/config/api_config.dart';
 import 'package:ezicart_driver_courier_mobile/models/user_model.dart';
 import 'package:ezicart_driver_courier_mobile/models/order_model.dart';
 import 'package:ezicart_driver_courier_mobile/models/allocation_model.dart';
+import 'package:ezicart_driver_courier_mobile/models/address_model.dart';
+import 'package:ezicart_driver_courier_mobile/models/psgc_location_model.dart';
 import 'package:ezicart_driver_courier_mobile/main.dart';
 
 void main() {
@@ -27,6 +29,39 @@ void main() {
 
     final emptyUrl = ApiConfig.resolveImageUrl(null);
     expect(emptyUrl, isNull);
+
+    expect(ApiConfig.addressesEndpoint, contains('/addresses'));
+    expect(ApiConfig.psgcAddressesEndpoint, contains('/psgc-addresses'));
+    expect(ApiConfig.orderRetryProposalEndpoint(42), contains('/courier/orders/42/retry-proposals'));
+  });
+
+  test('AddressModel and PsgcLocationModel serialization test', () {
+    final psgc = PsgcLocationModel.fromJson({
+      'code': '1300000000',
+      'name': 'National Capital Region',
+    });
+    expect(psgc.code, '1300000000');
+    expect(psgc.name, 'National Capital Region');
+
+    final addr = AddressModel.fromJson({
+      'id': 1,
+      'label': 'Hub Station',
+      'recipient_name': 'Courier Rider',
+      'recipient_contact': '09123456789',
+      'region': 'NCR',
+      'province': 'Metro Manila',
+      'municipality': 'City of Manila',
+      'barangay': 'Barangay 1',
+      'street_address': 'Rizal Avenue',
+      'house_number': '123',
+      'postal_code': '1000',
+      'is_default': true,
+    });
+    expect(addr.id, 1);
+    expect(addr.label, 'Hub Station');
+    expect(addr.recipientName, 'Courier Rider');
+    expect(addr.isDefault, true);
+    expect(addr.fullAddress, contains('Rizal Avenue'));
   });
 
   test('UserModel courier deserialization test', () {

@@ -98,6 +98,7 @@ class ApiConfig {
   static String declineDeliveryAssignmentEndpoint(int id) => '$baseUrl/courier/orders/$id/decline-delivery-assignment';
   static String completeDeliveryEndpoint(int id) => '$baseUrl/courier/orders/$id/complete-delivery';
   static String failDeliveryEndpoint(int id) => '$baseUrl/courier/orders/$id/fail-delivery';
+  static String orderRetryProposalEndpoint(int id) => '$baseUrl/courier/orders/$id/retry-proposals';
   static String confirmReturnDeliveryEndpoint(int id) => '$baseUrl/courier/orders/$id/confirm-return-delivery';
   static String get historyEndpoint => '$baseUrl/courier/history';
   static String get trackingEndpoint => '$baseUrl/courier/tracking';
@@ -130,6 +131,12 @@ class ApiConfig {
   static String get updateProfileEndpoint => '$baseUrl/account/profile';
   static String get updateAppearanceEndpoint => '$baseUrl/account/appearance';
   static String profileMediaEndpoint(String type) => '$baseUrl/account/profile/media/$type';
+
+  // Addresses & PSGC Locations
+  static String get psgcAddressesEndpoint => '$baseUrl/psgc-addresses';
+  static String get addressesEndpoint => '$baseUrl/addresses';
+  static String addressDetailEndpoint(int id) => '$baseUrl/addresses/$id';
+  static String addressDefaultEndpoint(int id) => '$baseUrl/addresses/$id/default';
 
   // Notifications
   static String get notificationsEndpoint => '$baseUrl/notifications';

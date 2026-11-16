@@ -178,13 +178,23 @@ class _LoadPlanningPageState extends State<LoadPlanningPage> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Row(
-                children: [
-                  Icon(Icons.scale_rounded, color: AppTheme.primary, size: 22),
-                  SizedBox(width: 8),
-                  Text('Cargo Weight Utilization', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
-                ],
+              const Expanded(
+                child: Row(
+                  children: [
+                    Icon(Icons.scale_rounded, color: AppTheme.primary, size: 22),
+                    SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Cargo Weight Utilization',
+                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
               ),
+              const SizedBox(width: 8),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
@@ -236,7 +246,7 @@ class _LoadPlanningPageState extends State<LoadPlanningPage> {
                 children: [
                   const Text('Remaining', style: TextStyle(fontSize: 11, color: AppTheme.muted)),
                   Text(
-                    summary.remainingKgFormatted ?? 'â€”',
+                    summary.remainingKgFormatted ?? '—',
                     style: TextStyle(
                       fontWeight: FontWeight.bold,
                       fontSize: 16,
@@ -316,7 +326,7 @@ class _LoadPlanningPageState extends State<LoadPlanningPage> {
                   style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
                 ),
                 Text(
-                  '${summary.vehicleType ?? 'Vehicle'} Â· ${summary.plateNumber ?? 'Plate unrecorded'}',
+                  '${summary.vehicleType ?? 'Vehicle'} · ${summary.plateNumber ?? 'Plate unrecorded'}',
                   style: const TextStyle(fontSize: 12, color: AppTheme.muted),
                 ),
               ],
@@ -406,7 +416,7 @@ class _LoadPlanningPageState extends State<LoadPlanningPage> {
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    'â‚±${order.totalAmount.toStringAsFixed(2)}',
+                    '₱${order.totalAmount.toStringAsFixed(2)}',
                     style: const TextStyle(fontSize: 11, color: AppTheme.muted),
                   ),
                 ],

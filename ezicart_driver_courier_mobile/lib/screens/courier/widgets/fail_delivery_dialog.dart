@@ -75,6 +75,7 @@ class _FailDeliveryDialogState extends State<FailDeliveryDialog> {
 
               DropdownButtonFormField<String>(
                 initialValue: _reason,
+                isExpanded: true,
                 decoration: const InputDecoration(
                   labelText: 'Failure Reason *',
                   prefixIcon: Icon(Icons.error_outline_rounded),

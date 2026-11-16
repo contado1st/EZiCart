@@ -114,6 +114,13 @@ $defineApiRoutes = function () {
         Route::delete('/chat/{conversation}/attachments/{attachment}', [ChatApiController::class, 'unsendAttachment'])->whereNumber(['conversation', 'attachment'])->middleware('throttle:operational-action');
         Route::post('/chat/start/{sellerId}', [ChatApiController::class, 'start'])->whereNumber('sellerId')->middleware('throttle:operational-action');
         Route::get('/chat/attachments/{attachment}', [ChatApiController::class, 'attachment'])->whereNumber('attachment');
+
+        // Address Management (Shared Buyer & Courier)
+        Route::get('/addresses', [AddressApiController::class, 'index']);
+        Route::post('/addresses', [AddressApiController::class, 'store']);
+        Route::put('/addresses/{id}', [AddressApiController::class, 'update'])->whereNumber('id');
+        Route::delete('/addresses/{id}', [AddressApiController::class, 'destroy'])->whereNumber('id');
+        Route::patch('/addresses/{id}/default', [AddressApiController::class, 'makeDefault'])->whereNumber('id');
     });
 
     // Authenticated Buyer Only Routes
@@ -165,11 +172,7 @@ $defineApiRoutes = function () {
         Route::delete('/stock-alerts/{id}', [DiscoveryApiController::class, 'unwatchStock'])->whereNumber('id');
 
         // Address Management
-        Route::get('/addresses', [AddressApiController::class, 'index']);
-        Route::post('/addresses', [AddressApiController::class, 'store']);
-        Route::put('/addresses/{id}', [AddressApiController::class, 'update'])->whereNumber('id');
-        Route::delete('/addresses/{id}', [AddressApiController::class, 'destroy'])->whereNumber('id');
-        Route::patch('/addresses/{id}/default', [AddressApiController::class, 'makeDefault'])->whereNumber('id');
+        // (Moved to shared group above for both buyer and courier)
     });
 
     // Authenticated Driver & Courier Routes
@@ -225,6 +228,7 @@ $defineApiRoutes = function () {
         Route::post('/orders/{id}/remittance', [CourierApiController::class, 'submitRemittance'])->whereNumber('id');
         Route::get('/orders/{id}/messages', [CourierApiController::class, 'orderMessages'])->whereNumber('id');
         Route::post('/orders/{id}/messages', [CourierApiController::class, 'sendOrderMessage'])->whereNumber('id');
+        Route::post('/orders/{id}/retry-proposals', [CourierApiController::class, 'storeRetryProposal'])->whereNumber('id')->middleware('throttle:operational-action');
     });
 };
 

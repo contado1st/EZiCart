@@ -18,6 +18,7 @@ use App\Notifications\OrderWorkflowNotification;
 use App\Services\AdministrativeAuditService;
 use App\Services\CheckoutPricingService;
 use App\Services\DeliveryCodeService;
+use App\Services\DeliveryRetryService;
 use App\Services\DirectMessagingService;
 use App\Services\DispatchLocationService;
 use App\Services\DispatchOfferService;
@@ -709,6 +710,59 @@ class CourierApiController extends Controller
                 'order' => $this->formatOrder($lockedOrder->fresh(['buyer', 'items', 'deliveryAttempts'])),
             ]);
         });
+    }
+
+    /**
+     * Submit Delivery Retry Proposal for a failed delivery
+     */
+    public function storeRetryProposal(Request $request, int $id, DeliveryRetryService $retries): JsonResponse
+    {
+        $validated = $request->validate([
+            'failed_attempt_id' => ['required', 'integer', 'min:1'],
+            'proposed_for' => ['required', 'date'],
+            'reason' => ['required', 'string', 'min:5', 'max:500'],
+        ]);
+
+        /** @var User $courier */
+        $courier = $request->user();
+        $order = Order::findOrFail($id);
+
+        if ($order->delivery_courier_id !== $courier->id) {
+            return response()->json(['success' => false, 'message' => 'Unauthorized action for this order.'], 403);
+        }
+
+        try {
+            $proposal = $retries->request(
+                $order,
+                $courier,
+                (int) $validated['failed_attempt_id'],
+                $validated['proposed_for'],
+                $validated['reason']
+            );
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Retry proposal submitted successfully. Logistics will review it.',
+                'order' => $this->formatOrder($order->fresh(['buyer', 'items', 'deliveryAttempts', 'deliveryRetryRequests'])),
+                'proposal' => [
+                    'id' => $proposal->id,
+                    'proposed_for' => $proposal->proposed_for?->format('Y-m-d H:i:s'),
+                    'reason' => $proposal->reason,
+                    'status' => $proposal->status ?? 'pending',
+                ],
+            ]);
+        } catch (ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => collect($e->errors())->flatten()->first() ?? 'Failed to submit retry proposal.',
+                'errors' => $e->errors(),
+            ], 422);
+        } catch (Throwable $e) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage() ?: 'An error occurred while submitting the retry proposal.',
+            ], 422);
+        }
     }
 
     /**

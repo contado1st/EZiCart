@@ -323,13 +323,23 @@ class _AutomaticDispatchPageState extends State<AutomaticDispatchPage> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Row(
-                children: [
-                  Icon(Icons.location_on_rounded, color: AppTheme.primary, size: 20),
-                  SizedBox(width: 8),
-                  Text('Device Position Status', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                ],
+              const Expanded(
+                child: Row(
+                  children: [
+                    Icon(Icons.location_on_rounded, color: AppTheme.primary, size: 20),
+                    SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Device Position Status',
+                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
               ),
+              const SizedBox(width: 8),
               TextButton.icon(
                 style: TextButton.styleFrom(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -344,7 +354,7 @@ class _AutomaticDispatchPageState extends State<AutomaticDispatchPage> {
           const SizedBox(height: 8),
           if (_locationPoint != null) ...[
             Text(
-              'Lat: ${_locationPoint!.latitude.toStringAsFixed(4)}, Lng: ${_locationPoint!.longitude.toStringAsFixed(4)} (Â±${_locationPoint!.accuracyMeters.toStringAsFixed(1)}m)',
+              'Lat: ${_locationPoint!.latitude.toStringAsFixed(4)}, Lng: ${_locationPoint!.longitude.toStringAsFixed(4)} (±${_locationPoint!.accuracyMeters.toStringAsFixed(1)}m)',
               style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.ink),
             ),
             const SizedBox(height: 2),
@@ -473,7 +483,7 @@ class _AutomaticDispatchPageState extends State<AutomaticDispatchPage> {
                   children: [
                     const Text('Estimated Payout', style: TextStyle(fontSize: 11, color: AppTheme.muted)),
                     Text(
-                      'â‚±${offer.payoutPesos}',
+                      '₱${offer.payoutPesos}',
                       style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: AppTheme.primary),
                     ),
                   ],

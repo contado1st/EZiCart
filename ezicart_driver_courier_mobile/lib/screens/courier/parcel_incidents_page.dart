@@ -164,7 +164,7 @@ class _ParcelIncidentsPageState extends State<ParcelIncidentsPage> with SingleTi
                 _buildDetailRow('Liable Party', incident.assessment!.liableParty ?? 'Logistics Pool'),
                 _buildDetailRow('Assessment Status', incident.assessment!.status),
                 if (incident.assessment!.refundEstimatePesos != null)
-                  _buildDetailRow('Refund/Coverage Estimate', 'â‚±${incident.assessment!.refundEstimatePesos!.toStringAsFixed(2)}'),
+                  _buildDetailRow('Refund/Coverage Estimate', '₱${incident.assessment!.refundEstimatePesos!.toStringAsFixed(2)}'),
                 if (incident.assessment!.resolutionSummary != null)
                   _buildDetailRow('Resolution Summary', incident.assessment!.resolutionSummary!),
               ],

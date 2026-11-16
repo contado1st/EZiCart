@@ -7,7 +7,8 @@ import '../../services/api_service.dart';
 import 'chat_conversation_page.dart';
 
 class MessagesPage extends StatefulWidget {
-  const MessagesPage({super.key});
+  final bool isEmbedded;
+  const MessagesPage({super.key, this.isEmbedded = false});
 
   @override
   State<MessagesPage> createState() => _MessagesPageState();
@@ -60,15 +61,17 @@ class _MessagesPageState extends State<MessagesPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Messages & Chats'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: _loadThreads,
-          ),
-        ],
-      ),
+      appBar: widget.isEmbedded
+          ? null
+          : AppBar(
+              title: const Text('Messages & Chats'),
+              actions: [
+                IconButton(
+                  icon: const Icon(Icons.refresh),
+                  onPressed: _loadThreads,
+                ),
+              ],
+            ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator(color: AppTheme.primary))
           : _errorMessage != null

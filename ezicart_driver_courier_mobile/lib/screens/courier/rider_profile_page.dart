@@ -6,11 +6,13 @@ import '../../config/api_config.dart';
 import '../../config/theme.dart';
 import '../../providers/auth_provider.dart';
 import '../../services/api_service.dart';
+import 'addresses_page.dart';
 import 'change_password_page.dart';
 import 'work_availability_page.dart';
 
 class RiderProfilePage extends StatefulWidget {
-  const RiderProfilePage({super.key});
+  final bool isEmbedded;
+  const RiderProfilePage({super.key, this.isEmbedded = false});
 
   @override
   State<RiderProfilePage> createState() => _RiderProfilePageState();
@@ -158,15 +160,17 @@ class _RiderProfilePageState extends State<RiderProfilePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('My Rider Profile'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: _loadProfile,
-          ),
-        ],
-      ),
+      appBar: widget.isEmbedded
+          ? null
+          : AppBar(
+              title: const Text('My Rider Profile'),
+              actions: [
+                IconButton(
+                  icon: const Icon(Icons.refresh),
+                  onPressed: _loadProfile,
+                ),
+              ],
+            ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator(color: AppTheme.primary))
           : _errorMessage != null
@@ -194,6 +198,8 @@ class _RiderProfilePageState extends State<RiderProfilePage> {
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
                         _buildIdentityCard(),
+                        const SizedBox(height: 16),
+                        _buildAddressCard(),
                         const SizedBox(height: 16),
                         _buildVehicleCard(),
                         const SizedBox(height: 16),
@@ -321,6 +327,54 @@ class _RiderProfilePageState extends State<RiderProfilePage> {
                   label: const Text('Change Duty Status'),
                 ),
               ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAddressCard() {
+    final address = _courierData?['address'] as Map?;
+    final addressText = [
+      address?['street_address'],
+      address?['barangay'],
+      address?['municipality'],
+      address?['province'],
+    ].where((part) => part != null && part.toString().trim().isNotEmpty).join(', ');
+
+    return Card(
+      elevation: 1,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.location_on_outlined, color: AppTheme.primary),
+                const SizedBox(width: 8),
+                const Text(
+                  'Address & Location Book',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                ),
+                const Spacer(),
+                TextButton(
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const AddressesPage()),
+                    ).then((_) => _loadProfile());
+                  },
+                  child: const Text('Manage', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              addressText.isNotEmpty ? addressText : 'Official address recorded with logistics administration.',
+              style: TextStyle(fontSize: 13, color: addressText.isNotEmpty ? AppTheme.ink : AppTheme.muted),
             ),
           ],
         ),

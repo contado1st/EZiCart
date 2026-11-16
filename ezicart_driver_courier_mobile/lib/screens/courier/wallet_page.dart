@@ -551,7 +551,13 @@ class _WalletPageState extends State<WalletPage> with SingleTickerProviderStateM
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        const Text('Total Remittance Amount:', style: TextStyle(fontWeight: FontWeight.w600)),
+                        const Expanded(
+                          child: Text(
+                            'Total Remittance Amount:',
+                            style: TextStyle(fontWeight: FontWeight.w600),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
                         Text(
                           '₱${totalSelectedPesos.toStringAsFixed(2)}',
                           style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.primary),

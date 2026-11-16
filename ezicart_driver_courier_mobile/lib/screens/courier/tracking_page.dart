@@ -5,7 +5,8 @@ import '../../providers/courier_provider.dart';
 import 'order_details_page.dart';
 
 class TrackingPage extends StatefulWidget {
-  const TrackingPage({super.key});
+  final bool isEmbedded;
+  const TrackingPage({super.key, this.isEmbedded = false});
 
   @override
   State<TrackingPage> createState() => _TrackingPageState();
@@ -25,9 +26,11 @@ class _TrackingPageState extends State<TrackingPage> {
     final courierProv = context.watch<CourierProvider>();
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Active Parcels Tracking'),
-      ),
+      appBar: widget.isEmbedded
+          ? null
+          : AppBar(
+              title: const Text('Active Parcels Tracking'),
+            ),
       body: courierProv.isLoading
           ? const Center(child: CircularProgressIndicator(color: AppTheme.primary))
           : courierProv.trackingOrders.isEmpty

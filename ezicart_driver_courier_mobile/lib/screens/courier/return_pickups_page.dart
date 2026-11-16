@@ -4,6 +4,7 @@ import '../../config/api_config.dart';
 import '../../config/theme.dart';
 import '../../models/return_pickup_model.dart';
 import '../../services/api_service.dart';
+import 'widgets/live_qr_scanner_dialog.dart';
 import 'order_details_page.dart';
 
 class ReturnPickupsPage extends StatefulWidget {
@@ -118,12 +119,45 @@ class _ReturnPickupsPageState extends State<ReturnPickupsPage> {
               style: TextStyle(fontSize: 12, color: AppTheme.muted),
             ),
             const SizedBox(height: 12),
-            TextField(
-              controller: refCtrl,
-              decoration: const InputDecoration(
-                labelText: 'Parcel Reference (EZP:â€¦)',
-                hintText: 'EZP:â€¦',
-                border: OutlineInputBorder(),
+            StatefulBuilder(
+              builder: (context, setDialogState) => TextField(
+                controller: refCtrl,
+                decoration: InputDecoration(
+                  labelText: 'Parcel Reference (EZP:...)',
+                  hintText: 'EZP:...',
+                  border: const OutlineInputBorder(),
+                  prefixIcon: const Icon(Icons.qr_code_2_rounded),
+                  suffixIcon: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (refCtrl.text.isNotEmpty)
+                        IconButton(
+                          icon: const Icon(Icons.clear_rounded, size: 18),
+                          onPressed: () => setDialogState(() => refCtrl.clear()),
+                        ),
+                      IconButton(
+                        tooltip: 'Scan Parcel QR Code',
+                        icon: const Icon(
+                          Icons.qr_code_scanner_rounded,
+                          color: AppTheme.primary,
+                        ),
+                        onPressed: () async {
+                          final scanned = await LiveQrScannerDialog.scan(
+                            context,
+                            title: 'Scan Return Parcel',
+                            subtitle: 'Scan the return parcel shipping label',
+                            expectedPrefix: 'EZP:',
+                          );
+                          if (scanned != null && scanned.isNotEmpty) {
+                            setDialogState(() {
+                              refCtrl.text = scanned.trim();
+                            });
+                          }
+                        },
+                      ),
+                    ],
+                  ),
+                ),
               ),
             ),
           ],
